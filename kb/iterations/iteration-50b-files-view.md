@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 50b: Files as a mountable view"
 date: 2026-10-17
-status: planned
+status: completed
 tags:
   - iteration
   - web
@@ -33,10 +33,10 @@ served as `tx.html` so the tx page tests keep running.
 
 ## Tasks
 
-- [ ] `mountFiles(root, {shown})`; `tx.html` a thin host
-- [ ] Global handlers gated on `shown()`; theme row removed
-- [ ] Styles scoped
-- [ ] tx tests (`tx-page`, `tx-chrome`, `tx-hidden`, `tx-shared`) green against `tx.html`
+- [x] `mountFiles(root, {shown})`; `tx.html` a thin host
+- [x] Global handlers gated on `shown()`; theme row removed
+- [x] Styles scoped
+- [x] tx tests (`tx-page`, `tx-chrome`, `tx-hidden`, `tx-shared`) green against `tx.html`
 
 ## Acceptance
 

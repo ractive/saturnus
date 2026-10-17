@@ -5,369 +5,379 @@
    under it; a narrow pane (a container query) shows a path line instead
    of the tree. Below 760 px (the emulator's breakpoint) the panes stack
    and one shows at a time, with a switch above. The queue sits under the
-   panes. */
+   panes.
 
-body.tx {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  height: 100%;
-}
+   Every rule is under #files-view (the view's root, iteration 50b), in
+   :where() so the specificity stays what it was; the host page lays the
+   root out (tx.html). */
 
-/* ------------------------------------------------------------------ bar */
-
-.tx-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--s1);
-  flex: none;
-  height: var(--bar-top);
-  padding: var(--safe-t) calc(var(--s2) + var(--safe-r)) 0 calc(var(--gutter) + var(--safe-l));
-  background: var(--panel);
-  border-bottom: 1px solid var(--rule);
-}
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s2);
-  margin-right: auto;
-  min-width: 0;
-  color: inherit;
-  text-decoration: none;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-.brand .logo { display: block; flex: none; }
-.logo .planet { fill: #d9874a; }
-.logo .ring { fill: none; stroke: #3f9a8c; stroke-width: 2.6; stroke-linecap: round; }
-.brand-tx { color: var(--accent); }
-/* The way to the emulator (shared/site-links.js), quiet beside Settings. */
-.bar-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s2);
-  flex: none;
-  min-height: var(--tap);
-  padding: 0 var(--s2);
-  border-radius: var(--r-md);
-  color: var(--ink);
-  font-size: var(--fs-md);
-  text-decoration: none;
-}
-.bar-link:hover { background: var(--hover); }
-button.bar-link { border: 0; background: transparent; font: inherit; font-size: var(--fs-md); cursor: pointer; }
-/* "Show the packets": lit while the panel is open. */
-.bar-cable.on { background: var(--accent-soft); color: var(--accent-text); }
-@media (max-width: 520px) {
-  .bar-cable span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-}
-
-/* ------------------------------------------------------------------ panes */
-
-.tx-main {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--s3);
-  padding: var(--s3) calc(var(--gutter) + var(--safe-r)) calc(var(--s3) + var(--safe-b)) calc(var(--gutter) + var(--safe-l));
-}
-/* The switch between the panes: only when they are stacked. */
-.pane-switch { display: none; }
-.panes {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--s3);
-}
-.pane {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--paper);
-  border: 1px solid var(--rule);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-1);
-  overflow: hidden;
-  container: pane / inline-size;
-}
-.pane.drop { outline: 2px dashed var(--accent); outline-offset: -3px; }
-.pane-head {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--s2) var(--s3);
-  padding: var(--s3) var(--s3) var(--s3) var(--s4);
-  background: var(--panel);
-  border-bottom: 1px solid var(--rule);
-}
-.pane-place { min-width: 0; flex: 1 1 200px; }
-.pane-place h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-tight); overflow-wrap: anywhere; }
-.pane-progress { font-variant-numeric: tabular-nums; }
-/* The status line: what the place does now, in the body size (iteration 45: it was easy to miss). */
-.pane-status { margin: 2px 0 0; min-height: 1.4em; font-size: var(--fs-md); color: var(--ink); overflow-wrap: anywhere; }
-.pane-status-text:empty + .pane-progress:empty { display: none; }
-.pane-actions { display: flex; align-items: center; gap: var(--s1); flex-wrap: wrap; }
-.pane-change, .pane-emulator { gap: var(--s1); }
-/* A phone: the place's name and the buttons on one row, the name wrapping;
-   "Open in the emulator" is in the ⋯ menu there (pane.js NARROW_HEAD). */
-@media (max-width: 479px) {
-  .pane-head { flex-wrap: nowrap; }
-  .pane-place { flex: 1 1 0; }
-  .pane-actions { flex-wrap: nowrap; }
-  .pane-emulator { display: none; }
-}
-
-/* The card where there is no list: what the pane can show, and the ways in. */
-.pane-empty { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; }
-.start { max-width: 60ch; padding: var(--s6) var(--gutter); }
-.start h2 { margin: 0 0 var(--s2); font-size: var(--fs-xl); line-height: var(--lh-tight); overflow-wrap: anywhere; }
-.start p { margin: 0 0 var(--s4); color: var(--muted); line-height: var(--lh); }
-.start-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s4); }
-.start-note { color: var(--ink) !important; padding: var(--s3); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-md); }
-
-.pane-body {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(130px, 190px) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
-  grid-template-areas: "tree list" "tree preview";
-}
-.pane-body:has(> .preview[hidden]) { grid-template-areas: "tree list" "tree list"; }
-.pane-body > device-tree { grid-area: tree; border-right: 1px solid var(--rule-soft); min-height: 0; }
-.pane-list { grid-area: list; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.pane-list device-list { flex: 1; overflow: auto; }
-.crumbs { display: none; align-items: center; flex-wrap: wrap; gap: var(--s1); padding: var(--s2) var(--s3); border-bottom: 1px solid var(--rule-soft); font-family: var(--mono); font-size: var(--fs-md); }
-.crumbs .crumb { font-family: inherit; min-height: 28px; overflow-wrap: anywhere; }
-.crumbs .crumb[aria-current] { color: var(--ink); text-decoration: none; font-weight: 600; }
-.crumb-sep { color: var(--muted); }
-
-/* A narrow pane: the path line instead of the tree, the type under the name. */
-@container pane (max-width: 539px) {
-  .pane-body, .pane-body:has(> .preview[hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "list" "preview"; }
-  .pane-body > device-tree { display: none; }
-  .crumbs { display: flex; }
-  .dlist .col-kind, .dlist .col-checksum, .dlist .col-modified { display: none; }
-  .dlist-kind-inline { display: inline; }
-}
-
-/* ------------------------------------------------------------------ queue */
-
-.queue { flex: none; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: var(--s2) var(--s3) var(--s3) var(--s4); max-height: 30vh; overflow: auto; }
-.queue-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
-.queue-head h2 { margin: 0 auto 0 0; font-size: var(--fs-md); font-weight: 600; }
-.queue-head button.link { font-size: var(--fs-sm); }
-.queue-list { list-style: none; margin: var(--s1) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
-.queue-job { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "label state cancel" "bar bar bar"; align-items: center; gap: 2px var(--s2); min-height: 32px; font-size: var(--fs-md); }
-.queue-label { grid-area: label; min-width: 0; overflow-wrap: anywhere; }
-.queue-job.running .queue-label { font-weight: 600; }
-.queue-state { grid-area: state; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.queue-cancel { grid-area: cancel; }
-.queue-bar { grid-area: bar; width: 100%; height: 6px; accent-color: var(--accent); }
-
-/* The backup dialog's numbers. */
-.backup-memory { display: grid; grid-template-columns: auto auto; justify-content: start; gap: var(--s1) var(--s4); margin: 0; font-size: var(--fs-md); }
-.backup-memory dt { color: var(--muted); }
-.backup-memory dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-
-/* ------------------------------------------------------------------ preview */
-
-.preview { grid-area: preview; min-width: 0; min-height: 0; overflow: auto; background: var(--paper); }
-.preview-head { display: flex; align-items: flex-start; gap: var(--s1); padding: var(--s3) var(--s2) var(--s2) var(--s4); }
-.preview-title { min-width: 0; margin-right: auto; }
-.preview-title h2 { margin: 0; font: 600 var(--fs-lg)/var(--lh-tight) var(--mono); overflow-wrap: anywhere; }
-.preview-meta { margin: 3px 0 0; color: var(--muted); font-size: var(--fs-sm); }
-.preview-body { padding: 0 var(--s4) var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
-.preview-body > p { margin: 0; line-height: var(--lh); }
-.preview-show { align-self: flex-start; }
-/* A preview being read (iteration 45): what, from where, how far, how long. */
-.reading { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); background: var(--panel); border: 1px solid var(--rule-soft); border-radius: var(--r-md); }
-.reading p { margin: 0; line-height: var(--lh); }
-.reading-line { font-weight: 600; overflow-wrap: anywhere; }
-.reading-amount { font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: var(--fs-md); }
-.reading-amount:empty { display: none; }
-.reading-hint { font-size: var(--fs-sm); }
-.reading-bar { position: relative; height: 8px; border-radius: 4px; background: var(--rule-soft); overflow: hidden; }
-.reading-bar > span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width 0.2s linear; }
-.reading-bar.unknown > span { width: 30%; animation: busy-slide 1.4s ease-in-out infinite; }
-@keyframes busy-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
-@media (prefers-reduced-motion: reduce) {
-  .reading-bar > span { transition: none; }
-  .reading-bar.unknown > span { animation: none; width: 100%; opacity: 0.35; }
-}
-pre.obj, .obj-list, .grid-wrap {
-  margin: 0;
-  background: var(--display);
-  color: var(--display-ink);
-  border-radius: var(--r-sm);
-  box-shadow: var(--inset);
-}
-pre.obj { padding: 10px 12px; font: var(--fs-md)/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
-.obj-program .line { display: block; padding-left: calc(var(--d) * 2ch); }
-.obj-string::before { content: "“"; color: var(--muted); }
-.obj-string::after { content: "”"; color: var(--muted); }
-.more, .unavailable { color: var(--muted); font-size: var(--fs-sm); }
-.preview-error { color: var(--error); }
-.obj-list { padding: 0; list-style: none; counter-reset: item; }
-.obj-list li { display: flex; align-items: baseline; gap: 10px; padding: 4px 12px; counter-increment: item; }
-.obj-list li + li { border-top: 1px solid color-mix(in srgb, var(--display-ink) 14%, transparent); }
-.obj-list li::before { content: counter(item); flex: none; width: 3ch; text-align: right; color: var(--muted); font: var(--fs-xs)/1.6 var(--mono); }
-.obj-list .obj { font: var(--fs-md)/1.5 var(--mono); min-width: 0; overflow-wrap: anywhere; margin-right: auto; }
-.obj-list .muted { font-size: var(--fs-sm); white-space: nowrap; }
-.partial .obj { color: var(--muted); font-style: italic; }
-.grid-wrap { overflow: auto; }
-.obj-grid { border-collapse: collapse; font: var(--fs-md)/1.5 var(--mono); }
-.obj-grid td { padding: 4px 12px; text-align: right; white-space: nowrap; }
-.graphic-wrap { overflow: auto; max-height: 360px; padding: var(--s2); background: var(--display); border-radius: var(--r-sm); box-shadow: var(--inset); }
-canvas.graphic { display: block; image-rendering: pixelated; }
-
-/* ------------------------------------------------------------------ the cable
-
-   "Show the packets" (iteration 45): every packet, live. Its own look on
-   purpose, the same in both themes: green monospace on black, a faint
-   glow on the line that just came. Contrast: the green on the black is
-   about 14:1, the dim payload about 6:1, red about 7:1. */
-
-.cable {
-  --cable-bg: #040805;
-  --cable-ink: #4dff7a;
-  --cable-dim: #46b062;
-  --cable-rule: #173322;
-  --cable-bad: #ff6b6b;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  height: 34vh;
-  min-height: 180px;
-  max-height: 480px;
-  background: var(--cable-bg);
-  color: var(--cable-ink);
-  border: 1px solid var(--cable-rule);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  color-scheme: dark;
-}
-.cable[hidden] { display: none; }
-.cable-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s1) var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s4); border-bottom: 1px solid var(--cable-rule); }
-.cable-head h2 { margin: 0; font: 600 var(--fs-md)/1.2 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 0 6px rgb(77 255 122 / 0.45); }
-.cable-state { margin: 0 auto 0 0; font: var(--fs-sm)/1.2 var(--mono); color: #c4ffd3; }
-.cable-actions { display: flex; flex-wrap: wrap; gap: var(--s1); }
-.cable-actions button { background: transparent; color: var(--cable-ink); border-color: #2c5c3a; font-family: var(--mono); font-size: var(--fs-sm); }
-.cable-actions button:hover:not(:disabled) { background: #0d2414; border-color: #3f8a55; }
-.cable-actions button:focus-visible { outline: 2px solid var(--cable-ink); outline-offset: 1px; }
-.cable-actions button[aria-pressed="true"] { background: #1a4a26; color: #e0ffe8; }
-.cable-actions .ic { color: var(--cable-ink); }
-.cable-key { margin: 0; padding: var(--s1) var(--s4); font: var(--fs-xs)/1.4 var(--mono); color: var(--cable-dim); border-bottom: 1px solid var(--cable-rule); }
-.cable-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-.cable-scroll:focus-visible { outline: 2px solid var(--cable-ink); outline-offset: -2px; }
-.cable-list { list-style: none; margin: 0; padding: var(--s1) 0 var(--s2); font: 12.5px/1.5 var(--mono); }
-.cable-line {
-  display: grid;
-  grid-template-columns: 7ch 1ch 1ch 6ch 6ch minmax(0, 1fr);
-  grid-template-areas: "t src dir type len desc" ". . . data data data";
-  column-gap: 1ch;
-  padding: 0 var(--s4);
-  animation: cable-in 0.7s ease-out;
-}
-.cable-line > span { min-width: 0; white-space: nowrap; }
-.cl-t { grid-area: t; color: var(--cable-dim); text-align: right; font-variant-numeric: tabular-nums; }
-.cl-src { grid-area: src; color: var(--cable-dim); }
-.cl-dir { grid-area: dir; }
-.cl-type { grid-area: type; font-weight: 700; }
-.cl-len { grid-area: len; color: var(--cable-dim); text-align: right; }
-.cable-line > .cl-desc { grid-area: desc; white-space: normal; overflow-wrap: anywhere; }
-.cable-line > .cl-data { grid-area: data; display: flex; gap: 2ch; color: var(--cable-dim); overflow: hidden; }
-.cl-text, .cl-hex { overflow: hidden; text-overflow: ellipsis; white-space: pre; }
-.cl-text { flex: 0 1 auto; }
-.cl-hex { flex: 1 1 0; }
-.cable-line.link { color: #a6f5bb; font-style: italic; }
-.cable-line.bad, .cable-line.bad .cl-t, .cable-line.bad .cl-src, .cable-line.bad .cl-len, .cable-line.bad .cl-data { color: var(--cable-bad); }
-.cable-line:last-child { text-shadow: 0 0 6px rgb(77 255 122 / 0.55); }
-.cable-line.bad:last-child { text-shadow: 0 0 6px rgb(255 107 107 / 0.5); }
-@keyframes cable-in { from { background: rgb(77 255 122 / 0.16); } to { background: transparent; } }
-@media (prefers-reduced-motion: reduce) {
-  .cable-line { animation: none; }
-  .cable-line:last-child { text-shadow: none; }
-}
-
-/* ------------------------------------------------------------------ dialogs */
-
-dialog.tx-dialog {
-  width: min(520px, calc(100vw - 2 * var(--gutter)));
-  max-height: calc(100vh - 2 * var(--gutter));
-  padding: 0;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-xl);
-  background: var(--panel);
-  color: var(--ink);
-  box-shadow: var(--shadow-3);
-}
-.tx-dialog-box { padding: var(--s4) var(--gutter) var(--s3); display: flex; flex-direction: column; gap: var(--s3); }
-.tx-dialog-box h2 { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-tight); }
-.tx-dialog-box h3 { margin: var(--s2) 0 0; }
-.tx-dialog-box p { margin: 0; line-height: var(--lh); overflow-wrap: anywhere; }
-.tx-dialog-box ol, .tx-dialog-box ul { margin: 0; padding-left: 1.4em; line-height: var(--lh); }
-.tx-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s2); margin-top: var(--s2); }
-.connect-steps { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); background: var(--paper); border: 1px solid var(--rule-soft); border-radius: var(--r-md); }
-.keys { display: flex; flex-wrap: wrap; gap: var(--s1); }
-kbd.calc-key { min-width: 28px; text-align: center; font-size: var(--fs-md); padding: 2px 6px; }
-.connect-help summary { cursor: pointer; color: var(--accent-text); }
-.connect-help ul { margin-top: var(--s2); font-size: var(--fs-md); }
-.xmodem-keys { margin: 0; }
-.xmodem-command { display: inline-block; font-family: var(--mono); font-size: var(--fs-lg); padding: var(--s1) var(--s2); background: var(--panel); border: 1px solid var(--rule-soft); border-radius: var(--r-md); overflow-wrap: anywhere; }
-.xmodem-notes { font-size: var(--fs-md); color: var(--muted); }
-.xmodem-notes:empty { display: none; }
-.xmodem-bar { width: 100%; }
-.xmodem-status:empty { display: none; }
-.xmodem-restart { display: flex; flex-direction: column; gap: var(--s2); }
-.xmodem-restart-keys:empty { display: none; }
-.emulated-roms { display: flex; flex-direction: column; gap: var(--s2); }
-.rom-choice { justify-content: flex-start; min-height: 48px; text-align: left; }
-.rom-choice > span { display: flex; flex-direction: column; min-width: 0; line-height: var(--lh-tight); }
-.rom-choice .muted { font-size: var(--fs-sm); overflow-wrap: anywhere; }
-.settings-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
-.settings-note { font-size: var(--fs-sm); }
-/* The desktop app's port list: an adapter's name can be long. */
-#port-select { flex: 1; min-width: 0; max-width: 100%; }
-#name-input { min-height: var(--tap); padding: 0 var(--s2); border: 1px solid var(--control-border); border-radius: var(--r-md); background: var(--control); font-family: var(--mono); }
-.error { color: var(--error); }
-#name-problem:empty { display: none; }
-
-/* ------------------------------------------------------------------ widths */
-
-.preview { border-left: 0; border-top: 1px solid var(--rule); max-height: 40vh; }
-@media (max-width: 759px) {
-  .tx-main { padding: 0; gap: 0; }
-  .pane-switch { display: flex; align-self: stretch; margin: var(--s2) var(--gutter); border-radius: var(--r-md); }
-  .pane-switch button { flex: 1 1 0; min-width: 0; min-height: var(--tap); }
-  .pane-switch .switch-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .panes { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .panes[data-active="left"] > .pane[data-pane="right"], .panes[data-active="right"] > .pane[data-pane="left"] { display: none; }
-  .pane { border-width: 1px 0 0; border-radius: 0; box-shadow: none; }
-  .pane-head { padding-left: var(--gutter); }
-  .queue { border-width: 1px 0 0; border-radius: 0; padding-left: var(--gutter); padding-bottom: calc(var(--s3) + var(--safe-b)); }
-  .cable { border-width: 1px 0 0; border-radius: 0; height: 36vh; padding-bottom: var(--safe-b); }
-  .cable-head { padding-left: var(--gutter); }
-  .cable-key { padding-inline: var(--gutter); }
-  /* A phone: the time, the arrow and the packet on one line, what it is under them. */
-  .cable-line { grid-template-columns: 6ch 1ch 1ch minmax(0, 1fr); grid-template-areas: "t src dir type" ". . . desc" ". . . data"; padding: 2px var(--gutter); }
-  .cl-len { display: none; }
-  .cl-type { text-align: left; }
-  .start { padding-top: var(--s5); }
-}
-@media (max-width: 560px) {
-  dialog.tx-dialog {
-    inset: auto 0 0 0;
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
-    border-width: 1px 0 0;
-    border-radius: var(--r-xl) var(--r-xl) 0 0;
+:where(#files-view) {
+  /* The view: a column filling what its host gives it. */
+  & {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
-  .tx-dialog-box { padding-bottom: calc(var(--s3) + var(--safe-b)); }
-  .tx-dialog-actions > button { flex: 1 1 auto; }
+  &[hidden] { display: none; }
+
+  /* ------------------------------------------------------------------ bar */
+
+  .tx-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--s1);
+    flex: none;
+    height: var(--bar-top);
+    padding: var(--safe-t) calc(var(--s2) + var(--safe-r)) 0 calc(var(--gutter) + var(--safe-l));
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s2);
+    margin-right: auto;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .brand .logo { display: block; flex: none; }
+  .logo .planet { fill: #d9874a; }
+  .logo .ring { fill: none; stroke: #3f9a8c; stroke-width: 2.6; stroke-linecap: round; }
+  .brand-tx { color: var(--accent); }
+  /* The way to the emulator (shared/site-links.js), quiet beside Settings. */
+  .bar-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s2);
+    flex: none;
+    min-height: var(--tap);
+    padding: 0 var(--s2);
+    border-radius: var(--r-md);
+    color: var(--ink);
+    font-size: var(--fs-md);
+    text-decoration: none;
+  }
+  .bar-link:hover { background: var(--hover); }
+  & button.bar-link { border: 0; background: transparent; font: inherit; font-size: var(--fs-md); cursor: pointer; }
+  /* "Show the packets": lit while the panel is open. */
+  .bar-cable.on { background: var(--accent-soft); color: var(--accent-text); }
+  @media (max-width: 520px) {
+    .bar-cable span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  }
+
+  /* ------------------------------------------------------------------ panes */
+
+  .tx-main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+    padding: var(--s3) calc(var(--gutter) + var(--safe-r)) calc(var(--s3) + var(--safe-b)) calc(var(--gutter) + var(--safe-l));
+  }
+  /* The switch between the panes: only when they are stacked. */
+  .pane-switch { display: none; }
+  .panes {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--s3);
+  }
+  .pane {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-1);
+    overflow: hidden;
+    container: pane / inline-size;
+  }
+  .pane.drop { outline: 2px dashed var(--accent); outline-offset: -3px; }
+  .pane-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s2) var(--s3);
+    padding: var(--s3) var(--s3) var(--s3) var(--s4);
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  .pane-place { min-width: 0; flex: 1 1 200px; }
+  .pane-place h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-tight); overflow-wrap: anywhere; }
+  .pane-progress { font-variant-numeric: tabular-nums; }
+  /* The status line: what the place does now, in the body size (iteration 45: it was easy to miss). */
+  .pane-status { margin: 2px 0 0; min-height: 1.4em; font-size: var(--fs-md); color: var(--ink); overflow-wrap: anywhere; }
+  .pane-status-text:empty + .pane-progress:empty { display: none; }
+  .pane-actions { display: flex; align-items: center; gap: var(--s1); flex-wrap: wrap; }
+  .pane-change, .pane-emulator { gap: var(--s1); }
+  /* A phone: the place's name and the buttons on one row, the name wrapping;
+     "Open in the emulator" is in the ⋯ menu there (pane.js NARROW_HEAD). */
+  @media (max-width: 479px) {
+    .pane-head { flex-wrap: nowrap; }
+    .pane-place { flex: 1 1 0; }
+    .pane-actions { flex-wrap: nowrap; }
+    .pane-emulator { display: none; }
+  }
+
+  /* The card where there is no list: what the pane can show, and the ways in. */
+  .pane-empty { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; }
+  .start { max-width: 60ch; padding: var(--s6) var(--gutter); }
+  .start h2 { margin: 0 0 var(--s2); font-size: var(--fs-xl); line-height: var(--lh-tight); overflow-wrap: anywhere; }
+  .start p { margin: 0 0 var(--s4); color: var(--muted); line-height: var(--lh); }
+  .start-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s4); }
+  .start-note { color: var(--ink) !important; padding: var(--s3); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-md); }
+
+  .pane-body {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(130px, 190px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: "tree list" "tree preview";
+  }
+  .pane-body:has(> .preview[hidden]) { grid-template-areas: "tree list" "tree list"; }
+  .pane-body > device-tree { grid-area: tree; border-right: 1px solid var(--rule-soft); min-height: 0; }
+  .pane-list { grid-area: list; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  .pane-list device-list { flex: 1; overflow: auto; }
+  .crumbs { display: none; align-items: center; flex-wrap: wrap; gap: var(--s1); padding: var(--s2) var(--s3); border-bottom: 1px solid var(--rule-soft); font-family: var(--mono); font-size: var(--fs-md); }
+  .crumbs .crumb { font-family: inherit; min-height: 28px; overflow-wrap: anywhere; }
+  .crumbs .crumb[aria-current] { color: var(--ink); text-decoration: none; font-weight: 600; }
+  .crumb-sep { color: var(--muted); }
+
+  /* A narrow pane: the path line instead of the tree, the type under the name. */
+  @container pane (max-width: 539px) {
+    .pane-body, .pane-body:has(> .preview[hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "list" "preview"; }
+    .pane-body > device-tree { display: none; }
+    .crumbs { display: flex; }
+    .dlist .col-kind, .dlist .col-checksum, .dlist .col-modified { display: none; }
+    .dlist-kind-inline { display: inline; }
+  }
+
+  /* ------------------------------------------------------------------ queue */
+
+  .queue { flex: none; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: var(--s2) var(--s3) var(--s3) var(--s4); max-height: 30vh; overflow: auto; }
+  .queue-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+  .queue-head h2 { margin: 0 auto 0 0; font-size: var(--fs-md); font-weight: 600; }
+  .queue-head button.link { font-size: var(--fs-sm); }
+  .queue-list { list-style: none; margin: var(--s1) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
+  .queue-job { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "label state cancel" "bar bar bar"; align-items: center; gap: 2px var(--s2); min-height: 32px; font-size: var(--fs-md); }
+  .queue-label { grid-area: label; min-width: 0; overflow-wrap: anywhere; }
+  .queue-job.running .queue-label { font-weight: 600; }
+  .queue-state { grid-area: state; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .queue-cancel { grid-area: cancel; }
+  .queue-bar { grid-area: bar; width: 100%; height: 6px; accent-color: var(--accent); }
+
+  /* The backup dialog's numbers. */
+  .backup-memory { display: grid; grid-template-columns: auto auto; justify-content: start; gap: var(--s1) var(--s4); margin: 0; font-size: var(--fs-md); }
+  .backup-memory dt { color: var(--muted); }
+  .backup-memory dd { margin: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ------------------------------------------------------------------ preview */
+
+  .preview { grid-area: preview; min-width: 0; min-height: 0; overflow: auto; background: var(--paper); }
+  .preview-head { display: flex; align-items: flex-start; gap: var(--s1); padding: var(--s3) var(--s2) var(--s2) var(--s4); }
+  .preview-title { min-width: 0; margin-right: auto; }
+  .preview-title h2 { margin: 0; font: 600 var(--fs-lg)/var(--lh-tight) var(--mono); overflow-wrap: anywhere; }
+  .preview-meta { margin: 3px 0 0; color: var(--muted); font-size: var(--fs-sm); }
+  .preview-body { padding: 0 var(--s4) var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
+  .preview-body > p { margin: 0; line-height: var(--lh); }
+  .preview-show { align-self: flex-start; }
+  /* A preview being read (iteration 45): what, from where, how far, how long. */
+  .reading { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); background: var(--panel); border: 1px solid var(--rule-soft); border-radius: var(--r-md); }
+  .reading p { margin: 0; line-height: var(--lh); }
+  .reading-line { font-weight: 600; overflow-wrap: anywhere; }
+  .reading-amount { font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: var(--fs-md); }
+  .reading-amount:empty { display: none; }
+  .reading-hint { font-size: var(--fs-sm); }
+  .reading-bar { position: relative; height: 8px; border-radius: 4px; background: var(--rule-soft); overflow: hidden; }
+  .reading-bar > span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width 0.2s linear; }
+  .reading-bar.unknown > span { width: 30%; animation: busy-slide 1.4s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .reading-bar > span { transition: none; }
+    .reading-bar.unknown > span { animation: none; width: 100%; opacity: 0.35; }
+  }
+  & pre.obj, .obj-list, .grid-wrap {
+    margin: 0;
+    background: var(--display);
+    color: var(--display-ink);
+    border-radius: var(--r-sm);
+    box-shadow: var(--inset);
+  }
+  & pre.obj { padding: 10px 12px; font: var(--fs-md)/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+  .obj-program .line { display: block; padding-left: calc(var(--d) * 2ch); }
+  .obj-string::before { content: "“"; color: var(--muted); }
+  .obj-string::after { content: "”"; color: var(--muted); }
+  .more, .unavailable { color: var(--muted); font-size: var(--fs-sm); }
+  .preview-error { color: var(--error); }
+  .obj-list { padding: 0; list-style: none; counter-reset: item; }
+  .obj-list li { display: flex; align-items: baseline; gap: 10px; padding: 4px 12px; counter-increment: item; }
+  .obj-list li + li { border-top: 1px solid color-mix(in srgb, var(--display-ink) 14%, transparent); }
+  .obj-list li::before { content: counter(item); flex: none; width: 3ch; text-align: right; color: var(--muted); font: var(--fs-xs)/1.6 var(--mono); }
+  .obj-list .obj { font: var(--fs-md)/1.5 var(--mono); min-width: 0; overflow-wrap: anywhere; margin-right: auto; }
+  .obj-list .muted { font-size: var(--fs-sm); white-space: nowrap; }
+  .partial .obj { color: var(--muted); font-style: italic; }
+  .grid-wrap { overflow: auto; }
+  .obj-grid { border-collapse: collapse; font: var(--fs-md)/1.5 var(--mono); }
+  .obj-grid td { padding: 4px 12px; text-align: right; white-space: nowrap; }
+  .graphic-wrap { overflow: auto; max-height: 360px; padding: var(--s2); background: var(--display); border-radius: var(--r-sm); box-shadow: var(--inset); }
+  & canvas.graphic { display: block; image-rendering: pixelated; }
+
+  /* ------------------------------------------------------------------ the cable
+
+     "Show the packets" (iteration 45): every packet, live. Its own look on
+     purpose, the same in both themes: green monospace on black, a faint
+     glow on the line that just came. Contrast: the green on the black is
+     about 14:1, the dim payload about 6:1, red about 7:1. */
+
+  .cable {
+    --cable-bg: #040805;
+    --cable-ink: #4dff7a;
+    --cable-dim: #46b062;
+    --cable-rule: #173322;
+    --cable-bad: #ff6b6b;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    height: 34vh;
+    min-height: 180px;
+    max-height: 480px;
+    background: var(--cable-bg);
+    color: var(--cable-ink);
+    border: 1px solid var(--cable-rule);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    color-scheme: dark;
+  }
+  .cable[hidden] { display: none; }
+  .cable-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s1) var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s4); border-bottom: 1px solid var(--cable-rule); }
+  .cable-head h2 { margin: 0; font: 600 var(--fs-md)/1.2 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 0 6px rgb(77 255 122 / 0.45); }
+  .cable-state { margin: 0 auto 0 0; font: var(--fs-sm)/1.2 var(--mono); color: #c4ffd3; }
+  .cable-actions { display: flex; flex-wrap: wrap; gap: var(--s1); }
+  .cable-actions button { background: transparent; color: var(--cable-ink); border-color: #2c5c3a; font-family: var(--mono); font-size: var(--fs-sm); }
+  .cable-actions button:hover:not(:disabled) { background: #0d2414; border-color: #3f8a55; }
+  .cable-actions button:focus-visible { outline: 2px solid var(--cable-ink); outline-offset: 1px; }
+  .cable-actions button[aria-pressed="true"] { background: #1a4a26; color: #e0ffe8; }
+  .cable-actions .ic { color: var(--cable-ink); }
+  .cable-key { margin: 0; padding: var(--s1) var(--s4); font: var(--fs-xs)/1.4 var(--mono); color: var(--cable-dim); border-bottom: 1px solid var(--cable-rule); }
+  .cable-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+  .cable-scroll:focus-visible { outline: 2px solid var(--cable-ink); outline-offset: -2px; }
+  .cable-list { list-style: none; margin: 0; padding: var(--s1) 0 var(--s2); font: 12.5px/1.5 var(--mono); }
+  .cable-line {
+    display: grid;
+    grid-template-columns: 7ch 1ch 1ch 6ch 6ch minmax(0, 1fr);
+    grid-template-areas: "t src dir type len desc" ". . . data data data";
+    column-gap: 1ch;
+    padding: 0 var(--s4);
+    animation: cable-in 0.7s ease-out;
+  }
+  .cable-line > span { min-width: 0; white-space: nowrap; }
+  .cl-t { grid-area: t; color: var(--cable-dim); text-align: right; font-variant-numeric: tabular-nums; }
+  .cl-src { grid-area: src; color: var(--cable-dim); }
+  .cl-dir { grid-area: dir; }
+  .cl-type { grid-area: type; font-weight: 700; }
+  .cl-len { grid-area: len; color: var(--cable-dim); text-align: right; }
+  .cable-line > .cl-desc { grid-area: desc; white-space: normal; overflow-wrap: anywhere; }
+  .cable-line > .cl-data { grid-area: data; display: flex; gap: 2ch; color: var(--cable-dim); overflow: hidden; }
+  .cl-text, .cl-hex { overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+  .cl-text { flex: 0 1 auto; }
+  .cl-hex { flex: 1 1 0; }
+  .cable-line.link { color: #a6f5bb; font-style: italic; }
+  .cable-line.bad, .cable-line.bad .cl-t, .cable-line.bad .cl-src, .cable-line.bad .cl-len, .cable-line.bad .cl-data { color: var(--cable-bad); }
+  .cable-line:last-child { text-shadow: 0 0 6px rgb(77 255 122 / 0.55); }
+  .cable-line.bad:last-child { text-shadow: 0 0 6px rgb(255 107 107 / 0.5); }
+  @media (prefers-reduced-motion: reduce) {
+    .cable-line { animation: none; }
+    .cable-line:last-child { text-shadow: none; }
+  }
+
+  /* ------------------------------------------------------------------ dialogs */
+
+  & dialog.tx-dialog {
+    width: min(520px, calc(100vw - 2 * var(--gutter)));
+    max-height: calc(100vh - 2 * var(--gutter));
+    padding: 0;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-xl);
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: var(--shadow-3);
+  }
+  .tx-dialog-box { padding: var(--s4) var(--gutter) var(--s3); display: flex; flex-direction: column; gap: var(--s3); }
+  .tx-dialog-box h2 { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-tight); }
+  .tx-dialog-box h3 { margin: var(--s2) 0 0; }
+  .tx-dialog-box p { margin: 0; line-height: var(--lh); overflow-wrap: anywhere; }
+  .tx-dialog-box ol, .tx-dialog-box ul { margin: 0; padding-left: 1.4em; line-height: var(--lh); }
+  .tx-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s2); margin-top: var(--s2); }
+  .connect-steps { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); background: var(--paper); border: 1px solid var(--rule-soft); border-radius: var(--r-md); }
+  .keys { display: flex; flex-wrap: wrap; gap: var(--s1); }
+  & kbd.calc-key { min-width: 28px; text-align: center; font-size: var(--fs-md); padding: 2px 6px; }
+  .connect-help summary { cursor: pointer; color: var(--accent-text); }
+  .connect-help ul { margin-top: var(--s2); font-size: var(--fs-md); }
+  .xmodem-keys { margin: 0; }
+  .xmodem-command { display: inline-block; font-family: var(--mono); font-size: var(--fs-lg); padding: var(--s1) var(--s2); background: var(--panel); border: 1px solid var(--rule-soft); border-radius: var(--r-md); overflow-wrap: anywhere; }
+  .xmodem-notes { font-size: var(--fs-md); color: var(--muted); }
+  .xmodem-notes:empty { display: none; }
+  .xmodem-bar { width: 100%; }
+  .xmodem-status:empty { display: none; }
+  .xmodem-restart { display: flex; flex-direction: column; gap: var(--s2); }
+  .xmodem-restart-keys:empty { display: none; }
+  .emulated-roms { display: flex; flex-direction: column; gap: var(--s2); }
+  .rom-choice { justify-content: flex-start; min-height: 48px; text-align: left; }
+  .rom-choice > span { display: flex; flex-direction: column; min-width: 0; line-height: var(--lh-tight); }
+  .rom-choice .muted { font-size: var(--fs-sm); overflow-wrap: anywhere; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+  .settings-note { font-size: var(--fs-sm); }
+  /* The desktop app's port list: an adapter's name can be long. */
+  #port-select { flex: 1; min-width: 0; max-width: 100%; }
+  #name-input { min-height: var(--tap); padding: 0 var(--s2); border: 1px solid var(--control-border); border-radius: var(--r-md); background: var(--control); font-family: var(--mono); }
+  .error { color: var(--error); }
+  #name-problem:empty { display: none; }
+
+  /* ------------------------------------------------------------------ widths */
+
+  .preview { border-left: 0; border-top: 1px solid var(--rule); max-height: 40vh; }
+  @media (max-width: 759px) {
+    .tx-main { padding: 0; gap: 0; }
+    .pane-switch { display: flex; align-self: stretch; margin: var(--s2) var(--gutter); border-radius: var(--r-md); }
+    .pane-switch button { flex: 1 1 0; min-width: 0; min-height: var(--tap); }
+    .pane-switch .switch-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .panes { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .panes[data-active="left"] > .pane[data-pane="right"], .panes[data-active="right"] > .pane[data-pane="left"] { display: none; }
+    .pane { border-width: 1px 0 0; border-radius: 0; box-shadow: none; }
+    .pane-head { padding-left: var(--gutter); }
+    .queue { border-width: 1px 0 0; border-radius: 0; padding-left: var(--gutter); padding-bottom: calc(var(--s3) + var(--safe-b)); }
+    .cable { border-width: 1px 0 0; border-radius: 0; height: 36vh; padding-bottom: var(--safe-b); }
+    .cable-head { padding-left: var(--gutter); }
+    .cable-key { padding-inline: var(--gutter); }
+    /* A phone: the time, the arrow and the packet on one line, what it is under them. */
+    .cable-line { grid-template-columns: 6ch 1ch 1ch minmax(0, 1fr); grid-template-areas: "t src dir type" ". . . desc" ". . . data"; padding: 2px var(--gutter); }
+    .cl-len { display: none; }
+    .cl-type { text-align: left; }
+    .start { padding-top: var(--s5); }
+  }
+  @media (max-width: 560px) {
+    & dialog.tx-dialog {
+      inset: auto 0 0 0;
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      border-width: 1px 0 0;
+      border-radius: var(--r-xl) var(--r-xl) 0 0;
+    }
+    .tx-dialog-box { padding-bottom: calc(var(--s3) + var(--safe-b)); }
+    .tx-dialog-actions > button { flex: 1 1 auto; }
+  }
 }
+
+/* Keyframes cannot nest: here, under names only Files uses. */
+@keyframes busy-slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@keyframes cable-in { from { background: rgb(77 255 122 / 0.16); } to { background: transparent; } }

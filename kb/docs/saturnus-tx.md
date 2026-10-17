@@ -252,8 +252,9 @@ progress line, disconnected with why).
   cannot be undone: purge, replace, restore), results through
   `components/toast.js`, notes through `components/note.js`.
 - Theme, tokens, type sizes, target sizes and the safe areas are
-  saturnus's (`style.css` tokens); `prefers-color-scheme` and the same
-  theme switch. No HP logo; the app's own icon.
+  saturnus's (`style.css` tokens); `prefers-color-scheme` and the
+  stored theme, set in the emulator's settings (tx's own theme row went
+  in iteration 50b). No HP logo; the app's own icon.
 
 As built (iteration 38, `web/tx/pane.js`, `app.js`): the preview sits
 under each pane's list, not beside it, since two panes side by side

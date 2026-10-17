@@ -144,7 +144,8 @@ export class XmodemDialog {
       if (this.state === "running") this.hooks.cancel?.();
       else this.close();
     });
-    this.doc.body.append(this.dialog);
+    // Inside Files' root, where its styles are scoped (`:where(#files-view)`).
+    (this.doc.getElementById("files-view") ?? this.doc.body).append(this.dialog);
   }
 
   buttons(shown) {

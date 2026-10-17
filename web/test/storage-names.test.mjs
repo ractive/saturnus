@@ -84,7 +84,8 @@ test("no other page of /saturnus/ shares a database, a key or a cache prefix wit
 // The transfer page (web/tx.html, web/tx/): its own keys under
 // `saturnus.transfer.`, its own database (the picked folder's handle) and
 // OPFS directory (the in-page "Files"), the emulator's kept ROMs read and
-// never written, the theme the one key both pages share.
+// never written. The theme is the emulator's to set (shared/theme-boot.js
+// applies it here); Files writes only its own keys.
 function txSources() {
   const files = readdirSync(join(WEB, "tx")).filter((n) => n.endsWith(".js")).map((n) => `tx/${n}`);
   return [...files, "tx.html"].map((f) => [f, readFileSync(join(WEB, f), "utf8")]);
@@ -111,7 +112,7 @@ test("the transfer page stores under its own names only", () => {
   }
   const app = readFileSync(join(WEB, "tx", "app.js"), "utf8");
   for (const m of app.matchAll(/store\.set\(([A-Za-z_.]+),/g)) {
-    assert.ok(["TRANSFER_KEYS.link", "TRANSFER_KEYS.model", "TRANSFER_KEYS.port", "KEYS.theme"].includes(m[1]), `tx/app.js sets ${m[1]}`);
+    assert.ok(["TRANSFER_KEYS.link", "TRANSFER_KEYS.model", "TRANSFER_KEYS.port"].includes(m[1]), `tx/app.js sets ${m[1]}`);
   }
 });
 
