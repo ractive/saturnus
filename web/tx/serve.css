@@ -39,7 +39,7 @@
 
   .serve-emulated { display: flex; flex-direction: column; gap: var(--s2); align-items: center; padding: var(--s3); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); }
   .serve-screen { padding: var(--s2); background: var(--display); border-radius: var(--r-sm); box-shadow: var(--inset); }
-  canvas.serve-lcd { display: block; width: 262px; height: 128px; image-rendering: pixelated; color: var(--display-ink); }
+  & canvas.serve-lcd { display: block; width: 262px; height: 128px; image-rendering: pixelated; color: var(--display-ink); }
   .serve-menu-keys { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; width: 278px; }
   .serve-key { min-height: 32px; min-width: 0; padding: 0 6px; font: 600 var(--fs-sm)/1 var(--mono); }
   .serve-menu-keys .serve-key { min-height: 22px; }

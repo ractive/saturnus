@@ -74,6 +74,8 @@ async function romSha(bytes) {
 
 /** The view, once mounted (Files lives for the document: hidden, never unmounted). */
 let mounted = null;
+/** Set as the mount starts: a mount that threw part-way is not run again over the same listeners. */
+let mounting = false;
 
 /**
  * Mount Files in `root` (its elements are looked up under it) and start
@@ -84,6 +86,8 @@ let mounted = null;
  */
 export function mountFiles(root, { shown = () => true } = {}) {
   if (mounted) return mounted;
+  if (mounting) throw new Error("Files failed to start; reload the page.");
+  mounting = true;
   const $ = (id) => root.querySelector(`#${id}`);
   const ui = {
     stage: $("stage"), panes: $("panes"), switch: $("pane-switch"), template: $("pane-template"),
