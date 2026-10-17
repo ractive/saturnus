@@ -4250,3 +4250,30 @@ Owner answers on the plans (PR 175):
   Machine) ends a transaction without progress (a packet taken as new,
   counted by `kermit-proto`'s `Client::accepted`) for
   (timeout + pause) x (retries + 2) with `Error::Stalled`.
+
+## 2026-10-17 (one app)
+
+Owner decisions, reversing "two separate apps" of 2026-10-14:
+
+- **One app.** The emulator and saturnus tx become one app, "saturnus":
+  one HTML document with a hash router at `/saturnus/app/`, a home page
+  that lists the calculators, and the views "Calculator" and "Files".
+  Chosen for maintenance: one start code, one service worker, no tab
+  messages, no SharedWorker ([[iterations/iteration-50-one-app-web]]).
+  No iframes.
+- **Platforms**: the web app is the product, installable as a PWA on
+  phones and tablets; no native mobile apps for now (no USB serial on
+  iOS). macOS, Windows and Linux get one Tauri app around the same
+  document ([[iterations/iteration-51-one-desktop-app]]).
+- **The desktop engine stays native**: it keeps running while the
+  window is hidden and survives a reload; WebAssembly there would save
+  only the bridge (about 500 lines).
+- **No SharedWorker**: `hub.js` runs in a plain Worker; one live
+  calculator per tab. A second tab gets a calculator that does not
+  save.
+- **No migration**: old URLs, subsites, crates and casks are removed
+  without redirects; the site may break between iterations.
+- **Defaults taken, open to the owner**: one WebAssembly package
+  (`saturnus-tx-web` into `saturnus-web`); tx's private calculator kept
+  for the cable path's test and the aplet server, not listed on home.
+- [[backlog/desktop-shared-calculator]] is superseded.
