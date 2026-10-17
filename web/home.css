@@ -4,8 +4,9 @@
    row with its logo in the model's colours, its ROM's name, its two ways
    in, Calculator and Files, and its ⋯; under them New calculator (the
    models without a ROM, the same rows) and the ROMs' settings
-   (iteration 53). The lists and the settings are cards on the panel.
-   Only tokens (shared/tokens.css). */
+   (iteration 53). The lists and the settings are cards of rows
+   (shared/components.css: `.card`, `.card-row`, `.sec-title`, `.badge`,
+   `.switch`). Only tokens (shared/tokens.css). */
 
 body { display: flex; flex-direction: column; }
 body > [data-view] { flex: 1; min-height: 0; }
@@ -50,28 +51,12 @@ body > [data-view][hidden] { display: none; }
     padding: var(--s6) calc(var(--gutter) + var(--safe-r)) calc(var(--s6) + var(--safe-b)) calc(var(--gutter) + var(--safe-l));
     box-sizing: border-box;
   }
-  h1 { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.01em; line-height: var(--lh-tight); margin: 0 0 var(--s4); }
+  h1 { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.015em; line-height: var(--lh-tight); margin: 0 0 var(--s4); }
   .home-empty { margin: 0 0 var(--s4); }
 
-  /* A card of rows. */
-  .home-list {
-    list-style: none;
-    margin: 0 0 var(--s5);
-    padding: 0;
-    border: 1px solid var(--rule-soft);
-    border-radius: var(--r-lg);
-    background: var(--card);
-    box-shadow: var(--shadow-card);
-    overflow: hidden;
-  }
-  .home-calc {
-    display: flex;
-    align-items: center;
-    gap: var(--s3);
-    padding: var(--s3) var(--s4);
-    transition: background-color var(--t-fast);
-  }
-  .home-calc + .home-calc { border-top: 1px solid var(--rule-soft); }
+  /* A card of rows: the calculator's logo, its name and ROM, its ways in. */
+  .home-list { list-style: none; margin: 0 0 var(--s5); padding: 0; }
+  .home-calc { gap: var(--s3); padding: var(--s3) var(--s4); min-height: 0; }
   .home-calc:hover { background: color-mix(in srgb, var(--hover) 55%, transparent); }
   .home-calc > .logo { flex: none; }
   .home-place { flex: 1; min-width: 0; }
@@ -83,16 +68,6 @@ body > [data-view][hidden] { display: none; }
     font-size: var(--fs-lg);
     font-weight: 600;
     line-height: var(--lh-tight);
-  }
-  .home-running {
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    letter-spacing: var(--track-caps);
-    text-transform: uppercase;
-    color: var(--accent-text);
-    background: var(--accent-soft);
-    border-radius: var(--r-pill);
-    padding: 1px var(--s2);
   }
   .home-rom {
     margin: 2px 0 0;
@@ -106,7 +81,7 @@ body > [data-view][hidden] { display: none; }
   .home-actions { display: flex; align-items: center; gap: var(--s2); flex: none; }
   .home-actions button.icon.more { width: var(--tap); height: var(--tap); }
 
-  h2 { font-size: var(--fs-lg); font-weight: 700; line-height: var(--lh-tight); margin: 0 0 var(--s2); }
+  h2 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; line-height: var(--lh-tight); margin: 0 0 var(--s2); }
   .home-hint { margin: 0 0 var(--s3); font-size: var(--fs-sm); line-height: var(--lh); }
   .home-hint.error { color: var(--error); }
   .home-new, .home-settings { margin-top: var(--s6); }
@@ -127,19 +102,14 @@ body > [data-view][hidden] { display: none; }
   .storage-offer:empty { display: none; }
   .storage-offer { margin: 0 0 var(--s4); }
 
-  /* The ROMs' settings: one card, its rows apart by a hairline. */
-  .home-settings {
-    padding: var(--s3) var(--s4) var(--s4);
-    border: 1px solid var(--rule-soft);
-    border-radius: var(--r-lg);
-    background: var(--card);
-    box-shadow: var(--shadow-card);
-  }
-  .home-settings h2 { margin-bottom: var(--s1); }
-  .home-settings p { margin: var(--s2) 0 0; }
-  .home-settings .check { width: 100%; padding: var(--s1) 0; }
-  .home-settings .home-hint { margin: var(--s1) 0 0; }
-  .home-settings .home-storage, .home-settings p:has(> #home-forget) { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--rule-soft); }
+  /* The ROMs' settings: a section with its card of rows (index.html). */
+  .home-settings .sec-title { margin: 0; }
+  .home-settings .card-row.switch { padding-inline: var(--s4); }
+  .home-settings .card-row { padding-inline: var(--s4); }
+  .home-storage-row { flex-direction: column; align-items: stretch; gap: var(--s1); }
+  .home-storage-row:not(:has(> :not([hidden]))) { display: none; }
+  .home-settings .home-storage, .home-settings .home-hint { margin: 0; }
+  .home-settings .home-hint:empty { display: none; }
   .home-storage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); font-size: var(--fs-sm); }
   .home-storage[hidden] { display: none; }
 

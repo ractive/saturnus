@@ -250,7 +250,7 @@ export class Home {
 
   row(r) {
     const name = el("h3", { class: "home-title" }, el("span", { text: r.title }));
-    if (r.running) name.append(el("span", { class: "home-running", text: "Running" }));
+    if (r.running) name.append(el("span", { class: "badge accent caps home-running", text: "Running" }));
     const bad = r.state === "missing" || r.state === "changed";
     const rom = el("p", { class: `home-rom muted${bad ? " error" : ""}`, text: bad ? `${r.romName} (${r.state})` : r.romName, title: r.slot.revision ? `${r.romName} (${r.slot.revision})` : r.romName });
     const actions = el("div", { class: "home-actions" },
@@ -261,7 +261,7 @@ export class Home {
       // Before Calculator, so Calculator lines up on the right in every row.
       actions.prepend(el("a", { class: "button", href: `#/files/${r.model}`, "data-model": r.model, "data-go": "files", title: `Files on the ${r.title}: move files between it and this computer` }, iconEl("copy-to", "ic-sm"), el("span", { text: "Files" })));
     }
-    return el("li", { class: `home-calc${r.running ? " running" : ""}`, "data-model": r.model, "data-logo": r.model },
+    return el("li", { class: `card-row home-calc${r.running ? " running" : ""}`, "data-model": r.model, "data-logo": r.model },
       logo(),
       el("div", { class: "home-place" }, name, rom),
       actions,
@@ -305,7 +305,7 @@ export class Home {
         "aria-label": `${a.id === "download" ? "Download" : "Choose"} the ${t} ROM`,
         text: a.label,
       }));
-      return el("li", { class: "home-calc", "data-model": slot.model, "data-logo": slot.model },
+      return el("li", { class: "card-row home-calc", "data-model": slot.model, "data-logo": slot.model },
         logo(),
         el("div", { class: "home-place" }, el("h3", { class: "home-title" }, el("span", { text: t })), el("p", { class: "home-rom muted" }, where)),
         el("div", { class: "home-actions" }, ...buttons),

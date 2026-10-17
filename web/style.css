@@ -515,29 +515,20 @@ body.resizing * { cursor: col-resize !important; }
 }
 :where(#calculator-view) .layer h2, :where(#calculator-view) .layer h3, :where(#calculator-view) .layer p { margin: 0; }
 
+/* The head: the title at the sections' size (components.css
+   `.sec-title`), the model as a badge beside it, the close at the right. */
 :where(#calculator-view) .layer-head {
   display: flex;
   align-items: center;
   gap: var(--s2);
-  padding: var(--s2) var(--s2) 0 var(--gutter);
-  min-height: calc(var(--tap) + var(--s2));
+  padding: var(--s3) var(--s2) 0 var(--gutter);
+  min-height: calc(var(--tap) + var(--s3));
 }
-:where(#calculator-view) .layer-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
-/* The model as a chip beside the title. */
-:where(#calculator-view) .layer-model {
-  margin-right: auto;
-  padding: 1px var(--s2);
-  border-radius: var(--r-pill);
-  background: var(--track);
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-:where(#calculator-view) .layer-model:empty { display: none; }
+:where(#calculator-view) .layer-title { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; }
+:where(#calculator-view) .layer-model { margin-right: auto; }
 :where(#calculator-view) .layer-back { display: none; font-size: var(--fs-md); padding-left: var(--s2); }
 
+/* The tabs (components.css `.tabs`) under a rule, the keys' chip at their right. */
 :where(#calculator-view) .layer-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -546,26 +537,7 @@ body.resizing * { cursor: col-resize !important; }
   padding: 0 var(--gutter);
   border-bottom: 1px solid var(--rule);
 }
-:where(#calculator-view) .tabs { display: flex; flex: none; gap: var(--s1); margin-right: auto; }
-:where(#calculator-view) .tabs button {
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: none;
-  min-height: calc(var(--tap) + 4px);
-  padding: 2px var(--s2) 0;
-  margin-bottom: -1px;
-  color: var(--muted);
-  font-size: var(--fs-base);
-}
-:where(#calculator-view) .tabs button:first-child { margin-left: calc(-1 * var(--s2)); }
-:where(#calculator-view) .tabs button { box-shadow: none; border-radius: var(--r-sm) var(--r-sm) 0 0; transition: color var(--t-fast), background-color var(--t-fast); }
-:where(#calculator-view) .tabs button:hover { color: var(--ink); background: var(--hover); }
-:where(#calculator-view) .tabs button[aria-selected=true] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
-:where(#calculator-view) .tabs button:focus-visible { outline-offset: -2px; border-radius: var(--r-sm); }
-/* A tab's count (the stack's levels, the flags set) as a small pill. */
-:where(#calculator-view) .tab-count { font-weight: 600; color: var(--muted); font-size: var(--fs-xs); background: var(--track); border-radius: var(--r-pill); padding: 0 6px 0 2px; margin-left: 4px; line-height: 1.5; }
-:where(#calculator-view) .tab-count:empty { display: none; }
+:where(#calculator-view) .layer-tabs .tabs { margin-right: auto; }
 /* Where the keys go, short (its tooltip says it in full); one line that
    never wraps, so a change of the focus does not move the page. */
 :where(#calculator-view) .layer-keys {
@@ -603,39 +575,34 @@ body.resizing * { cursor: col-resize !important; }
 /* The keys are here: a bar along the layer's edge says so. */
 :where(#calculator-view) sat-explorer:focus-within { box-shadow: inset 3px 0 0 var(--accent); }
 
-/* Empty and error states: a heading, one or two sentences, the detail in
-   the calculator's face; errors carry a rule in the error colour. */
-:where(#calculator-view) .layer-empty, :where(#calculator-view) .pane-error, :where(#calculator-view) .preview-hint, :where(#calculator-view) .palette-empty { padding: var(--s5) var(--gutter); max-width: 48ch; }
-:where(#calculator-view) .layer-empty h3, :where(#calculator-view) .pane-error h3, :where(#calculator-view) .preview-hint h3 { font-size: 15px; font-weight: 600; margin-bottom: var(--s2); line-height: var(--lh-tight); }
-:where(#calculator-view) .layer-empty p, :where(#calculator-view) .pane-error p, :where(#calculator-view) .preview-hint p, :where(#calculator-view) .palette-empty { color: var(--muted); line-height: 1.5; }
-:where(#calculator-view) .layer-empty p + p, :where(#calculator-view) .pane-error p + p { margin-top: var(--s2); }
+/* Empty and error states (components.css `.empty`): a heading, one or
+   two sentences, the detail in the calculator's face; errors carry a
+   rule in the error colour. */
+:where(#calculator-view) .pane-error, :where(#calculator-view) .preview-hint, :where(#calculator-view) .palette-empty { padding: var(--s5) var(--gutter); max-width: 48ch; }
+:where(#calculator-view) .pane-error h3, :where(#calculator-view) .preview-hint h3 { font-size: 15px; font-weight: 600; margin-bottom: var(--s2); line-height: var(--lh-tight); }
+:where(#calculator-view) .pane-error p, :where(#calculator-view) .preview-hint p, :where(#calculator-view) .palette-empty { color: var(--muted); line-height: 1.5; }
+:where(#calculator-view) .pane-error p + p { margin-top: var(--s2); }
 :where(#calculator-view) .layer .detail, :where(#calculator-view) .layer-empty-detail { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
 :where(#calculator-view) .layer-empty-detail:not(:empty) { margin-top: var(--s3) !important; }
 :where(#calculator-view) .layer-empty-home { display: inline-flex; margin-top: var(--s4); }
 :where(#calculator-view) .pane-error { border-left: 3px solid var(--error); margin: var(--s3) var(--gutter); padding: var(--s1) var(--s3); }
-:where(#calculator-view) .preview-hint { padding-top: var(--s4); }
+:where(#calculator-view) .preview-hint { padding: var(--s4) var(--card-pad); }
 
 :where(#calculator-view) .pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
-:where(#calculator-view) .find {
-  font: inherit;
-  color: var(--ink);
-  background: var(--control);
-  border: 1px solid var(--control-border);
-  border-radius: var(--r-md);
-  min-height: var(--tap);
-  padding: 0 var(--s2);
-  min-width: 0;
-  width: 17ch;
-  transition: border-color var(--t-fast);
-}
-:where(#calculator-view) .find:hover { border-color: var(--muted); }
-:where(#calculator-view) .find:focus-visible { outline-offset: 0; border-color: var(--accent); }
-:where(#calculator-view) .find::placeholder { color: var(--muted); }
+/* The search fields (components.css `.input`): a fixed width beside the crumbs. */
+:where(#calculator-view) .find { width: 17ch; }
+
+/* The memory view's content: cards (components.css) on the panel,
+   inside the gutter. The lists scroll inside theirs; the preview of one
+   object is a card of its own under them. */
+:where(#calculator-view) .layer .card { flex: none; margin: 0 var(--gutter); }
+:where(#calculator-view) .layer .preview.card { margin: var(--s3) var(--gutter) var(--gutter); }
+:where(#calculator-view) .layer .preview:empty { display: none; }
 
 /* Variables: the directory tree and the variables of one directory, as
    in a two-pane file manager, the selected object below. */
-:where(#calculator-view) .vars-bar { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--gutter) var(--s1); }
+:where(#calculator-view) .vars-bar { gap: var(--s2); padding: var(--s2) var(--gutter) var(--s1); flex-wrap: nowrap; }
 :where(#calculator-view) .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 1px 2px; margin-right: auto; min-width: 0; }
 :where(#calculator-view) .crumbs .sep { color: var(--muted); }
 :where(#calculator-view) .crumb { border: 0; background: none; box-shadow: none; min-height: 0; padding: 2px 5px; font: 600 var(--fs-md)/1.4 var(--mono); border-radius: var(--r-sm); }
@@ -666,11 +633,8 @@ body.resizing * { cursor: col-resize !important; }
   min-height: 150px;
   display: grid;
   grid-template-columns: var(--tree-col) 1fr;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  background: var(--paper);
 }
-:where(#calculator-view) .tree { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule); }
+:where(#calculator-view) .tree { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule-soft); }
 /* The divider between the tree and the list, as the page's edges. */
 :where(#calculator-view) .resize-tree { position: absolute; top: 0; bottom: 0; left: calc(var(--tree-col) - 5px); z-index: 1; }
 :where(#calculator-view) .node {
@@ -707,10 +671,10 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .list th {
   position: sticky;
   top: 0;
-  background: var(--paper);
+  background: var(--card);
   text-align: left;
-  padding: 6px 8px 5px;
-  border-bottom: 1px solid var(--rule);
+  padding: 7px 8px 6px;
+  border-bottom: 1px solid var(--rule-soft);
   white-space: nowrap;
 }
 :where(#calculator-view) .list td { padding: 2px 8px; height: var(--row); white-space: nowrap; cursor: default; }
@@ -725,16 +689,17 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .kind-dir::before { content: ""; position: absolute; left: 0; top: -2px; width: 5px; height: 2px; background: var(--accent); border-radius: 1px 1px 0 0; }
 /* A page with its top right corner folded over: a file, not a checkbox. */
 :where(#calculator-view) .kind-obj { width: 9px; height: 11px; margin-right: 10px; vertical-align: -2px; border-radius: 1px; background: var(--muted); clip-path: polygon(0 0, 55% 0, 100% 45%, 100% 100%, 0 100%); position: relative; }
-:where(#calculator-view) .kind-obj::before { content: ""; position: absolute; right: 0; top: 0; width: 45%; height: 45%; background: var(--panel); opacity: 0.7; clip-path: polygon(0 0, 100% 100%, 0 100%); }
-:where(#calculator-view) .list-empty { padding: var(--s4) 10px; color: var(--muted); }
+:where(#calculator-view) .kind-obj::before { content: ""; position: absolute; right: 0; top: 0; width: 45%; height: 45%; background: var(--card); opacity: 0.7; clip-path: polygon(0 0, 100% 100%, 0 100%); }
+:where(#calculator-view) .list-empty { padding: var(--s4) 10px; }
 
-/* The preview of one object. */
-:where(#calculator-view) .preview { flex: 1; min-height: 0; overflow: auto; }
-:where(#calculator-view) .preview-head { display: flex; align-items: flex-start; gap: var(--s3); padding: var(--s3) var(--gutter) var(--s2); }
+/* The preview of one object: a card with its head (the name, its facts,
+   the actions) and the object as text. */
+:where(#calculator-view) .preview { flex: 1 1 auto; min-height: 0; overflow: auto; }
+:where(#calculator-view) .preview-head { display: flex; align-items: flex-start; gap: var(--s3); padding: var(--card-pad) var(--card-pad) var(--s2); }
 :where(#calculator-view) .preview-title { min-width: 0; margin-right: auto; }
 :where(#calculator-view) .preview-title h3 { font-size: var(--fs-lg); overflow-wrap: anywhere; line-height: var(--lh-tight); }
 :where(#calculator-view) .preview-meta { color: var(--muted); font-size: var(--fs-sm); margin-top: 3px !important; }
-:where(#calculator-view) .preview-body { padding: 0 var(--gutter) var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
+:where(#calculator-view) .preview-body { padding: 0 var(--card-pad) var(--card-pad); display: flex; flex-direction: column; gap: var(--s2); }
 :where(#calculator-view) pre.obj, :where(#calculator-view) .obj-list, :where(#calculator-view) .obj-dir, :where(#calculator-view) .grid-wrap {
   margin: 0;
   background: var(--display);
@@ -786,8 +751,7 @@ body.resizing * { cursor: col-resize !important; }
   flex: 0 1 auto;
   max-height: 46%;
   overflow: auto;
-  background: var(--paper);
-  border-bottom: 1px solid var(--rule);
+  margin-top: var(--s2);
 }
 :where(#calculator-view) .levels { margin: 0; padding: var(--s1) 0; list-style: none; }
 :where(#calculator-view) .levels li {
@@ -806,29 +770,40 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .levels .obj { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 0; }
 :where(#calculator-view) .levels .type { font-size: var(--fs-sm); white-space: nowrap; }
 
-/* Flags: read-only lamps, not switches. */
-:where(#calculator-view) .flags-bar { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--gutter); border-bottom: 1px solid var(--rule); }
+/* Flags: a card per topic (components.css `.card`), its title a row,
+   its flags rows apart by hairlines; lamps, not switches. */
+:where(#calculator-view) .flags-bar { padding: var(--s2) var(--gutter); flex-wrap: nowrap; }
 :where(#calculator-view) .flags-bar .find { flex: 1; width: auto; max-width: 28ch; }
 :where(#calculator-view) .flags-only { font-size: var(--fs-md); }
 :where(#calculator-view) .flags-only[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-:where(#calculator-view) .flags-scroll { flex: 1; min-height: 0; overflow: auto; padding: var(--s3) var(--gutter) var(--s5); }
+:where(#calculator-view) .flags-scroll { flex: 1; min-height: 0; overflow: auto; padding: var(--s2) 0 var(--s5); }
+:where(#calculator-view) .flags-scroll > :not(.card) { margin-inline: var(--gutter); }
 :where(#calculator-view) .flags-sum { font-size: var(--fs-md); }
 :where(#calculator-view) .flags-scroll > .muted { margin-top: 14px; }
 :where(#calculator-view) .flags-basis { margin-top: 4px !important; color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; max-width: 62ch; }
-:where(#calculator-view) .flag-topic { margin-top: var(--s4); }
-:where(#calculator-view) .flag-topic h3 { padding-bottom: 5px; border-bottom: 1px solid var(--rule); }
+:where(#calculator-view) .flag-topic { margin-top: var(--s3); }
+:where(#calculator-view) .flag-topic h3 {
+  padding: var(--s2) var(--card-pad) 6px;
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+}
+:where(#calculator-view) .flag-topic .flags-basis { margin: var(--s2) var(--card-pad) 0 !important; }
+:where(#calculator-view) .flag-topic > .lamp-grid { margin: var(--s2) var(--card-pad) var(--card-pad); }
 :where(#calculator-view) .flag-rows { margin: 0; padding: 0; list-style: none; }
 /* A single flag's row toggles it as a whole (sat-explorer.js). */
 :where(#calculator-view) .flag.toggles { cursor: pointer; }
 :where(#calculator-view) .flag.toggles:hover { background: var(--hover); }
 :where(#calculator-view) .flag {
   display: grid;
-  grid-template-columns: 9ch 16px minmax(0, 1fr);
+  grid-template-columns: 8ch 16px minmax(0, 1fr);
   gap: 0 10px;
   align-items: start;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--rule-soft);
+  padding: 7px var(--card-pad);
+  transition: background-color var(--t-fast);
 }
+:where(#calculator-view) .flag + .flag { border-top: 1px solid var(--rule-soft); }
 :where(#calculator-view) .flag .num { text-align: right; font: var(--fs-sm)/1.6 var(--mono); color: var(--muted); white-space: nowrap; }
 :where(#calculator-view) .flag.on .num { color: var(--ink); font-weight: 600; }
 :where(#calculator-view) .lamps { display: grid; grid-template-columns: 10px; padding-top: 4px; justify-content: center; }
@@ -838,16 +813,7 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .flag:not(.on) .flag-name { font-weight: 400; }
 :where(#calculator-view) .flag .state { margin-left: 8px; font-size: var(--fs-xs); font-weight: 400; color: var(--muted); }
 :where(#calculator-view) .flag .state.on { color: var(--accent-text); font-weight: 600; }
-:where(#calculator-view) .flag .tag {
-  margin-left: 8px;
-  padding: 0 5px;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-pill);
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--muted);
-  white-space: nowrap;
-}
+:where(#calculator-view) .flag .tag { margin-left: 8px; padding: 0 5px; font-size: 10px; line-height: 1.4; }
 :where(#calculator-view) .flag .now { margin-top: 1px; line-height: 1.45; }
 :where(#calculator-view) .flag .other { color: var(--muted); font-size: var(--fs-sm); line-height: 1.45; }
 :where(#calculator-view) .lamp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 4px; margin-top: 8px; }
@@ -942,10 +908,10 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .layer-status {
   flex: none;
   height: calc(var(--fs-sm) * 1.5 + 2 * var(--s1));
+  margin: var(--s1) 0 0;
   padding: var(--s1) var(--gutter);
   font-size: var(--fs-sm);
   line-height: 1.5;
-  border-bottom: 1px solid var(--rule-soft);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -977,7 +943,7 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .layer-busy-detail { color: var(--muted); font-size: var(--fs-sm); max-width: 40ch; }
 
 /* The Commands tab. */
-:where(#calculator-view) .cmds-bar { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--gutter); }
+:where(#calculator-view) .cmds-bar { gap: var(--s3); padding: var(--s2) var(--gutter); flex-wrap: nowrap; }
 :where(#calculator-view) .cmds-bar .find { flex: 1; width: auto; max-width: 30ch; }
 :where(#calculator-view) .cmds-count { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
 :where(#calculator-view) .cmds-split {
@@ -985,17 +951,14 @@ body.resizing * { cursor: col-resize !important; }
   min-height: 150px;
   display: grid;
   grid-template-columns: minmax(120px, 34%) 1fr;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-  background: var(--paper);
 }
-:where(#calculator-view) .cmds-menus { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule); }
+:where(#calculator-view) .cmds-menus { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule-soft); }
 :where(#calculator-view) .cmds-menus .node.other { font-family: var(--font); color: var(--muted); }
 :where(#calculator-view) .cmds-menus .node.other.shown { color: var(--ink); }
 :where(#calculator-view) .cmds-list td.stack { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); max-width: 0; width: 60%; overflow: hidden; text-overflow: ellipsis; }
 :where(#calculator-view) .cmds-entry { flex: 1; min-height: 0; overflow: auto; }
-:where(#calculator-view) .cmds-entry .entry { padding: 14px var(--gutter) 20px; }
-:where(#calculator-view) .cmds-note { padding: 6px var(--gutter); font-size: var(--fs-sm); color: var(--muted); }
+:where(#calculator-view) .cmds-entry .entry { padding: var(--card-pad) var(--card-pad) 20px; }
+:where(#calculator-view) .cmds-note { padding: 0 var(--gutter) 6px; font-size: var(--fs-sm); color: var(--muted); }
 
 /* A narrow layer (a phone, a small window): fewer columns. Below 620 px
    the keys' chip shows its way back alone ("Back to the calculator
@@ -1420,6 +1383,8 @@ body.resizing * { cursor: col-resize !important; }
   :where(#calculator-view) .resize-tree { display: none; }
   :where(#calculator-view) .vars-split { --tree-col: var(--tree-default); }
   :where(#calculator-view) .panel-head, :where(#calculator-view) .tagline, :where(#calculator-view) #panel-show { display: none !important; }
+  /* A phone's gutter: the cards keep more of the width. */
+  :where(#calculator-view) .layer { --gutter: 12px; }
   :where(#calculator-view) .layer-head { padding-left: var(--s2); }
 
   /* Dialogs as full sheets. */

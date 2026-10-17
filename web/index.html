@@ -26,7 +26,7 @@
 <main class="home-main">
   <h1>Your calculators</h1>
   <p id="home-empty" class="home-empty muted" hidden>No calculator yet. Start one: New calculator, then choose its ROM.</p>
-  <ul id="home-list" class="home-list" hidden></ul>
+  <ul id="home-list" class="card home-list" hidden></ul>
   <div id="home-notice" class="home-notice" role="status" hidden>
     <p class="home-notice-text"></p>
     <div class="home-offers"></div>
@@ -40,17 +40,21 @@
   <section id="home-new-section" class="home-new" aria-labelledby="home-new-title" hidden>
     <h2 id="home-new-title">New calculator</h2>
     <p id="home-new-hint" class="home-hint muted"></p>
-    <ul id="home-models" class="home-list"></ul>
+    <ul id="home-models" class="card home-list"></ul>
     <p id="home-all-kept" class="home-hint muted" hidden>Every model has its ROM.</p>
     <p id="home-source-hint" class="home-hint muted"></p>
   </section>
   <input id="home-file" type="file" multiple hidden>
-  <section id="home-settings" class="home-settings" aria-labelledby="home-settings-title" hidden>
-    <h2 id="home-settings-title">ROMs</h2>
-    <label class="check"><input id="home-boot-last" type="checkbox" checked> <span class="home-boot-last-label">Start the last calculator when the app opens</span></label>
-    <p id="home-storage" class="home-storage muted" hidden><span class="storage-state"></span> <button id="home-keep" type="button" hidden>Keep permanently</button></p>
-    <p id="home-kept-hint" class="home-hint muted"></p>
-    <p><button id="home-forget" type="button">Remove ROMs…</button></p>
+  <section id="home-settings" class="sec home-settings" aria-labelledby="home-settings-title" hidden>
+    <h2 id="home-settings-title" class="sec-title">ROMs</h2>
+    <div class="card">
+      <label class="card-row switch"><input id="home-boot-last" type="checkbox" checked> <span class="home-boot-last-label">Start the last calculator when the app opens</span></label>
+      <div class="card-row home-storage-row">
+        <p id="home-storage" class="home-storage muted" hidden><span class="storage-state"></span> <button id="home-keep" type="button" hidden>Keep permanently</button></p>
+        <p id="home-kept-hint" class="home-hint muted"></p>
+      </div>
+      <div class="card-row"><button id="home-forget" type="button">Remove ROMs…</button></div>
+    </div>
   </section>
 </main>
 </div>
@@ -231,7 +235,7 @@
   <form method="dialog" class="tx-dialog-box">
     <h2 id="settings-title">Settings</h2>
     <h3 class="caps">Connection</h3>
-    <label class="check"><input id="set-find" type="checkbox" checked> Find the speed and parity by listening</label>
+    <label class="switch"><input id="set-find" type="checkbox" checked> <span>Find the speed and parity by listening</span></label>
     <div class="settings-row">
       <label for="set-baud">Speed</label>
       <select id="set-baud">

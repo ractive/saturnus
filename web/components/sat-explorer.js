@@ -47,14 +47,14 @@ const TEMPLATE = `
     <header class="layer-head">
       <button type="button" class="layer-back" title="Back to the calculator">${icon("chevron-left")}Calculator</button>
       <h2 class="layer-title">Memory</h2>
-      <span class="layer-model"></span>
+      <span class="badge layer-model"></span>
       <button type="button" class="icon layer-close" title="Close the memory view" aria-label="Close the memory view">${icon("chevron-right")}</button>
     </header>
     <div class="layer-tabs">
       <div class="tabs" role="tablist" aria-label="Memory view">
         <button type="button" role="tab" data-tab="vars" id="tab-vars" aria-controls="pane-vars">Variables</button>
-        <button type="button" role="tab" data-tab="stack" id="tab-stack" aria-controls="pane-stack">Stack<span class="tab-count"></span></button>
-        <button type="button" role="tab" data-tab="flags" id="tab-flags" aria-controls="pane-flags">Flags<span class="tab-count"></span></button>
+        <button type="button" role="tab" data-tab="stack" id="tab-stack" aria-controls="pane-stack">Stack<span class="badge tab-count"></span></button>
+        <button type="button" role="tab" data-tab="flags" id="tab-flags" aria-controls="pane-flags">Flags<span class="badge tab-count"></span></button>
         <button type="button" role="tab" data-tab="commands" id="tab-commands" aria-controls="pane-commands">Reference</button>
       </div>
       <p class="layer-keys" aria-live="polite">${icon("keyboard")}<span class="layer-keys-text"></span><button type="button" class="link layer-keys-back">Back to the calculator (Esc)</button></p>
@@ -64,7 +64,7 @@ const TEMPLATE = `
       <p class="layer-busy-text"></p>
       <p class="layer-busy-detail">The calculator does this itself, out of sight. Its screen comes back when it is done.</p>
     </div>
-    <div class="layer-empty" hidden>
+    <div class="empty layer-empty" hidden>
       <h3></h3>
       <p class="layer-empty-text"></p>
       <p class="layer-empty-detail"></p>
@@ -72,7 +72,7 @@ const TEMPLATE = `
     </div>
 
     <div class="pane pane-vars" id="pane-vars" role="tabpanel" aria-labelledby="tab-vars">
-      <div class="vars-bar">
+      <div class="toolbar vars-bar">
         <nav class="crumbs" aria-label="Directory shown"></nav>
         <button type="button" class="vars-new write" aria-haspopup="menu" aria-expanded="false" data-menu-key="new">New${icon("chevron-down")}</button>
         <input type="file" class="vars-file" multiple hidden>
@@ -80,7 +80,7 @@ const TEMPLATE = `
       </div>
       <div class="vars-making"></div>
       <p class="vars-where"></p>
-      <div class="vars-split">
+      <div class="card vars-split">
         <div class="tree" role="tree" aria-label="Directories"></div>
         <div class="resize-tree" role="separator" aria-orientation="vertical" aria-label="Width of the directory tree" tabindex="0" title="Drag to resize. Double-click to reset."></div>
         <div class="list-wrap">
@@ -88,19 +88,19 @@ const TEMPLATE = `
             <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col" class="num">Size</th><th scope="col" class="num sum">Checksum</th></tr></thead>
             <tbody></tbody>
           </table>
-          <p class="list-empty" hidden></p>
+          <p class="empty list-empty" hidden></p>
         </div>
       </div>
-      <div class="preview" aria-live="polite"></div>
+      <div class="card preview" aria-live="polite"></div>
     </div>
 
     <div class="pane pane-stack" id="pane-stack" role="tabpanel" aria-labelledby="tab-stack" hidden>
-      <div class="levels-wrap"><ol class="levels" role="listbox" aria-label="Stack levels"></ol></div>
-      <div class="preview" aria-live="polite"></div>
+      <div class="card levels-wrap"><ol class="levels" role="listbox" aria-label="Stack levels"></ol></div>
+      <div class="card preview" aria-live="polite"></div>
     </div>
 
     <div class="pane pane-flags" id="pane-flags" role="tabpanel" aria-labelledby="tab-flags" hidden>
-      <div class="flags-bar">
+      <div class="toolbar flags-bar">
         <input class="find flags-find" type="search" placeholder="Find a flag" aria-label="Find a flag by number or meaning" autocomplete="off" spellcheck="false">
         <button type="button" class="flags-only" aria-pressed="false">Set only</button>
       </div>
@@ -108,22 +108,22 @@ const TEMPLATE = `
     </div>
 
     <div class="pane pane-commands" id="pane-commands" role="tabpanel" aria-labelledby="tab-commands" hidden>
-      <div class="cmds-bar">
+      <div class="toolbar cmds-bar">
         <input class="find cmds-find" type="search" placeholder="Find a command" aria-label="Find a command by name or description" autocomplete="off" spellcheck="false">
         <span class="cmds-count"></span>
       </div>
       <p class="cmds-note" hidden></p>
-      <div class="cmds-split">
+      <div class="card cmds-split">
         <div class="tree cmds-menus" role="tree" aria-label="Menus"></div>
         <div class="list-wrap">
           <table class="list cmds-list">
             <thead><tr><th scope="col">Name</th><th scope="col">Stack</th></tr></thead>
             <tbody></tbody>
           </table>
-          <p class="list-empty" hidden></p>
+          <p class="empty list-empty" hidden></p>
         </div>
       </div>
-      <div class="preview cmds-entry" aria-live="polite"></div>
+      <div class="card preview cmds-entry" aria-live="polite"></div>
     </div>
   </section>`;
 
@@ -2158,7 +2158,7 @@ export class SatExplorer extends HTMLElement {
       const mine = rows.filter(match);
       if (!mine.length) continue;
       shown += mine.length;
-      out.push(el("section", { class: "flag-topic" },
+      out.push(el("section", { class: "card flag-topic" },
         el("h3", { text: topic }),
         el("ul", { class: "flag-rows" }, ...mine.map((r) => {
           const st = r.status === common ? null : STATUS[r.status];
@@ -2168,7 +2168,7 @@ export class SatExplorer extends HTMLElement {
             el("span", { class: "num", text: r.label.replaceAll("-", "−") }),
             el("span", { class: "lamps" }, single ? this.flagButton(r.first, r.set, this.lamp(r.set)) : null),
             el("div", { class: "what" },
-              el("p", { class: "flag-name" }, r.name, state, st ? el("span", { class: "tag", title: st[1], text: st[0] }) : null),
+              el("p", { class: "flag-name" }, r.name, state, st ? el("span", { class: "badge outline tag", title: st[1], text: st[0] }) : null),
               r.now ? el("p", { class: "now", text: r.now }) : null,
               r.other ? el("p", { class: "other", text: `${r.set ? "Clear" : "Set"}: ${r.other}` }) : null,
               single ? null : el("div", { class: "lamp-grid bits" }, ...r.bits.map((b, i) =>
@@ -2184,7 +2184,7 @@ export class SatExplorer extends HTMLElement {
     const und = undocumented.filter((u) => (!this.onlySet || u.set) && (!needle || String(Math.abs(u.flag)) === needle.replace(/^-/, "")));
     if (und.length) {
       shown += und.length;
-      out.push(el("section", { class: "flag-topic" },
+      out.push(el("section", { class: "card flag-topic" },
         el("h3", { text: "Without a documented meaning" }),
         el("p", { class: "flags-basis", text: "System flags the manuals leave unused or do not describe. A filled cell means set." }),
         cells(und.map((u) => ({ ...u, title: u.status === "unused" ? "not used" : "not documented" })))));
@@ -2194,7 +2194,7 @@ export class SatExplorer extends HTMLElement {
     const usr = users.filter((u) => (!this.onlySet || u.set) && (!needle || String(u.flag) === needle));
     if (usr.length || (!needle && !this.onlySet)) {
       shown += usr.length;
-      out.push(el("section", { class: "flag-topic" },
+      out.push(el("section", { class: "card flag-topic" },
         el("h3", { text: "User flags" }),
         el("p", { class: "flags-basis", text: `Flags 1 to ${userCount} mean whatever your programs make them mean. A filled cell means set.` }),
         cells(usr)));
