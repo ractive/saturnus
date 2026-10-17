@@ -1,9 +1,13 @@
 //! Assembles the app's page in `$OUT_DIR/app-site` from `web/`, with the
-//! rule `web/site.sh --list transfer` uses for the transfer page: `tx.html`,
-//! the favicon, `tx/*.js` and `tx/*.css`, and the shared code
+//! rule `web/site.sh --list` uses for the web app (iteration 50d: one
+//! document, `index.html`, with the home page, Calculator and Files): every
+//! page file at the top of `web/` (HTML, CSS, JS, JSON, SVG),
+//! `components/*.js`, `tx/*.js` and `tx/*.css`, and the shared code
 //! (`shared/*.js`, `shared/*.css`, `shared/*.svg`, `shared/components/*.js`).
-//! Not the installable page's files (`web/tx/pwa/`: the app registers no
-//! service worker), the tests, the docs or the build scripts.
+//! The window opens Files (`index.html#/files`, `tauri.conf.json`); the
+//! one desktop app is iteration 51. Not the installable page's files
+//! (`web/pwa/`: the app registers no service worker), the tests, the docs
+//! or the build scripts.
 //!
 //! Unlike saturnus's app, this one runs the protocol in the page's wasm
 //! (kb/docs/saturnus-tx.md, "Crates and folders"), so the wasm package
@@ -16,8 +20,7 @@
 //! `TAURI_CONFIG` (merged into what the CLI may have set), as
 //! saturnus-tauri's build script does; `frontendDist` in `tauri.conf.json`
 //! stays `../../web` for the CLI and `cargo tauri dev`.
-//! `tests/frontend.rs` checks the selection against `web/site.sh --list
-//! transfer`.
+//! `tests/frontend.rs` checks the selection against `web/site.sh --list`.
 
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -38,9 +41,16 @@ fn files_in(web: &Path, dir: &str, exts: &[&str], files: &mut Vec<PathBuf>) -> s
     Ok(())
 }
 
-/// The transfer page's files of `web`, relative to it, sorted.
+/// The app's page files of `web`, relative to it, sorted.
 fn page_files(web: &Path) -> std::io::Result<Vec<PathBuf>> {
-    let mut files = vec![PathBuf::from("tx.html"), PathBuf::from("favicon.svg")];
+    let mut files = Vec::new();
+    files_in(web, ".", &[".html", ".css", ".js", ".json", ".svg"], &mut files)?;
+    for f in &mut files {
+        if let Ok(rel) = f.strip_prefix(".") {
+            *f = rel.to_path_buf();
+        }
+    }
+    files_in(web, "components", &[".js"], &mut files)?;
     files_in(web, "tx", &[".js", ".css"], &mut files)?;
     files_in(web, "shared", &[".js", ".css", ".svg"], &mut files)?;
     files_in(web, "shared/components", &[".js"], &mut files)?;
@@ -55,22 +65,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
     let web = manifest.join("../../web");
     let site = PathBuf::from(std::env::var("OUT_DIR")?).join("app-site");
-    for dir in ["tx.html", "favicon.svg", "tx", "shared", "pkg"] {
-        println!("cargo::rerun-if-changed={}", web.join(dir).display());
-    }
+    println!("cargo::rerun-if-changed={}", web.display());
 
     if site.exists() {
         std::fs::remove_dir_all(&site)?;
     }
-    for dir in ["tx", "pkg", "shared/components"] {
+    for dir in ["components", "tx", "pkg", "shared/components"] {
         std::fs::create_dir_all(site.join(dir))?;
     }
     for file in page_files(&web)? {
         std::fs::copy(web.join(&file), site.join(&file))?;
     }
-    // The page is also the app's `index.html`: the window opens `tx.html`,
-    // and the brand's link ("./", the page itself) lands on the same page.
-    std::fs::copy(web.join("tx.html"), site.join("index.html"))?;
 
     // `tauri`'s build script says whether this is the CLI's production
     // build (its custom-protocol feature): there the page must work.

@@ -326,7 +326,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .rom-note h3 { margin-bottom: var(--s2); }
 .rom-note p { max-width: 70ch; }
 
-/* satx, and the transfer page (saturnus tx). */
+/* Files, and satx on the command line. */
 .transfer p { max-width: 64ch; }
 .transfer > p { margin-bottom: var(--s3); }
 .transfer-app { margin-top: var(--s5); padding-top: var(--s4); border-top: 1px solid var(--rule-soft); }

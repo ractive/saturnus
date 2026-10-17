@@ -1,12 +1,13 @@
 // The site web/site.sh assembles: the landing page, the favicon and the
-// kill switch at the top with the .htaccess, the emulator under
-// emulator/ as the installed page needs it: its service worker precaches
-// exactly the files under emulator/ (but itself), every page file among
-// them, each with its content's SHA-256; its build hash stays put for the
-// same files, changes with any of them, and ignores the landing page; the
-// page links the manifest; the desktop app's file list has none of it. The transfer page under
-// transfer/ the same way, with its own marker, manifest, worker and
-// build. Skipped without the wasm package (`just web`).
+// kill switch at the top with the .htaccess, the same kill switch as the
+// old subsites' emulator/sw.js and transfer/sw.js and nothing else there,
+// and the app under app/ (iteration 50d) as the installed page needs it:
+// its service worker precaches exactly the files under app/ (but itself),
+// every page file among them (Calculator's and Files'), each with its
+// content's SHA-256; its build hash stays put for the same files, changes
+// with any of them, and ignores the landing page; the page links the
+// manifest, named as the one app; the desktop apps' file list has none of
+// it. Skipped without the wasm package (`just web`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -43,54 +44,69 @@ function worker(dir) {
   return { build, files: pairs.map(([f]) => f) };
 }
 
-/** Build the site of `web` into a new directory; the emulator's sw.js's BUILD and FILES, and the transfer page's (`tx`). */
+/** Build the site of `web` into a new directory; the app's sw.js's BUILD and FILES. */
 function site(web) {
   const out = mkdtempSync(join(tmpdir(), "saturnus-site-"));
   execFileSync("sh", [join(web, "site.sh"), out], { stdio: "ignore" });
-  return { out, ...worker(join(out, "emulator")), tx: worker(join(out, "transfer")) };
+  return { out, ...worker(join(out, "app")) };
 }
 
-test("the service worker precaches exactly the emulator's files, and a new build is a new hash", { skip: !built && "web/pkg not built (just web)" }, () => {
+test("the service worker precaches exactly the app's files, and a new build is a new hash", { skip: !built && "web/pkg not built (just web)" }, () => {
   const tmp = [];
   try {
     const a = site(WEB);
     tmp.push(a.out);
     // The top: the landing page, the favicon, the kill switch, the .htaccess and the marker; nothing else.
-    const top = filesUnder(a.out).filter((f) => !f.startsWith("emulator/") && !f.startsWith("transfer/"));
+    const top = filesUnder(a.out).filter((f) => !f.includes("/") || f.startsWith("img/"));
     const landing = filesUnder(join(WEB, "landing")).filter((f) => !f.startsWith("raw/") && f !== "shots.mjs" && f !== "sw.js");
     assert.deepEqual(top, [".htaccess", ".saturnus-site", "favicon.svg", ...landing, "sw.js"].sort());
-    assert.match(readFileSync(join(a.out, "sw.js"), "utf8"), /self\.registration\.unregister\(\)/, "the top's sw.js is the kill switch");
-    assert.ok(!existsSync(join(a.out, "emulator", ".htaccess")), "one .htaccess, at the top");
-    const shipped = filesUnder(join(a.out, "emulator")).filter((f) => f !== "sw.js");
+    const kill = readFileSync(join(WEB, "landing", "sw.js"), "utf8");
+    assert.match(kill, /self\.registration\.unregister\(\)/, "the top's sw.js is the kill switch");
+    assert.equal(readFileSync(join(a.out, "sw.js"), "utf8"), kill);
+    // The old subsites: their kill switch alone, so their installed pages stop.
+    for (const old of ["emulator", "transfer"]) {
+      assert.deepEqual(filesUnder(join(a.out, old)), ["sw.js"], `${old}/ has only its kill switch`);
+      assert.equal(readFileSync(join(a.out, old, "sw.js"), "utf8"), kill, `${old}/sw.js is the kill switch`);
+    }
+    assert.deepEqual(readdirSync(a.out).filter((f) => statSync(join(a.out, f)).isDirectory()).sort(), ["app", "emulator", "img", "transfer"]);
+    assert.ok(!existsSync(join(a.out, "app", ".htaccess")), "one .htaccess, at the top");
+    const shipped = filesUnder(join(a.out, "app")).filter((f) => f !== "sw.js");
     assert.deepEqual(a.files, shipped);
-    for (const f of ["index.html", "manifest.webmanifest", "pkg/saturnus_web.js", "pkg/saturnus_web_bg.wasm", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png"]) {
+    for (const f of ["index.html", "manifest.webmanifest", "pkg/saturnus_web.js", "pkg/saturnus_web_bg.wasm", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png", "app.js", "tx/app.js", "tx/protocol-worker.js", "tx/emulator-worker.js", "worker.js", "main.js", "home.js", "router.js"]) {
       assert.ok(a.files.includes(f), `${f} precached`);
     }
     const pageFiles = execFileSync("sh", [join(WEB, "site.sh"), "--list"], { encoding: "utf8" }).trim().split("\n");
     for (const f of pageFiles) assert.ok(a.files.includes(f), `page file ${f} precached`);
-    assert.ok(!pageFiles.includes("tx.html") && !pageFiles.some((f) => f.startsWith("tx/")), "the transfer page is not the emulator's");
+    assert.ok(pageFiles.includes("index.html") && pageFiles.includes("tx/app.js") && pageFiles.includes("tx/style.css"), "Files is part of the app");
+    assert.ok(!pageFiles.some((f) => /^tx\.html$|shared-worker|build\.js$/.test(f)), "no second page, no SharedWorker, no build id");
     assert.ok(pageFiles.includes("shared/icons.svg"), "the icon sprite is a page file");
-    // The desktop app embeds the page files: no worker, no manifest.
-    assert.ok(!pageFiles.some((f) => /sw\.js$|manifest|^pwa\//.test(f)), "the app's list has no installable-page file");
+    // The desktop apps embed the page files: no worker, no manifest.
+    assert.ok(!pageFiles.some((f) => /sw\.js$|manifest|^pwa\/|^tx\/pwa\//.test(f)), "the app's list has no installable-page file");
 
-    const index = readFileSync(join(a.out, "emulator", "index.html"), "utf8");
+    const index = readFileSync(join(a.out, "app", "index.html"), "utf8");
     assert.match(index, /<link rel="manifest" href="manifest.webmanifest">/);
     assert.match(index, /<link rel="apple-touch-icon" href="icons\/apple-touch-icon.png">/);
     assert.match(index, /http-equiv="Content-Security-Policy"/);
-    // The way to saturnus tx, its sibling (shared/site-links.js; site.sh checks it names a page).
-    assert.match(index, /<a id="to-transfer"[^>]* href="\.\.\/transfer\/"[^>]*>.*<span>Files<\/span><\/a>/);
-    assert.ok(existsSync(join(a.out, "emulator", "../transfer/index.html")));
+    // One document: the home page and both views, linked by their routes.
+    for (const id of ["home-view", "calculator-view", "files-view"]) assert.match(index, new RegExp(`<div id="${id}"`));
+    assert.match(index, /<a id="to-transfer"[^>]* href="#\/files"[^>]*>.*<span>Files<\/span><\/a>/);
+    assert.match(index, /<a id="to-emulator"[^>]* href="#\/calculator"[^>]*>.*<span>Calculator<\/span><\/a>/);
+    assert.match(index, /<a class="home-landing[^"]*" href="\.\.\/" data-site="landing"/, "the landing page, one up");
+    assert.doesNotMatch(index, /saturnus tx/, "the views are Calculator and Files");
     const landingIndex = readFileSync(join(a.out, "index.html"), "utf8");
     assert.doesNotMatch(landingIndex, /manifest|Content-Security-Policy/, "the landing page is copied as it is");
-    assert.match(landingIndex, /href="emulator\/"/, "the landing page links the emulator");
-    assert.match(landingIndex, /href="transfer\/"/, "and the transfer page");
-    assert.doesNotMatch(landingIndex, /Coming soon/);
+    assert.match(landingIndex, /href="app\/"/, "the landing page links the app");
+    assert.doesNotMatch(landingIndex, /href="(emulator|transfer)\/"/, "and nothing else of it");
+    assert.doesNotMatch(landingIndex, /Coming soon|saturnus tx/);
     // The headline leads with saturnus; HP only in running text (owner, 2026-10-14).
     assert.match(landingIndex, /<title>saturnus: classic HP calculators in your browser<\/title>/);
     assert.match(landingIndex, /<h1>saturnus: classic HP calculators in your browser<\/h1>/);
-    const manifest = JSON.parse(readFileSync(join(a.out, "emulator", "manifest.webmanifest"), "utf8"));
+    const manifest = JSON.parse(readFileSync(join(a.out, "app", "manifest.webmanifest"), "utf8"));
     for (const icon of manifest.icons) assert.ok(a.files.includes(icon.src), `${icon.src} shipped`);
     assert.equal(manifest.start_url, "./");
+    assert.equal(manifest.short_name, "saturnus");
+    assert.match(manifest.name, /^saturnus/);
+    assert.match(manifest.description, /calculators/);
 
     // The same files, the same build; one changed byte, another.
     const b = site(WEB);
@@ -104,58 +120,22 @@ test("the service worker precaches exactly the emulator's files, and a new build
     tmp.push(c.out);
     assert.notEqual(c.build, a.build);
     assert.deepEqual(c.files, a.files);
-    // A landing-page change leaves the emulator's build alone.
+    // A landing-page change leaves the app's build alone.
     appendFileSync(join(copy, "landing", "style.css"), "\n");
     const d = site(copy);
     tmp.push(d.out);
     assert.equal(d.build, c.build);
-    // style.css is the emulator's alone; a shared file is both pages'.
-    assert.equal(c.tx.build, a.tx.build, "the emulator's stylesheet is not the transfer page's");
+    // Files' and the shared files are the app's too.
     appendFileSync(join(copy, "tx", "style.css"), "\n");
     const e = site(copy);
     tmp.push(e.out);
-    assert.equal(e.build, d.build, "the transfer page's change leaves the emulator's build alone");
-    assert.notEqual(e.tx.build, d.tx.build);
+    assert.notEqual(e.build, d.build);
     appendFileSync(join(copy, "shared", "tokens.css"), "\n");
     const f = site(copy);
     tmp.push(f.out);
     assert.notEqual(f.build, e.build);
-    assert.notEqual(f.tx.build, e.tx.build);
   } finally {
     for (const d of tmp) rmSync(d, { recursive: true, force: true });
-  }
-});
-
-test("the transfer page: its own subsite, marker, manifest, worker and file list", { skip: !built && "web/pkg not built (just web)" }, () => {
-  const out = mkdtempSync(join(tmpdir(), "saturnus-site-"));
-  try {
-    execFileSync("sh", [join(WEB, "site.sh"), out], { stdio: "ignore" });
-    const tx = join(out, "transfer");
-    const { files } = worker(tx);
-    assert.ok(existsSync(join(tx, ".saturnus-transfer")), "its own marker");
-    assert.ok(!files.includes(".saturnus-transfer"), "not precached");
-    assert.deepEqual(files, filesUnder(tx).filter((f) => f !== "sw.js" && !f.startsWith(".")));
-    for (const f of ["index.html", "manifest.webmanifest", "tx/app.js", "tx/protocol-worker.js", "tx/emulator-worker.js", "pkg/saturnus_web.js", "pkg/saturnus_web_bg.wasm", "shared/icons.svg", "icons/icon-512.png", "favicon.svg"]) {
-      assert.ok(files.includes(f), `${f} precached`);
-    }
-    assert.ok(!files.some((f) => f.startsWith("tx/pwa/") || f.endsWith(".sh") || f.startsWith("components/")), "no build files, no emulator components");
-    const listed = execFileSync("sh", [join(WEB, "site.sh"), "--list", "transfer"], { encoding: "utf8" }).trim().split("\n");
-    assert.ok(listed.includes("tx.html") && listed.includes("tx/app.js") && listed.includes("shared/icons.svg"));
-    for (const f of listed) assert.ok(f === "tx.html" ? files.includes("index.html") : files.includes(f), `${f} shipped`);
-    const index = readFileSync(join(tx, "index.html"), "utf8");
-    assert.match(index, /<title>saturnus tx<\/title>/);
-    // The way to the emulator, its sibling, and the module that sets the links.
-    assert.match(index, /<a id="to-emulator"[^>]* href="\.\.\/emulator\/"[^>]*>.*<span>Calculator<\/span><\/a>/);
-    assert.ok(files.includes("shared/site-links.js"));
-    assert.match(index, /<link rel="manifest" href="manifest.webmanifest">/);
-    assert.match(index, /http-equiv="Content-Security-Policy"/);
-    const manifest = JSON.parse(readFileSync(join(tx, "manifest.webmanifest"), "utf8"));
-    assert.equal(manifest.short_name, "saturnus tx");
-    for (const icon of manifest.icons) assert.ok(files.includes(icon.src), `${icon.src} shipped`);
-    // The same worker as the emulator's, behind its own constants: its caches are its scope's.
-    assert.equal(readFileSync(join(tx, "sw.js"), "utf8").split("\n\n").slice(1).join("\n\n"), readFileSync(join(out, "emulator", "sw.js"), "utf8").split("\n\n").slice(1).join("\n\n"));
-  } finally {
-    rmSync(out, { recursive: true, force: true });
   }
 });
 

@@ -44,7 +44,7 @@
   <nav aria-label="Sections">
     <a href="#models">Models</a>
     <a href="#get">Get it</a>
-    <a href="#transfer">Transfer</a>
+    <a href="#transfer">Files</a>
     <a href="https://github.com/ractive/saturnus">Source</a>
   </nav>
 </header>
@@ -56,7 +56,7 @@
     <h1>saturnus: classic HP calculators in your browser</h1>
     <p class="lead">saturnus emulates the HP 48SX, HP 48GX, HP 49G, HP 38G, HP 39G, HP 40G, HP 42S, HP 27S, HP 17BII, HP 17B, HP 28S and HP 19BII. Use it in the browser, as a desktop app or from the command line.</p>
     <p class="actions">
-      <a class="button primary" href="emulator/">Open the emulator</a>
+      <a class="button primary" href="app/">Open saturnus</a>
       <a class="button" href="#get">Desktop and command line</a>
     </p>
     <p class="fine">Free and open source (MIT). Nothing is uploaded: the ROM and your work stay on your device. No ROM is included; <a href="#rom">get one from hpcalc.org</a>.</p>
@@ -186,8 +186,8 @@
   <div class="get-grid">
     <div class="get-card">
       <h3>Web</h3>
-      <p>Nothing to install. The page works offline after the first visit and can be added to a phone's home screen.</p>
-      <p><a class="button primary" href="emulator/">Open the emulator</a></p>
+      <p>Nothing to install. The app works offline after the first visit and can be added to a phone's home screen.</p>
+      <p><a class="button" href="app/">Open saturnus</a></p>
     </div>
     <div class="get-card">
       <h3>Desktop app</h3>
@@ -214,19 +214,18 @@ scoop install saturnus</code></pre>
 </section>
 
 <section id="transfer" class="transfer">
-  <h2>satx moves files to a real calculator</h2>
-  <p>satx is the command-line transfer tool. It sends and receives files over a serial cable with an HP 48 or 49, by Kermit or XModem, and it talks to the emulator the same way.</p>
+  <h2>Files: to and from a calculator</h2>
+  <p>The app's Files moves files between a calculator and your computer: an emulated one beside you in the app, or a real HP 48 or 49 on a serial cable (in Chrome and Edge on a computer, through Web Serial). Get and put files, back up the whole memory, serve a folder to a 38G, 39G or 40G. It is in the <a href="app/">same app</a> as the calculators.</p>
+  <div class="transfer-app">
+    <div class="transfer-head">
+      <h3>satx, on the command line</h3>
+    </div>
+    <p>satx sends and receives files over a serial cable with an HP 48 or 49, by Kermit or XModem, and it talks to the emulator the same way.</p>
 <pre><code>cargo install satx
 brew trust --formula ractive/tap/satx
 brew install ractive/tap/satx
 scoop install satx</code></pre>
-  <p class="fine">Scoop needs the bucket from the command line's lines above. Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases">releases page</a> (the package <code>satx</code>).</p>
-  <div class="transfer-app">
-    <div class="transfer-head">
-      <h3>saturnus tx, the transfer page</h3>
-    </div>
-    <p>The same transfers in a page: start the calculator's server, plug in the cable, get and put files. In Chrome and Edge on a computer (Web Serial); the emulated calculator works in every browser. A desktop app follows.</p>
-    <p><a class="button" href="transfer/">Open saturnus tx</a></p>
+    <p class="fine">Scoop needs the bucket from the command line's lines above. Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases">releases page</a> (the package <code>satx</code>).</p>
   </div>
 </section>
 

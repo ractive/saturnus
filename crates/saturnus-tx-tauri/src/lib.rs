@@ -1,5 +1,6 @@
 //! saturnus tx, the desktop app (kb/iterations/iteration-40-tx-desktop.md):
-//! the transfer page (web/tx.html, embedded by `build.rs`) in a Tauri
+//! the web app's Files view (web/index.html, route #/files, embedded by
+//! `build.rs`) in a Tauri
 //! window, with what a browser cannot give it as commands. The protocol
 //! stays in the page's wasm (kb/docs/saturnus-tx.md, "Crates and
 //! folders"); this side only moves bytes and files:
