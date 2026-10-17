@@ -21,9 +21,13 @@ What [[iterations/iteration-50-one-app-web]] and
 - [ ] [[backlog/desktop-shared-calculator]] closed as superseded; iteration 47 and 49 owner checks marked superseded
 - [ ] `hyalo lint` clean
 
-## Owner's own cleanup (outside the repo)
+## Local cleanup (done by Claude, owner 2026-10-17)
 
-- Uninstall the installed web apps "saturnus" and "saturnus tx" on every device. Do **not** clear ractive.ch's site data: kept ROMs, states and settings are in it. If an old service worker lingers: DevTools → Application → Service workers → Unregister.
-- `brew uninstall --cask saturnus-tx` (or delete "saturnus tx.app"); delete `~/Library/Application Support/ch.ractive.saturnus-tx`; the same on Windows and Linux if installed there.
-- Bookmarks to `/saturnus/emulator/` and `/saturnus/transfer/`.
-- After the first deploy: check the FTP for empty `emulator/` and `transfer/` folders.
+Checked on the owner's Mac on 2026-10-17: no saturnus desktop app or cask
+installed, no Chrome-installed web app, no `ch.ractive.saturnus-tx` data;
+only the webview data of `ch.ractive.saturnus` (dev runs), which the merged
+app keeps using. So:
+
+- [ ] After iteration 51's release: remove the `saturnus-tx` cask from the tap and check `brew` no longer offers it
+- [ ] After the first deploy of iteration 50: check the FTP for empty `emulator/` and `transfer/` folders and remove them
+- [ ] Left to the owner (other devices, not reachable from here): uninstall the installed web apps "saturnus" and "saturnus tx" on the phone and iPad, without clearing ractive.ch's site data (kept ROMs, states, settings live there)
