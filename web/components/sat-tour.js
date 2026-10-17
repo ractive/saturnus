@@ -10,6 +10,7 @@
 
 import { OFFER_KEY, TourRun, animationsDone, chapter, context, fillText, nextChapter, offerShown } from "../tour.js";
 import { icon } from "../shared/components/icons.js";
+import { shown, viewRoot } from "../view.js";
 
 const TEMPLATE = `
   <div class="tour-ring" hidden></div>
@@ -96,14 +97,16 @@ export class SatTour extends HTMLElement {
       to?.focus({ preventScroll: true });
     });
     this.onKey = (e) => {
-      if (e.key !== "Escape" || !this.run) return;
+      if (e.key !== "Escape" || !this.run || !shown()) return;
       // A modal dialog opened over the tour (Search, say) keeps its Esc.
       if ([...document.querySelectorAll("dialog[open]")].some((d) => d.matches(":modal"))) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       this.end();
     };
-    this.onMove = () => this.place();
+    this.onMove = () => {
+      if (shown()) this.place();
+    };
     // The offer lives on the stage, over the top of the calculator's case.
     document.getElementById("stage")?.append(this.offerLine);
   }
@@ -229,7 +232,7 @@ export class SatTour extends HTMLElement {
     document.removeEventListener("scroll", this.onMove, true);
     this.ring.hidden = true;
     this.bubble.close();
-    document.body.classList.remove("tour-room");
+    viewRoot()?.classList.remove("tour-room");
     this.anchor = null;
     await this.hooks.restore(this.snap);
     const back = this.returnTo;
@@ -304,7 +307,7 @@ export class SatTour extends HTMLElement {
     const top = this.bubble.getBoundingClientRect().top;
     if (el.getBoundingClientRect().bottom + GAP <= top) return;
     document.documentElement.style.setProperty("--tour-room", `${Math.ceil(this.bubble.offsetHeight)}px`);
-    document.body.classList.add("tour-room");
+    viewRoot()?.classList.add("tour-room");
     let box = el.parentElement;
     while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowY) && box.scrollHeight > box.clientHeight)) box = box.parentElement;
     if (!box) return;

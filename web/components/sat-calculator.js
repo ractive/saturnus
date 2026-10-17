@@ -16,6 +16,7 @@ import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenRgb
 import { copyPng, pngBlob } from "../shared/png.js";
 import { closeMenu, openMenu, openMenuKey } from "../shared/components/menu.js";
 import { screenRefusal } from "../writes.js";
+import { shown } from "../view.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** The skin may shrink this much so the LCD lands on whole device pixels. */
@@ -479,8 +480,14 @@ export class SatCalculator extends HTMLElement {
     store.watch(["booted", "model", "roms"], () => this.onModel());
 
     store.watch(["busy"], (s) => this.classList.toggle("typing", s.busy));
-    document.addEventListener("paste", (e) => this.onPaste(e));
-    document.addEventListener("keydown", (e) => this.onKeyDown(e));
+    // A hidden view (view.js) takes no keys or pastes; a release is always
+    // heard, for a key held when the view was hidden.
+    document.addEventListener("paste", (e) => {
+      if (shown()) this.onPaste(e);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (shown()) this.onKeyDown(e);
+    });
     document.addEventListener("keyup", (e) => this.onKeyUp(e));
     // Keys held when the window loses the focus or the page goes to the
     // background (a phone's app switcher) would never see their release.
@@ -1208,7 +1215,9 @@ export class SatCalculator extends HTMLElement {
    */
   watchModifiers() {
     this.glow = new ModifierGlow({ onChange: (lit) => this.showGlow(lit) });
-    window.addEventListener("keydown", (e) => this.glow.keydown(e, this.ownsKeys(e)), true);
+    window.addEventListener("keydown", (e) => {
+      if (shown()) this.glow.keydown(e, this.ownsKeys(e));
+    }, true);
     window.addEventListener("keyup", (e) => {
       if (this.glow.keyup(e) && this.ownsKeys(e)) e.preventDefault();
     }, true);

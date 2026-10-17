@@ -56,7 +56,7 @@ test("the emulator links to saturnus tx and the landing page; its palette opens 
   // On a phone the panel is a sheet under the bar; the link is in it.
   await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await ev(`document.getElementById("bar-menu").click(); true`);
-  await until(ev, `document.body.classList.contains("sheet-open") && document.getElementById("to-transfer").getBoundingClientRect().height > 0`, 5_000, "the link in the sheet");
+  await until(ev, `document.getElementById("calculator-view").classList.contains("sheet-open") && document.getElementById("to-transfer").getBoundingClientRect().height > 0`, 5_000, "the link in the sheet");
 
   // The desktop app: no link, no palette action, the brands their own page.
   await send("Page.addScriptToEvaluateOnNewDocument", { source: TAURI });
