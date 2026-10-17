@@ -242,16 +242,22 @@ export class RomStore {
   /**
    * `chooseRom`: `files` (`[{name, rom}]`, chosen by the user) are
    * identified and assigned for `model`, or an earlier `offer` is taken.
+   * Without `boot` (the home page) nothing boots: the result's `start`
+   * names the model that would have.
    */
-  async chooseRom(model, files, offer) {
+  async chooseRom(model, files, offer, { boot = true } = {}) {
     await this.load();
+    const then = async (start, notice) => {
+      if (!start) return this.result(null, notice);
+      return boot ? this.bootChosen(start, notice) : { ...(await this.result(null, notice)), start };
+    };
     if (offer !== undefined && offer !== null) {
       const o = this.offers.find((x) => x.id === Number(offer) && x.models.includes(model));
       if (!o) throw new Error("that offer is no longer open");
       await this.assign(model, o.rec);
       o.models = o.models.filter((m) => m !== model);
       this.offers = this.offers.filter((x) => x.models.length);
-      return this.bootChosen(model, "");
+      return then(model, "");
     }
     if (!Array.isArray(files) || !files.length) throw new Error('"files" must hold at least one ROM file');
     const recs = files.map((f) => {
@@ -268,7 +274,7 @@ export class RomStore {
     // The record (with its identity, `rec.id`) under its own key: the
     // offer's `id` is its number.
     this.offers = p.offer.map((o) => ({ id: this.nextOffer++, models: o.models, rec: recs[o.file] }));
-    return p.boot ? this.bootChosen(p.boot, p.notice) : this.result(null, p.notice);
+    return then(p.boot, p.notice);
   }
 
   /** `forgetRom`: one model's ROM, or every ROM (`null`), and the offers. */
@@ -291,7 +297,7 @@ export class RomStore {
     return this.result(null);
   }
 
-  /** `romSettings`: whether the last model boots when the page opens. */
+  /** `romSettings`: whether the app opens on the last model. */
   async settings(bootLast) {
     await this.load();
     this.bootLast = Boolean(bootLast);

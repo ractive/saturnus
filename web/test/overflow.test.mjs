@@ -89,9 +89,8 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   const reset = () => ev(`(() => {
     for (const d of document.querySelectorAll("dialog[open]")) d.close();
     document.getElementById("calculator-view").classList.remove("sheet-open");
-    document.getElementById("roms")?.removeAttribute("open");
     const s = window.saturnus.store;
-    s.set({ storageOffer: null, cmdlineOpen: false });
+    s.set({ cmdlineOpen: false });
     if (s.state.booted) s.set({ booted: null });
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     return window.saturnus.setLayer(false);
@@ -112,8 +111,6 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
     await ev(`window.saturnus.palette.open(${JSON.stringify(query)})`);
     assert.ok(await until(`document.querySelectorAll("dialog.palette .prow").length > 3`), "the palette listed its rows");
   };
-  // A ROM shown as kept (no ROM is needed for the ROMs panel's look).
-  const KEPT = `(() => { const s = window.saturnus.store; s.set({ storage: "best-effort", roms: { ...s.state.roms, slots: s.state.roms.slots.map((x, i) => i ? x : { ...x, fileName: "a-rom-file-with-a-long-name.bin", state: "ready" }) } }); })()`;
   // Shown and on: the page has read the (stubbed) open command line.
   const EDIT_SHOWN = `[...document.querySelectorAll("#bar-edit, #cmdline-edit")].some((b) => b.checkVisibility() && b.getAttribute("aria-disabled") === "false")`;
   /** What must still hold when a view is measured, or it measured something else. */
@@ -138,7 +135,6 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   const VIEWS = {
     calculator: () => ev(`window.saturnus.store.set({ message: "A status line long enough to wrap in the panel of a narrow phone, with-a-very-long-unbroken-token-in-it" })`),
     sheet: () => ev(`document.getElementById("calculator-view").classList.add("sheet-open")`),
-    roms: () => ev(`document.getElementById("calculator-view").classList.add("sheet-open"); document.getElementById("roms").open = true; ${KEPT}`),
     // The saved states' "⋯" (iteration 34), its menu open in the panel.
     "states menu": async () => {
       await ev(`window.saturnus.store.set({ booted: "48gx" }); document.getElementById("calculator-view").classList.add("sheet-open")`);
@@ -146,7 +142,6 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
       await ev(`document.getElementById("state-more").click()`);
       assert.ok(await until(`!!document.querySelector(".menu")`), "the menu opened");
     },
-    storage: () => ev(`window.saturnus.store.set({ storageOffer: "ask" })`),
     vars: () => layer("vars"),
     stack: () => layer("stack"),
     flags: () => layer("flags"),
@@ -217,64 +212,6 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   }
   assert.deepEqual(failures, []);
 
-  // Persistent storage asked for in context (kb iteration 28b): the
-  // notice after a ROM is kept, Keep it, Not now, the ROMs panel's button.
-  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
-  await metrics(390, 844);
-  await reset();
-  // The backend's answer to a chosen file, stubbed: a new ROM kept in
-  // the first slot each time, or (`rejected`) the slots as they were.
-  await ev(`(() => {
-    const b = window.saturnus.backend;
-    let n = 0;
-    b.chooseRom = async (model, files) => {
-      const roms = window.saturnus.store.state.roms;
-      if (files[0].name === "rejected") return { ...roms, notice: "Not a ROM this page knows." };
-      return { ...roms, slots: roms.slots.map((x, i) => i ? x : { ...x, fileName: "rom-" + ++n, state: "ready" }) };
-    };
-  })()`);
-  const choose = (name = "rom") => ev(`window.saturnus.chooseRoms([new File(["x"], ${JSON.stringify(name)})])`);
-  // Read once the layout has settled: the inside check is a measurement.
-  const notice = () => settled(`(() => { const n = document.querySelector(".storage-notice"); if (!n) return null; const r = n.getBoundingClientRect(); return { text: n.querySelector("p").textContent, buttons: [...n.querySelectorAll("button")].map((b) => b.textContent), inPanel: !!n.closest("sat-controls"), inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }; })()`);
-  const click = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).click()`);
-  const asked = () => ev(`localStorage.getItem("saturnus.storageAsk")`);
-  await choose();
-  assert.ok(await until(`!!document.querySelector(".storage-notice")`), "the notice after a ROM is kept");
-  const ask = await notice();
-  assert.match(ask.text, /^Keep this ROM on this device\?/);
-  assert.deepEqual(ask.buttons, ["Not now", "Keep it"]);
-  assert.ok(ask.inPanel, "in the panel (the sheet), not over the keys");
-  await ev(`document.getElementById("calculator-view").classList.add("sheet-open"); true`);
-  assert.ok((await notice()).inside, "inside the viewport at 390 px with the sheet open");
-  await ev(`document.getElementById("calculator-view").classList.remove("sheet-open"); true`);
-  await click(".storage-notice button.primary");
-  assert.ok(await until(`window.__persist.length === 1`), "Keep it calls persist()");
-  assert.ok(await until(`/said no/.test(document.querySelector(".storage-notice p")?.textContent)`), "the refusal in one line");
-  await click(".storage-notice button");
-  assert.equal(await notice(), null, "OK closes it");
-  assert.equal(await asked(), "refused", "a refusal is remembered");
-  await choose();
-  await sleep(300);
-  assert.equal(await notice(), null, "and the next ROM does not ask again");
-  await ev(`localStorage.removeItem("saturnus.storageAsk")`);
-  await choose("rejected");
-  await sleep(300);
-  assert.equal(await notice(), null, "a file that keeps nothing offers nothing");
-  await choose();
-  assert.ok(await until(`!!document.querySelector(".storage-notice")`));
-  await click(".storage-notice button:not(.primary)");
-  assert.equal(await notice(), null, "Not now closes it");
-  assert.equal(await asked(), "not-now", "Not now is remembered");
-  await choose();
-  await sleep(300);
-  assert.equal(await notice(), null, "and the notice is not offered again");
-  await ev(`document.getElementById("calculator-view").classList.add("sheet-open"); document.getElementById("roms").open = true; ${KEPT}`);
-  assert.equal(await ev(`document.querySelector(".rom-storage .storage-state").textContent`), "May be cleared when space runs low.");
-  await click("#rom-keep");
-  assert.ok(await until(`window.__persist.length === 2`), "the ROMs panel's Keep permanently calls persist()");
-  await ev(`localStorage.removeItem("saturnus.storageAsk")`);
-  await reset();
-
   // The palette on a phone with the keyboard up: the sheet follows the
   // visual viewport (simulated by a shorter viewport), the input and the
   // list stay inside it, a tapped row opens its entry with the way
@@ -326,6 +263,116 @@ test("no horizontal overflow on any view at any width; the palette as a phone sh
   assert.deepEqual(c.errors, [], "no exception in the page");
 });
 
+/** The home page's ROM slots, stubbed: two kept (one with a long file name), the rest new. */
+const HOME_SLOTS = `(() => {
+  const d = (file) => ({ file, size: 1, url: "https://www.hpcalc.org/x.zip", page: "https://www.hpcalc.org/details/1", revision: "rev" });
+  return { slots: SATURNUS_MODEL_ORDER.map((model, i) => i === 1 ? { model, fileName: "a-rom-file-with-a-long-name-that-runs-on.bin", revision: "R", state: "ready", download: d("gxrom-r") }
+    : i === 6 ? { model, fileName: "hp42s.rom", revision: null, state: "ready", download: null }
+    : { model, fileName: null, revision: null, state: "empty", download: model.startsWith("4") || model.startsWith("3") ? d(model + ".rom") : null }), offers: [{ id: 1, models: ["48gx", "38g"], fileName: "a-file-that-fits-two-models.bin" }], lastModel: null, bootLast: true, remembered: true, note: null };
+})()`;
+
+test("the home page: no horizontal overflow at any width; the keep offer after a ROM is kept, in context", { timeout: 180_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, settled, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+  const metrics = (width, height) => send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 2, mobile: width < 1000 });
+  await metrics(390, 844);
+  // persist() recorded (and refused), to see that the page never calls it by itself.
+  await send("Page.addScriptToEvaluateOnNewDocument", { source: `
+    window.__persist = [];
+    navigator.storage.persist = () => { window.__persist.push(new Error().stack); return Promise.resolve(false); };
+    navigator.storage.persisted = () => Promise.resolve(false);` });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/` });
+  for (let i = 0; i < 100 && !(await ev("!!window.saturnusApp?.home").catch(() => false)); i++) await sleep(100);
+  await sleep(300);
+  assert.equal(await ev("window.__persist.length"), 0, "no persist() on load");
+  const until = async (expression, ms = 8000) => {
+    for (let i = 0; i < ms / 100; i++) {
+      if (await ev(expression).catch(() => false)) return true;
+      await sleep(100);
+    }
+    return false;
+  };
+  // The slots and the answer to a chosen file, stubbed: a new ROM kept in
+  // the first slot each time (nothing opened), or (`rejected`) the slots
+  // as they were.
+  await ev(`(() => {
+    const h = saturnusApp.home;
+    let slots = ${HOME_SLOTS};
+    let n = 0;
+    h.roms.started = () => true;
+    h.roms.romSlots = async () => slots;
+    h.roms.running = async () => ["48gx"];
+    h.roms.chooseRom = async (model, files) => {
+      if (files[0].name === "rejected") return { ...slots, notice: "Not a ROM this page knows." };
+      slots = { ...slots, slots: slots.slots.map((x, i) => i ? x : { ...x, fileName: "rom-" + ++n, state: "ready" }) };
+      return slots;
+    };
+    return h.render().then(() => true);
+  })()`);
+  await ev(`document.getElementById("home-new").click(); true`);
+  assert.ok(await until(`!document.getElementById("home-new-section").hidden && document.querySelectorAll("#home-models li").length > 3`), "New calculator open");
+  const failures = [];
+  for (const w of WIDTHS) {
+    for (const scheme of ["light", "dark"]) {
+      await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: scheme }] });
+      await metrics(w, HEIGHTS[w]);
+      await sleep(100);
+      const m = await settled(MEASURE);
+      if (m.page > 0) failures.push(`home at ${w}px ${scheme}: the page is ${m.page}px too wide (innerWidth ${m.inner})`);
+      for (const s of m.scrollers) failures.push(`home at ${w}px ${scheme}: ${s} scrolls sideways`);
+      // Every row's buttons inside the window.
+      const out = await ev(`[...document.querySelectorAll("#home-view .home-calc button, #home-view .home-calc a.button")].filter((b) => { const r = b.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth; }).map((b) => b.closest("li").dataset.model + ":" + b.textContent)`);
+      for (const b of out) failures.push(`home at ${w}px ${scheme}: ${b} outside the window`);
+    }
+  }
+  assert.deepEqual(failures, []);
+
+  // Persistent storage asked for in context (kb iteration 28b): the
+  // notice after a ROM is kept, Keep it, Not now, Keep permanently.
+  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
+  await metrics(390, 844);
+  const choose = (name = "rom") => ev(`saturnusApp.home.chooseFiles("48sx", [new File(["x"], ${JSON.stringify(name)})]).then(() => true)`);
+  const notice = () => settled(`(() => { const n = document.querySelector(".storage-notice"); if (!n) return null; const r = n.getBoundingClientRect(); return { text: n.querySelector("p").textContent, buttons: [...n.querySelectorAll("button")].map((b) => b.textContent), onHome: !!n.closest("#home-view"), inside: r.left >= 0 && r.right <= innerWidth }; })()`);
+  const click = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).click()`);
+  const asked = () => ev(`localStorage.getItem("saturnus.storageAsk")`);
+  await choose();
+  assert.ok(await until(`!!document.querySelector(".storage-notice")`), "the notice after a ROM is kept");
+  const ask = await notice();
+  assert.match(ask.text, /^Keep this ROM on this device\?/);
+  assert.deepEqual(ask.buttons, ["Not now", "Keep it"]);
+  assert.ok(ask.onHome && ask.inside, "on the home page, inside the window at 390 px");
+  await click(".storage-notice button.primary");
+  assert.ok(await until(`window.__persist.length === 1`), "Keep it calls persist()");
+  assert.ok(await until(`/said no/.test(document.querySelector(".storage-notice p")?.textContent)`), "the refusal in one line");
+  await click(".storage-notice button");
+  assert.equal(await notice(), null, "OK closes it");
+  assert.equal(await asked(), "refused", "a refusal is remembered");
+  await choose();
+  await sleep(300);
+  assert.equal(await notice(), null, "and the next ROM does not ask again");
+  await ev(`localStorage.removeItem("saturnus.storageAsk")`);
+  await choose("rejected");
+  await sleep(300);
+  assert.equal(await notice(), null, "a file that keeps nothing offers nothing");
+  await choose();
+  assert.ok(await until(`!!document.querySelector(".storage-notice")`));
+  await click(".storage-notice button:not(.primary)");
+  assert.equal(await notice(), null, "Not now closes it");
+  assert.equal(await asked(), "not-now", "Not now is remembered");
+  await choose();
+  await sleep(300);
+  assert.equal(await notice(), null, "and the notice is not offered again");
+  assert.equal(await ev(`location.hash`), "#/", "nothing opened: no model was started");
+  assert.equal(await ev(`document.querySelector("#home-storage .storage-state").textContent`), "May be cleared when space runs low.");
+  await click("#home-keep");
+  assert.ok(await until(`window.__persist.length === 2`), "Keep permanently calls persist()");
+  assert.deepEqual(c.errors, [], "no exception in the page");
+});
+
 /** Fullscreen on phones: the models and the sizes the face is checked at. */
 const FS_MODELS = ["48sx", "48gx", "49g", "38g", "39g", "40g", "42s"];
 const FS_SIZES = [[360, 780], [390, 844], [430, 932], [844, 390], [932, 430]];
@@ -370,7 +417,7 @@ test("fullscreen: the keys take a phone's width and the buttons cover nothing", 
   const overlap = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
   const failures = [];
   for (const model of FS_MODELS) {
-    await ev(`(() => { const s = document.getElementById("model"); s.value = ${JSON.stringify(model)}; s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await ev(`window.saturnus.store.set({ model: ${JSON.stringify(model)}, wanted: ${JSON.stringify(model)} }), true`);
     await sleep(400);
     for (const [w, h] of FS_SIZES) {
       await metrics(w, h);
@@ -471,7 +518,7 @@ test("fullscreen with a mouse: the whole calculator, scaled to the screen", { ti
   const overlap = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
   const failures = [];
   for (const model of FS_MODELS) {
-    await ev(`(() => { const s = document.getElementById("model"); s.value = ${JSON.stringify(model)}; s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await ev(`window.saturnus.store.set({ model: ${JSON.stringify(model)}, wanted: ${JSON.stringify(model)} }), true`);
     await sleep(400);
     for (const [w, h] of FS_DESKTOP) {
       await metrics(w, h);
@@ -517,7 +564,7 @@ test("the no-ROM message fits every model's display at every size", { timeout: 1
   await ev("window.saturnus.started");
   const failures = [];
   for (const model of FS_MODELS) {
-    await ev(`(() => { const s = document.getElementById("model"); s.value = ${JSON.stringify(model)}; s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await ev(`window.saturnus.store.set({ model: ${JSON.stringify(model)}, wanted: ${JSON.stringify(model)} }), true`);
     await sleep(400);
     for (const [w, h, mobile] of NOROM_SIZES) {
       await metrics(w, h, mobile);
@@ -581,20 +628,16 @@ test("a no-ROM message cut short keeps the whole of it: tooltip, and a tap shows
   for (let i = 0; i < 100 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
   const pick = async (model) => {
-    await ev(`(() => { const s = document.getElementById("model"); s.value = ${JSON.stringify(model)}; s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await ev(`window.saturnus.store.set({ model: ${JSON.stringify(model)}, wanted: ${JSON.stringify(model)} }), true`);
     await sleep(500);
   };
-  const state = () => ev(`(() => { const n = document.querySelector(".no-rom"); return { cls: n.className, title: n.title, hint: n.querySelector(".no-rom-get").hidden ? null : n.querySelector(".no-rom-get").textContent }; })()`);
-  // The 48SX on its side: the first sentence; the hint's words in the tooltip.
-  await pick("48sx");
-  const sx = await state();
-  assert.match(sx.cls, /\bshort\b/);
-  assert.ok(sx.hint, "the page has a hint for the 48SX");
-  assert.equal(sx.title, `No ROM yet. Choose any model's ROM file; saturnus recognises it. ${sx.hint}`, "a first visit: no ROM for any model");
-  // The 42S: a tap on the text opens its whole message.
+  const state = () => ev(`(() => { const n = document.querySelector(".no-rom"); return { cls: n.className, title: n.title }; })()`);
+  // The 42S on its side: its first sentence, the whole message in the tooltip.
   await pick("42s");
   const s42 = await state();
-  assert.match(s42.title, /HP never published it/);
+  assert.match(s42.cls, /\bshort\b/);
+  assert.match(s42.title, /^No ROM for the HP.42S\. HP never published it/);
+  // A tap on the text opens its whole message, with the way home.
   const [x, y] = await ev(`(() => { const r = document.querySelector(".no-rom-text").getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
   await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
   await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
@@ -602,11 +645,11 @@ test("a no-ROM message cut short keeps the whole of it: tooltip, and a tap shows
   const menu = await ev(`(() => { const m = document.querySelector(".menu"); return m && { note: m.querySelector(".menu-note")?.textContent, items: [...m.querySelectorAll("[role=menuitem]")].map((b) => b.textContent), inView: m.getBoundingClientRect().right <= innerWidth && m.getBoundingClientRect().bottom <= innerHeight }; })()`);
   assert.ok(menu, "a menu opened");
   assert.match(menu.note, /HP never published it: read the ROM out of your own calculator/);
-  assert.ok(menu.items.includes("Choose ROM…"));
+  assert.deepEqual(menu.items, ["Your calculators"]);
   assert.equal(menu.inView, true, "on the screen");
 });
 
-test("the palette: Choose the ROM first without a calculator, Change it after the calculator's actions; off controls say why", { timeout: 120_000 }, async (t) => {
+test("the palette: Switch calculator first without a calculator, after the calculator's actions with one; off controls say why", { timeout: 120_000 }, async (t) => {
   const c = await session(t);
   if (!c) return;
   const { send, ev, port } = c;
@@ -625,19 +668,18 @@ test("the palette: Choose the ROM first without a calculator, Change it after th
   };
   await ev(`window.saturnus.store.set({ model: "48gx", booted: null }); true`);
   let r = await rows();
-  assert.equal(r.titles[0], "Choose the HP 48GX ROM…");
+  assert.equal(r.titles[0], "Switch calculator");
   const titles = await ev(`[...document.querySelectorAll("#reset, #save, #load, #copy-screen")].map((b) => [b.disabled, b.title])`);
   for (const [off, title] of titles) assert.deepEqual([off, title], [true, "Start the calculator first"]);
-  // The model runs: its actions first, then Change.
+  // The model runs: its actions first, then the way home.
   await ev(`window.saturnus.store.set({ booted: "48gx", running: true }); true`);
   r = await rows();
-  assert.deepEqual(r.titles.slice(0, 4), ["Pause the calculator", "Reset the calculator", "Save state", "Change the HP 48GX ROM…"]);
-  assert.ok(!r.titles.includes("Choose the HP 48GX ROM…"));
+  assert.deepEqual(r.titles.slice(0, 4), ["Pause the calculator", "Reset the calculator", "Save state", "Switch calculator"]);
   assert.match(r.foot, /move · .*Enter.* run/);
   assert.deepEqual(await ev(`[document.getElementById("reset").disabled, document.getElementById("reset").title]`), [false, "Restart the calculator. Its memory is kept."]);
   assert.equal(await ev(`document.getElementById("load").title`), "No saved state for this model");
-  // "choose" still finds the running ROM's action.
-  assert.match(await ev(`(() => { window.saturnus.palette.setActions(); return window.saturnus.palette.model.actions.find((a) => a.id === "rom").keywords; })()`), /\bchoose\b/);
+  // "choose" and "rom" find the way home, where ROMs are chosen.
+  assert.match(await ev(`(() => { window.saturnus.palette.setActions(); return window.saturnus.palette.model.actions.find((a) => a.id === "home").keywords; })()`), /\bchoose\b.*\brom\b|\brom\b.*\bchoose\b/);
   // The memory view's typing indicator stays in the page (a live region), out of sight while the keys are the calculator's.
   await ev(`window.saturnus.setLayer(true)`);
   await sleep(300);

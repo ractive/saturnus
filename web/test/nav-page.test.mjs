@@ -5,8 +5,11 @@
 // the home page's link to the landing page; switching views never loads
 // the page again and never stops the calculator; back and forward follow
 // the routes. In the desktop app (`window.__TAURI__`, simulated) Files
-// links to Calculator too (one app, iteration 51), there is no home page
-// and the window opens the calculator. And leaving mid-transfer asks first (beforeunload).
+// links to Calculator too (one app, iteration 51), and the home page is
+// there too (iteration 53). The home page's calculators: New calculator
+// with the models without a ROM, a choice that opens its calculator, the
+// notice of a file that is no ROM. And leaving mid-transfer asks first
+// (beforeunload).
 // Skipped without Chrome or the wasm package.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -26,7 +29,7 @@ async function until(ev, expression, ms, what) {
 /** A fake desktop app's globals: enough for the page's modules to load (the emulator's backend never answers). */
 const TAURI = `window.__TAURI__ = { core: { invoke: () => new Promise(() => {}) }, event: { listen: async () => () => {} } };`;
 
-test("Calculator links to Files, its palette opens Files, both brands go home; no home page in the desktop app", { timeout: 60_000 }, async (t) => {
+test("Calculator links to Files, its palette opens Files, both brands go home; the desktop app has the home page too", { timeout: 60_000 }, async (t) => {
   const c = await session(t);
   if (!c) return;
   const { send, ev, port } = c;
@@ -54,16 +57,17 @@ test("Calculator links to Files, its palette opens Files, both brands go home; n
   assert.equal(await ev(`document.getElementById("calculator-view").hidden`), true, "Calculator hidden, not removed");
   assert.deepEqual(c.errors, []);
 
-  // The desktop app: no home page, the brand stays on the calculator.
+  // The desktop app (whose slots never come here): the home page, without the landing page's link.
   await send("Page.addScriptToEvaluateOnNewDocument", { source: TAURI });
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
-  await until(ev, `!!window.__TAURI__ && document.readyState === "complete" && window.saturnusApp?.view === "calculator"`, 15_000, "the page loaded as the app, on the calculator");
-  assert.equal(await ev("location.hash"), "#/calculator");
+  await until(ev, `!!window.__TAURI__ && document.readyState === "complete" && window.saturnusApp?.view === "home"`, 15_000, "the page loaded as the app, on the home page");
+  assert.equal(await ev("location.hash"), "#/");
   assert.equal(await ev(`document.querySelector(".home-landing").hidden`), true);
+  await ev(`location.hash = "#/calculator"; true`);
+  await until(ev, `saturnusApp.view === "calculator"`, 5_000, "Calculator");
   await ev(`location.hash = "#/"; true`);
-  await until(ev, `location.hash === "#/calculator"`, 5_000, "the brand's home is the calculator");
-  assert.equal(await ev("saturnusApp.view"), "calculator");
+  await until(ev, `saturnusApp.view === "home"`, 5_000, "the brand's home is the home page");
 });
 
 test("Files links to Calculator, its brand goes home; #/files/<model> says why it cannot connect", { timeout: 60_000 }, async (t) => {
@@ -142,16 +146,30 @@ test("the home page: the kept calculators with Calculator and Files, the running
   await ev(`history.back(); true`);
   await until(ev, `saturnusApp.view === "home"`, 5_000, "back: home");
   assert.equal(await ev(`document.getElementById("calculator-view").hidden`), true);
-  assert.equal(await ev(`saturnusApp.home.engines().then((e) => JSON.stringify(e))`), "[]", "the hub runs, no calculator yet");
+  assert.equal(await ev(`saturnusApp.home.roms.running().then((e) => JSON.stringify(e))`), "[]", "the hub runs, no calculator yet");
   await ev(`history.forward(); true`);
   await until(ev, `saturnusApp.view === "calculator"`, 5_000, "forward: Calculator");
   assert.equal(await ev("window.__same"), true, "never loaded again");
-  // New calculator: Calculator with the ROMs of every model open.
+  // New calculator: on the home page, the models without a ROM, with Choose… and where to download it.
   await ev(`location.hash = "#/"; true`);
   await until(ev, `saturnusApp.view === "home"`, 5_000, "home");
   await ev(`document.getElementById("home-new").click(); true`);
-  await until(ev, `saturnusApp.view === "calculator" && document.getElementById("roms").open`, 5_000, "the ROMs open");
-  assert.equal(await ev("location.hash"), "#/calculator");
+  await until(ev, `!document.getElementById("home-new-section").hidden && document.querySelectorAll("#home-models li").length > 0`, 15_000, "the new calculators");
+  assert.equal(await ev("location.hash"), "#/", "still on the home page");
+  const fresh = await ev(`[...document.querySelectorAll("#home-models li")].map((li) => ({ model: li.dataset.model, buttons: [...li.querySelectorAll("button")].map((b) => b.textContent), link: li.querySelector("a")?.textContent ?? null }))`);
+  assert.deepEqual(fresh.map((r) => r.model), ["48sx", "49g", "38g", "39g", "40g", "27s", "17bii", "17b", "28s", "19bii"], "the models without a ROM, in the page's order");
+  assert.deepEqual(fresh.find((r) => r.model === "48sx"), { model: "48sx", buttons: ["Choose…"], link: "Download from hpcalc.org" });
+  assert.deepEqual(fresh.find((r) => r.model === "28s"), { model: "28s", buttons: ["Choose…"], link: null });
+  // A file that is no ROM: said on the home page, nothing opened.
+  await ev(`saturnusApp.home.chooseFiles("48sx", [new File(["not a rom"], "notes.txt")]).then(() => true)`);
+  await until(ev, `!document.getElementById("home-notice").hidden`, 5_000, "the notice");
+  assert.match(await ev(`document.querySelector(".home-notice-text").textContent`), /notes\.txt/);
+  assert.equal(await ev("location.hash"), "#/");
+  // A kept ROM opens its calculator (the hub's answer stubbed: the test has no ROM).
+  await ev(`(() => { const r = saturnusApp.home.roms; r.chooseRom = async () => ({ ...(await r.romSlots()), start: "48gx", notice: "" }); return true; })()`);
+  await ev(`saturnusApp.home.chooseFiles("48gx", [new File(["x"], "gxrom-r")]).then(() => true)`);
+  await until(ev, `saturnusApp.view === "calculator"`, 5_000, "Calculator opened");
+  assert.equal(await ev("location.hash"), "#/calculator/48gx");
   assert.deepEqual(c.errors, []);
 });
 

@@ -125,7 +125,7 @@ test("the offer: a quiet line on a first visit; × dismisses it for good; taking
   assert.equal(await p.ev(shown), true);
   await p.click(".tour-offer-go");
   const b = await p.settled();
-  assert.equal(b.count, "1 of 7");
+  assert.equal(b.count, "1 of 6");
   assert.equal(b.step, "panel");
   assert.equal(await p.ev(shown), false);
   assert.equal(await p.ev(`localStorage.getItem("saturnus.tour")`), "taken");
@@ -202,27 +202,26 @@ test("Show me around: from Search and from About; Esc ends it and the focus goes
 test("Back, Next, Skip: the count, Done and the next chapter; the views put back; the calculator never touched", { timeout: 180_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
-  const views = `[document.getElementById("calculator-view").classList.contains("panel-hidden"), document.getElementById("roms").open, window.saturnus.store.state.layer, window.saturnus.explorer.tab]`;
+  const views = `[document.getElementById("calculator-view").classList.contains("panel-hidden"), window.saturnus.store.state.layer, window.saturnus.explorer.tab]`;
   // The panel hidden and the memory view closed on the Stack tab, before the tour.
   await p.ev(`document.querySelector("#panel-hide").click(), window.saturnus.explorer.setTab("stack"), true`);
   const before = await p.ev(views);
-  assert.deepEqual(before, [true, false, false, "stack"]);
+  assert.deepEqual(before, [true, false, "stack"]);
   await p.ev(`document.querySelector("#palette-show").focus(), true`);
   await p.ev(`window.saturnus.tour.start("start")`);
   let b = await p.settled();
-  assert.deepEqual([b.step, b.count, b.back, b.next], ["panel", "1 of 7", false, "Next"]);
+  assert.deepEqual([b.step, b.count, b.back, b.next], ["panel", "1 of 6", false, "Next"]);
   assert.equal(await p.ev(`document.getElementById("calculator-view").classList.contains("panel-hidden")`), false, "the panel shown for its step");
   await p.click(".tour-next");
   b = await p.settled();
-  assert.deepEqual([b.step, b.count, b.back], ["roms", "2 of 7", true]);
-  assert.equal(await p.ev(`document.getElementById("roms").open`), true, "the ROM list opened for its step");
+  assert.deepEqual([b.step, b.count, b.back], ["switch", "2 of 6", true]);
   await p.click(".tour-back");
   b = await p.settled();
-  assert.deepEqual([b.step, b.count, b.back], ["panel", "1 of 7", false]);
+  assert.deepEqual([b.step, b.count, b.back], ["panel", "1 of 6", false]);
   assert.ok(b.focus, "the focus stays in the bubble when Back goes away");
-  for (let i = 0; i < 6; i++) await p.click(".tour-next");
+  for (let i = 0; i < 5; i++) await p.click(".tour-next");
   b = await p.settled();
-  assert.deepEqual([b.step, b.count, b.next, b.goOn], ["again", "7 of 7", "Done", "Next: The calculator"]);
+  assert.deepEqual([b.step, b.count, b.next, b.goOn], ["again", "6 of 6", "Done", "Next: The calculator"]);
   // The next chapter from the last step; then the memory view's.
   await p.click(".tour-go-on");
   b = await p.settled();
@@ -256,8 +255,8 @@ test("Back, Next, Skip: the count, Done and the next chapter; the views put back
 test("a step whose element is gone is skipped and leaves the count, never shown floating", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
-  // Every ROM kept: no Download link in the list.
-  await p.ev(`(() => { const s = window.saturnus.store; const r = s.state.roms; s.set({ roms: { ...r, slots: r.slots.map((x) => ({ ...x, fileName: "rom", state: "ready" })) } }); return true; })()`);
+  // The way home gone from the panel.
+  await p.ev(`document.getElementById("switch-calc").remove(), true`);
   await p.ev(`window.saturnus.tour.start("start")`);
   await p.settled();
   const steps = [];
@@ -265,7 +264,7 @@ test("a step whose element is gone is skipped and leaves the count, never shown 
     steps.push(`${b.step} ${b.count}`);
     await p.ev(`window.saturnus.tour.step(1)`);
   }
-  assert.deepEqual(steps, ["panel 1 of 7", "roms 2 of 7", "choose 3 of 6", "search 4 of 6", "shortcuts 5 of 6", "again 6 of 6"]);
+  assert.deepEqual(steps, ["panel 1 of 6", "files 2 of 5", "search 3 of 5", "shortcuts 4 of 5", "again 5 of 5"]);
 });
 
 test("on a phone the bubble is a sheet at the bottom, the ring on the element above it", { timeout: 120_000 }, async (t) => {
@@ -288,37 +287,22 @@ test("on a phone the bubble is a sheet at the bottom, the ring on the element ab
   assert.equal(await p.ev(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`), true, "no horizontal overflow");
 });
 
-test("every step's element is seen: light and dark, 1280 and 390 px, the browser and the app", { timeout: 240_000 }, async (t) => {
+test("every step's element is seen: light and dark, 1280 and 390 px", { timeout: 240_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   const failures = [];
   let checked = 0;
-  for (const host of ["browser", "app"]) {
-    for (const [w, h, mobile] of [[1280, 860, false], [390, 844, true]]) {
-      await p.size(w, h, mobile);
-      await p.load();
-      if (host === "app") {
-        // The desktop app's ROM list: Download… buttons, the tour told it runs there.
-        await p.ev(`(() => {
-          window.saturnus.backend.romSource = "dialog";
-          window.saturnus.tour.host = "app";
-          const s = window.saturnus.store;
-          const r = s.state.roms;
-          s.set({ roms: { ...r, slots: r.slots.map((x) => ({ ...x })) } });
-          return true;
-        })()`);
-      }
-      for (const theme of ["light", "dark"]) {
-        await p.ev(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}, true`);
-        for (const id of ["start", "calculator", "memory"]) {
-          // The app differs only in the ROM steps.
-          if (host === "app" && id !== "start") continue;
-          const steps = await p.ev(`window.saturnus.tour.probe(${JSON.stringify(id)})`);
-          assert.ok(steps.length >= 5, `${id}: ${steps.length} steps`);
-          for (const s of steps) {
-            checked++;
-            if (!s.seen) failures.push(`${host} ${w}px ${theme} ${id}/${s.id} (${s.anchor})`);
-          }
+  for (const [w, h, mobile] of [[1280, 860, false], [390, 844, true]]) {
+    await p.size(w, h, mobile);
+    await p.load();
+    for (const theme of ["light", "dark"]) {
+      await p.ev(`document.documentElement.dataset.theme = ${JSON.stringify(theme)}, true`);
+      for (const id of ["start", "calculator", "memory"]) {
+        const steps = await p.ev(`window.saturnus.tour.probe(${JSON.stringify(id)})`);
+        assert.ok(steps.length >= 4, `${id}: ${steps.length} steps`);
+        for (const s of steps) {
+          checked++;
+          if (!s.seen) failures.push(`${w}px ${theme} ${id}/${s.id} (${s.anchor})`);
         }
       }
     }
@@ -337,15 +321,11 @@ test("each step is announced: the count, the words and the control ringed", { ti
   await p.settled();
   let [mode, said] = await live();
   assert.equal(mode, "polite");
-  assert.match(said, /^Getting started, 1 of 7\. The controls\. The side panel holds .*\. Highlighted: .+\.$/);
+  assert.match(said, /^Getting started, 1 of 6\. The controls\. The side panel holds .*\. Highlighted: .+\.$/);
   await p.click(".tour-next");
   await p.settled();
   [, said] = await live();
-  assert.match(said, /^Getting started, 2 of 7\. ROMs\. Each model runs .* Highlighted: ROMs of every model/, said);
-  await p.click(".tour-next");
-  await p.settled();
-  [, said] = await live();
-  assert.match(said, /Highlighted: Download sxrom-j, the HP 48SX ROM, from hpcalc\.org\.$/, said);
+  assert.match(said, /^Getting started, 2 of 6\. Your calculators\. Switch calculator goes to the home page.* Highlighted: Switch calculator\.$/, said);
 });
 
 test("started in fullscreen, the tour leaves it first and shows its steps", { timeout: 120_000 }, async (t) => {
@@ -371,12 +351,12 @@ test("when the last steps are gone, the one left says Done and offers the next c
   await p.ev(`document.querySelector("#shortcuts").style.display = "none", document.querySelector("#about").style.display = "none", true`);
   await p.ev(`window.saturnus.tour.start("start")`);
   await p.settled();
-  for (let i = 0; i < 4; i++) await p.click(".tour-next");
+  for (let i = 0; i < 3; i++) await p.click(".tour-next");
   let b = await p.settled();
-  assert.deepEqual([b.step, b.count, b.next], ["search", "5 of 7", "Next"]);
+  assert.deepEqual([b.step, b.count, b.next], ["search", "4 of 6", "Next"]);
   await p.click(".tour-next");
   b = await p.settled();
-  assert.deepEqual([b.step, b.count, b.next, b.goOn], ["search", "5 of 5", "Done", "Next: The calculator"], "still open, as the last step");
+  assert.deepEqual([b.step, b.count, b.next, b.goOn], ["search", "4 of 4", "Done", "Next: The calculator"], "still open, as the last step");
   assert.ok(b.focus, "the focus in the bubble");
   await p.click(".tour-next");
   assert.equal(await p.settled(), null, "Done ends it");

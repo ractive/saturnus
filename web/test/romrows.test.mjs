@@ -1,34 +1,28 @@
-// The ROM table's rows (web/romrows.js): one button per row and what its
-// menu holds, per host and slot; which models one removal takes (the
+// The home page's ROM actions (web/romrows.js): a kept calculator's menu
+// and a new one's buttons, per host and slot; which models one removal takes (the
 // 39G and 40G share a file); the remove question's words.
 // `node --test web/test/` (just web-test).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { removeQuestion, removedMessage, rowAction, sharedModels } from "../romrows.js";
+import { keptMenu, newActions, removeQuestion, removeRefusal, removedMessage, sharedModels } from "../romrows.js";
 
 const title = (m) => `HP ${m.toUpperCase()}`;
 const d = { file: "x", page: "https://www.hpcalc.org/details/1" };
-const ids = (a) => a.menu.map((i) => (i === "-" ? "-" : i.id));
+const ids = (menu) => menu.map((i) => (i === "-" ? "-" : i.id));
 
-test("a primary button and a ⋯ menu for the rest", () => {
-  // The 42S: no download anywhere, and nothing else to do.
-  assert.deepEqual(rowAction({ model: "42s", fileName: null, download: null }, true), { primary: { id: "choose", label: "Choose…" }, menu: [] });
-  // An empty slot in the browser: Choose… alone (the row links to hpcalc.org).
-  assert.deepEqual(rowAction({ model: "48gx", fileName: null, download: d }, false), { primary: { id: "choose", label: "Choose…" }, menu: [] });
-  // In the app: Download… at once, a file from the ⋯.
-  const add = rowAction({ model: "48gx", fileName: null, download: d }, true);
-  assert.deepEqual(add.primary, { id: "download", label: "Download…" });
-  assert.deepEqual(ids(add), ["choose"]);
-  assert.equal(add.menu[0].text, "Choose a file…");
-  // A filled slot: Change… at once; Download again… and, after a rule, Remove….
-  const change = rowAction({ model: "48gx", fileName: "gxrom-r", download: d }, true);
-  assert.deepEqual(change.primary, { id: "choose", label: "Change…" });
-  assert.deepEqual(ids(change), ["download", "-", "remove"]);
-  assert.equal(change.menu.at(-1).danger, true);
-  // Remove… is never a bare button: the ⋯ stays for it alone.
-  assert.deepEqual(ids(rowAction({ model: "48gx", fileName: "gxrom-r", download: d }, false)), ["remove"], "the browser downloads nothing itself");
-  assert.deepEqual(ids(rowAction({ model: "42s", fileName: "hp42s.rom", download: null }, true)), ["remove"]);
+test("a kept calculator's ⋯ menu; a new one's buttons", () => {
+  // Kept: Change ROM…, Download again… in the app where hpcalc.org has it, then Remove….
+  assert.deepEqual(ids(keptMenu({ model: "48gx", fileName: "gxrom-r", download: d }, true)), ["choose", "download", "-", "remove"]);
+  assert.deepEqual(ids(keptMenu({ model: "48gx", fileName: "gxrom-r", download: d }, false)), ["choose", "-", "remove"], "the browser downloads nothing itself");
+  assert.deepEqual(ids(keptMenu({ model: "42s", fileName: "hp42s.rom", download: null }, true)), ["choose", "-", "remove"]);
+  const menu = keptMenu({ model: "48gx", fileName: "gxrom-r", download: d }, true);
+  assert.equal(menu[0].text, "Change ROM…");
+  assert.equal(menu.at(-1).danger, true);
+  // New: Choose… alone in the browser and for the 42S; Download… first in the app.
+  assert.deepEqual(newActions({ model: "48gx", fileName: null, download: d }, false), [{ id: "choose", label: "Choose…" }]);
+  assert.deepEqual(newActions({ model: "42s", fileName: null, download: null }, true), [{ id: "choose", label: "Choose…" }]);
+  assert.deepEqual(newActions({ model: "48gx", fileName: null, download: d }, true), [{ id: "download", label: "Download…" }, { id: "choose", label: "Choose…" }]);
 });
 
 test("the 39G and 40G with the same file are removed together", () => {
@@ -59,4 +53,10 @@ test("the question and the outcome say what goes and what stays", () => {
   assert.equal(removeQuestion(["48gx"], title, false, "48sx").body, "It is deleted from this browser. The file on your computer stays.", "another model runs");
   assert.equal(removedMessage(["49g"], title, false), "The HP 49G ROM is removed from this browser, with its saved state.");
   assert.equal(removedMessage(["48gx"], title, true), "The HP 48GX ROM is removed from the list.");
+});
+
+test("a refused removal says why in plain words", () => {
+  assert.equal(removeRefusal(new Error("typing is in progress (releaseAll stops it)"), "HP 48GX", "its ROM"), "The HP 48GX is typing a send; remove its ROM when it's done.");
+  assert.equal(removeRefusal(new Error("a transfer is in progress"), "HP 49G", "the ROMs"), "The HP 49G is in a transfer; remove the ROMs when it's done.");
+  assert.equal(removeRefusal(new Error("disk full"), "HP 49G", "its ROM"), "Could not remove its ROM: disk full");
 });

@@ -5,9 +5,7 @@
 // results (a saved state) seen with the panel hidden and on a phone, at
 // the stage's top where it keeps off the calculator's keys, in light and
 // dark; the memory view's results while it is closed; the status line
-// keeps only what runs. The ROM panel's texts: the hint about a kept ROM
-// only once one is, and a finger's screen is not told to drop a file.
-// The backend's answers are stubbed. Skipped without Chrome
+// keeps only what runs. The backend's answers are stubbed. Skipped without Chrome
 // (`SATURNUS_CHROME` names one) or the wasm package (`just web`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -223,42 +221,3 @@ for (const scheme of ["light", "dark"]) {
     assert.equal(x.bg, scheme === "dark" ? "rgb(30, 30, 28)" : "rgb(251, 250, 246)", "the page's paper");
   });
 }
-
-/** ROM slots, `kept` the 48SX's file or none. */
-const SLOTS = (kept) => `(() => {
-  const s = window.saturnus.store;
-  const d = (file) => ({ file, size: 1, url: "https://www.hpcalc.org/x.zip", page: "https://www.hpcalc.org/details/1", revision: "rev" });
-  const slots = [
-    { model: "48sx", fileName: ${kept ? '"sxrom-j"' : "null"}, revision: ${kept ? '"J"' : "null"}, state: ${kept ? '"ready"' : '"empty"'}, download: d("sxrom-j") },
-    { model: "38g", fileName: null, revision: null, state: "empty", download: d("38G_A167.ROM") },
-  ];
-  s.set({ model: "38g" });
-  s.set({ roms: { slots, offers: [], lastModel: null, bootLast: true, remembered: true, note: null }, model: "48sx" });
-  return true;
-})()`;
-
-test("the ROM hints: 'Kept in this browser' once a ROM is; short help under the table", { timeout: 120_000 }, async (t) => {
-  const p = await page(t);
-  if (!p) return;
-  await p.ev(SLOTS(false));
-  assert.equal(await p.ev(`document.querySelector(".rom-hint").hidden`), true, "nothing kept: no hint");
-  await p.ev(SLOTS(true));
-  assert.equal(await p.ev(`document.querySelector(".rom-hint").hidden`), false, "kept: the hint");
-  assert.match(await p.ev(`document.querySelector(".rom-hint").textContent`), /^Kept in this browser/);
-  await p.ev(`window.saturnus.store.set({ model: "38g" }), true`);
-  assert.equal(await p.ev(`document.querySelector(".rom-hint").hidden`), true, "the model shown has none");
-  assert.equal(await p.ev(`document.querySelector(".source-hint").textContent`),
-    "Download opens the model's page on hpcalc.org. Unzip the file and choose it here. The ROMs are HP's software; hpcalc.org hosts them with HP's permission.");
-  assert.equal(await p.ev(`document.querySelector(".forget-hint").textContent`), "You can choose several files at once; each goes to its model.");
-  assert.equal(await p.ev(`document.querySelector("sat-calculator .no-rom-get").textContent`), "Download 38G_A167.ROM from hpcalc.org, unzip it and drop the file here.");
-});
-
-test("a finger's screen is told to choose the file, not to drop it", { timeout: 120_000 }, async (t) => {
-  const p = await page(t, { width: 390, height: 844, mobile: true });
-  if (!p) return;
-  assert.equal(await p.ev(`matchMedia("(pointer: coarse)").matches`), true, "a coarse pointer");
-  await p.ev(SLOTS(false));
-  await sleep(200);
-  assert.equal(await p.ev(`document.querySelector("sat-calculator .no-rom-get").textContent`), "Download sxrom-j from hpcalc.org, unzip it and choose the file.");
-  assert.doesNotMatch(await p.ev(`document.getElementById("roms").textContent`), /drop/i);
-});

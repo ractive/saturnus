@@ -2,7 +2,7 @@
 // Chrome with no ROM (the backend's reads stubbed): an icon button that
 // is off is greyed in both themes; a tap on the off Edit says why under
 // it; Search lists its off actions greyed with the reason, and Enter on
-// one says why; Remove the ROM asks the ROM table's question. Skipped
+// one says why. Skipped
 // without Chrome or web/pkg.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -105,8 +105,8 @@ test("desktop: an off button sinks in every kind, in both themes: no fill, a ver
   for (const theme of ["light", "dark"]) {
     await p.ev(`document.querySelector("sat-controls").setTheme(${JSON.stringify(theme)}); true`);
     await sleep(400);
-    const l = await p.ev(looks([...off, "#rom-pick", "#t-primary-on", "#speed button[aria-checked=true]", "#contrast", "#contrast button", "#contrast button + button", "#speed", "#speed button + button"]));
-    const on = l["#rom-pick"];
+    const l = await p.ev(looks([...off, "#fullscreen", "#t-primary-on", "#speed button[aria-checked=true]", "#contrast", "#contrast button", "#contrast button + button", "#speed", "#speed button + button"]));
+    const on = l["#fullscreen"];
     assert.equal(on.clear, false, `${theme}: an enabled button has a fill`);
     for (const q of off) {
       assert.equal(l[q].clear, true, `${theme} ${q}: no fill (${l[q].background})`);
@@ -170,7 +170,7 @@ test("phone: a tap on the off Edit says why under it; the next tap closes it, an
   assert.equal(await p.ev(note), null, "gone after 4 s");
 });
 
-test("Search: off actions greyed with the reason, Enter says why; Remove asks the ROM table's question; the twins only for a query", { timeout: 120_000 }, async (t) => {
+test("Search: off actions greyed with the reason, Enter says why; the twins only for a query", { timeout: 120_000 }, async (t) => {
   const p = await page(t, { width: 1280, height: 860, mobile: false });
   if (!p) return;
   const open = async (query) => {
@@ -188,36 +188,19 @@ test("Search: off actions greyed with the reason, Enter says why; Remove asks th
     await sleep(200);
     return p.ev(`[...document.querySelectorAll(".palette .prow-action")].map((r) => ({ name: r.querySelector(".prow-name").textContent, desc: r.querySelector(".prow-desc")?.textContent ?? "", off: r.getAttribute("aria-disabled") === "true", kind: r.querySelector(".prow-kind").textContent }))`);
   };
-  /** Enter on the first action row (`RE`, a command, ranks above Remove). */
-  const enter = () => p.ev(`(() => {
+  // No calculator: Edit is listed, off, saying why; Enter says it.
+  const rows = await open("edit");
+  assert.deepEqual(rows.find((r) => r.name === "Edit"), { name: "Edit", desc: "Start the calculator first", off: true, kind: "action" });
+  await p.ev(`(() => {
     const m = window.saturnus.palette.model;
-    m.select(m.rows.findIndex((r) => r.kind === "action"));
+    m.select(m.rows.findIndex((r) => r.kind === "action" && r.name === "Edit"));
     document.querySelector(".palette input").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     return true;
   })()`);
-  // No ROM: Edit and Remove are listed, off, saying why.
-  const edit = (await open("edit")).find((r) => r.name === "Edit");
-  assert.deepEqual(edit, { name: "Edit", desc: "Start the calculator first", off: true, kind: "action" });
-  const rows = await open("remove");
-  assert.deepEqual(rows[0], { name: "Remove the HP 48SX ROM…", desc: "No HP 48SX ROM to remove", off: true, kind: "action" });
-  await enter();
   await sleep(200);
   assert.equal(await p.ev(`window.saturnus.palette.isOpen()`), true, "Enter on an off action leaves Search open");
-  assert.equal(await p.ev(`document.querySelector(".palette-notice").textContent`), "No HP 48SX ROM to remove.");
-
-  // A kept ROM: Remove is on and asks the ROM table's question.
-  await p.ev(`(() => { const s = window.saturnus.store; const r = s.state.roms; s.set({ roms: { ...r, slots: r.slots.map((x) => (x.model === "48sx" ? { ...x, fileName: "sxrom-j" } : x)) } }); return true; })()`);
-  const on = await open("remove");
-  assert.deepEqual(on[0], { name: "Remove the HP 48SX ROM…", desc: "Deletes it from this browser. The file on your computer stays.", off: false, kind: "action" });
-  await enter();
-  let q = null;
-  for (let i = 0; i < 30 && !q; i++) {
-    await sleep(100);
-    q = await p.ev(`(() => { const d = document.querySelector("dialog.confirm[open]"); return d ? [d.querySelector("h2, [id$=title]")?.textContent, [...d.querySelectorAll("button")].map((b) => b.textContent)] : null; })()`);
-  }
-  assert.deepEqual(q, ["Remove the HP 48SX ROM?", ["Cancel", "Remove"]]);
-  assert.equal(await p.ev(`window.saturnus.palette.isOpen()`), false, "Search closed first");
-  await p.ev(`document.querySelector("dialog.confirm").dispatchEvent(new Event("cancel")); true`);
+  assert.equal(await p.ev(`document.querySelector(".palette-notice").textContent`), "Start the calculator first.");
+  await p.ev(`window.saturnus.palette.close(); true`);
 
   // A calculator running: the screen images' twins only for a query, no kind badge before one.
   await p.ev(`window.saturnus.store.set({ booted: "48sx", model: "48sx" }); true`);

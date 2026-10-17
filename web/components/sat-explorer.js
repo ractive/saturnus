@@ -68,7 +68,7 @@ const TEMPLATE = `
       <h3></h3>
       <p class="layer-empty-text"></p>
       <p class="layer-empty-detail"></p>
-      <button type="button" class="primary layer-empty-choose" hidden>Choose ROM…</button>
+      <a class="button primary layer-empty-home" href="#/" hidden>Your calculators</a>
     </div>
 
     <div class="pane pane-vars" id="pane-vars" role="tabpanel" aria-labelledby="tab-vars">
@@ -222,7 +222,7 @@ export class SatExplorer extends HTMLElement {
       newRow: $(".vars-making"),
       fileInput: $(".vars-file"),
       empty: $(".layer-empty"),
-      emptyChoose: $(".layer-empty-choose"),
+      emptyHome: $(".layer-empty-home"),
       panes: Object.fromEntries(TABS.map((t) => [t, $(`.pane-${t}`)])),
       crumbs: $(".crumbs"),
       varsFind: $(".vars-find"),
@@ -298,15 +298,11 @@ export class SatExplorer extends HTMLElement {
     this.flagDataError = null;
     this.onlySet = false;
 
-    // No calculator: the display's Choose ROM, here too (a phone shows
-    // this view in the display's place). A press does not take the focus:
-    // the keys indicator it would bring up moves the button from under
-    // a finger before its click.
-    this.ui.emptyChoose.addEventListener("mousedown", (e) => e.preventDefault());
-    this.ui.emptyChoose.addEventListener("click", (e) => {
-      if (e.detail > 0) e.currentTarget.blur();
-      this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.store.state.model }));
-    });
+    // No calculator: the way home, where calculators are started (a
+    // phone shows this view in the display's place). A press does not
+    // take the focus: the keys indicator it would bring up moves the link
+    // from under a finger before its click.
+    this.ui.emptyHome.addEventListener("mousedown", (e) => e.preventDefault());
     $(".layer-close").addEventListener("click", () => this.close());
     $(".layer-back").addEventListener("click", () => this.close());
     for (const t of this.ui.tabs) {
@@ -549,7 +545,7 @@ export class SatExplorer extends HTMLElement {
       ui.empty.querySelector(".layer-empty-text").textContent = empty.text;
       ui.empty.querySelector(".layer-empty-detail").textContent = empty.detail ?? "";
     }
-    ui.emptyChoose.hidden = !empty?.choose;
+    ui.emptyHome.hidden = !empty?.home;
     for (const t of TABS) ui.panes[t].hidden = Boolean(empty) || t !== this.tab;
     this.empty = Boolean(empty);
     this.renderStatus();
@@ -584,7 +580,7 @@ export class SatExplorer extends HTMLElement {
   /** What the whole layer says instead of its tabs, or null. */
   emptyState(s) {
     if (!s.booted) {
-      return { title: "No calculator is running", text: "Choose a ROM to start.", choose: true };
+      return { title: "No calculator is running", text: "Start one on the home page.", home: true };
     }
     const sup = s.memorySupport;
     if (!sup) return { title: "Reading the calculator's memory…", text: "" };
@@ -1780,7 +1776,7 @@ export class SatExplorer extends HTMLElement {
       if (!files(e)) return;
       e.preventDefault();
       e.stopPropagation();
-      viewRoot()?.classList.remove("rom-drop");
+      viewRoot()?.classList.remove("file-drop");
       e.dataTransfer.dropEffect = "copy";
       const t = target(e);
       if (refusal() || !t.el) {

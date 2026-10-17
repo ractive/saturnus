@@ -14,7 +14,7 @@ import { Bindings, action } from "./bindings.js";
 import { stepContrast } from "./contrast.js";
 import { editButtonState, editTarget } from "./editor.js";
 import { ariaKeys } from "./bindings.js";
-import { MODEL_TITLES, WRITABLE_MODELS, orderModels } from "./norom.js";
+import { WRITABLE_MODELS, notCalculatorFiles, orderModels } from "./norom.js";
 import { dragResize } from "./shared/resize.js";
 import { Store, connect } from "./store.js";
 import { watchMessages, watchWriteMessages } from "./status.js";
@@ -23,7 +23,7 @@ import { lockZoom } from "./nozoom.js";
 import { MemoryWrites, calculatorFiles, dropRefusal, screenRefusal } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
 import { lookOf } from "./screenshot.js";
-import { installServiceWorker, keepScreenOnWhileComputing, showStorageOffer, StorageChoice } from "./pwa.js";
+import { installServiceWorker, keepScreenOnWhileComputing } from "./pwa.js";
 import { loadIcons } from "./shared/components/icons.js";
 import { showNote } from "./shared/components/note.js";
 import { TOAST_MS, routeToasts, say } from "./shared/components/toast.js";
@@ -38,22 +38,11 @@ import { chaptersFor } from "./tour.js";
 import { startFailure } from "./failure.js";
 import { themeOf } from "./shared/theme.js";
 import { KEYS as PREFS } from "./shared/storage-names.js";
+import { prefs } from "./shared/prefs.js";
 import { watchLogo } from "./logo.js";
 import { CLOCK_MODELS, watchClockOnStart } from "./clock.js";
 import { setView, shown } from "./view.js";
 import { applySiteLinks, connectModel } from "./shared/site-links.js";
-
-const prefs = {
-  get(key) {
-    try { return localStorage.getItem(PREFS[key]); } catch { return null; }
-  },
-  set(key, value) {
-    try { localStorage.setItem(PREFS[key], value); } catch { /* storage blocked */ }
-  },
-  remove(key) {
-    try { localStorage.removeItem(PREFS[key]); } catch { /* storage blocked */ }
-  },
-};
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
 
@@ -258,14 +247,10 @@ function appActions(backend, store, memory, bindings) {
     run: () => ui.controls.setSpeed(v),
   });
   const dialog = backend.romSource === "dialog";
-  const name = MODEL_TITLES[s.model] ?? s.model;
-  const romRunning = s.booted === s.model;
-  const romAction = romRunning
-    ? { id: "rom", title: `Change the ${name} ROM…`, description: dialog ? "Choose another ROM file. The app remembers where it is." : "Replace the kept ROM file.", keywords: "rom change choose replace load open file boot start", run: () => ui.controls.chooseFor(s.model) }
-    : { id: "rom", title: `Choose the ${name} ROM…`, description: dialog ? "Pick the ROM file. The app remembers where it is." : "Pick the ROM file. It stays in this browser.", keywords: "rom load open file boot start", run: () => ui.controls.chooseFor(s.model) };
+  // The home page: where calculators are started, given a ROM and removed (iteration 53).
+  const home = { id: "home", title: "Switch calculator", description: "Your calculators on the home page: start another, give one its ROM, or remove one.", keywords: "switch calculator model rom change choose new remove delete home start", run: () => { location.hash = "#/"; } };
   // The Edit button's own words: what it edits, or why it cannot.
   const edit = editState(store, bindings);
-  const kept = (s.roms?.slots ?? []).some((x) => x.model === s.model && x.fileName);
   // The screen images in the look chosen in the panel; the twins in the
   // other look are found by a search only.
   const look = s.screenLook === "bw" ? ", black on white" : "";
@@ -273,14 +258,13 @@ function appActions(backend, store, memory, bindings) {
   return [
     // After the palette has closed, which ends its search.
     { id: "edit", title: edit.off ? "Edit" : edit.title.replace(/ \(.*\)$/, ""), description: `Opens it in the editor${keyHint(bindings, "edit")}.`, off: edit.off ? edit.title : null, keywords: "edit editor command line stack level variable change", run: () => setTimeout(() => editShortcut(backend, store), 0) },
-    // The running model's ROM is changed, not chosen, and comes after the
-    // calculator's own actions.
-    ...(romRunning ? [] : [romAction]),
+    // With no calculator running, the way to one comes first.
+    ...(s.booted ? [] : [home]),
     ...(s.booted ? [
       { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "Stops the calculator's clock, or starts it again.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
       { id: "reset", title: "Reset the calculator", description: "Restarts the calculator; its memory is kept.", keywords: "reset restart", run: () => backend.reset() },
       { id: "save", title: "Save state", description: `Keeps the calculator's whole state in ${dialog ? "the app" : "this browser"}, one per model; it replaces the last one.`, keywords: "save state snapshot", run: () => ui.controls.saveState() },
-      ...(romRunning ? [romAction] : []),
+      home,
       ...(CLOCK_MODELS.has(s.booted) ? [{ id: "set-clock", title: "Set the clock", description: "Sets the calculator's date and time to this computer's.", keywords: "clock time date set now", run: () => ui.controls.setClockNow() }] : []),
       { id: "darker", title: "Darker display", description: `One step darker, as ON and + on the calculator${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
       { id: "copy-screen", title: "Copy screen", description: `Copy the display as a picture${look}${keyHint(bindings, "copyScreen")}.`, keywords: "copy screen screenshot image picture png clipboard display lcd", run: () => ui.calc.copyScreen(s.screenLook) },
@@ -298,8 +282,6 @@ function appActions(backend, store, memory, bindings) {
       // After the palette has closed, which gives the focus back to the page.
       { id: "fresh", title: "Start fresh", description: "Restart with empty memory, like a new calculator. Asks first; your saved state stays.", keywords: "start fresh new cold boot clear memory wipe empty", run: () => setTimeout(() => ui.controls.startFresh(), 0) },
     ] : []),
-    // The ROM table's Remove…, with its question; after the palette has closed.
-    { id: "remove-rom", title: `Remove the ${name} ROM…`, description: dialog ? "Takes it off the list. The file stays." : "Deletes it from this browser. The file on your computer stays.", off: kept ? null : `No ${name} ROM to remove`, keywords: "remove delete forget rom file", run: () => setTimeout(() => ui.controls.askRemove(s.model), 0) },
     speed("1", "1×"), speed("2", "2×"), speed("4", "4×"), speed("max", "max"),
     { id: "vars", title: "Variables", description: "The calculator's variables, read live.", keywords: "memory explorer variables directory", run: layerTab("vars") },
     { id: "stack", title: "Stack", description: "The memory view's Stack tab.", keywords: "memory explorer stack levels", run: layerTab("stack") },
@@ -316,7 +298,7 @@ function appActions(backend, store, memory, bindings) {
     { id: "fullscreen", title: isFullscreen() ? "Leave fullscreen" : "Fullscreen", description: `The calculator alone, edge to edge${keyHint(bindings, "fullscreen")}.`, keywords: "fullscreen full screen", run: () => toggleFullscreen(store, bindings) },
     // After the palette has closed, which gives the focus back to the page.
     { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the ${backend.host === "tauri" ? "app" : "page"}'s actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
-    { id: "panel", title: root.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with model, ROM, speed and saved states.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!root.classList.contains("panel-hidden")) },
+    { id: "panel", title: root.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with the calculator, Reset, saved states and the speed.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!root.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
     // Files, on this calculator when it can reach it (its route, web/router.js).
     { id: "open-tx", title: "Open Files", description: "Move files between calculators, emulated or on a cable, and this computer.", keywords: "files tx transfer send receive kermit serial cable backup computer", run: () => { location.hash = filesHref(store); } },
@@ -377,15 +359,16 @@ function watchTxLink(store) {
 }
 
 /**
- * Files dropped on the drawn calculator (iteration 47): those with an HP
- * transfer header, and `.txt` files that read as text, are calculator
- * files (`calculatorFiles`); every other file is a ROM as anywhere on the
- * page (`chooseFiles`; the desktop app takes none by drop, and says so),
- * handled first, so a ROM dropped with files boots before they are
- * stored on it. The calculator files go into its current directory
- * (`MemoryWrites.storeFiles`, whose message is a toast).
+ * Files dropped on the view (the memory view takes its own): those with
+ * an HP transfer header, and `.txt` files that read as text, are
+ * calculator files (`calculatorFiles`), stored in the running
+ * calculator's current directory (`MemoryWrites.storeFiles`, whose
+ * message is a toast); the rest are said not to be (a ROM among them:
+ * ROMs are chosen on the home page, iteration 53). A hidden view
+ * (view.js) takes no drops.
  */
-function acceptCalculatorDrops(controls, backend, store, writes) {
+function acceptDrops(backend, store, writes) {
+  const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes("Files");
   const storeHere = async (files) => {
     // A calculator just booted sets up its memory first: asked again for a few seconds.
     let tree = null;
@@ -403,14 +386,23 @@ function acceptCalculatorDrops(controls, backend, store, writes) {
     }
     await writes.storeFiles(tree.path, files);
   };
-  controls.onCalculatorDrop = async (files, dialog) => {
-    const { calc, rest } = await calculatorFiles(files);
-    if (rest.length) {
-      if (dialog) controls.dropped(rest, null);
-      else controls.dropped(rest, await controls.chooseFiles(store.state.model, rest));
-    }
+  document.addEventListener("dragover", (e) => {
+    if (!hasFiles(e) || !shown()) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    root.classList.add("file-drop");
+  });
+  document.addEventListener("dragleave", (e) => {
+    if (!e.relatedTarget) root.classList.remove("file-drop");
+  });
+  document.addEventListener("drop", async (e) => {
+    root.classList.remove("file-drop");
+    if (!hasFiles(e) || !shown() || e.defaultPrevented) return;
+    e.preventDefault();
+    const { calc, rest } = await calculatorFiles([...e.dataTransfer.files]);
+    if (rest.length) say(store, notCalculatorFiles(rest.map((f) => f.name)), true);
     if (calc.length) await storeHere(calc);
-  };
+  });
 }
 
 /**
@@ -515,12 +507,11 @@ function editState(store, bindings) {
 
 /**
  * What the tour (components/sat-tour.js) may open, and how it puts the
- * page back: the controls (the side panel, the phone's sheet), the ROM
- * list, the calculator in sight, the memory view on a tab. Views only;
- * the calculator is never touched.
+ * page back: the controls (the side panel, the phone's sheet), the
+ * calculator in sight, the memory view on a tab. Views only; the
+ * calculator is never touched.
  */
 function tourHooks(memory, store, bindings) {
-  const roms = () => $("roms");
   const phone = () => matchMedia("(max-width: 759px)").matches;
   // Below 1000 px the memory view lies over the calculator.
   const over = () => matchMedia("(max-width: 999px)").matches;
@@ -538,7 +529,6 @@ function tourHooks(memory, store, bindings) {
       sheet: body.contains("sheet-open"),
       layer: Boolean(store.state.layer),
       tab: ui.layer.tab,
-      roms: Boolean(roms()?.open),
       // Where the panel and the stage were scrolled to: a step scrolls its element into view.
       scroll: scrollers().map((e) => [e.scrollTop, e.scrollLeft]),
     }),
@@ -547,16 +537,14 @@ function tourHooks(memory, store, bindings) {
       if (ui.layer.tab !== snap.tab) ui.layer.setTab(snap.tab);
       if (body.contains("panel-hidden") !== snap.panelHidden) setPanelHidden(snap.panelHidden);
       setSheetOpen(snap.sheet);
-      if (roms()) roms().open = snap.roms;
       scrollers().forEach((e, i) => e.scrollTo(snap.scroll[i][1], snap.scroll[i][0]));
     },
     async setup(kind) {
-      if (kind === "panel" || kind === "roms") {
+      if (kind === "panel") {
         if (phone()) {
           if (store.state.layer) await setLayerOpen(memory, false);
           setSheetOpen(true);
         } else if (body.contains("panel-hidden")) setPanelHidden(false);
-        if (kind === "roms" && roms()) roms().open = true;
       } else if (kind === "calculator") {
         setSheetOpen(false);
         if (store.state.layer && over()) await setLayerOpen(memory, false);
@@ -720,7 +708,7 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
   watchClockOnStart(backend, store, prefs);
   ui.calc.attach(backend, store, bindings);
   const writes = new MemoryWrites(backend, store);
-  acceptCalculatorDrops(ui.controls, backend, store, writes);
+  acceptDrops(backend, store, writes);
   ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes, edit: (target, opts) => ui.palette.openEditor(target, opts) });
   ui.about.setReference(reference);
   ui.about.setStore(store);
@@ -737,15 +725,7 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
   backend.setSpeed(store.state.speed);
 
   document.addEventListener("sat-fullscreen", () => toggleFullscreen(store, bindings));
-  document.addEventListener("sat-choose-rom", (e) => ui.controls.chooseFor(e.detail));
-  document.addEventListener("sat-download-rom", (e) => ui.controls.downloadFor(e.detail));
   document.addEventListener("sat-sheet", (e) => setSheetOpen(Boolean(e.detail)));
-  // A message beside the ROMs that must be seen (a dropped file that is
-  // not a ROM): the controls come into view, as the sheet on a phone.
-  document.addEventListener("sat-show-controls", () => {
-    if (matchMedia("(max-width: 759px)").matches) setSheetOpen(true);
-    else if (root.classList.contains("panel-hidden")) setPanelHidden(false);
-  });
   ui.tour.attach({ hooks: tourHooks(memory, store, bindings), store, bindings, prefs, host: backend.romSource === "dialog" ? "app" : "browser", mac: isMac });
   // About's "Show me around".
   document.addEventListener("sat-tour", (e) => startTour(e.detail ?? "start"));
@@ -901,11 +881,12 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
   visibility(document.hidden);
   setPanelHidden(prefs.get("panel") === "hidden");
 
-  // The remembered ROMs; the last model boots if its ROM is there, or the
-  // model of the view's route (`#/calculator/<model>`, web/router.js).
-  ui.controls.openModel = backend.host === "tauri" ? null : model;
+  // The kept ROMs, and the model of the view's route (`#/calculator/<model>`,
+  // web/router.js) shown: booted, or as it runs.
+  ui.controls.openModel = model;
   const started = ui.controls.startRoms();
   showModel = (m) => started.catch(() => {}).then(() => ui.controls.showModel(m));
+  refreshRoms = () => started.catch(() => {}).then(() => ui.controls.refreshRoms());
   // The host keeps its route on the model that runs (web/main.js).
   if (onModel) store.watch(["booted"], (s) => onModel(s.booted));
   watchTxLink(store);
@@ -917,17 +898,11 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
   ui.calc.addEventListener("sat-key", () => ui.tour.putAway(), { once: true });
 
   // The installed page: offline and updates, the screen on through a long
-  // computation, the kept ROMs kept for good where the user and the
-  // browser agree: asked after a ROM is kept, never on load.
-  // The document's (web/main.js), or this view's own where its host registers none.
+  // computation. The document's (web/main.js), or this view's own where
+  // its host registers none.
   const pwa = (installed ?? installServiceWorker(backend.host, store)).catch(() => null);
   pwa.then((r) => r?.build && store.set({ build: r.build }));
   const screenOn = keepScreenOnWhileComputing(store);
-  const storageChoice = new StorageChoice(backend, store, prefs);
-  storageChoice.read();
-  showStorageOffer(store, storageChoice, document, ui.controls.querySelector(".storage-offer"));
-  ui.controls.addEventListener("sat-rom-kept", () => storageChoice.offer());
-  ui.controls.addEventListener("sat-keep-storage", () => storageChoice.keep());
 
   // Handle for debugging and automated checks.
   window.saturnus = {
@@ -937,10 +912,8 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
     started,
     /** The display as text, `#` dark and `.` light. */
     screenText: () => ui.calc.screenText(),
-    /** Boot the selected model (or the one the ROM fits) from a File, which is kept as its ROM. */
-    startWithRom: (file) => ui.controls.chooseFiles(store.state.model, [file]),
-    /** ROM Files for the selected model, as the picker gives them. */
-    chooseRoms: (files) => ui.controls.chooseFiles(store.state.model, files),
+    /** Boot the model shown (or the one the ROM fits) from a File, which is kept as its ROM (the tests' way in; people choose ROMs on the home page). */
+    startWithRom: (file) => ui.controls.romCall(() => backend.chooseRom(store.state.model, [file])),
     /** Whether the host is running passes, sleeping on a timer, or stopped. */
     get loop() { return store.state.loop; },
     get speed() { return store.state.speed; },
@@ -965,8 +938,6 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
     pwa,
     /** Whether the screen is kept on for a long computation (null without the Wake Lock API). */
     screenOn: () => screenOn?.held() ?? null,
-    /** Persistent storage for the kept ROMs, asked for after one is kept (web/pwa.js). */
-    storageChoice,
     /** Whether the calculator is shown fullscreen, edge to edge. */
     get fullscreen() { return isFullscreen(); },
   };
@@ -980,6 +951,8 @@ let visibility = null;
 let refit = null;
 /** Show a model as the route asks (`#/calculator/<model>`, set in `main`). */
 let showModel = null;
+/** Read the kept ROMs again, which the home page changes (set in `main`). */
+let refreshRoms = null;
 
 /**
  * Mount the calculator view on `root` (`#calculator-view`, with the
@@ -994,11 +967,9 @@ let showModel = null;
  *
  * Returns `ready` (resolves once the view is set up, or has said why it
  * could not; `window.saturnus.started` is the ROMs'), `show(model)` (the
- * route again on a mounted view), `newCalculator()` (the controls with
- * the ROMs of every model open: the home page's "New calculator") and
- * `setShown(on, {visibility})`, which the host calls when it shows or
- * hides the view, after un-hiding its root: the widths are fitted again
- * and a running tour placed again on show, and with `visibility: true` a
+ * route again on a mounted view) and `setShown(on, {visibility})`, which the host calls when it shows or
+ * hides the view, after un-hiding its root: the widths are fitted again,
+ * the kept ROMs read again and a running tour placed again on show, and with `visibility: true` a
  * hidden view counts as a hidden page for the calculator (web/protocol.md
  * `visibility`: a computing machine in the browser stops).
  */
@@ -1023,14 +994,6 @@ export function mountCalculator(el, { shown: isShown = () => true, model = null,
     show(m) {
       if (m) ready.then(() => showModel?.(m));
     },
-    newCalculator() {
-      ready.then(() => {
-        document.dispatchEvent(new CustomEvent("sat-show-controls"));
-        const roms = $("roms");
-        if (roms) roms.open = true;
-        roms?.scrollIntoView?.({ block: "nearest" });
-      });
-    },
     setShown(on, { visibility: counts = false } = {}) {
       const hidden = counts && !on;
       if (hidden !== viewHidden) {
@@ -1039,6 +1002,7 @@ export function mountCalculator(el, { shown: isShown = () => true, model = null,
       }
       if (on) {
         refit?.();
+        refreshRoms?.();
         // A tour that ran on while the view was hidden: its ring and bubble measured again.
         if (ui.tour?.run) ui.tour.place();
       }

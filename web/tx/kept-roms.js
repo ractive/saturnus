@@ -133,6 +133,32 @@ export async function keptRoms(idb = globalThis.indexedDB, models = SERIAL_MODEL
   }
 }
 
+/**
+ * Where the app opens (web/router.js `startRoute`): the slot store's
+ * settings, `{lastModel, bootLast}`, `lastModel` null when its ROM is not
+ * kept, `bootLast` true unless turned off. Never throws: a store that
+ * cannot be read starts on the home page.
+ */
+export async function keptStart(idb = globalThis.indexedDB) {
+  const none = { lastModel: null, bootLast: true };
+  if (!idb) return none;
+  const db = await openExisting(idb);
+  if (!db) return none;
+  try {
+    if (!db.objectStoreNames.contains("slots")) return none;
+    const store = db.transaction("slots", "readonly").objectStore("slots");
+    const settings = await promised(store.get("@settings"));
+    const bootLast = settings?.bootLast ?? true;
+    const last = typeof settings?.lastModel === "string" ? settings.lastModel : null;
+    const slot = last ? await promised(store.get(last)) : null;
+    return { lastModel: slot?.sha256 ? last : null, bootLast };
+  } catch {
+    return none;
+  } finally {
+    db.close();
+  }
+}
+
 /** The ROM rows of the slot store's keys and values (pure; tested). */
 export function slotsOf(keys, values, models = SERIAL_MODELS) {
   const out = [];

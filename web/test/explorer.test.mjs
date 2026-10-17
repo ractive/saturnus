@@ -1148,26 +1148,22 @@ test("where the view covers the calculator, the page opens on the calculator", {
   }
 });
 
-test("no calculator: the view offers the display's Choose ROM", { timeout: 120_000 }, async (t) => {
+test("no calculator: the view offers the way home", { timeout: 120_000 }, async (t) => {
   for (const [width, mobile] of [[1280, false], [390, true]]) {
     const p = await page(t, { width, height: 844, mobile });
     if (!p) return;
-    await p.ev(`(() => {
-      document.addEventListener("sat-choose-rom", (e) => { window.__chose = e.detail; e.stopImmediatePropagation(); }, { capture: true });
-      window.saturnus.store.set({ booted: null, model: "48gx" });
-      return true;
-    })()`);
+    await p.ev(`window.saturnus.store.set({ booted: null, model: "48gx" }), true`);
     await until(p.ev, `!document.querySelector(".layer-empty").hidden`, 3_000, "the empty view");
     assert.deepEqual(await p.ev(`[".layer-empty h3", ".layer-empty-text"].map((q) => document.querySelector(q).textContent)`),
-      ["No calculator is running", "Choose a ROM to start."]);
+      ["No calculator is running", "Start one on the home page."]);
     if (mobile) {
       // A tap: a phone's touch, not a mouse.
-      const [x, y] = await p.center(".layer-empty-choose");
+      const [x, y] = await p.center(".layer-empty-home");
       await p.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
       await p.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await sleep(150);
-    } else await p.click(".layer-empty-choose");
-    assert.equal(await p.ev("window.__chose"), "48gx", `${width} px: the chooser for the model shown`);
+    } else await p.click(".layer-empty-home");
+    await until(p.ev, `saturnusApp.view === "home"`, 3_000, `${width} px: the home page`);
   }
 });
 

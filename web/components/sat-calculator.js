@@ -1,15 +1,15 @@
-// <sat-calculator>: the calculator itself. Draws the selected model's skin
+// <sat-calculator>: the calculator itself. Draws the shown model's skin
 // and the LCD from the store's frames, and turns pointer presses and the
-// computer keyboard into backend commands. With no ROM running for the
-// model shown, the LCD holds an empty state with a "Choose ROM…" button
-// (event `sat-choose-rom`), which a key press makes pulse. Light
-// DOM (display: contents), so the page's stylesheet applies.
+// computer keyboard into backend commands. With no calculator running for
+// the model shown, the LCD holds an empty state with the way home ("Your
+// calculators"), which a key press makes pulse. Light DOM (display:
+// contents), so the page's stylesheet applies.
 
 import { contrastDarkness, offTint } from "../contrast.js";
 import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
 import { aboveStack, foldGeometry, foldScale, halfAt, stacks } from "../fold.js";
-import { MODEL_TITLES, PIONEERS, getRomLink, isLive, keyAction, noRomText } from "../norom.js";
+import { MODEL_TITLES, PIONEERS, emptyText, isLive, keyAction } from "../norom.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenRgba } from "../screenshot.js";
@@ -152,10 +152,8 @@ const TEMPLATE = `
     <div class="glass"></div>
     <div class="no-rom" hidden>
       <p class="no-rom-text"></p>
-      <p class="no-rom-get" hidden></p>
       <div class="no-rom-actions">
-        <button type="button" class="no-rom-choose">Choose ROM…</button>
-        <button type="button" class="no-rom-download" hidden>Download…</button>
+        <a class="button no-rom-home" href="#/">Your calculators</a>
       </div>
     </div>
   </section>`;
@@ -450,10 +448,6 @@ export class SatCalculator extends HTMLElement {
       glass: this.querySelector(".glass"),
       noRom: this.querySelector(".no-rom"),
     };
-    this.ui.noRom.querySelector(".no-rom-choose").addEventListener("click", (e) => {
-      e.currentTarget.blur();
-      this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.shownModel() }));
-    });
     // Cut short, the message's text shows the whole of it (`noRomMore`).
     const shortText = this.ui.noRom.querySelector(".no-rom-text");
     shortText.addEventListener("click", () => this.noRomMore());
@@ -461,10 +455,6 @@ export class SatCalculator extends HTMLElement {
       if (e.key !== "Enter" && e.key !== " ") return;
       e.preventDefault();
       this.noRomMore();
-    });
-    this.ui.noRom.querySelector(".no-rom-download").addEventListener("click", (e) => {
-      e.currentTarget.blur();
-      this.dispatchEvent(new CustomEvent("sat-download-rom", { bubbles: true, detail: this.shownModel() }));
     });
     this.ui.lcd.id = "lcd";
     const off = document.createElement("canvas");
@@ -477,7 +467,7 @@ export class SatCalculator extends HTMLElement {
     });
     store.watch(["keysDown"], (s) => this.showKeys(s.keysDown));
     // The skin follows the selected model at once, ROM or not.
-    store.watch(["booted", "model", "roms"], () => this.onModel());
+    store.watch(["booted", "model", "wanted", "roms"], () => this.onModel());
 
     store.watch(["busy"], (s) => this.classList.toggle("typing", s.busy));
     // A hidden view (view.js) takes no keys or pastes; a release is always
@@ -536,46 +526,31 @@ export class SatCalculator extends HTMLElement {
   }
 
   /**
-   * The empty state of `model`: what is missing and where to get it (the
-   * page links to hpcalc.org, the app offers its download).
+   * The empty state of `model`: no calculator asked for, its ROM missing,
+   * or its calculator not running (`emptyText`), and the way home, where
+   * calculators are started and given their ROM.
    */
   showNoRom(model) {
     const n = this.ui.noRom;
+    const s = this.store.state;
+    const kept = Boolean(s.roms?.slots.find((x) => x.model === model)?.fileName);
     // "HP 48SX" stays on one line.
-    // No ROM kept for any model (or the slots not read yet): a first visit.
-    const slots = this.store.state.roms?.slots;
-    const firstRom = !slots?.some((s) => s.state && s.state !== "empty");
-    const text = noRomText(model, (MODEL_TITLES[model] ?? model).replace(" ", "\u00a0"), { firstRom });
+    const text = emptyText(model, (MODEL_TITLES[model] ?? model).replace(" ", "\u00a0"), { asked: s.wanted === model, kept });
     n.querySelector(".no-rom-text").textContent = text;
     n.dataset.text = text;
-    n.dataset.short = "No ROM";
-    const download = this.store.state.roms?.slots.find((s) => s.model === model)?.download ?? null;
-    const get = getRomLink(download, this.backend.romSource, matchMedia("(pointer: coarse)").matches);
-    const p = n.querySelector(".no-rom-get");
-    p.hidden = !get;
-    if (get) {
-      const a = document.createElement("a");
-      a.href = get.href;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.textContent = get.link;
-      p.replaceChildren(get.before, a, get.after);
-    }
-    n.querySelector(".no-rom-download").hidden = !(download && this.backend.romSource === "dialog");
-    this.noRomGet = get;
+    n.dataset.short = s.wanted === model ? (kept ? "Not running" : "No ROM") : "No calculator";
     this.fitNoRom();
   }
 
   /**
    * The whole empty state, for when the display shows it cut short: a
    * tap or click on its text opens it in a small menu (a phone has no
-   * tooltip), with the hpcalc.org page and Choose ROM.
+   * tooltip), with the way home.
    */
   noRomMore() {
     const n = this.ui.noRom;
     if (!n.classList.contains("short")) return;
     const text = n.querySelector(".no-rom-text");
-    const get = this.noRomGet;
     openMenu({
       anchor: text,
       align: "start",
@@ -584,20 +559,18 @@ export class SatCalculator extends HTMLElement {
       returnFocus: () => text,
       items: [
         { note: n.title },
-        ...(get ? [{ text: `Open ${get.link}`, run: () => window.open(get.href, "_blank", "noopener,noreferrer") }] : []),
-        { text: "Choose ROM…", run: () => this.dispatchEvent(new CustomEvent("sat-choose-rom", { bubbles: true, detail: this.shownModel() })) },
+        { text: "Your calculators", run: () => { location.hash = "#/"; } },
       ],
     });
   }
 
   /**
    * Fit the empty state into the display: the whole message if it fits,
-   * else smaller print (`compact`), else its first sentence without the
-   * download hint (`short`; the panel's ROM list keeps the links), else
-   * "No ROM" beside the buttons (`row`): the 42S's display is a strip,
+   * else smaller print (`compact`), else its first sentence (`short`),
+   * else "No ROM" beside the link (`row`): the 42S's display is a strip,
    * and a phone on its side leaves every display small. Cut short, the
-   * whole message (the hint's words too) is the box's tooltip, and its
-   * text opens it in a menu (`noRomMore`).
+   * whole message is the box's tooltip, and its text opens it in a menu
+   * (`noRomMore`).
    */
   fitNoRom() {
     const n = this.ui.noRom;
@@ -606,7 +579,7 @@ export class SatCalculator extends HTMLElement {
     const fits = () => {
       if (n.scrollHeight > n.clientHeight + 1 || n.scrollWidth > n.clientWidth + 1) return false;
       const box = n.getBoundingClientRect();
-      return [...n.querySelectorAll("p, button")].every((e) => {
+      return [...n.querySelectorAll("p, a")].every((e) => {
         if (e.closest("[hidden]") || !e.getClientRects().length) return true;
         const r = e.getBoundingClientRect();
         return r.left >= box.left - 0.5 && r.right <= box.right + 0.5 && r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5;
@@ -614,8 +587,6 @@ export class SatCalculator extends HTMLElement {
     };
     const full = n.dataset.text;
     const first = full.replace(/^(.*?\.)\s.*$/s, "$1");
-    const getP = n.querySelector(".no-rom-get");
-    const whole = [full, getP.hidden ? "" : getP.textContent].filter(Boolean).join(" ");
     const levels = [
       ["", full],
       ["compact", full],
@@ -628,7 +599,7 @@ export class SatCalculator extends HTMLElement {
       text.textContent = words;
       // Cut short: the whole message as the tooltip, and the text a button that shows it.
       const cut = n.classList.contains("short");
-      n.title = cut ? whole : "";
+      n.title = cut ? full : "";
       if (cut) {
         text.setAttribute("tabindex", "0");
         text.setAttribute("role", "button");

@@ -56,13 +56,11 @@ test("a step applies when every condition of its `when` holds", () => {
   assert.ok(applies({ when: { host: "app", phone: true } }, ctx));
   assert.ok(!applies({ when: { host: "app", phone: false } }, ctx));
   assert.ok(!applies({ when: { pointer: "fine" } }, ctx));
-  // The host's own Download: the link in the browser, the button in the app.
+  // The same steps in the browser and the app; the way home in both.
   const start = chapter("start");
   const ids = (c) => new TourRun(start, c).steps.map((s) => s.id);
-  assert.ok(ids(context({ host: "browser" })).includes("download"));
-  assert.ok(!ids(context({ host: "browser" })).includes("download-app"));
-  assert.ok(ids(context({ host: "app" })).includes("download-app"));
-  assert.ok(!ids(context({ host: "app" })).includes("download"));
+  assert.deepEqual(ids(context({ host: "browser" })), ids(context({ host: "app" })));
+  assert.ok(ids(context({ host: "app" })).includes("switch"));
   // No keys to change by touch.
   assert.ok(!ids(context({ pointer: "coarse", phone: true })).includes("shortcuts"));
 });

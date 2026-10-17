@@ -17,12 +17,11 @@ import { WRITABLE_MODELS } from "./norom.js";
 
 /**
  * What a setup opens. `panel`: the controls (the side panel, or the
- * phone's sheet); `roms`: and the "ROMs of every model" list in it;
- * `calculator`: the calculator in sight (the sheet closed, the memory
+ * phone's sheet); `calculator`: the calculator in sight (the sheet closed, the memory
  * view closed where it would lie over it); `layer:<tab>`: the memory view
  * on that tab.
  */
-export const SETUPS = ["panel", "roms", "calculator", "layer:vars", "layer:stack", "layer:flags"];
+export const SETUPS = ["panel", "calculator", "layer:vars", "layer:stack", "layer:flags"];
 
 /** The tour's chapters; `needs: "memory"`: offered while a model with a memory view runs. */
 export const CHAPTERS = [
@@ -34,7 +33,7 @@ export const CHAPTERS = [
         id: "panel",
         anchor: "#panel .panel-head",
         title: "The controls",
-        text: "The side panel holds the model and its ROM, Reset, saved states, the speed and the theme. ‹ hides it, ☰ brings it back.",
+        text: "The side panel holds the calculator shown, Reset, saved states, the speed and the theme. ‹ hides it, ☰ brings it back.",
         setup: "panel",
         when: { phone: false },
       },
@@ -42,48 +41,23 @@ export const CHAPTERS = [
         id: "sheet",
         anchor: "#bar-menu",
         title: "The controls",
-        text: "☰ opens the controls: the model and its ROM, Reset, saved states, the speed and the theme.",
+        text: "☰ opens the controls: the calculator shown, Reset, saved states, the speed and the theme.",
         setup: "calculator",
         when: { phone: true },
       },
       {
-        id: "roms",
-        anchor: "#roms > summary",
-        title: "ROMs",
-        text: "Each model runs HP's own ROM, which is not part of saturnus. This list shows which models have one.",
-        setup: "roms",
-      },
-      {
-        id: "download",
-        anchor: "[data-tour=rom-download]",
-        title: "Download",
-        text: "Download opens the model's page on hpcalc.org, which hosts the ROMs with HP's permission. Download the zip there and unzip it.",
-        setup: "roms",
-        when: { host: "browser" },
-      },
-      {
-        id: "download-app",
-        anchor: ".rom-row-button[data-rom-act=download]",
-        title: "Download",
-        text: "Download… fetches the model's ROM from hpcalc.org, which hosts it with HP's permission, after asking first.",
-        setup: "roms",
-        when: { host: "app" },
-      },
-      {
-        id: "choose",
-        anchor: "#rom-pick",
-        title: "Choose the file",
-        text: "Choose… picks the ROM file, or drop it on the page. It is kept in this browser and never uploaded.",
+        id: "switch",
+        anchor: "#switch-calc",
+        title: "Your calculators",
+        text: "Switch calculator goes to the home page: your calculators, a new one with its ROM, and removing one.",
         setup: "panel",
-        when: { host: "browser" },
       },
       {
-        id: "choose-app",
-        anchor: "#rom-pick",
-        title: "Choose the file",
-        text: "Choose… picks a ROM file you already have. The app remembers where it is.",
+        id: "files",
+        anchor: "#to-transfer",
+        title: "Files",
+        text: "Files moves files between this calculator, another one, a calculator on a cable and this computer.",
         setup: "panel",
-        when: { host: "app" },
       },
       {
         id: "search",

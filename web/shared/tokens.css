@@ -343,6 +343,26 @@ button.link {
   justify-content: flex-start;
 }
 button.link:hover:not(:disabled, [aria-disabled="true"]) { background: none; color: var(--ink); }
+/* A link that looks like a button (the home page's ways in, "Your calculators"). */
+a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  min-height: var(--tap);
+  padding: 0 var(--s3);
+  box-sizing: border-box;
+  border: 1px solid var(--control-border);
+  border-radius: var(--r-md);
+  background: var(--control);
+  color: var(--ink);
+  line-height: var(--lh-tight);
+  text-decoration: none;
+  transition: background-color var(--t-fast), border-color var(--t-fast);
+}
+a.button:hover { border-color: var(--muted); background: var(--panel); }
+a.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+a.button.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
 
 /* The browser's own arrow sits against the right border: the page draws
    its chevron instead, centred and as far from the right border as the

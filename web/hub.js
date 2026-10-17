@@ -673,13 +673,19 @@ export class Hub {
     }).catch(() => {});
   }
 
-  /** After Remove ROMs: `model`'s calculator (every one's, if null) stops; no 49G state is written until it boots again. */
+  /**
+   * After Remove ROMs: `model`'s calculator (every one's, if null) stops;
+   * no 49G state is written until it boots again. Refused, with nothing
+   * forgotten, while one of them cannot stop (a send types), in the
+   * engine's words.
+   */
   async forgetKept(conn, model) {
+    const going = [...this.machines.values()].filter((e) => model === null || e.model === model);
+    for (const e of going) e.host.check(JSON.stringify({ v: 1, cmd: "unload" }));
     for (const m of ROM_HOLDING_STATES) {
       if (model === null || model === m) this.forgotten.add(m);
     }
-    for (const e of [...this.machines.values()]) {
-      if (model !== null && e.model !== model) continue;
+    for (const e of going) {
       this.dropTx(e, "The emulator's ROM of this calculator was removed.", conn);
       await this.stop(e);
     }
@@ -705,7 +711,7 @@ export class Hub {
       switch (m.cmd) {
         case "romSlots": return await this.roms().slots();
         case "bootModel": return await this.roms().bootModel(String(m.model), m.fresh === true);
-        case "chooseRom": return await this.roms().chooseRom(String(m.model), m.files, m.offer);
+        case "chooseRom": return await this.roms().chooseRom(String(m.model), m.files, m.offer, { boot: m.boot !== false });
         case "forgetRom":
           await this.forgetKept(conn, m.model ?? null);
           return await this.roms().forget(m.model ?? null);

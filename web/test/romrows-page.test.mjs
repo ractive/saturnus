@@ -1,81 +1,51 @@
-// The ROM table ("ROMs of every model") in the real page in headless
-// Chrome: a primary button per row that acts at once and a "⋯" for the
-// rest, lined up, rows of one height; the primaries and menus per host and
-// slot; Remove… asks in the shared modal, takes the 39G's and 40G's shared
-// file together, and stops the model that runs from it; no overflow on a
-// phone. The page's ROM slots and the backend's answers are
-// stubbed. Skipped without Chrome (`SATURNUS_CHROME` names one) or the
-// wasm package (`just web`).
+// The home page's calculators and their ROMs (iteration 53) in the real
+// page in headless Chrome: a kept calculator's ⋯ (Change ROM…, Download
+// again… in the app, Remove…), New calculator's models with Choose… and
+// where to download (the app's Download…), the hints per host and
+// pointer; Remove… asks in the shared modal, takes the 39G's and 40G's
+// shared file together and says when the calculator stops; a removal
+// refused while a send types says why and removes nothing; Remove ROMs…
+// asks first; nothing overflows a phone. The ROM commands
+// (web/home-roms.js) are stubbed. Skipped without Chrome
+// (`SATURNUS_CHROME` names one) or the wasm package (`just web`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { session, sleep } from "./chrome.mjs";
 
-/** The slots shown, `romSource` set, the backend's removes recorded (`__removed`, `__unloaded`). */
-const SLOTS = (source) => `(() => {
-  const s = window.saturnus.store;
-  const b = window.saturnus.backend;
-  b.romSource = ${JSON.stringify(source)};
+/** The home page's ROM commands stubbed for `source`, the removes recorded (`__removed`), the primaries' actions too (`__acted`). */
+const STUB = (source, running = []) => `(() => {
+  const h = saturnusApp.home;
   const d = (file) => ({ file, size: 1, url: "https://www.hpcalc.org/x.zip", page: "https://www.hpcalc.org/details/1", revision: "rev" });
-  const slots = [
+  let slots = { slots: [
     { model: "48sx", fileName: "sxrom-j", revision: "J", state: "ready", download: d("sxrom-j") },
     { model: "48gx", fileName: "gxrom-r", revision: "R", state: "ready", download: d("gxrom-r") },
-    { model: "38g", fileName: null, revision: null, state: "empty", download: d("38G_A167.ROM") },
     { model: "49g", fileName: "rom.49g", revision: "2.10", state: "ready", download: d("rom.49g") },
+    { model: "38g", fileName: null, revision: null, state: "empty", download: d("38G_A167.ROM") },
     { model: "39g", fileName: "rom.39g", revision: "C", state: "ready", download: d("rom.39g") },
     { model: "40g", fileName: "rom.39g", revision: "C", state: "ready", download: d("rom.39g") },
     { model: "42s", fileName: null, revision: null, state: "empty", download: null },
-  ];
+    { model: "28s", fileName: null, revision: null, state: "empty", download: null },
+  ], offers: [], lastModel: null, bootLast: true, remembered: true, note: null };
   window.__removed = [];
-  window.__unloaded = 0;
-  b.forgetRom = async (model) => {
-    window.__removed.push(model);
-    const r = s.state.roms;
-    return { ...r, slots: r.slots.map((x) => (x.model === model ? { ...x, fileName: null, revision: null, state: "empty" } : x)) };
-  };
-  b.unload = async () => { window.__unloaded++; s.set({ booted: null }); return null; };
-  // What the primaries start, recorded instead of a file chooser or a download.
   window.__acted = [];
-  const c = document.querySelector("sat-controls");
-  c.chooseFor = (m) => window.__acted.push(["choose", m]);
-  c.downloadFor = (m) => window.__acted.push(["download", m]);
-  s.set({ roms: { slots, offers: [], lastModel: null, bootLast: true, remembered: true, note: null } });
-  document.getElementById("roms").open = true;
-  return true;
+  window.__refuse = null;
+  h.roms.romSource = ${JSON.stringify(source)};
+  h.app = ${JSON.stringify(source)} === "dialog";
+  h.roms.started = () => true;
+  h.roms.romSlots = async () => slots;
+  h.roms.running = async () => ${JSON.stringify(running)};
+  h.roms.forgetRom = async (model) => {
+    if (window.__refuse) throw new Error(window.__refuse);
+    window.__removed.push(model);
+    slots = { ...slots, slots: slots.slots.map((x) => (model === null || x.model === model ? { ...x, fileName: null, revision: null, state: "empty" } : x)) };
+    return slots;
+  };
+  h.choose = (m) => window.__acted.push(["choose", m]);
+  h.download = (m) => window.__acted.push(["download", m]);
+  return h.render().then(() => true);
 })()`;
 
-/**
- * Each row: the model, its primary's text, width and left edge, its ⋯
- * (size and label, or null), its height; the name cell's two lines (the
- * model's and the file's tops and texts) and the buttons' middle against
- * the cell's.
- */
-const ROWS = `[...document.querySelectorAll(".rom-slots tr")].map((tr) => {
-  const b = tr.querySelector("td.rom-act .rom-row-button");
-  const m = tr.querySelector("td.rom-act button.more");
-  const r = b.getBoundingClientRect();
-  const mr = m?.getBoundingClientRect();
-  return { model: tr.querySelector(".rom-model").textContent, buttons: tr.querySelectorAll("td.rom-act button").length, label: b.textContent,
-    width: Math.round(r.width), left: Math.round(r.left), buttonHeight: Math.round(r.height),
-    more: m ? { w: Math.round(mr.width), h: Math.round(mr.height), label: m.getAttribute("aria-label"), menu: m.getAttribute("aria-haspopup") } : null,
-    height: Math.round(tr.getBoundingClientRect().height),
-    file: tr.querySelector(".rom-file-name").textContent,
-    lines: [tr.querySelector(".rom-model"), tr.querySelector(".rom-file-name")].map((e) => Math.round(e.getBoundingClientRect().top)),
-    cut: (() => { const f = tr.querySelector(".rom-file-name"); return f.scrollWidth > f.clientWidth; })(),
-    centred: (() => { const c = tr.querySelector("th").getBoundingClientRect(); return Math.abs((r.top + r.height / 2) - (c.top + c.height / 2)) <= 1; })() };
-})`;
-
-/** Every row's name in two lines, the file under the model, the buttons centred against them. */
-function twoLines(rows) {
-  for (const r of rows) {
-    assert.ok(r.lines[1] > r.lines[0], `${r.model}: the file under the model ${r.lines}`);
-    assert.ok(r.centred, `${r.model}: the buttons centred`);
-  }
-}
-
-/** Click `model`'s primary button. */
-const PRIMARY = (model) => `document.querySelector('.rom-row-button[data-model="${model}"]').click(), true`;
-
-async function page(t, width = 1280, height = 900, mobile = false) {
+async function page(t, { width = 1280, height = 900, mobile = false } = {}) {
   const c = await session(t);
   if (!c) return null;
   const { send, ev, port } = c;
@@ -83,166 +53,165 @@ async function page(t, width = 1280, height = 900, mobile = false) {
   await send("Runtime.enable");
   if (mobile) await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
   await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
-  for (let i = 0; i < 150 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
-  await ev("window.saturnus.started");
-  /** The items of `model`'s row menu, opened by its button. */
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/` });
+  for (let i = 0; i < 150 && !(await ev("!!window.saturnusApp?.home").catch(() => false)); i++) await sleep(100);
+  /** The items of `model`'s ⋯ menu, opened by its button. */
   const menu = async (model) => {
-    await ev(`document.querySelector('button[data-rom-menu="${model}"]').click(); true`);
+    await ev(`document.querySelector('#home-list button[data-menu="${model}"]').click(); true`);
     await sleep(150);
     return ev(`[...document.querySelectorAll(".menu [role=menuitem], .menu [role=separator]")].map((e) => e.getAttribute("role") === "separator" ? "-" : e.textContent)`);
   };
   const choose = (text) => ev(`[...document.querySelectorAll(".menu [role=menuitem]")].find((b) => b.textContent === ${JSON.stringify(text)}).click(), true`);
-  return { ...c, menu, choose };
+  const modal = () => ev(`(() => { const d = document.querySelector("dialog.confirm"); return d && d.open ? { title: d.querySelector("h2").textContent, body: d.querySelector("p").textContent, buttons: [...d.querySelectorAll("button")].map((b) => b.textContent) } : null; })()`);
+  const answer = (text) => ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === ${JSON.stringify(text)}).click(), true`);
+  const message = () => ev("saturnusApp.home.store.state.message");
+  /** New calculator's rows: the model, its buttons, its line under the name (and its link). */
+  const fresh = async () => {
+    if (await ev(`document.getElementById("home-new-section").hidden`)) await ev(`document.getElementById("home-new").click(); true`);
+    await sleep(200);
+    return ev(`[...document.querySelectorAll("#home-models li")].map((li) => ({ model: li.dataset.model, buttons: [...li.querySelectorAll("button")].map((b) => b.textContent), line: li.querySelector(".home-rom").textContent, link: li.querySelector(".home-rom a")?.getAttribute("href") ?? null }))`);
+  };
+  return { ...c, menu, choose, modal, answer, message, fresh };
 }
 
-test("a primary and a ⋯ per row, lined up, one height; the browser's", { timeout: 120_000 }, async (t) => {
+test("the browser's: a kept calculator's ⋯, New calculator's Choose… and Download link, the hints", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
-  await p.ev(SLOTS("file"));
-  const rows = await p.ev(ROWS);
-  assert.equal(new Set(rows.map((r) => r.height)).size, 1, `one height: ${rows.map((r) => r.height)}`);
-  assert.equal(new Set(rows.map((r) => r.width)).size, 1, `one width: ${rows.map((r) => r.width)}`);
-  assert.equal(new Set(rows.map((r) => r.left)).size, 1, `lined up: ${rows.map((r) => r.left)}`);
-  twoLines(rows);
-  const sizes = rows.filter((r) => r.more).map((r) => `${r.more.w}x${r.more.h}`);
-  assert.equal(new Set(sizes).size, 1, `one ⋯ size: ${sizes}`);
-  assert.equal(sizes[0], `${rows[0].buttonHeight}x${rows[0].buttonHeight}`, "the ⋯ is square, as high as the primary");
-  const by = Object.fromEntries(rows.map((r) => [r.model, r]));
-  // Empty in the browser: Choose… alone, the row links to hpcalc.org.
-  assert.equal(by["HP 38G"].label, "Choose…");
-  assert.equal(by["HP 38G"].more, null);
-  assert.equal(by["HP 38G"].buttons, 1);
-  assert.equal(await p.ev(`[...document.querySelectorAll(".rom-slots tr")].find((tr) => tr.querySelector(".rom-model").textContent === "HP 38G").querySelector("a")?.textContent`), "Download");
-  assert.equal(by["HP 42S"].label, "Choose…");
-  assert.equal(by["HP 42S"].more, null);
-  assert.equal(await p.ev(`[...document.querySelectorAll(".rom-slots tr")].find((tr) => tr.querySelector(".rom-model").textContent === "HP 42S").querySelector(".rom-file-name").textContent`), "none");
-  // Filled: Change… at once; the ⋯ holds Remove… alone, never a bare button.
-  assert.equal(by["HP 48GX"].label, "Change…");
-  assert.deepEqual(by["HP 48GX"].more, { ...by["HP 48GX"].more, label: "More for HP 48GX", menu: "menu" });
-  assert.deepEqual(await p.menu("48gx"), ["Remove…"]);
-  await p.ev(`document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); true`);
+  await p.ev(STUB("file"));
+  assert.deepEqual(await p.ev(`[...document.querySelectorAll("#home-list li")].map((li) => li.dataset.model)`), ["48sx", "48gx", "49g", "39g", "40g"]);
+  assert.deepEqual(await p.menu("48gx"), ["Change ROM…", "-", "Remove…"]);
+  await p.choose("Change ROM…");
   await sleep(100);
-  await p.ev(PRIMARY("48gx"));
-  await p.ev(PRIMARY("38g"));
+  assert.deepEqual(await p.ev("window.__acted"), [["choose", "48gx"]]);
+  const rows = await p.fresh();
+  assert.deepEqual(rows, [
+    { model: "38g", buttons: ["Choose…"], line: "Download from hpcalc.org", link: "https://www.hpcalc.org/details/1" },
+    { model: "42s", buttons: ["Choose…"], line: "HP never published it: read it out of your own calculator.", link: null },
+    { model: "28s", buttons: ["Choose…"], line: "HP never published it: read it out of your own calculator.", link: null },
+  ]);
+  await p.ev(`document.querySelector('#home-models button[data-model="38g"]').click(); true`);
+  await sleep(100);
   assert.deepEqual(await p.ev("window.__acted"), [["choose", "48gx"], ["choose", "38g"]]);
-  assert.equal(await p.ev(`document.querySelectorAll(".menu [role=menuitem]").length`), 0, "a primary opens no menu");
-  assert.equal(await p.ev(`document.getElementById("rom-forget").textContent`), "Remove ROMs…");
+  assert.equal(await p.ev(`document.getElementById("home-new-hint").textContent`), "Choose the model's ROM file, or drop it on this page. Several files at once each go to their model.");
+  assert.match(await p.ev(`document.getElementById("home-source-hint").textContent`), /^Download opens the model's page on hpcalc\.org/);
+  assert.match(await p.ev(`document.getElementById("home-kept-hint").textContent`), /^Kept in this browser/);
+  assert.equal(await p.ev(`document.querySelector("#home-settings .home-boot-last-label").textContent`), "Start the last calculator when the app opens");
+  assert.equal(await p.ev(`document.getElementById("home-boot-last").checked`), true);
+  assert.equal(await p.ev(`document.getElementById("home-forget").textContent`), "Remove ROMs…");
 });
 
-test("the app's: Download… at once with a file in the ⋯; Change… with Download again…", { timeout: 120_000 }, async (t) => {
+test("the app's: Download again… in the ⋯; Download… and Choose… for a new calculator", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
-  await p.ev(SLOTS("dialog"));
-  const rows = await p.ev(ROWS);
-  assert.equal(new Set(rows.map((r) => r.width)).size, 1, `one width: ${rows.map((r) => r.width)}`);
-  assert.equal(new Set(rows.map((r) => r.left)).size, 1, `lined up: ${rows.map((r) => r.left)}`);
-  twoLines(rows);
-  const by = Object.fromEntries(rows.map((r) => [r.model, r]));
-  assert.equal(by["HP 38G"].label, "Download…");
-  assert.equal(by["HP 38G"].file, "none");
-  assert.deepEqual(rows.filter((r) => r.cut).map((r) => r.model), [], "the app's file names fit at 1280");
-  assert.deepEqual(await p.menu("38g"), ["Choose a file…"]);
-  await p.choose("Choose a file…");
-  await sleep(100);
-  assert.deepEqual(await p.menu("48gx"), ["Download again…", "-", "Remove…"]);
+  await p.ev(STUB("dialog"));
+  assert.deepEqual(await p.menu("48gx"), ["Change ROM…", "Download again…", "-", "Remove…"]);
   await p.choose("Download again…");
   await sleep(100);
-  await p.ev(PRIMARY("38g"));
-  await p.ev(PRIMARY("49g"));
-  assert.deepEqual(await p.ev("window.__acted"), [["choose", "38g"], ["download", "48gx"], ["download", "38g"], ["choose", "49g"]]);
-  assert.equal(by["HP 42S"].label, "Choose…", "no download for the 42S");
-  assert.equal(by["HP 42S"].more, null);
+  const rows = await p.fresh();
+  assert.deepEqual(rows.find((r) => r.model === "38g"), { model: "38g", buttons: ["Download…", "Choose…"], line: "38G_A167.ROM, from hpcalc.org", link: null });
+  assert.deepEqual(rows.find((r) => r.model === "42s").buttons, ["Choose…"], "no download for the 42S");
+  await p.ev(`document.querySelector('#home-models button[data-act="download"][data-model="38g"]').click(); true`);
+  await sleep(100);
+  assert.deepEqual(await p.ev("window.__acted"), [["download", "48gx"], ["download", "38g"]]);
 });
 
-test("Remove… asks in the modal; the 39G and 40G go together; a running model stops", { timeout: 120_000 }, async (t) => {
+test("Remove… asks in the modal; the 39G and 40G go together; the running calculator stops", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
-  await p.ev(SLOTS("file"));
-  const modal = () => p.ev(`(() => { const d = document.querySelector("dialog.confirm"); return d && d.open ? { title: d.querySelector("h2").textContent, body: d.querySelector("p").textContent, buttons: [...d.querySelectorAll("button")].map((b) => b.textContent) } : null; })()`);
-  const answer = (text) => p.ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === ${JSON.stringify(text)}).click(), true`);
+  await p.ev(STUB("file", ["48gx"]));
   await p.menu("49g");
   await p.choose("Remove…");
-  await sleep(100);
-  assert.deepEqual(await modal(), {
+  await sleep(200);
+  assert.deepEqual(await p.modal(), {
     title: "Remove the HP 49G ROM?",
     body: "It is deleted from this browser, with its saved state, as that contains the ROM. The file on your computer stays.",
     buttons: ["Cancel", "Remove"],
   });
-  await answer("Cancel");
-  assert.equal(await modal(), null, "Cancel closes it");
+  await p.answer("Cancel");
+  await sleep(100);
+  assert.equal(await p.modal(), null, "Cancel closes it");
   assert.deepEqual(await p.ev("window.__removed"), []);
 
   await p.menu("40g");
   await p.choose("Remove…");
-  await sleep(100);
-  assert.equal((await modal()).title, "Remove the HP 39G and HP 40G ROM?");
-  assert.match((await modal()).body, /^They use the same file, so both go\./);
-  await answer("Remove");
+  await sleep(200);
+  assert.equal((await p.modal()).title, "Remove the HP 39G and HP 40G ROM?");
+  assert.match((await p.modal()).body, /^They use the same file, so both go\./);
+  await p.answer("Remove");
   await sleep(300);
   assert.deepEqual(await p.ev("window.__removed"), ["39g", "40g"]);
-  assert.equal(await p.ev("window.__unloaded"), 0, "nothing ran from it");
-  assert.match(await p.ev("window.saturnus.store.state.message"), /^The HP 39G and HP 40G ROM is removed from this browser\.$/);
+  assert.equal(await p.message(), "The HP 39G and HP 40G ROM is removed from this browser.");
 
-  // The 48GX runs: removing its ROM stops it, and its display says there is none.
-  await p.ev(`window.saturnus.store.set({ booted: "48gx", model: "48gx" }); true`);
+  // The 48GX runs: the question says it stops.
   await p.menu("48gx");
   await p.choose("Remove…");
-  await sleep(100);
-  assert.equal((await modal()).body, "It is deleted from this browser and the calculator stops. The file on your computer stays.");
-  await answer("Remove");
+  await sleep(200);
+  assert.equal((await p.modal()).body, "It is deleted from this browser and the calculator stops. The file on your computer stays.");
+  await p.answer("Remove");
   await sleep(300);
-  assert.equal(await p.ev("window.__unloaded"), 1);
-  assert.equal(await p.ev(`document.querySelector("sat-calculator .no-rom").hidden`), false, "the empty state is shown");
-  const after = (await p.ev(ROWS)).find((r) => r.model === "HP 48GX");
-  assert.equal(after.label, "Choose…");
-  assert.equal(after.more, null, "an empty row in the browser has no ⋯");
+  assert.deepEqual(await p.ev("window.__removed"), ["39g", "40g", "48gx"]);
+  assert.deepEqual(await p.ev(`[...document.querySelectorAll("#home-list li")].map((li) => li.dataset.model)`), ["48sx", "49g"]);
+  assert.ok(await p.ev(`[...document.querySelectorAll("#home-models li")].some((li) => li.dataset.model === "48gx")`), "a new calculator again");
 });
 
-test("while a send types, nothing is removed and the message says why", { timeout: 120_000 }, async (t) => {
+test("while a send types, nothing is removed and the message says why; Remove ROMs… asks first", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
-  await p.ev(SLOTS("file"));
-  // The engine refuses `unload` as while a send types (its `refused_while_typing` policy, saturnus-host's protocol/command.rs).
+  await p.ev(STUB("file", ["48gx"]));
   await p.ev(`(() => {
     window.__rejections = [];
     addEventListener("unhandledrejection", (e) => window.__rejections.push(String(e.reason)));
-    window.saturnus.backend.unload = async () => { window.__unloaded++; throw new Error("typing is in progress (releaseAll stops it)"); };
-    window.saturnus.store.set({ booted: "48gx", model: "48gx" });
+    window.__refuse = "typing is in progress (releaseAll stops it)";
     return true;
   })()`);
-  const answer = (text) => p.ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === ${JSON.stringify(text)}).click(), true`);
   await p.menu("48gx");
   await p.choose("Remove…");
-  await sleep(100);
-  await answer("Remove");
+  await sleep(200);
+  await p.answer("Remove");
   await sleep(300);
-  assert.equal(await p.ev("window.__unloaded"), 1, "asked to stop");
   assert.deepEqual(await p.ev("window.__removed"), [], "not forgotten");
-  assert.equal((await p.ev(ROWS)).find((r) => r.model === "HP 48GX").label, "Change…", "still listed");
-  assert.equal(await p.ev("window.saturnus.store.state.message"), "The HP 48GX is typing a send; remove its ROM when it's done.");
-  assert.equal(await p.ev("window.saturnus.store.state.messageError"), true);
+  assert.ok(await p.ev(`!!document.querySelector('#home-list li[data-model="48gx"]')`), "still listed");
+  assert.equal(await p.message(), "The HP 48GX is typing a send; remove its ROM when it's done.");
+  assert.equal(await p.ev("saturnusApp.home.store.state.messageError"), true);
 
-  // Remove ROMs… the same.
-  await p.ev(`document.getElementById("rom-forget").click(); true`);
-  await sleep(100);
-  await answer("Remove");
+  // Remove ROMs… asks first: Cancel keeps them; while the send types, the same refusal.
+  await p.ev(`document.getElementById("home-forget").click(); true`);
+  await sleep(200);
+  assert.deepEqual(await p.modal(), {
+    title: "Remove all ROMs?",
+    body: "They are deleted from this browser, with the saved 49G state, as it contains the ROM. Other saved states and the files on your computer stay.",
+    buttons: ["Cancel", "Remove"],
+  });
+  await p.answer("Cancel");
+  await sleep(200);
+  assert.deepEqual(await p.ev("window.__removed"), [], "Cancel removes nothing");
+  await p.ev(`document.getElementById("home-forget").click(); true`);
+  await sleep(200);
+  await p.answer("Remove");
   await sleep(300);
   assert.deepEqual(await p.ev("window.__removed"), []);
-  assert.equal(await p.ev("window.saturnus.store.state.message"), "The HP 48GX is typing a send; remove the ROMs when it's done.");
+  assert.equal(await p.message(), "The HP 48GX is typing a send; remove the ROMs when it's done.");
+  // The send done: removed, said.
+  await p.ev(`window.__refuse = null; true`);
+  await p.ev(`document.getElementById("home-forget").click(); true`);
+  await sleep(200);
+  await p.answer("Remove");
+  await sleep(300);
+  assert.deepEqual(await p.ev("window.__removed"), [null]);
+  assert.equal(await p.message(), "ROMs and the saved 49G state removed. Other saved states stay.");
+  assert.equal(await p.ev(`document.getElementById("home-settings").hidden`), true, "no ROM kept: no settings");
   assert.deepEqual(await p.ev("window.__rejections"), [], "no unhandled rejection");
 });
 
-test("the table fits a phone's sheet", { timeout: 120_000 }, async (t) => {
-  const p = await page(t, 360, 780, true);
+test("a phone: nothing overflows, and a finger's screen is not told to drop a file", { timeout: 120_000 }, async (t) => {
+  const p = await page(t, { width: 360, height: 780, mobile: true });
   if (!p) return;
-  await p.ev(SLOTS("file"));
-  await p.ev(`document.querySelector("#bar-menu")?.click(); true`);
+  assert.equal(await p.ev(`matchMedia("(pointer: coarse)").matches`), true, "a coarse pointer");
+  await p.ev(STUB("file"));
+  await p.fresh();
   await sleep(300);
   assert.equal(await p.ev("document.documentElement.scrollWidth - document.documentElement.clientWidth"), 0);
-  const rows = await p.ev(ROWS);
-  assert.equal(new Set(rows.map((r) => r.height)).size, 1, `one height: ${rows.map((r) => r.height)}`);
-  twoLines(rows);
-  const inside = await p.ev(`(() => { const t = document.querySelector(".rom-slots").getBoundingClientRect(); return t.right <= innerWidth; })()`);
-  assert.equal(inside, true);
+  const out = await p.ev(`[...document.querySelectorAll("#home-view .home-calc :is(button, a.button)")].filter((b) => { const r = b.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth; }).length`);
+  assert.equal(out, 0, "every button inside the window");
+  assert.doesNotMatch(await p.ev(`document.getElementById("home-new-section").textContent`), /drop/i);
 });

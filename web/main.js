@@ -10,12 +10,16 @@
 // modal dialogs are closed first, so its Escape stays its own. The
 // service worker is the document's (pwa.js). Both views reach the
 // calculators through the one hub Worker (shared/calc-hub.js), each over
-// a port of its own; in the desktop app through the one native calculator
-// (native-hub.js), and the app has no home page: the brand's link stays
-// on the view the window opened on.
+// a port of its own, and so does the home page for the ROMs
+// (home-roms.js); in the desktop app through the one native calculator
+// (native-hub.js). The home page is where calculators are chosen and
+// given their ROM (iteration 53), in the desktop app too.
 
 import { VIEWS, parseRoute, routeHash, startRoute } from "./router.js";
 import { Home } from "./home.js";
+import { appRoms, hubRoms } from "./home-roms.js";
+import { nativeHub } from "./native-hub.js";
+import { keptStart } from "./tx/kept-roms.js";
 import { installServiceWorker } from "./pwa.js";
 import { loadIcons } from "./shared/components/icons.js";
 import { closeToastIn } from "./shared/components/toast.js";
@@ -38,15 +42,12 @@ for (const a of document.querySelectorAll("a[data-route]")) a.hidden = false;
 // The document's service worker (offline, updates); its build goes to the calculator's About.
 const pwa = installServiceWorker(desktop ? "tauri" : "worker", { set() {} });
 
-/** The view the desktop app's window opened on: its "home" (the brand's link). */
-let desktopHome = null;
+/** The ROM commands of the home page: the app's, or the browser's hub's. */
+const roms = desktop ? appRoms(nativeHub()) : hubRoms();
 
 const home = new Home(roots.home, {
+  roms,
   on: {
-    newCalculator: () => {
-      go({ view: "calculator", model: null });
-      mount("calculator").then((v) => v.newCalculator());
-    },
     connect: () => {
       go({ view: "files", model: null });
       mount("files").then((f) => f.openConnect());
@@ -104,12 +105,7 @@ function hide(view) {
 
 /** Show `route`'s view (mounted on its first visit) and hand it the route's model. */
 function show(route) {
-  let { view, model } = route;
-  // The desktop app has no home page: the brand's link stays on the window's own view.
-  if (desktop && view === "home") {
-    ({ view, model } = desktopHome ?? { view: "calculator", model: null });
-    history.replaceState(history.state, "", routeHash({ view, model }));
-  }
+  const { view, model } = route;
   const first = !mounted[view] && view !== "home";
   if (current && current !== view) hide(current);
   current = view;
@@ -134,15 +130,29 @@ function show(route) {
 
 addEventListener("hashchange", () => show(routeNow() ?? { view: "home", model: null }));
 
-// The start: the address's route, else where the app starts
-// (`startRoute`: the installed app on a phone opens the last
-// calculator), written into the address without a new history entry.
-const start = routeNow() ?? startRoute({
-  standalone: matchMedia("(display-mode: standalone)").matches,
-  coarse: matchMedia("(pointer: coarse)").matches,
-  desktop,
-});
-if (desktop) desktopHome = start.view === "home" ? { view: "calculator", model: null } : { view: start.view, model: null };
+/** How long the desktop app's start waits for its slots before it opens the home page. */
+const START_MS = 3000;
+
+/**
+ * The kept ROMs' start setting, `{lastModel, bootLast}` (`startRoute`):
+ * the app's slots, or the browser's ROM store read directly (no hub
+ * started for it). None readable in time: the home page.
+ */
+async function startSettings() {
+  if (!desktop) return keptStart();
+  try {
+    const r = await Promise.race([roms.romSlots(), new Promise((_, reject) => setTimeout(() => reject(new Error("no answer")), START_MS))]);
+    const last = r.slots.find((x) => x.model === r.lastModel);
+    return { lastModel: last?.state === "ready" ? last.model : null, bootLast: r.bootLast };
+  } catch {
+    return { lastModel: null, bootLast: false };
+  }
+}
+
+// The start: the address's route, else where the app starts (`startRoute`:
+// the last calculator when the home page's setting asks for it), written
+// into the address without a new history entry.
+const start = routeNow() ?? startRoute(await startSettings());
 if (!routeNow()) history.replaceState(history.state, "", routeHash(start));
 show(start);
 

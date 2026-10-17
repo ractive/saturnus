@@ -108,6 +108,18 @@ test("several files at once go to their models; an unknown one to none", async (
   assert.deepEqual(boots, ["48sx:sx:4"]);
 });
 
+test("the home page's choice (boot: false) keeps the ROM, boots nothing and names the model to start", async () => {
+  const { roms, boots } = rig();
+  const r = await roms.chooseRom("48gx", [{ name: "sx", rom: rom(1, 1) }], undefined, { boot: false });
+  assert.equal(r.start, "48sx", "the file went to its own model");
+  assert.equal(r.booted, null);
+  assert.deepEqual(r.slots.filter((s) => s.fileName).map((s) => `${s.model}:${s.fileName}`), ["48sx:sx"]);
+  assert.deepEqual(boots, []);
+  assert.equal(r.lastModel, null, "the last model is the one Calculator boots");
+  const none = await roms.chooseRom("48sx", [{ name: "notes", rom: rom(3, 0) }], undefined, { boot: false });
+  assert.equal(none.start, undefined, "nothing kept: nothing to start");
+});
+
 test("a stored image that changed is reported, and nothing boots", async () => {
   const a = rig();
   await a.roms.chooseRom("48sx", [{ name: "sx", rom: rom(1, 1) }]);
@@ -188,58 +200,26 @@ test("a failing boot after a choice keeps the files and tells the error with the
   await assert.rejects(roms.bootModel("48sx"), /refused/);
 });
 
-test("selecting a model asks for the file again only when it is missing or changed", async () => {
-  globalThis.HTMLElement ??= class {};
-  globalThis.customElements ??= { define() {} };
-  const { SatControls } = await import("../components/sat-controls.js");
-  for (const [state, asks] of [["missing", true], ["changed", true], ["ready", false]]) {
-    const asked = [];
-    const slots = { slots: [{ model: "48gx", fileName: "gxrom-r", revision: null, state: "ready" }], offers: [] };
-    const after = { ...slots, slots: [{ ...slots.slots[0], state }] };
-    const fake = Object.assign(Object.create(SatControls.prototype), {
-      backend: {
-        romSource: "dialog",
-        bootModel: async () => { throw new Error("cannot start"); },
-        romSlots: async () => after,
-      },
-      store: { state: { roms: slots, romNotice: "" }, set(p) { Object.assign(this.state, p); } },
-      prefs: { set() {} },
-      chooseFor: async (m) => asked.push(m),
-    });
-    await fake.bootSelected("48gx", true);
-    assert.deepEqual(asked, asks ? ["48gx"] : [], state);
-    assert.equal(fake.store.state.messageError, true);
-  }
-});
-
 test("each slot tells where its model's ROM is offered; the 42S has none", async () => {
   const s = await rig().roms.slots();
   assert.deepEqual(s.slots.find((x) => x.model === "39g").download, { file: "39g.rom" });
   assert.equal(s.slots.find((x) => x.model === "42s").download, null);
 });
 
-test("a dropped file that is not a ROM is said so, pointing to the memory view when it takes files", async () => {
+test("a file dropped on the home page that is not a ROM is said so", async () => {
   const names = (files) => files.map((f) => f.name);
   const notRom = [{ name: "test.txt", rom: rom(3, 0) }];
   const { roms, boots } = rig();
-  const r = await roms.chooseRom("48sx", notRom);
+  const keep = (files) => roms.chooseRom("48sx", files, undefined, { boot: false });
+  assert.equal(dropNotice(names(notRom), await keep(notRom), "file"), "test.txt is not a ROM.");
   assert.deepEqual(boots, []);
-  assert.equal(dropNotice(names(notRom), r, "file", true), "test.txt is not a ROM. To put a file on the calculator, drop it on the calculator or the memory view.");
-  assert.equal(dropNotice(names(notRom), r, "file", false), "test.txt is not a ROM.", "no memory view writes (no calculator, a 38G)");
   const two = [...notRom, { name: "b.png", rom: rom(4, 0) }, { name: "c.pdf", rom: rom(5, 0) }];
-  assert.equal(dropNotice(names(two), await roms.chooseRom("48sx", two), "file", false), "test.txt, b.png and c.pdf are not ROMs.");
-  // A ROM among them boots, or is offered, or fails to boot: the notice beside the ROMs tells the rest.
+  assert.equal(dropNotice(names(two), await keep(two), "file"), "test.txt, b.png and c.pdf are not ROMs.");
+  // A ROM among them is kept to start, or offered: the notice beside the ROMs tells the rest.
   const mixed = [{ name: "sx", rom: rom(1, 1) }, ...notRom];
-  assert.equal(dropNotice(names(mixed), await roms.chooseRom("48sx", mixed), "file", true), null);
+  assert.equal(dropNotice(names(mixed), await keep(mixed), "file"), null);
   const offered = [{ name: "gx-or-38", rom: rom(6, 9) }];
-  assert.equal(dropNotice(names(offered), await roms.chooseRom("48sx", offered), "file", true), null);
-  const failing = rig(memoryStore(), true);
-  const sx = [{ name: "sx", rom: rom(1, 1) }];
-  assert.equal(dropNotice(names(sx), await failing.roms.chooseRom("48sx", sx), "file", true), null);
-  // A failed chooseRom shows its own error.
-  assert.equal(dropNotice(names(notRom), null, "file", true), null);
-  // The app takes no ROM by drop.
-  assert.equal(dropNotice(names(sx), null, "dialog", true), "sx was not used. In the app, choose ROMs with Choose… in the controls. To put a file on the calculator, drop it on the calculator or the memory view.");
+  assert.equal(dropNotice(names(offered), await keep(offered), "file"), null);
 });
 
 test("one model's ROM is removed alone; the 39G's and 40G's are two slots", async () => {

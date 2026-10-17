@@ -271,7 +271,7 @@
 :where(#calculator-view) #layer-show[aria-expanded=true] { display: none; }
 /* A model without a memory view: no button for it (app.js). */
 #calculator-view.no-memory-view :is(#layer-show, #bar-memory) { display: none; }
-#calculator-view.rom-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }
+#calculator-view.file-drop .stage { outline: 3px dashed var(--accent); outline-offset: -8px; }
 
 /* The drawn calculator. */
 :where(#calculator-view) .skin {
@@ -324,20 +324,16 @@
   overflow: hidden;
 }
 :where(#calculator-view) .skin .no-rom p { margin: 0; }
-:where(#calculator-view) .skin .no-rom .no-rom-get { font-size: var(--fs-sm); }
-:where(#calculator-view) .skin .no-rom a, :where(#calculator-view) .roms .rom-file-name a { color: var(--accent-text); text-underline-offset: 2px; }
 :where(#calculator-view) .skin .no-rom-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1) var(--s2); }
-:where(#calculator-view) .skin .no-rom button { min-height: 0; padding: 5px 12px; font-size: var(--fs-md); }
+:where(#calculator-view) .skin .no-rom a.button { min-height: 0; padding: 5px 12px; font-size: var(--fs-md); }
 /* Smaller displays (sat-calculator.js `fitNoRom`): smaller print, then the
-   first sentence alone, then "No ROM" beside the buttons. */
+   first sentence alone, then "No ROM" beside the link. */
 :where(#calculator-view) .skin .no-rom.compact { gap: var(--s1); padding: var(--s1) var(--s2); font-size: var(--fs-sm); }
-:where(#calculator-view) .skin .no-rom.compact .no-rom-get { font-size: var(--fs-xs); }
-:where(#calculator-view) .skin .no-rom.compact button { padding: 2px 10px; font-size: var(--fs-sm); }
-:where(#calculator-view) .skin .no-rom.short .no-rom-get { display: none; }
+:where(#calculator-view) .skin .no-rom.compact a.button { padding: 2px 10px; font-size: var(--fs-sm); }
 :where(#calculator-view) .skin .no-rom.short .no-rom-text { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 :where(#calculator-view) .skin .no-rom.row { flex-direction: row; padding: 2px var(--s2); white-space: nowrap; }
 :where(#calculator-view) .skin .no-rom.row .no-rom-actions { flex-wrap: nowrap; gap: var(--s1); }
-:where(#calculator-view) .skin .no-rom.row button { padding: 1px 8px; font-size: var(--fs-xs); }
+:where(#calculator-view) .skin .no-rom.row a.button { padding: 1px 8px; font-size: var(--fs-xs); }
 :where(#calculator-view) .skin .no-rom.pulse { animation: no-rom-pulse calc(var(--t) * 4) ease-out; }
 @keyframes no-rom-pulse {
   0% { box-shadow: inset 0 0 0 3px var(--accent); background: color-mix(in srgb, var(--accent) 30%, var(--panel)); }
@@ -573,7 +569,7 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .layer-empty p + p, :where(#calculator-view) .pane-error p + p { margin-top: var(--s2); }
 :where(#calculator-view) .layer .detail, :where(#calculator-view) .layer-empty-detail { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
 :where(#calculator-view) .layer-empty-detail:not(:empty) { margin-top: var(--s3) !important; }
-:where(#calculator-view) .layer-empty-choose { margin-top: var(--s4); }
+:where(#calculator-view) .layer-empty-home { display: inline-flex; margin-top: var(--s4); }
 :where(#calculator-view) .pane-error { border-left: 3px solid var(--error); margin: var(--s3) var(--gutter); padding: var(--s1) var(--s3); }
 :where(#calculator-view) .preview-hint { padding-top: var(--s4); }
 
@@ -971,50 +967,13 @@ body.resizing * { cursor: col-resize !important; }
   :where(#calculator-view) .levels .type { display: none; }
 }
 
-/* ------------------------------------------------------------- ROM slots */
+/* ------------------------------------------------- the calculator shown */
 
-:where(#calculator-view) .rom-current { display: flex; align-items: center; gap: var(--s2); }
-:where(#calculator-view) .rom-name {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--fs-base);
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-:where(#calculator-view) .rom-name.error, :where(#calculator-view) .roms .rom-file-name.error, :where(#calculator-view) .hint.error { color: var(--error); }
-:where(#calculator-view) .rom-notice {
-  font-size: var(--fs-sm);
-  color: var(--ink);
-  border-left: 3px solid var(--accent);
-  padding: 2px 0 2px var(--s2);
-}
-:where(#calculator-view) .rom-notice p { margin: 0; }
-:where(#calculator-view) .rom-offers { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); margin-top: 6px; }
-:where(#calculator-view) .rom-offers:empty { display: none; }
-:where(#calculator-view) .rom-offers button { font-size: var(--fs-sm); }
-:where(#calculator-view) .roms table { width: 100%; border-collapse: collapse; margin: var(--s1) 0 var(--s2); }
-:where(#calculator-view) .roms th, :where(#calculator-view) .roms td { padding: 2px 0; text-align: left; font-weight: 400; vertical-align: middle; }
-/* The row's name in two lines: the model, and under it its file, smaller
-   and muted (or "none", or the browser's Download link); cut only when
-   longer than the cell, the whole name in its tooltip. */
-:where(#calculator-view) .roms th.rom-label { width: 100%; max-width: 0; padding-right: var(--s2); }
-:where(#calculator-view) .roms .rom-model, :where(#calculator-view) .roms .rom-file-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:where(#calculator-view) .roms .rom-model { color: var(--ink); }
-:where(#calculator-view) .roms .rom-file-name { font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh-tight); }
-:where(#calculator-view) .roms td button { font-size: var(--fs-sm); padding: 0 var(--s2); white-space: nowrap; }
-/* A primary button and a "⋯" per row (or a gap of its size): every
-   primary one width, every ⋯ one size, so the rows keep one height and
-   the buttons line up. */
-:where(#calculator-view) .roms td.rom-act { width: 1%; }
-:where(#calculator-view) .rom-row-actions { display: flex; align-items: center; gap: var(--s1); }
-:where(#calculator-view) .roms td.rom-act .rom-row-button { width: 6.5em; padding: 0 var(--s1); justify-content: center; }
-:where(#calculator-view) .roms td.rom-act button.icon.more, :where(#calculator-view) .rom-more-gap { flex: none; width: var(--tap); height: var(--tap); padding: 0; }
-:where(#calculator-view) .roms .rom-forget { margin: var(--s2) 0 0; }
-/* Whether the browser keeps the ROMs for good, and the way to ask (web/pwa.js). */
-:where(#calculator-view) .roms .rom-storage { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); margin: var(--s2) 0 0; font-size: var(--fs-sm); color: var(--muted); }
-:where(#calculator-view) .roms .rom-storage button { font-size: var(--fs-sm); }
+/* Its model and ROM, read only, and "Switch calculator" (the home page). */
+:where(#calculator-view) .calc-line { margin: 0 0 var(--s1); font-size: var(--fs-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(#calculator-view) .calc-rom { color: var(--muted); }
+:where(#calculator-view) #switch-calc { font-size: var(--fs-md); color: var(--accent-text); text-underline-offset: 2px; }
+:where(#calculator-view) #switch-calc:hover { color: var(--ink); }
 
 /* --------------------------------------------------------- command palette */
 
@@ -1541,7 +1500,7 @@ body.resizing * { cursor: col-resize !important; }
   line-height: var(--lh);
 }
 .storage-notice { z-index: 6; }
-/* In the panel, under the ROM row (pwa.js `showStorageOffer`). */
+/* On the home page, under the calculators (pwa.js `showStorageOffer`). */
 .storage-notice.in-panel {
   position: static;
   transform: none;
@@ -1553,7 +1512,6 @@ body.resizing * { cursor: col-resize !important; }
   font-size: var(--fs-sm);
 }
 .storage-notice.in-panel .notice-actions { justify-content: flex-start; }
-:where(#calculator-view) .storage-offer:empty { display: none; }
 .update-notice p, .storage-notice p { margin: 0 0 var(--s2); }
 .update-actions, .notice-actions { display: flex; justify-content: flex-end; gap: var(--s2); }
 /* The outcome: its one line beside OK. */
