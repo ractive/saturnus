@@ -1,20 +1,9 @@
-// The pages' way to the calculators' SharedWorker (web/shared-worker.js,
-// web/hub.js, iteration 46): the emulator page and saturnus tx open it by
-// the same URL, the emulator's folder's, so they share one live calculator
-// per model. A page joins first: it says who it is and its build, and
-// holds a Web Lock of its own for its whole life, which the hub asks for
-// too and so learns when the page is gone (a SharedWorker hears no close
-// of a port).
-
-import { BUILD } from "./build.js";
-import { siteHref } from "./site-links.js";
-
-/**
- * What a page says when it and the SharedWorker are from two builds (the
- * worker of the other build lives while any tab of that build is open:
- * saturnus tx says so; the emulator page then runs on its own).
- */
-export const MIXED_BUILDS = "Another saturnus tab is still on the previous version. Reload or close the other saturnus tabs, then try again.";
+// The views' way to the calculators' hub (web/hub.js in the plain module
+// Worker web/worker.js, iteration 50d): one Worker for the document,
+// started by the first view that needs it, and one MessagePort per view
+// (`hubPort`), so the Calculator view and Files share one live calculator
+// per model. A view joins first and says who it is (`join {who}`). The
+// connections live for the document.
 
 /**
  * What a page says when the calculators' worker stopped answering (it
@@ -85,33 +74,34 @@ export class Heartbeat {
   }
 }
 
-/** What saturnus tx says where the browser cannot share a calculator (Samsung Internet). */
-export const NO_SHARING = "This browser cannot share the emulator's calculator with saturnus tx. Use Chrome, Firefox or Safari for it, or choose a ROM file.";
+/** The document's hub Worker, once a view asked for it (`hubWorker`). */
+let worker = null;
 
-/**
- * Whether this browser can share a calculator: SharedWorker, and Web
- * Locks, by which the hub learns that a page is gone (none on a page
- * served over plain HTTP).
- */
-export function canShare(g = globalThis) {
-  return typeof g.SharedWorker === "function" && Boolean(g.navigator?.locks);
+/** The hub's Worker, started on the first call (web/worker.js). */
+export function hubWorker() {
+  worker ??= new Worker(new URL("../worker.js", import.meta.url), { type: "module", name: "saturnus" });
+  return worker;
 }
 
-/** The SharedWorker's URL from the page at `loc`: the emulator's folder (web/shared/site-links.js). */
-export function hubUrl(loc = globalThis.location) {
-  return new URL(`${siteHref("emulator", loc.pathname)}shared-worker.js`, loc.href);
+/** Whether the hub's Worker runs (no Worker: no calculator runs either; the home page). */
+export function hubRunning() {
+  return worker !== null;
+}
+
+/** A new connection to the hub: a MessagePort whose other end the Worker has (one per view). */
+export function hubPort() {
+  const channel = new MessageChannel();
+  hubWorker().postMessage({ connect: true }, [channel.port2]);
+  return channel.port1;
 }
 
 /**
- * Open the SharedWorker and join as `who` ("emulator" or "tx"): resolves
- * to `{worker, port, release}` once joined (`release` lets go of the
- * page's lock); rejects with `MIXED_BUILDS` when the hub is of another
- * build. `onMessage` gets every message but the join's reply, from the
- * start.
+ * Connect to the hub and join as `who` ("emulator", "tx" or "home"):
+ * resolves to `{worker, port}` once joined. `onMessage` gets every
+ * message but the join's reply, from the start.
  */
-export async function joinHub(who, onMessage, { url = hubUrl(), locks = globalThis.navigator?.locks ?? null, build = BUILD } = {}) {
-  const worker = new SharedWorker(url, { type: "module", name: "saturnus" });
-  const port = worker.port;
+export async function joinHub(who, onMessage, { open = hubPort, worker: w = () => hubWorker() } = {}) {
+  const port = open();
   let joined;
   const answer = new Promise((resolve, reject) => {
     joined = { resolve, reject };
@@ -125,43 +115,31 @@ export async function joinHub(who, onMessage, { url = hubUrl(), locks = globalTh
     }
     onMessage(m);
   };
-  worker.onerror = (e) => joined.reject(new Error(e?.message || "the calculators' worker failed to start"));
-  // The lock is held before the hub asks for it: granted to the hub only once this page is gone.
-  const lock = `saturnus-page:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`;
-  let release = () => {};
-  // Named to the hub only when this page holds it: a lock the browser
-  // refused would be granted to the hub at once, which would take the
-  // page for gone.
-  let held = false;
-  if (locks) {
-    await new Promise((granted) => {
-      locks.request(lock, () => {
-        held = true;
-        granted();
-        return new Promise((r) => {
-          release = r;
-        });
-      }).catch(() => granted());
-    });
+  const theWorker = w();
+  const failed = (e) => joined.reject(new Error(e?.message || "the calculators' worker failed to start"));
+  theWorker?.addEventListener?.("error", failed);
+  port.postMessage({ v: 1, id: "join", cmd: "join", who });
+  try {
+    await answer;
+  } finally {
+    theWorker?.removeEventListener?.("error", failed);
   }
-  port.postMessage({ v: 1, id: "join", cmd: "join", who, build, ...(held ? { lock } : {}) });
-  await answer;
-  return { worker, port, release: () => release() };
+  return { worker: theWorker, port };
 }
 
 /**
- * A page's connection to the calculators' hub as one of its pages
- * (saturnus tx's way to the emulator's calculator, iteration 47): `join`,
+ * A view's connection to the calculators' hub (Files' way to the
+ * Calculator view's calculator, iteration 47; the home page's): `join`,
  * then the protocol's commands (`request(cmd, args)`, web/protocol.md)
  * and its events as DOM events of their `type` (`frame`, `status`,
  * `memoryChanged`, ...). `gone` (detail: why) when the hub stopped
  * answering (the heartbeat), its worker failed, or the hub said so (the
- * emulator started the calculator afresh, its ROM removed). `close`
- * leaves the calculator (the emulator page goes on showing it).
+ * Calculator view started the calculator afresh, its ROM removed).
+ * `close` leaves the calculator (the Calculator view goes on showing it).
  */
 export class HubClient extends EventTarget {
-  /** `who` the page ("tx"); `join` the hub's way in (tests give their own). */
-  constructor({ who = "tx", join = joinHub, share = canShare } = {}) {
+  /** `who` the view ("tx", "home"); `join` the hub's way in (tests give their own). */
+  constructor({ who = "tx", join = joinHub } = {}) {
     super();
     this.nextId = 1;
     this.waiting = new Map();
@@ -173,11 +151,12 @@ export class HubClient extends EventTarget {
       stopped: () => this.fail(CALC_STOPPED),
     });
     this.port = null;
-    this.release = () => {};
-    this.joined = (share() || join !== joinHub ? join(who, (m) => this.receive(m)) : Promise.reject(new Error(NO_SHARING))).then((j) => {
+    this.worker = null;
+    this.onWorkerError = (e) => this.fail(e?.message || "the calculators' worker failed");
+    this.joined = join(who, (m) => this.receive(m)).then((j) => {
       this.port = j.port;
-      this.release = j.release;
-      if (j.worker) j.worker.onerror = (e) => this.fail(e?.message || "the calculators' worker failed");
+      this.worker = j.worker ?? null;
+      this.worker?.addEventListener?.("error", this.onWorkerError);
     });
     this.joined.catch(() => {});
   }
@@ -246,7 +225,7 @@ export class HubClient extends EventTarget {
     });
   }
 
-  /** Leave the calculator and the hub; the emulator page goes on showing it. */
+  /** Leave the calculator and the hub; the Calculator view goes on showing it. */
   async close() {
     if (this.closed) return;
     const leave = this.request("leave").catch(() => {});
@@ -261,6 +240,6 @@ export class HubClient extends EventTarget {
     for (const w of this.waiting.values()) w.reject(new Error("closed"));
     this.waiting.clear();
     this.port?.close?.();
-    this.release();
+    this.worker?.removeEventListener?.("error", this.onWorkerError);
   }
 }

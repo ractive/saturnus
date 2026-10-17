@@ -4,7 +4,7 @@
 // Each is an EventTarget that dispatches the protocol's events (`frame`,
 // `keys`, `status`, `error`, `memoryChanged`, `serial`) as CustomEvents with the message as `detail`.
 
-import { CALC_STOPPED, Heartbeat, MIXED_BUILDS, canShare, joinHub } from "./shared/calc-hub.js";
+import { CALC_STOPPED, Heartbeat, joinHub } from "./shared/calc-hub.js";
 import { ROM_HOLDING_STATES, autoKey, dbDelete, dbGet, dbPut } from "./states.js";
 import { saveDownload } from "./shared/download.js";
 // The largest file the page reads for a ROM (an unpacked 49G); a larger one is sent empty, so it is "not a ROM".
@@ -167,22 +167,16 @@ export function unbase64(text) {
   return bytes;
 }
 
-/** Why this page runs its calculators on its own (`WorkerBackend.unshared`). */
-export const UNSHARED = {
-  noSharing: "This browser cannot share a calculator between tabs: this tab runs its own, which saturnus tx in another tab cannot reach.",
-  mixed: "Another saturnus tab is still on the previous version: this tab runs its own calculators until those tabs are reloaded or closed.",
-};
-
 // ------------------------------------------------------------ Worker
 
 /**
- * The wasm core in the calculators' SharedWorker (`shared-worker.js`,
- * `hub.js`), shared with saturnus tx: one live calculator per model
- * (iteration 46). Where the browser has no SharedWorker, a plain Worker
- * (`worker.js`) runs the same hub for this page alone.
+ * The wasm core in the calculators' hub (`worker.js` over `hub.js`), one
+ * Worker for the document, shared with Files: one live calculator per
+ * model (iterations 46, 50d). This view is one connection to it
+ * (web/shared/calc-hub.js `joinHub`).
  */
 export class WorkerBackend extends Backend {
-  constructor() {
+  constructor({ join = joinHub } = {}) {
     super();
     this.host = "worker";
     /** The ROM comes from a file input in the page. */
@@ -191,8 +185,8 @@ export class WorkerBackend extends Backend {
     this.waiting = new Map();
     /** The heartbeat's pings, apart from the page's requests. */
     this.pings = new Map();
-    /** Why the calculators are this page's own (`UNSHARED`), or null while shared. */
-    this.unshared = null;
+    /** Shared with Files (always, in the one document). */
+    this.shared = true;
     const failed = (message) => {
       // One error for one failure: the heartbeat stops first.
       this.heartbeat.stop();
@@ -207,38 +201,13 @@ export class WorkerBackend extends Backend {
       busy: () => this.waiting.size > 0,
       stopped: () => failed(CALC_STOPPED),
     });
-    const own = (why) => {
-      this.shared = false;
-      this.unshared = why;
-      const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
-      worker.onmessage = (e) => this.receive(e.data);
-      worker.onerror = (e) => failed(e.message || "the worker failed to start");
-      this.port = worker;
-    };
-    if (canShare()) {
-      /** Shared with saturnus tx. */
-      this.shared = true;
-      this.port = null;
-      // Messages wait for the join (the page's lock, the build check), in order.
-      this.joined = joinHub("emulator", (m) => this.receive(m)).then(
-        (j) => {
-          this.port = j.port;
-          j.worker.onerror = (e) => failed(e.message || "the calculators' worker failed");
-        },
-        (err) => {
-          if (err?.message !== MIXED_BUILDS) throw err;
-          // An older or newer saturnus tab keeps the shared worker of its
-          // build: this page runs its calculators on its own until those
-          // tabs are reloaded or closed.
-          console.warn("saturnus: another saturnus tab runs another version; this page does not share its calculators until that tab is reloaded or closed");
-          own(UNSHARED.mixed);
-        },
-      );
-      this.joined.catch((err) => failed(String(err?.message ?? err)));
-    } else {
-      own(UNSHARED.noSharing);
-      this.joined = Promise.resolve();
-    }
+    this.port = null;
+    // Messages wait for the join, in order.
+    this.joined = join("emulator", (m) => this.receive(m)).then((j) => {
+      this.port = j.port;
+      j.worker?.addEventListener?.("error", (e) => failed(e.message || "the calculators' worker failed"));
+    });
+    this.joined.catch((err) => failed(String(err?.message ?? err)));
   }
 
   receive(msg) {
