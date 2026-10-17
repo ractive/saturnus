@@ -4259,7 +4259,7 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   one HTML document with a hash router at `/saturnus/app/`, a home page
   that lists the calculators, and the views "Calculator" and "Files".
   Chosen for maintenance: one start code, one service worker, no tab
-  messages, no SharedWorker ([[iterations/iteration-50-one-app-web]]).
+  messages, no SharedWorker ([[iterations/iteration-50d-one-document]]).
   No iframes.
 - **Platforms**: the web app is the product, installable as a PWA on
   phones and tablets; no native mobile apps for now (no USB serial on
@@ -4277,3 +4277,11 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   (`saturnus-tx-web` into `saturnus-web`); tx's private calculator kept
   for the cable path's test and the aplet server, not listed on home.
 - [[backlog/desktop-shared-calculator]] is superseded.
+- **Plan reviewed** (fresh review, 2026-10-17): the web step is split into
+  50a (one WebAssembly package), 50b (Files mountable), 50c (calculator
+  mountable), 50d (one document, router, home); views are hidden, not
+  unmounted, so the calculator never stops on a view switch; the old
+  subsites get kill switches (cleanup, not migration); the storage names
+  keep their values; 51's Files-on-the-running-calculator needs
+  bytes-returning native commands and an in-page multiplexer, and the
+  desktop app gets wasm and a CSP that allows it.

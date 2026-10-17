@@ -11,7 +11,7 @@ branch: iter-52/one-app-sweep
 
 # Iteration 52: the one-app sweep
 
-What [[iterations/iteration-50-one-app-web]] and
+What [[iterations/iteration-50a-one-wasm]] to [[iterations/iteration-50d-one-document]] and
 [[iterations/iteration-51-one-desktop-app]] left behind.
 
 ## Tasks
@@ -30,4 +30,4 @@ app keeps using. So:
 
 - [ ] After iteration 51's release: remove the `saturnus-tx` cask from the tap and check `brew` no longer offers it
 - [ ] After the first deploy of iteration 50: check the FTP for empty `emulator/` and `transfer/` folders and remove them
-- [ ] Left to the owner (other devices, not reachable from here): uninstall the installed web apps "saturnus" and "saturnus tx" on the phone and iPad, without clearing ractive.ch's site data (kept ROMs, states, settings live there)
+- [ ] Left to the owner (other devices, not reachable from here): uninstall the installed web apps "saturnus" and "saturnus tx" on the phone and iPad, without clearing ractive.ch's site data (kept ROMs, states, settings live there). On iOS and iPadOS an installed home-screen app has storage of its own: ROMs kept inside it go with it; keep their files before uninstalling
