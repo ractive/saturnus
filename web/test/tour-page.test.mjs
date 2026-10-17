@@ -202,7 +202,7 @@ test("Show me around: from Search and from About; Esc ends it and the focus goes
 test("Back, Next, Skip: the count, Done and the next chapter; the views put back; the calculator never touched", { timeout: 180_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
-  const views = `[document.body.classList.contains("panel-hidden"), document.getElementById("roms").open, window.saturnus.store.state.layer, window.saturnus.explorer.tab]`;
+  const views = `[document.getElementById("calculator-view").classList.contains("panel-hidden"), document.getElementById("roms").open, window.saturnus.store.state.layer, window.saturnus.explorer.tab]`;
   // The panel hidden and the memory view closed on the Stack tab, before the tour.
   await p.ev(`document.querySelector("#panel-hide").click(), window.saturnus.explorer.setTab("stack"), true`);
   const before = await p.ev(views);
@@ -211,7 +211,7 @@ test("Back, Next, Skip: the count, Done and the next chapter; the views put back
   await p.ev(`window.saturnus.tour.start("start")`);
   let b = await p.settled();
   assert.deepEqual([b.step, b.count, b.back, b.next], ["panel", "1 of 7", false, "Next"]);
-  assert.equal(await p.ev(`document.body.classList.contains("panel-hidden")`), false, "the panel shown for its step");
+  assert.equal(await p.ev(`document.getElementById("calculator-view").classList.contains("panel-hidden")`), false, "the panel shown for its step");
   await p.click(".tour-next");
   b = await p.settled();
   assert.deepEqual([b.step, b.count, b.back], ["roms", "2 of 7", true]);

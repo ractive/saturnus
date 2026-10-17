@@ -11,6 +11,7 @@
 import { ACTIONS, NUMBER_MODIFIERS, comboOf, numberLabel } from "../bindings.js";
 import { clickLabel } from "../shiftclick.js";
 import { el } from "../shared/dom.js";
+import { shown } from "../view.js";
 import { icon, iconEl } from "../shared/components/icons.js";
 
 const TEMPLATE = `
@@ -84,7 +85,9 @@ export class SatShortcuts extends HTMLElement {
     this.recording = null;
     /** The key last added, highlighted with its warnings. */
     this.added = null;
-    this.onRecordKey = (e) => this.recordKey(e);
+    this.onRecordKey = (e) => {
+      if (shown()) this.recordKey(e);
+    };
 
     $(".shortcuts-close").addEventListener("click", () => this.close());
     $(".shortcuts-done").addEventListener("click", () => this.close());

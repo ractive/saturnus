@@ -184,7 +184,7 @@ test("the panel's results with the panel hidden; the status line keeps what runs
   if (!p) return;
   await p.ev(RUNNING);
   await p.ev(`document.getElementById("panel-hide").click(), true`);
-  assert.equal(await p.ev(`document.body.classList.contains("panel-hidden")`), true);
+  assert.equal(await p.ev(`document.getElementById("calculator-view").classList.contains("panel-hidden")`), true);
   await p.ev(`document.getElementById("save").click(), true`);
   const text = await p.until(`document.querySelector(".toast p")?.textContent`, "the toast");
   assert.equal(text, "State saved.");
@@ -209,7 +209,7 @@ for (const scheme of ["light", "dark"]) {
     const p = await page(t, { width: 390, height: 844, mobile: true, scheme });
     if (!p) return;
     await p.ev(RUNNING);
-    assert.equal(await p.ev(`document.body.classList.contains("sheet-open")`), false);
+    assert.equal(await p.ev(`document.getElementById("calculator-view").classList.contains("sheet-open")`), false);
     await p.ev(`document.getElementById("save").click(), true`);
     await p.until(`document.querySelector(".toast p")?.textContent`, "the toast");
     await sleep(300);
