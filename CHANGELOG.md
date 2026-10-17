@@ -5,6 +5,31 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## 0.6.0 (2026-10-17)
+
+- **One app.** The emulator and saturnus tx are one app, "saturnus",
+  with a home page that lists your calculators and two views,
+  **Calculator** and **Files**. On the web it lives at
+  <https://ractive.ch/saturnus/app/>; `/saturnus/emulator/` and
+  `/saturnus/transfer/` are gone (their old installed apps retire
+  themselves and open the new address). Kept ROMs, saved states and
+  settings stay where they were.
+- **Files beside the calculator**: switching between Calculator and
+  Files never reloads the page or stops the calculator; a transfer goes
+  on whichever view is shown.
+- **One desktop app.** `saturnus-tx` is no longer a separate desktop
+  app: the saturnus app has Files, with serial ports, the computer's
+  folders (the same safety net for changes) and Files on the running
+  calculator through the native engine. One cask, `saturnus-app`; the
+  `saturnus-tx` cask is gone. Folders picked in the old tx app are not
+  carried over.
+- **Files**: `..` goes up a folder, folders have a filled icon and
+  semi-bold names; Settings works on the emulator's calculator;
+  "Show the cable" is "Show the packets", hidden where there are none.
+- **One WebAssembly package** for the whole web app (1.3 MB, 0.5 MB
+  compressed).
+- The libraries are unchanged apart from the version.
+
 ## 0.5.0 (2026-10-14)
 
 - **`satx get X` writes `X.hp`** (binary) or `X.txt` (`--ascii`) instead
