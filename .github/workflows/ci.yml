@@ -203,7 +203,13 @@ jobs:
           cargo +1.89.0 check --locked -p satx
 
   # The core crate must build for wasm32 (no I/O, no threads); the browser
-  # UI's package is what web/build.sh produces with wasm-pack.
+  # app's package is what web/build.sh produces with wasm-pack, and the
+  # app's tests (web/test/: the pure modules, the hub, the one document in
+  # headless Chrome with Calculator and Files, Files' protocol stack over
+  # saturnus-tx's recorded traces and its page with a recorded fake link,
+  # and the site) run on it. The emulated calculators' runs are local
+  # (`just web-test-full`, `just tx-e2e`). Paths: crates/saturnus-tx* are
+  # in the rust filter, web/ in the web filter.
   wasm:
     needs: changes
     if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.web == 'true'
@@ -240,54 +246,16 @@ jobs:
       # satx-core and must build for wasm32 too.
       - name: saturnus-tx builds for wasm32
         run: cargo check -p saturnus-tx --target wasm32-unknown-unknown --locked
-      - name: Web package (wasm-pack)
-        run: web/build.sh -- --locked
-      # The web bindings' and the host crate's native tests run in `test`
-      # (`cargo test --workspace`), which every Rust change starts; a
-      # change under web/ alone cannot change them (they read nothing there).
-      # The page's pure functions (web/objects.js), with the runner's Node;
-      # the transfer page's tests and the site's run in `wasm-tx`.
-      - name: Page function tests
-        run: node --test --test-timeout=300000 $(ls web/test/*.test.mjs | grep -v -e '/tx-' -e '/site\.test\.mjs$')
-
-  # saturnus tx, the transfer page (web/tx.html, web/tx/): its bindings
-  # (crates/saturnus-web's tx module) build for wasm32 and pass their
-  # native tests; the one wasm package is built (the transfer bindings and
-  # the emulated calculator's), then the transfer tests run: the pure modules,
-  # the protocol stack over saturnus-tx's recorded traces, the page in
-  # headless Chrome with a recorded fake link (connect, list, put with
-  # replace, overflow at five widths in both themes), and the site with
-  # both subsites. The emulated calculators' run is local (`just tx-e2e`).
-  # Paths: crates/saturnus-tx* are in the rust filter, web/tx*, web/tx/
-  # and web/test/tx-* in the web filter.
-  wasm-tx:
-    needs: changes
-    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
-        with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          # Only main saves, as in `wasm` (kb/docs/ci.md).
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@183e4297cca2404691e9380e1307288dced5c82a # v2.87.25
-        with:
-          tool: wasm-pack@0.15.0
-          fallback: none
       - name: saturnus-web builds for wasm32
         run: cargo check -p saturnus-web --target wasm32-unknown-unknown --locked
       - name: Native tests of the bindings
         run: cargo test -p saturnus-web --locked -q
       - name: Web package (wasm-pack)
         run: web/build.sh -- --locked
-      - name: Transfer tests and the site
-        run: node --test --test-timeout=300000 web/test/tx-*.test.mjs web/test/site.test.mjs web/test/storage-names.test.mjs web/test/icons.test.mjs
+      # Every web test with the runner's Node; the `*e2e*` ones skip
+      # without SATURNUS_ROM_DIR.
+      - name: Web tests
+        run: node --test --test-timeout=300000 web/test/*.test.mjs
 
   # The Tauri apps (crates/saturnus-tauri, crates/saturnus-tx-tauri; the
   # latter's page wasm is not built here, its build script only warns, and

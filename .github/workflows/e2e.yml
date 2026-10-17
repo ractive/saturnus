@@ -6,8 +6,9 @@ name: satx e2e
 #   its protocol crates, the saturnus crates of its `saturnus` feature,
 #   the oracle image, the CLI script, the Cargo files, this workflow
 #   (`cargo tree -p satx-core -p satx --all-features` lists the crates).
-#   saturnus tx (crates/saturnus-tx*, web/tx/) is not among them: nothing
-#   here builds it; its emulated-calculator e2e is local (`just tx-e2e`);
+#   The web app's Files (crates/saturnus-tx*, web/tx/) is not among them:
+#   nothing here builds it; its emulated-calculator e2e is local
+#   (`just tx-e2e`);
 # - on a pull request carrying the label `e2e` (adding it starts a run;
 #   later pushes to the PR run it again while the label is on);
 # - by hand (`gh workflow run e2e.yml --ref <branch>`).
