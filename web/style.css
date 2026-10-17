@@ -95,13 +95,13 @@
 :where(#calculator-view) .panel-head { display: flex; align-items: center; justify-content: space-between; margin-right: calc(-1 * var(--s2)); }
 
 /* The panel's type, three sizes under the brand: section labels in
-   small caps (--fs-xs, as the page's other section headings), controls,
+   bold (--fs-lg), controls,
    links and body text at the base size, hints and the status line one
    step down (--fs-sm). Its rhythm: sections 16 px apart (the panel's
    gap), a label and its controls 8 px. */
 :where(#calculator-view) .tagline { margin: calc(-1 * var(--s2)) 0 0; color: var(--muted); font-size: var(--fs-sm); }
 :where(#calculator-view) .group { display: flex; flex-direction: column; gap: var(--s2); }
-:where(#calculator-view) .field-label { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+:where(#calculator-view) .field-label { font-size: var(--fs-lg); font-weight: 700; color: var(--ink); }
 :where(#calculator-view) .hint { margin: 0; font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh); }
 /* Buttons the size of their text, in rows that wrap at the panel's width. */
 :where(#calculator-view) .panel-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
