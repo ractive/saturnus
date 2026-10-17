@@ -26,6 +26,7 @@ import { DUMP_ONLY, NO_ROM_SOURCE, dropNotice } from "./norom.js";
 import { keptMenu, newActions, removeQuestion, removeRefusal, removedMessage, sharedModels } from "./romrows.js";
 import { keptRoms, keptStart } from "./tx/kept-roms.js";
 import { hasWebSerial } from "./tx/links.js";
+import { isTauri } from "./tx/tauri.js";
 import "./shared/models.js";
 
 /** How long the home page waits for the running calculators before it leaves the marks out. */
@@ -92,9 +93,13 @@ export function newRows(slots) {
   });
 }
 
-/** The kept ROM of each model, `fileName|revision`: whether an action kept one. */
+/**
+ * The kept ROM file of each model: whether an action kept one. By name
+ * only: the slots read from the browser's store before the hub runs
+ * carry no revision.
+ */
 function keptFiles(slots) {
-  return new Map(slots.filter((s) => s.fileName).map((s) => [s.model, `${s.fileName}|${s.revision ?? ""}`]));
+  return new Map(slots.filter((s) => s.fileName).map((s) => [s.model, s.fileName]));
 }
 
 /**
@@ -103,7 +108,7 @@ function keptFiles(slots) {
  * commands (web/home-roms.js), `on.connect` the shell's (web/main.js).
  */
 export class Home {
-  constructor(root, { roms, on = {}, serial = hasWebSerial, idb = () => globalThis.indexedDB } = {}) {
+  constructor(root, { roms, on = {}, serial = () => hasWebSerial() || isTauri(), idb = () => globalThis.indexedDB } = {}) {
     this.root = root;
     this.roms = roms;
     this.on = on;
@@ -173,7 +178,7 @@ export class Home {
       blurAfter(() => {
         if (b.dataset.act === "download") return this.download(b.dataset.model);
         if (b.dataset.act === "choose") return this.choose(b.dataset.model);
-        return this.act(() => this.roms.takeOffer(b.dataset.model, Number(b.dataset.offer)));
+        return this.act(() => this.roms.takeOffer(b.dataset.model, Number(b.dataset.offer)), { keeps: true });
       })({ currentTarget: b });
     });
     root.addEventListener("keydown", (e) => {
@@ -184,7 +189,7 @@ export class Home {
     });
     ui.bootLast.addEventListener("change", () => {
       ui.bootLast.blur();
-      this.act(() => this.roms.romSettings(ui.bootLast.checked), "Cannot keep the setting");
+      this.act(() => this.roms.romSettings(ui.bootLast.checked), { failed: "Cannot keep the setting" });
     });
     // Keep for good: `StorageChoice` calls persist() within this click.
     ui.keep.addEventListener("click", blurAfter(() => this.storageChoice.keep()));
@@ -326,7 +331,7 @@ export class Home {
   /** Choose `model`'s ROM: the app's dialog, or this page's file picker. */
   async choose(model) {
     if (this.app) {
-      await this.act(() => this.roms.chooseRom(model));
+      await this.act(() => this.roms.chooseRom(model), { keeps: true });
       return;
     }
     this.pickFor = model;
@@ -335,24 +340,26 @@ export class Home {
 
   /** ROM files from the picker or a drop, for `model`. */
   chooseFiles(model, files) {
-    return this.act(() => this.roms.chooseRom(model, files));
+    return this.act(() => this.roms.chooseRom(model, files), { keeps: true });
   }
 
   /** Download `model`'s ROM from hpcalc.org (the app: it asks first). A failure names the page to download it from by hand. */
   async download(model) {
     say(this.store, `Downloading the ${title(model)} ROM from hpcalc.org…`);
-    const r = await this.act(() => this.roms.downloadRom(model), `Cannot download the ${title(model)} ROM`);
+    const r = await this.act(() => this.roms.downloadRom(model), { keeps: true, failed: `Cannot download the ${title(model)} ROM` });
     if (r === null && !this.store.state.messageError) this.store.set({ message: "", messageError: false });
   }
 
   /**
    * Run a ROM command and show its result: the slots, the notice and the
-   * offers drawn, the offer to keep a newly kept ROM for good, and the
-   * calculator it started (the app) or would start (the browser) opened.
-   * Resolves to the result; null when cancelled or failed (the failure
-   * said, the slots read again).
+   * offers drawn. A command that `keeps` ROMs (a choice, an offer taken, a
+   * download) also offers to keep a newly kept ROM for good, and opens the
+   * calculator it started (the app) or would start (the browser), unless
+   * there is a notice or an offer to read first: then the page stays, and
+   * the calculator opens from its row. Resolves to the result; null when
+   * cancelled or failed (the failure said, the slots read again).
    */
-  async act(fn, failed = "Cannot keep the ROM") {
+  async act(fn, { keeps = false, failed = "Cannot keep the ROM" } = {}) {
     const before = keptFiles(this.store.state.roms?.slots ?? []);
     let r;
     try {
@@ -366,11 +373,12 @@ export class Home {
     const { booted, notice, bootError, start, ...roms } = r;
     this.store.set({ roms, romNotice: notice ?? "" });
     this.draw(this.running);
+    if (bootError) say(this.store, `Cannot start: ${bootError}`, true);
+    if (!keeps) return r;
     const after = keptFiles(roms.slots);
     if ([...after].some(([m, f]) => before.get(m) !== f)) this.storageChoice.offer();
-    if (bootError) say(this.store, `Cannot start: ${bootError}`, true);
     const go = start ?? booted?.model ?? null;
-    if (go && !bootError) location.hash = `#/calculator/${go}`;
+    if (go && !bootError && !notice && !roms.offers?.length) location.hash = `#/calculator/${go}`;
     return r;
   }
 

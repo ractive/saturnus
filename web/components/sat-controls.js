@@ -363,8 +363,8 @@ export class SatControls extends HTMLElement {
    * Show `model` (its route, `#/calculator/<model>`): booted from its kept
    * ROM, or shown as it runs (the browser's hub attaches to it, or boots
    * it again on a ROM the home page changed); the app runs one
-   * calculator, which a boot would start again, so a model it runs is
-   * only resumed. Without a ROM the empty state says so, and the other
+   * calculator, which a boot would start again, so a model it runs (by
+   * the status heard, else the native hub's answer) is only resumed. Without a ROM the empty state says so, and the other
    * model's calculator pauses behind it; one whose file is gone or
    * changed is reported.
    */
@@ -383,7 +383,12 @@ export class SatControls extends HTMLElement {
       return;
     }
     if (s.booted === model && !s.running && !s.halted) await this.backend.pause(false).catch(() => {});
-    if (s.booted === model && this.backend.romSource === "dialog") return;
+    if (this.backend.romSource === "dialog") {
+      if (s.booted === model) return;
+      // The home page's choice may have just booted it, its `status` not
+      // here yet (Tauri does not order events before replies): asked.
+      if ((await this.backend.hub?.knownRunning()) === model) return;
+    }
     await this.romCall(() => this.backend.bootModel(model));
   }
 

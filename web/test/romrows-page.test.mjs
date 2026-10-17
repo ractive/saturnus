@@ -5,7 +5,8 @@
 // pointer; Remove… asks in the shared modal, takes the 39G's and 40G's
 // shared file together and says when the calculator stops; a removal
 // refused while a send types says why and removes nothing; Remove ROMs…
-// asks first; nothing overflows a phone. The ROM commands
+// asks first; a choice with a notice or an offer stays on the page; the
+// start setting offers no keeping; nothing overflows a phone. The ROM commands
 // (web/home-roms.js) are stubbed. Skipped without Chrome
 // (`SATURNUS_CHROME` names one) or the wasm package (`just web`).
 import { test } from "node:test";
@@ -214,4 +215,28 @@ test("a phone: nothing overflows, and a finger's screen is not told to drop a fi
   const out = await p.ev(`[...document.querySelectorAll("#home-view .home-calc :is(button, a.button)")].filter((b) => { const r = b.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth; }).length`);
   assert.equal(out, 0, "every button inside the window");
   assert.doesNotMatch(await p.ev(`document.getElementById("home-new-section").textContent`), /drop/i);
+});
+
+test("a choice with a notice or an offer stays on the home page; a clean one opens its calculator; the setting offers no keeping", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  await p.ev(STUB("file"));
+  // The start setting: a ROM command that keeps nothing (the slots before it read from the store, with no revision): no offer to keep.
+  await p.ev(`(() => { const h = saturnusApp.home; h.store.set({ roms: { ...h.store.state.roms, slots: h.store.state.roms.slots.map((x) => ({ ...x, revision: null })) } }); return true; })()`);
+  await p.ev(`(() => { const h = saturnusApp.home; h.roms.started = () => true; h.roms.romSettings = async (on) => ({ ...(await h.roms.romSlots()), bootLast: on }); return true; })()`);
+  await p.ev(`document.getElementById("home-boot-last").click(); true`);
+  await sleep(300);
+  assert.equal(await p.ev(`document.getElementById("home-boot-last").checked`), false);
+  assert.equal(await p.ev(`!!document.querySelector(".storage-notice")`), false, "no offer to keep a ROM");
+  assert.equal(await p.ev("location.hash"), "#/");
+  // Several files: one to start, a notice about the others: the page stays and shows it.
+  await p.ev(`(() => { const h = saturnusApp.home; h.roms.chooseRom = async () => ({ ...h.store.state.roms, start: "48gx", notice: "rom.49g went to the HP 49G." }); return true; })()`);
+  await p.ev(`saturnusApp.home.chooseFiles("48gx", [new File(["x"], "gx")]).then(() => true)`);
+  assert.equal(await p.ev("location.hash"), "#/");
+  assert.equal(await p.ev(`document.querySelector(".home-notice-text").textContent`), "rom.49g went to the HP 49G.");
+  assert.equal(await p.ev(`document.getElementById("home-notice").hidden`), false);
+  // A clean choice: its calculator opens.
+  await p.ev(`(() => { const h = saturnusApp.home; h.roms.chooseRom = async () => ({ ...h.store.state.roms, start: "48gx", notice: "" }); return true; })()`);
+  await p.ev(`saturnusApp.home.chooseFiles("48gx", [new File(["x"], "gx")]).then(() => true)`);
+  assert.equal(await p.ev("location.hash"), "#/calculator/48gx");
 });

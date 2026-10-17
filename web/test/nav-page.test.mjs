@@ -64,6 +64,7 @@ test("Calculator links to Files, its palette opens Files, both brands go home; t
   await until(ev, `!!window.__TAURI__ && document.readyState === "complete" && window.saturnusApp?.view === "home"`, 15_000, "the page loaded as the app, on the home page");
   assert.equal(await ev("location.hash"), "#/");
   assert.equal(await ev(`document.querySelector(".home-landing").hidden`), true);
+  assert.deepEqual(await ev(`[document.getElementById("home-connect").hidden, document.getElementById("home-connect-why").hidden]`), [false, true], "the app reaches serial ports itself");
   await ev(`location.hash = "#/calculator"; true`);
   await until(ev, `saturnusApp.view === "calculator"`, 5_000, "Calculator");
   await ev(`location.hash = "#/"; true`);

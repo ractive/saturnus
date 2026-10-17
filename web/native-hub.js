@@ -105,7 +105,11 @@ export class NativeHub {
     const answer = this.raw(cmd, args);
     if (view === this.emulator && BOOTS.has(cmd)) {
       answer.then((r) => {
-        if (bootedModel(cmd, r)) this.dropAll(cmd === "bootModel" && args.fresh ? "Calculator started this calculator afresh." : "Calculator started this calculator again.");
+        const model = bootedModel(cmd, r);
+        if (!model) return;
+        // Known from the reply already: its `status` may come after it.
+        this.running = model;
+        this.dropAll(cmd === "bootModel" && args.fresh ? "Calculator started this calculator afresh." : "Calculator started this calculator again.");
       }, () => {});
     }
     return answer;
