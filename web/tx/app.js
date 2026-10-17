@@ -12,7 +12,7 @@
 // cable console (cable.js, cable-view.js: "Show the packets"). `window.tx`
 // is for the tests.
 
-import init, * as wasmApi from "./pkg/saturnus_tx_web.js";
+import init, * as wasmApi from "../pkg/saturnus_web.js";
 import { el } from "../shared/dom.js";
 import { saveDownload } from "../shared/download.js";
 import { MAX_ROM_FILE } from "../shared/limits.js";

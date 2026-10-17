@@ -223,10 +223,10 @@ crates") and tries again, at most 6 times per crate.
 on crates.io. Everything else is
 `publish = false`: `saturnus-web` (the wasm bindings, shipped as the web
 page), `saturnus-tauri` (shipped as installers), `saturnus-kermit` (test
-support), `saturnus-refgen` (a tool), and saturnus tx's three:
-`saturnus-tx` (its device layer, used only in this repository),
-`saturnus-tx-web` (its wasm bindings, shipped as the transfer page) and
-`saturnus-tx-tauri` (shipped as installers).
+support), `saturnus-refgen` (a tool), and saturnus tx's two:
+`saturnus-tx` (its device layer, used only in this repository; its wasm
+bindings are saturnus-web's `tx` module) and `saturnus-tx-tauri`
+(shipped as installers).
 
 One version for all of them, `workspace.package.version`; the internal
 dependencies are `[workspace.dependencies]` with a path and that version,
@@ -384,8 +384,8 @@ Recovery:
 on `main` publishes, another branch builds the site artifact and stops;
 the upload job runs in the `pages` GitHub Environment, deployments from
 `main` only, which must hold the `FTP_PASSWORD` secret)
-builds both wasm
-packages (`web/build.sh`, `web/tx-build.sh`), assembles the site with
+builds the wasm
+package (`web/build.sh`), assembles the site with
 `web/site.sh` (the landing page `web/landing/` at the top with
 `web/site.htaccess` as `.htaccess` and the kill switch `sw.js`; the
 emulator under `emulator/`: every page file in `web/` but `tx.html`, the
@@ -543,10 +543,10 @@ workspace's one tag and version. What differs from the emulator's app:
   and the wasm embedded (a file-list check, not an install).
 - **The page and its wasm**: `build.rs` embeds `web/site.sh --list
   transfer`'s files, the page again as `index.html` (the brand's link
-  "./" lands on it) and both wasm packages (the transfer page's and the
-  emulator's, for the emulated calculator): the protocol runs in the
-  page, not natively. `beforeBuildCommand` (run from the repository root)
-  builds them with `web/tx-build.sh` and `web/build.sh`, so `desktop.yml`
+  "./" lands on it) and the wasm package (the transfer bindings and the
+  emulated calculator's): the protocol runs in the page, not natively.
+  `beforeBuildCommand` (run from the repository root) builds it with
+  `web/build.sh`, so `desktop.yml`
   installs wasm-pack and the wasm32 target for this app; a production
   build by the Tauri CLI without them fails, any other build warns.
   `tests/frontend.rs` compares the page files with `site.sh --list

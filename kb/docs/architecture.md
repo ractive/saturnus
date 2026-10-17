@@ -61,10 +61,11 @@ saturnus-host   the front ends' shared host code, no bindings, no I/O,
                 read cap and timeouts, resumable in turns), layouts,
                 skins, ROM identification; used by saturnus-web,
                 saturnus-drive's runner, the CLI and the Tauri app
-saturnus-web    wasm bindings: the Engine with the Worker's pacing and a
-                JavaScript clock (Host), ROM identification; web/worker.js
-                is a thin driver (messages, one timer, the ROM slots in
-                IndexedDB)
+saturnus-web    wasm bindings, one package for both pages: the Engine
+                with the Worker's pacing and a JavaScript clock (Host),
+                ROM identification; web/worker.js is a thin driver
+                (messages, one timer, the ROM slots in IndexedDB); the
+                `tx` module, saturnus tx's bindings (below)
 saturnus-tauri  desktop app: the page in web/ on the shared runner
 saturnus-refgen generates the command reference (names, menus,
                 examples run on the emulator) into saturnus-cli/data;
@@ -89,17 +90,14 @@ saturnus-tx     saturnus tx's device layer over satx-core's Machine:
                 -35 kept and restored), list, get, put, disconnect
                 (file names from satx-core's `names`); no I/O, builds
                 for wasm32; not published
-saturnus-tx-web wasm bindings of saturnus-tx and the preview parts of
-                saturnus-objects for the transfer page (web/tx.html,
-                web/tx/); the protocol runs in its own Worker and the
-                page holds the link (Web Serial, or the emulated
-                calculator's serial port); not published
 ```
 
 The two web pages share `web/shared/` (tokens, components, the icon
-sprite, the device tree and list); each has its own wasm package
-(`web/pkg/` from saturnus-web, `web/tx/pkg/` from saturnus-tx-web), and
-the transfer page loads the emulator's only for an emulated calculator
+sprite, the device tree and list) and one wasm package (`web/pkg/` from
+saturnus-web, iteration 50a): its `tx` module holds the transfer page's
+bindings of saturnus-tx and the preview parts of saturnus-objects (the
+protocol runs in its own Worker and the page holds the link, Web Serial
+or the emulated calculator's serial port), the rest the emulator's
 ([[docs/saturnus-tx]]).
 
 Public API sketch:

@@ -13,7 +13,7 @@
 
 use saturnus_tx::trace::{Replay, Step, Trace};
 use saturnus_tx::{Device, DeviceOptions, Event, Outcome, Request, TxError};
-use saturnus_tx_web::{Payload, parse_request};
+use saturnus_web::tx::{Payload, parse_request};
 use satx_core::TransferMode;
 use satx_core::time::{Duration, Instant};
 use satx_core::xmodem::XmodemDirection;

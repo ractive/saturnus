@@ -6,10 +6,9 @@
 //! service worker), the tests, the docs or the build scripts.
 //!
 //! Unlike saturnus's app, this one runs the protocol in the page's wasm
-//! (kb/docs/saturnus-tx.md, "Crates and folders"), so the two wasm
-//! packages go in too: the transfer page's (`web/tx/pkg/`, from
-//! `web/tx-build.sh`) and the emulator's (`web/pkg/`, from `web/build.sh`,
-//! for the emulated calculator). `cargo tauri build` makes them first
+//! (kb/docs/saturnus-tx.md, "Crates and folders"), so the wasm package
+//! goes in too (`web/pkg/`, from `web/build.sh`: the transfer bindings
+//! and the emulated calculator's). `cargo tauri build` makes it first
 //! (`beforeBuildCommand`); a release build by the Tauri CLI without them
 //! fails here, any other build (clippy, the tests) only warns.
 //!
@@ -49,26 +48,21 @@ fn page_files(web: &Path) -> std::io::Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-/// The wasm packages the page loads, relative to `web`.
-const WASM: [&str; 4] = [
-    "tx/pkg/saturnus_tx_web.js",
-    "tx/pkg/saturnus_tx_web_bg.wasm",
-    "pkg/saturnus_web.js",
-    "pkg/saturnus_web_bg.wasm",
-];
+/// The wasm package the page loads, relative to `web`.
+const WASM: [&str; 2] = ["pkg/saturnus_web.js", "pkg/saturnus_web_bg.wasm"];
 
 fn main() -> Result<(), Box<dyn Error>> {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
     let web = manifest.join("../../web");
     let site = PathBuf::from(std::env::var("OUT_DIR")?).join("app-site");
-    for dir in ["tx.html", "favicon.svg", "tx", "shared", "tx/pkg", "pkg"] {
+    for dir in ["tx.html", "favicon.svg", "tx", "shared", "pkg"] {
         println!("cargo::rerun-if-changed={}", web.join(dir).display());
     }
 
     if site.exists() {
         std::fs::remove_dir_all(&site)?;
     }
-    for dir in ["tx/pkg", "pkg", "shared/components"] {
+    for dir in ["tx", "pkg", "shared/components"] {
         std::fs::create_dir_all(site.join(dir))?;
     }
     for file in page_files(&web)? {
@@ -92,13 +86,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     } else if production {
         return Err(format!(
-            "the page's wasm is missing ({}): run web/tx-build.sh and web/build.sh first",
+            "the page's wasm is missing ({}): run web/build.sh first",
             missing.join(", ")
         )
         .into());
     } else {
         println!(
-            "cargo::warning=the page's wasm is not built ({}); the app's page will not start. Run web/tx-build.sh and web/build.sh.",
+            "cargo::warning=the page's wasm is not built ({}); the app's page will not start. Run web/build.sh.",
             missing.join(", ")
         );
     }

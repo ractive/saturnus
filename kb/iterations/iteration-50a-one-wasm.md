@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 50a: one WebAssembly package"
 date: 2026-10-17
-status: planned
+status: in-progress
 tags:
   - iteration
   - web
@@ -26,11 +26,14 @@ The site keeps its two pages; the existing tests cover the change.
   Files' main thread, the protocol, aplet and private-calculator
   workers). Measure its size once; if it is over 1.4 MB, note it for
   the owner (keeping two packages stays possible).
+  **Measured** (`web/build.sh`, release, wasm-opt): the merged
+  `saturnus_web_bg.wasm` is 1,332,798 bytes (1.33 MB; 507 KB gzipped),
+  under the 1.4 MB line; the JavaScript glue 41 KB.
 
 ## Tasks
 
-- [ ] Merge the crate; delete `crates/saturnus-tx-web`, `web/tx-build.sh`; imports, `site.sh`, `justfile`, `ci.yml`, `pages.yml`, `desktop.yml`, `saturnus-tx-tauri`'s `beforeBuildCommand` follow
-- [ ] Size measured and noted here
+- [x] Merge the crate; delete `crates/saturnus-tx-web`, `web/tx-build.sh`; imports, `site.sh`, `justfile`, `ci.yml`, `pages.yml`, `desktop.yml`, `saturnus-tx-tauri`'s `beforeBuildCommand` follow
+- [x] Size measured and noted here
 - [ ] `just gates` and the tests that load the package green; deploy
 
 ## Acceptance

@@ -15,7 +15,7 @@ import { HubDevice, MAX_STORE_BYTES, countAll, refusalText } from "../shared/hub
 const enc = (s) => new TextEncoder().encode(s);
 const bin = (s) => enc(`HPHP48-R${s}`);
 
-/** The page's name helpers as saturnus-tx-web gives them, enough for the tests. */
+/** The page's name helpers as the transfer bindings give them, enough for the tests. */
 const helpers = async () => ({
   file_name: (name, format) => `${name}.${format === "text" ? "txt" : "hp"}`,
   folder_name: (name) => name,

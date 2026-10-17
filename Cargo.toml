@@ -1,12 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/saturnus-tauri", "crates/saturnus-tx-tauri", "crates/satx-core", "crates/satx-cli", "crates/saturnus-tx", "crates/saturnus-tx-web", "crates/kermit-proto", "crates/xmodem-proto"]
+members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/saturnus-tauri", "crates/saturnus-tx-tauri", "crates/satx-core", "crates/satx-cli", "crates/saturnus-tx", "crates/kermit-proto", "crates/xmodem-proto"]
 # The Tauri apps (saturnus-tauri, saturnus-tx-tauri) need the system
 # webview's libraries (webkit2gtk on Linux), so plain `cargo build`/`test`
 # leave them out; CI builds them in its own job (kb/docs/ci.md).
 # `--workspace` includes them: pass `--exclude saturnus-tauri --exclude
 # saturnus-tx-tauri`.
-default-members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/satx-core", "crates/satx-cli", "crates/saturnus-tx", "crates/saturnus-tx-web", "crates/kermit-proto", "crates/xmodem-proto"]
+default-members = ["crates/saturnus-core", "crates/saturnus-cli", "crates/saturnus-web", "crates/saturnus-drive", "crates/saturnus-objects", "crates/saturnus-host", "crates/saturnus-kermit", "crates/saturnus-refgen", "crates/satx-core", "crates/satx-cli", "crates/saturnus-tx", "crates/kermit-proto", "crates/xmodem-proto"]
 
 [workspace.package]
 # One version for every crate and the desktop app; the release tag is

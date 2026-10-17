@@ -6,7 +6,7 @@
 // same files, changes with any of them, and ignores the landing page; the
 // page links the manifest; the desktop app's file list has none of it. The transfer page under
 // transfer/ the same way, with its own marker, manifest, worker and
-// build. Skipped without the wasm packages (`just web`, `just tx-web`).
+// build. Skipped without the wasm package (`just web`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const WEB = fileURLToPath(new URL("../", import.meta.url));
-const built = existsSync(join(WEB, "pkg", "saturnus_web_bg.wasm")) && existsSync(join(WEB, "tx", "pkg", "saturnus_tx_web_bg.wasm"));
+const built = existsSync(join(WEB, "pkg", "saturnus_web_bg.wasm")) && existsSync(join(WEB, "pkg", "saturnus_web_bg.wasm"));
 
 /** Every file under `dir`, relative to it, sorted. */
 function filesUnder(dir, prefix = "") {
@@ -50,7 +50,7 @@ function site(web) {
   return { out, ...worker(join(out, "emulator")), tx: worker(join(out, "transfer")) };
 }
 
-test("the service worker precaches exactly the emulator's files, and a new build is a new hash", { skip: !built && "web/pkg or web/tx/pkg not built (just web, just tx-web)" }, () => {
+test("the service worker precaches exactly the emulator's files, and a new build is a new hash", { skip: !built && "web/pkg not built (just web)" }, () => {
   const tmp = [];
   try {
     const a = site(WEB);
@@ -126,7 +126,7 @@ test("the service worker precaches exactly the emulator's files, and a new build
   }
 });
 
-test("the transfer page: its own subsite, marker, manifest, worker and file list", { skip: !built && "web/pkg or web/tx/pkg not built (just web, just tx-web)" }, () => {
+test("the transfer page: its own subsite, marker, manifest, worker and file list", { skip: !built && "web/pkg not built (just web)" }, () => {
   const out = mkdtempSync(join(tmpdir(), "saturnus-site-"));
   try {
     execFileSync("sh", [join(WEB, "site.sh"), out], { stdio: "ignore" });
@@ -135,7 +135,7 @@ test("the transfer page: its own subsite, marker, manifest, worker and file list
     assert.ok(existsSync(join(tx, ".saturnus-transfer")), "its own marker");
     assert.ok(!files.includes(".saturnus-transfer"), "not precached");
     assert.deepEqual(files, filesUnder(tx).filter((f) => f !== "sw.js" && !f.startsWith(".")));
-    for (const f of ["index.html", "manifest.webmanifest", "tx/app.js", "tx/protocol-worker.js", "tx/emulator-worker.js", "tx/pkg/saturnus_tx_web.js", "tx/pkg/saturnus_tx_web_bg.wasm", "pkg/saturnus_web.js", "pkg/saturnus_web_bg.wasm", "shared/icons.svg", "icons/icon-512.png", "favicon.svg"]) {
+    for (const f of ["index.html", "manifest.webmanifest", "tx/app.js", "tx/protocol-worker.js", "tx/emulator-worker.js", "pkg/saturnus_web.js", "pkg/saturnus_web_bg.wasm", "shared/icons.svg", "icons/icon-512.png", "favicon.svg"]) {
       assert.ok(files.includes(f), `${f} precached`);
     }
     assert.ok(!files.some((f) => f.startsWith("tx/pwa/") || f.endsWith(".sh") || f.startsWith("components/")), "no build files, no emulator components");

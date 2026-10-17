@@ -3030,27 +3030,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "saturnus-tx-web"
+name = "saturnus-web"
 version = "0.5.0"
 dependencies = [
  "anyhow",
  "js-sys",
  "kermit-proto",
  "saturnus-core",
+ "saturnus-host",
  "saturnus-objects",
  "saturnus-tx",
  "satx-core",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "saturnus-web"
-version = "0.5.0"
-dependencies = [
- "js-sys",
- "saturnus-core",
- "saturnus-host",
  "serde",
  "serde_json",
  "wasm-bindgen",

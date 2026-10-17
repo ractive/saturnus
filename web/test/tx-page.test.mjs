@@ -26,7 +26,7 @@
 //   opened folder and its listing arriving; the arrow keys scroll only as
 //   far as they must; a sort keeps the list's. (The jump this guards
 //   against is WebKit's; Chrome keeps the position on its own.)
-// Skipped without Chrome or the wasm packages (`just web tx-web`;
+// Skipped without Chrome or the wasm package (`just web`;
 // `SATURNUS_AUDIT=1` makes the skip a failure).
 
 import assert from "node:assert/strict";
@@ -61,8 +61,8 @@ const MEASURE = `(() => {
 /** A Chrome session for the page, or null (skipped). */
 async function open(t) {
   if (!txBuilt()) {
-    if (process.env.SATURNUS_AUDIT) assert.fail("web/pkg or web/tx/pkg not built (just web tx-web)");
-    t.skip("web/pkg or web/tx/pkg not built (just web tx-web)");
+    if (process.env.SATURNUS_AUDIT) assert.fail("web/pkg not built (just web)");
+    t.skip("web/pkg not built (just web)");
     return null;
   }
   return session(t, { audit: true });

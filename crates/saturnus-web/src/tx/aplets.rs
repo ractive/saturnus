@@ -2,7 +2,7 @@
 //! [`ApletServer`] over a link the page holds, and [`aplet_info`], what a
 //! file's first bytes say (`web/tx/serve.js`, `web/tx/aplet-worker.js`).
 //!
-//! As [`crate::TxDevice`], every call takes the page's clock in
+//! As [`crate::tx::TxDevice`], every call takes the page's clock in
 //! milliseconds; [`TxApletServer::drain`] hands out the writes and the
 //! events in order.
 
@@ -13,7 +13,7 @@ use satx_core::time::{Duration, Instant};
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
-use crate::{js_err, model_name, to_js};
+use crate::tx::{js_err, model_name, to_js};
 
 /// An event as the page's JSON, and the bytes that go with it (a received
 /// file).

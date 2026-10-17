@@ -15,7 +15,7 @@ import { txBuilt, txPage } from "./tx-chrome.mjs";
 const dir = process.env.SATURNUS_ROM_DIR;
 const rom = dir && join(dir, "gxrom-r");
 if (!rom || !existsSync(rom) || !txBuilt() || !findChrome()) {
-  console.error("needs SATURNUS_ROM_DIR with gxrom-r, Chrome and both wasm packages");
+  console.error("needs SATURNUS_ROM_DIR with gxrom-r, Chrome and the wasm package");
   process.exit(2);
 }
 const HIDDEN_MS = Number(process.env.TX_HIDDEN_MS ?? 6 * 60_000);

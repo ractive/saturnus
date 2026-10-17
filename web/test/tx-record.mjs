@@ -20,7 +20,7 @@ if (!out || !rom || !existsSync(rom)) {
   process.exit(2);
 }
 if (!txBuilt()) {
-  console.error("build both wasm packages first (just web tx-web)");
+  console.error("build the wasm package first (just web)");
   process.exit(2);
 }
 const binary = findChrome();

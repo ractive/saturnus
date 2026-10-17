@@ -10,7 +10,7 @@
 // (`detail` why the link went away).
 
 /**
- * A request that failed: `kind` as saturnus-tx-web's `error_json`
+ * A request that failed: `kind` as the transfer bindings' `error_json`
  * (`nameClash`, ...), the name it is about as `varName`, and what a
  * question needs (`count` of `notEmpty`, `names` of `namesInUse`, `needed`
  * and `free` of `noRoom`, `directories`, `variables`, `rootMade` and
@@ -117,7 +117,7 @@ export class ProtocolClient extends EventTarget {
   }
 
   /**
-   * Run `request` (saturnus-tx-web's `parse_request`: `connect`, `list`,
+   * Run `request` (the transfer bindings' `parse_request`: `connect`, `list`,
    * `get`, `put`, `mkdir`, `rename`, `purge`, `get-tree`, `put-tree`,
    * `memory`, `backup`, `restore`, `pict`, `xmodem-put`, `xmodem-get`,
    * `disconnect`; `data` a put's

@@ -1,4 +1,4 @@
-// The aplet server's driver: one `TxApletServer` (saturnus-tx-web, the
+// The aplet server's driver: one `TxApletServer` (saturnus-web's tx module, the
 // folder served to a 38G, 39G or 40G), fed the page's messages, a clock
 // and one timer at the deadline it asks for, and what it gives back
 // posted to the page. The dedicated Worker (aplet-worker.js) runs it with

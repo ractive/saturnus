@@ -5,7 +5,7 @@
   "build": {
     "frontendDist": "../../web",
     "beforeBuildCommand": {
-      "script": "sh web/tx-build.sh -- --locked && sh web/build.sh -- --locked",
+      "script": "sh web/build.sh -- --locked",
       "cwd": "../.."
     }
   },

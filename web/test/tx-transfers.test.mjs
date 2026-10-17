@@ -2,7 +2,7 @@
 // KermitDevice over the fake calculator (web/test/tx-fake-calc.js, in
 // place of the protocol Worker), the real Folder over a folder in memory,
 // the real wasm bindings for names, file kinds and the copy plan
-// (web/tx/pkg; skipped without it, `just tx-web`). What is asked before a
+// (web/pkg; skipped without it, `just web`). What is asked before a
 // copy (replace, strings, the other family, what is left out), what each
 // answer does, and what lands where.
 
@@ -17,14 +17,14 @@ import { JobQueue } from "../tx/queue.js";
 import { Transfers, fileItem, flatten, folderItem, namesText, removeQuestion, replaceManyQuestion, restoreQuestion, suggestName } from "../tx/transfers.js";
 import { fakeCalc, stubLink } from "./tx-fake-calc.js";
 
-const pkgFile = new URL("../tx/pkg/saturnus_tx_web_bg.wasm", import.meta.url);
+const pkgFile = new URL("../pkg/saturnus_web_bg.wasm", import.meta.url);
 let wasm = null;
 async function load(t) {
   if (!existsSync(pkgFile)) {
-    t.skip("web/tx/pkg not built (just tx-web)");
+    t.skip("web/pkg not built (just web)");
     return null;
   }
-  wasm ??= import("../tx/pkg/saturnus_tx_web.js").then((pkg) => {
+  wasm ??= import("../pkg/saturnus_web.js").then((pkg) => {
     pkg.initSync({ module: readFileSync(pkgFile) });
     return pkg;
   });

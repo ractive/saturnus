@@ -1,5 +1,5 @@
 // The transfer page's private emulated calculator: saturnus's wasm core
-// (the emulator's package, ../pkg) driven as web/hub.js drives it, in the
+// (the wasm package, ../pkg) driven as web/hub.js drives it, in the
 // protocol of web/protocol.md, for a ROM file chosen on the page (and in
 // the desktop app). It boots cold, keeps nothing (the engine's auto-save
 // stays off) and is nobody else's: the calculator of a ROM the emulator
