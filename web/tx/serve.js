@@ -298,6 +298,7 @@ export class ServeView {
     }
     this.roms = await keptRoms(undefined, APLET_MODELS);
     this.render();
+    this.app.placesChanged?.();
     this.root.querySelector("h2")?.focus();
   }
 
@@ -307,6 +308,7 @@ export class ServeView {
     this.root.hidden = true;
     delete this.stage.dataset.mode;
     this.root.replaceChildren();
+    this.app.placesChanged?.();
   }
 
   render() {

@@ -679,7 +679,10 @@ under the list for several seconds.
   target rows of a copy, show a thin bar under the name; the pane's
   status line is the body size. Progress is drawn at most once per
   animation frame.
-- **The cable console.** "Show the cable" in the page's header opens a
+- **The cable console.** "Show the packets" in the page's header (gone
+  while there is nothing to show: every calculator in the panes is the
+  emulator's, whose link has no packets, nothing is served and no packet
+  came yet) opens a
   panel under the panes: one line per Kermit packet or XModem block,
   newest last: the time, the pane (L, R, S for the serving screen), → to
   the calculator or ← from it, the packet type and sequence number, the

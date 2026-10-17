@@ -1164,9 +1164,11 @@ with a switch above them.
   2 s or more how long; `preview.js`'s `readingText`), drawn at most once
   per animation frame; the row being read, and both rows of a copy
   (`transfers.js`'s `mark`), get a thin bar under the name
-  (`<device-list>`'s `setBusy`). "Show the cable" in the page's header
-  opens the cable console: every link a pane or the serving screen
-  opens is wrapped by `cable.js`'s `TappedLink` (after the tests'
+  (`<device-list>`'s `setBusy`). "Show the packets" in the page's header
+  (hidden while there is nothing to show: only the emulator's
+  calculators in the panes, none connecting, nothing served, no packet
+  logged; `renderPacketsButton`) opens the cable console: every link a
+  pane or the serving screen opens is wrapped by `cable.js`'s `TappedLink` (after the tests'
   `wrapLink`), whose `CableDecoder` turns the bytes into one line per
   Kermit packet or XModem block (type, sequence number, length, plain
   words, payload as text and hex; red for what was sent again, refused
