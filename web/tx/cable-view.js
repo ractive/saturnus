@@ -33,7 +33,7 @@ export function lineItem(l) {
 export class CableView {
   /**
    * `root` the panel's section; `log` the CableLog; `toggle` the header's
-   * "Show the cable" button; `say(text, {error})` a toast; `frame(fn)` the
+   * "Show the packets" button; `say(text, {error})` a toast; `frame(fn)` the
    * animation frame (tests pass their own).
    */
   constructor(root, { log, toggle, say, frame = (fn) => requestAnimationFrame(fn) }) {
@@ -62,7 +62,7 @@ export class CableView {
 
   open() {
     this.root.hidden = false;
-    this.label("Hide the cable", true);
+    this.label("Hide the packets", true);
     this.ui.list.replaceChildren();
     this.next = this.log.first;
     this.log.onAdd = () => this.schedule();
@@ -73,7 +73,7 @@ export class CableView {
   close() {
     this.root.hidden = true;
     this.log.onAdd = null;
-    this.label("Show the cable", false);
+    this.label("Show the packets", false);
     this.ui.list.replaceChildren();
   }
 

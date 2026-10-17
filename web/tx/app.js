@@ -9,7 +9,7 @@
 // one job per place at a time, the waiting ones cancellable. The
 // protocol runs in a dedicated Worker per calculator (protocol-worker.js);
 // this page holds the links and the dialogs. Every link is tapped for the
-// cable console (cable.js, cable-view.js: "Show the cable"). `window.tx`
+// cable console (cable.js, cable-view.js: "Show the packets"). `window.tx`
 // is for the tests.
 
 import init, * as wasmApi from "./pkg/saturnus_tx_web.js";
@@ -141,7 +141,7 @@ function ask(question) {
   return answer;
 }
 
-/** Every packet on every link, for "Show the cable" (a ring buffer; drawn only while the panel is open). */
+/** Every packet on every link, for "Show the packets" (a ring buffer; drawn only while the panel is open). */
 const cable = new CableLog();
 
 /** What the panes reach of the page. */
@@ -195,7 +195,7 @@ const app = {
   chooseFile: (fn) => choose(ui.restoreInput, (files) => files[0] && fn(files[0])),
   chooseFiles: (fn) => choose(ui.fileInput, fn),
   backupDialog: (opts) => backupDialog(opts),
-  placesChanged: () => renderSwitch(),
+  placesChanged: () => { renderSwitch(); renderPacketsButton(); },
   dropFrom: (from, data, to, path) => dropFrom(from, data, to, path),
 };
 /** "Serve a folder to a 38G, 39G or 40G" (serve.js), over the panes while open. */
@@ -236,6 +236,14 @@ function setActive(id) {
   active = id;
   ui.panes.dataset.active = id;
   renderSwitch();
+}
+
+/** "Show the packets" is gone while the only calculators shown are the emulator's: that link has no packets. */
+function renderPacketsButton() {
+  const devices = panes.filter((p) => p.place?.kind === "device");
+  const none = devices.length > 0 && devices.every((p) => p.place.hub);
+  $("show-cable").hidden = none;
+  if (none && app.cableView?.isOpen) app.cableView.close();
 }
 
 function renderSwitch() {

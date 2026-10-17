@@ -260,6 +260,7 @@ test("the emulator's link connects saturnus tx's left pane to the running 48GX, 
   await p.until("!!tx.panes[0].place?.hub && tx.panes[0].place.model === '48gx'", STEP_MS, "the left pane on the emulator's 48GX");
   await p.idle(STEP_MS, "HOME listed");
   assert.equal(await tx.ev("document.querySelector('dialog[open]')?.id ?? null"), null, "no question asked");
+  assert.equal(await tx.ev(`document.getElementById("show-cable").hidden`), true, "no packets to show on the emulator's calculator");
 
   // Asked again for the calculator it shows (the request the emulator's link sends to tx's open tab): nothing.
   await tx.ev("window.__place = tx.panes[0].place; tx.connectFromEmulator('48gx').then((r) => r === null)");

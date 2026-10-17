@@ -57,7 +57,7 @@ body.tx {
 }
 .bar-link:hover { background: var(--hover); }
 button.bar-link { border: 0; background: transparent; font: inherit; font-size: var(--fs-md); cursor: pointer; }
-/* "Show the cable": lit while the panel is open. */
+/* "Show the packets": lit while the panel is open. */
 .bar-cable.on { background: var(--accent-soft); color: var(--accent-text); }
 @media (max-width: 520px) {
   .bar-cable span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -227,7 +227,7 @@ canvas.graphic { display: block; image-rendering: pixelated; }
 
 /* ------------------------------------------------------------------ the cable
 
-   "Show the cable" (iteration 45): every packet, live. Its own look on
+   "Show the packets" (iteration 45): every packet, live. Its own look on
    purpose, the same in both themes: green monospace on black, a faint
    glow on the line that just came. Contrast: the green on the black is
    about 14:1, the dim payload about 6:1, red about 7:1. */

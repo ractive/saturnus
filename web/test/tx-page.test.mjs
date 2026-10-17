@@ -124,7 +124,7 @@ test("the page with a recorded calculator: connect, list, drop, replace, preview
     };
   })()`);
   assert.equal(cable.expanded, "true");
-  assert.equal(cable.label, "Hide the cable");
+  assert.equal(cable.label, "Hide the packets");
   assert.deepEqual(cable.first, ["L", "opened at 9600 baud, no parity"]);
   assert.deepEqual(cable.init, ["→", "I 0", "init: up to 94 bytes a packet, check type 1"]);
   for (const k of ["B", "C", "D", "F", "G", "I", "R", "S", "X", "Y", "Z"]) assert.ok(cable.types.includes(k), `a ${k} line in ${cable.types}`);
