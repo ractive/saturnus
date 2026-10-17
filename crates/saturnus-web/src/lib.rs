@@ -1,8 +1,10 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-//! WebAssembly bindings of the saturnus core for the browser UI in `web/`:
-//! a thin layer over [`saturnus_host`], whose protocol state machine
-//! (`saturnus_host::protocol::Engine`) answers every command the Worker
-//! does not keep for itself. Here only messages, errors and bytes cross
+//! WebAssembly bindings for the browser UI in `web/`, one package
+//! (`web/build.sh` into `web/pkg/`) for the emulator page and the transfer
+//! page. The transfer page's bindings are the [`tx`] module; the
+//! emulator's are here: a thin layer over [`saturnus_host`], whose
+//! protocol state machine (`saturnus_host::protocol::Engine`) answers
+//! every command the Worker does not keep for itself. Here only messages, errors and bytes cross
 //! between Rust and JavaScript.
 //!
 //! [`Host`] is the engine with the Worker's pacing and its clock (a
@@ -29,6 +31,8 @@
 //! known image (by SHA-256) from one that only fits by size, `plan_roms`
 //! assigns a batch of them to the model slots, `rom_download` tells where
 //! hpcalc.org offers a model's image (the page links to it).
+
+pub mod tx;
 
 use saturnus_core::Model;
 use saturnus_host::protocol::{Clock, Engine, Event, Output, Pacing};

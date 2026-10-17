@@ -18,10 +18,10 @@
 #                       the service worker, with index.html given the
 #                       manifest link and Apple's tags (web/pwa/head.html).
 #   transfer/           saturnus tx, the transfer page: web/tx.html as its
-#                       index.html, web/tx/ (its modules and stylesheet,
-#                       and its wasm package built by web/tx-build.sh),
-#                       the shared code, the favicon, the emulator's wasm
-#                       package (pkg/, for the emulated calculator), its
+#                       index.html, web/tx/ (its modules and stylesheet),
+#                       the shared code, the favicon, the wasm package
+#                       built by web/build.sh (pkg/: the transfer
+#                       bindings and the emulated calculator's), its
 #                       own marker (.saturnus-transfer), manifest and head
 #                       tags (web/tx/pwa/), the icons and a service worker
 #                       of its own.
@@ -101,11 +101,10 @@ if [ -n "$(ls -A "$out_abs")" ] && [ ! -f "$out_abs/$marker" ]; then
   exit 1
 fi
 [ -f "$here/pkg/saturnus_web_bg.wasm" ] || { echo "web/site.sh: run web/build.sh first (no web/pkg)" >&2; exit 1; }
-[ -f "$here/tx/pkg/saturnus_tx_web_bg.wasm" ] || { echo "web/site.sh: run web/tx-build.sh first (no web/tx/pkg)" >&2; exit 1; }
 rm -rf "$out"
 emu="$out/emulator"
 tx="$out/transfer"
-mkdir -p "$emu/pkg" "$tx/pkg" "$tx/tx/pkg" "$out/img"
+mkdir -p "$emu/pkg" "$tx/pkg" "$out/img"
 # Markers carry a line: the FTPS host refuses a 0-byte upload (425, then
 # a TLS alert), which broke the deploy of transfer/ on 2026-10-11.
 echo "made by web/site.sh" > "$out/$marker"
@@ -177,10 +176,9 @@ mkdir -p "$emu/icons"
 cp "$here/pwa/manifest.webmanifest" "$emu/"
 cp "$here"/pwa/icons/*.png "$emu/icons/"
 
-# The transfer page: its files, its wasm package and the emulator's (the
-# emulated calculator's Worker, tx/emulator-worker.js, loads ../pkg).
+# The transfer page: its files and the wasm package (its Workers and
+# app.js load ../pkg, the emulated calculator's Worker as well).
 transfer_files | grep -v '^tx\.html$' | copy_into "$tx"
-cp "$here/tx/pkg/saturnus_tx_web.js" "$here/tx/pkg/saturnus_tx_web_bg.wasm" "$tx/tx/pkg/"
 cp "$here/pkg/saturnus_web.js" "$here/pkg/saturnus_web_bg.wasm" "$tx/pkg/"
 echo "made by web/site.sh" > "$tx/.saturnus-transfer"
 install_index "$here/tx.html" "$tx" "$here/tx/pwa/head.html"

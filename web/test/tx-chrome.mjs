@@ -12,8 +12,8 @@ import { WEB, sleep } from "./chrome.mjs";
 /** The device seed of the recorded page session (its sync markers). */
 export const PAGE_SEED = 0x7e57_0037;
 
-/** Whether both wasm packages are built. */
-export const txBuilt = () => existsSync(join(WEB, "pkg", "saturnus_web_bg.wasm")) && existsSync(join(WEB, "tx", "pkg", "saturnus_tx_web_bg.wasm"));
+/** Whether the wasm package is built. */
+export const txBuilt = () => existsSync(join(WEB, "pkg", "saturnus_web_bg.wasm")) && existsSync(join(WEB, "pkg", "saturnus_web_bg.wasm"));
 
 /** Helpers over a Chrome session (`chrome.mjs`'s `session`). */
 export function txPage(c) {

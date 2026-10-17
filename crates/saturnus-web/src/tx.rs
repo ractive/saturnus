@@ -1,7 +1,6 @@
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-//! WebAssembly bindings of saturnus tx for the transfer page
-//! (`web/tx/`, `kb/docs/saturnus-tx.md`), built by `web/tx-build.sh` into
-//! `web/tx/pkg`:
+//! The bindings of saturnus tx for the transfer page (`web/tx/`,
+//! `kb/docs/saturnus-tx.md`), in the one package `web/build.sh` builds
+//! into `web/pkg`:
 //!
 //! - [`TxDevice`]: `saturnus-tx`'s [`Device`] over a link the page holds.
 //!   The page (its protocol Worker, `web/tx/protocol-worker.js`) feeds it
@@ -24,7 +23,8 @@
 //!   reads a file's header.
 //!
 //! The page's JavaScript tests of these bindings are
-//! `web/test/tx-bindings.test.mjs`.
+//! `web/test/tx-bindings.test.mjs`; `tests/xmodem.rs` replays the fast
+//! transfer's traces through [`parse_request`].
 //!
 //! The logic is in plain Rust functions over `serde_json` values, tested
 //! natively; the wasm wrappers only convert.

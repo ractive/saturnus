@@ -2,8 +2,8 @@
 // (serve-flows.js), the Worker's driver with the real wasm server and a
 // fake clock (aplet-driver.js), the page's session over a fake link and
 // a folder in memory (serve.js), replaying the 38G's recorded session
-// (crates/saturnus-tx/traces/38g-aplets.trace). Needs web/tx/pkg (just
-// tx-web) for the parts with the wasm server.
+// (crates/saturnus-tx/traces/38g-aplets.trace). Needs web/pkg (just
+// web) for the parts with the wasm server.
 
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
@@ -20,10 +20,10 @@ import { parseTrace } from "../tx/trace.js";
 
 const WEB = fileURLToPath(new URL("..", import.meta.url));
 const ROOT = join(WEB, "..");
-const PKG = join(WEB, "tx", "pkg", "saturnus_tx_web_bg.wasm");
+const PKG = join(WEB, "pkg", "saturnus_web_bg.wasm");
 
 async function wasm() {
-  const mod = await import("../tx/pkg/saturnus_tx_web.js");
+  const mod = await import("../pkg/saturnus_web.js");
   mod.initSync({ module: readFileSync(PKG) });
   return mod;
 }
@@ -70,7 +70,7 @@ test("the folder's files: heads, directory files whole, folders and big files le
   assert.equal(files.find((f) => f.name === "HP38DIR.000").head.length, dir.length);
 });
 
-test("aplet_info reads a file's header", { skip: !existsSync(PKG) && "web/tx/pkg not built (just tx-web)" }, async () => {
+test("aplet_info reads a file's header", { skip: !existsSync(PKG) && "web/pkg not built (just web)" }, async () => {
   const api = await wasm();
   assert.deepEqual(api.aplet_info(new TextEncoder().encode("HP39BinB\x03XYZ")), { family: "39", binary: true, kind: "B", title: "XYZ", wire: true });
   assert.equal(api.aplet_info(new TextEncoder().encode("hello")), null);
@@ -139,7 +139,7 @@ function inProcessWorker(api) {
   };
 }
 
-test("a session replays the 38G's recording: L1 into the folder and back", { skip: !existsSync(PKG) && "web/tx/pkg not built (just tx-web)" }, async () => {
+test("a session replays the 38G's recording: L1 into the folder and back", { skip: !existsSync(PKG) && "web/pkg not built (just web)" }, async () => {
   const api = await wasm();
   const text = readFileSync(join(ROOT, "crates/saturnus-tx/traces/38g-aplets.trace"), "utf8");
   const link = new TraceLink(steps(text));

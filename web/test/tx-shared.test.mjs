@@ -60,7 +60,7 @@ async function txOnKept(emu) {
 
 /** The emulator page on the running 48GX with FROMEMU stored, or null when skipped. */
 async function emulatorOn48gx(t) {
-  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg or web/tx/pkg not built (just web tx-web)";
+  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg not built (just web)";
   if (why) {
     if (process.env.SATURNUS_AUDIT) assert.fail(why);
     t.skip(why);
@@ -229,7 +229,7 @@ test("ATTN or an open command line in the emulator: tx is refused at once in wor
 // web/shared/site-links.js), nothing changes. The tab lookup itself:
 // web/test/site-links.test.mjs.
 test("the emulator's link connects saturnus tx's left pane to the running 48GX, once", { timeout: 300_000 }, async (t) => {
-  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg or web/tx/pkg not built (just web tx-web)";
+  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg not built (just web)";
   if (why) {
     if (process.env.SATURNUS_AUDIT) assert.fail(why);
     t.skip(why);
@@ -334,7 +334,7 @@ test("the emulator's Files link opens saturnus tx on the running 48GX, HOME list
 // not is covered by tx taking requests from a tab named as a saturnus
 // page (web/shared/site-links.js `onSiteMessage`, site-links.test.mjs).
 test("Files connects saturnus tx's tab when a third tab opened both", { timeout: 300_000 }, async (t) => {
-  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg or web/tx/pkg not built (just web tx-web)";
+  const why = !dir || !existsSync(join(dir, ROM)) ? `no ${ROM} in SATURNUS_ROM_DIR` : txBuilt() ? null : "web/pkg not built (just web)";
   if (why) {
     if (process.env.SATURNUS_AUDIT) assert.fail(why);
     t.skip(why);

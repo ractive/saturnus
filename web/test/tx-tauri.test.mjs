@@ -110,8 +110,8 @@ const FAKE_TAURI = `(() => {
 /** A Chrome session on the page with the fake app, or null (skipped). */
 async function open(t) {
   if (!txBuilt()) {
-    if (process.env.SATURNUS_AUDIT) assert.fail("web/pkg or web/tx/pkg not built (just web tx-web)");
-    t.skip("web/pkg or web/tx/pkg not built (just web tx-web)");
+    if (process.env.SATURNUS_AUDIT) assert.fail("web/pkg not built (just web)");
+    t.skip("web/pkg not built (just web)");
     return null;
   }
   const c = await session(t, { audit: true });

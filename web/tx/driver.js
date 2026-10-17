@@ -1,4 +1,4 @@
-// The protocol's driver: one `TxDevice` (saturnus-tx-web, the wasm
+// The protocol's driver: one `TxDevice` (saturnus-web's tx module, the wasm
 // bindings of saturnus-tx), fed the messages of the page, a clock and one
 // timer at the deadline the device asks for, and what it gives back
 // posted to the page. The dedicated Worker (protocol-worker.js) runs it

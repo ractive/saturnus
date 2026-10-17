@@ -39,8 +39,6 @@ jobs:
           fallback: none
       - name: Web package (wasm-pack)
         run: web/build.sh -- --locked
-      - name: Transfer page's package (wasm-pack)
-        run: web/tx-build.sh -- --locked
       # The landing page, the emulator, the transfer page and what they
       # load; not the docs or wasm-pack's metadata.
       - name: Site

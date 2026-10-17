@@ -94,7 +94,7 @@ export function placeTitle({ model, emulated = false, linkLabel = "serial port" 
 }
 
 /**
- * What a put of a file holding `kind` (saturnus-tx-web's `file_kind`:
+ * What a put of a file holding `kind` (the transfer bindings' `file_kind`:
  * binary, text, other) does: send it as it is, or ask first whether to
  * store it as a string (the calculator would).
  */

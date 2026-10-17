@@ -1,5 +1,5 @@
 // The transfer page's protocol stack in Node, without a browser: the
-// wasm device (web/tx/pkg, `just tx-web`; skipped without it) in the
+// wasm device (web/pkg, `just web`; skipped without it) in the
 // driver of the protocol Worker (web/tx/driver.js, run in-process here),
 // the page's side (protocol.js), the Device (kermit-device.js) and a
 // FakeLink playing the calculator of saturnus-tx's recorded traces
@@ -17,7 +17,7 @@ import { KermitDevice } from "../tx/kermit-device.js";
 import { FakeLink } from "../tx/links.js";
 import { ProtocolClient } from "../tx/protocol.js";
 
-const pkgFile = new URL("../tx/pkg/saturnus_tx_web_bg.wasm", import.meta.url);
+const pkgFile = new URL("../pkg/saturnus_web_bg.wasm", import.meta.url);
 const TRACES = new URL("../../crates/saturnus-tx/traces/", import.meta.url);
 /** The traces' seed (crates/saturnus-tx/tests/scenario `SEED`). */
 const SEED = 0x5a70037;
@@ -28,7 +28,7 @@ const ARROW = "A\u2192B";
 let wasm = null;
 async function load() {
   if (!existsSync(pkgFile)) return null;
-  wasm ??= import("../tx/pkg/saturnus_tx_web.js").then((pkg) => {
+  wasm ??= import("../pkg/saturnus_web.js").then((pkg) => {
     pkg.initSync({ module: readFileSync(pkgFile) });
     return pkg;
   });
@@ -73,7 +73,7 @@ for (const model of ["48sx", "48gx", "49g"]) {
   test(`the ${model} trace's session through the page's protocol stack`, { timeout: 120_000 }, async (t) => {
     const pkg = await load();
     if (!pkg) {
-      t.skip("web/tx/pkg not built (just tx-web)");
+      t.skip("web/pkg not built (just web)");
       return;
     }
     const link = new FakeLink(readFileSync(new URL(`${model}-session.trace`, TRACES), "utf8"));
@@ -129,7 +129,7 @@ for (const model of ["48sx", "48gx", "49g"]) {
 test("a link that is lost fails the running request", { timeout: 30_000 }, async (t) => {
   const pkg = await load();
   if (!pkg) {
-    t.skip("web/tx/pkg not built (just tx-web)");
+    t.skip("web/pkg not built (just web)");
     return;
   }
   // Only the first probe: no answer comes, then the cable goes.
@@ -150,7 +150,7 @@ test("a link that is lost fails the running request", { timeout: 30_000 }, async
 test("the search names every speed it listened at when nothing answers", { timeout: 30_000 }, async (t) => {
   const pkg = await load();
   if (!pkg) {
-    t.skip("web/tx/pkg not built (just tx-web)");
+    t.skip("web/pkg not built (just web)");
     return;
   }
   // A link that takes every open and write and never answers.

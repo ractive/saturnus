@@ -1089,9 +1089,9 @@ Cmd and Shift with a click select more; a "⋯" and a context menu a row)
 and a preview under the list. Below 760 px one pane shows at a time,
 with a switch above them.
 
-- **Build**: `web/tx-build.sh` (`just tx-web`) builds
-  `crates/saturnus-tx-web` into `web/tx/pkg/` (gitignored); the emulated
-  calculator also needs the emulator's `web/pkg/` (`web/build.sh`).
+- **Build**: `web/build.sh` (`just web`) builds the one wasm package,
+  `crates/saturnus-web` (its `tx` module the page's bindings, the rest
+  the emulated calculator's), into `web/pkg/` (gitignored).
   Served from `web/` as the emulator is: <http://127.0.0.1:4860/tx.html>.
 - **The layers**: `links.js` holds the bytes' way (`WebSerialLink`;
   `EmulatorLink` over the saturnus Worker's `serialOpen`, `serialWrite`,
