@@ -972,6 +972,7 @@ body.resizing * { cursor: col-resize !important; }
 /* Its model and ROM, read only, and "Switch calculator" (the home page). */
 :where(#calculator-view) .calc-line { margin: 0 0 var(--s1); font-size: var(--fs-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :where(#calculator-view) .calc-rom { color: var(--muted); }
+:where(#calculator-view) .calc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
 :where(#calculator-view) #switch-calc { font-size: var(--fs-md); color: var(--accent-text); text-underline-offset: 2px; }
 :where(#calculator-view) #switch-calc:hover { color: var(--ink); }
 

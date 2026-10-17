@@ -1,6 +1,7 @@
 // <sat-controls>: the panel's controls. The calculator shown (its model
-// and ROM, read only, and "Switch calculator": the home page, where
-// calculators are started, given a ROM and removed, iteration 53),
+// and ROM, read only, Change ROM… for it, and "Switch calculator": the
+// home page, where calculators are started, given a ROM and removed,
+// iteration 53),
 // Reset, Set the clock (web/clock.js), state save and load, speed,
 // fullscreen, the links to the keyboard shortcuts and About, and the
 // status line.
@@ -47,7 +48,11 @@ const TEMPLATE = `
   <section class="group calc-now">
     <div class="field-label">Calculator</div>
     <p class="calc-line"><span id="calc-model" class="calc-model"></span><span id="calc-rom" class="calc-rom"></span></p>
-    <a id="switch-calc" class="link" href="#/">Switch calculator</a>
+    <div class="calc-actions">
+      <button id="calc-rom-pick" type="button" hidden>Change ROM…</button>
+      <a id="switch-calc" class="link" href="#/">Switch calculator</a>
+    </div>
+    <input id="calc-rom-file" type="file" hidden>
   </section>
 
   <section class="group actions">
@@ -121,6 +126,8 @@ export class SatControls extends HTMLElement {
     const ui = {
       calcModel: $("#calc-model"),
       calcRom: $("#calc-rom"),
+      romPick: $("#calc-rom-pick"),
+      romFile: $("#calc-rom-file"),
       reset: $("#reset"),
       setClock: $("#set-clock"),
       clockStart: $("#clock-start"),
@@ -262,6 +269,20 @@ export class SatControls extends HTMLElement {
       this.refreshLoad();
     });
     store.watch(["booted", "romName", "wanted", "roms"], () => this.showCalc());
+    // Change ROM… for the calculator shown, as the home page's row menu:
+    // a file here (the app: its file dialog), and the calculator starts on it.
+    ui.romPick.addEventListener("click", blurAfter(() => {
+      const model = this.shownModel();
+      if (!model) return;
+      if (backend.romSource === "dialog") return this.changeRom(() => backend.chooseRom(model));
+      ui.romFile.click();
+    }));
+    ui.romFile.addEventListener("change", () => {
+      const model = this.shownModel();
+      const files = [...ui.romFile.files];
+      ui.romFile.value = "";
+      if (model && files.length) this.changeRom(() => backend.chooseRom(model, files));
+    });
     store.watch(["speed"], (s) => this.showSpeed(s.speed));
     store.watch(["screenLook"], (s) => this.showScreenLook(s.screenLook));
     store.watch(["theme"], (s) => this.showTheme(s.theme));
@@ -392,12 +413,25 @@ export class SatControls extends HTMLElement {
     await this.romCall(() => this.backend.bootModel(model));
   }
 
-  /** The calculator shown, read only: its model and ROM, or what is missing. */
+  /** The model the view shows: the running one, else the route's (null: none). */
+  shownModel() {
+    return this.store.state.booted ?? this.store.state.wanted ?? null;
+  }
+
+  /** A ROM chosen for the calculator shown (`fn` the host's `chooseRom`): what else was found, said. */
+  async changeRom(fn) {
+    const r = await this.romCall(fn, "Cannot use that ROM");
+    if (r?.notice) this.message(r.notice);
+  }
+
+  /** The calculator shown, read only: its model and ROM, or what is missing; Change ROM… or Choose ROM… for it. */
   showCalc() {
     const s = this.store.state;
-    const model = s.booted ?? s.wanted;
+    const model = this.shownModel();
     this.ui.calcModel.textContent = model ? title(model) : "None";
     const slot = model ? this.slot(model) : null;
+    this.ui.romPick.hidden = !model;
+    this.ui.romPick.textContent = slot?.fileName ? "Change ROM…" : "Choose ROM…";
     const rom = s.booted ? s.romName : model ? (slot?.fileName ? `${slot.fileName}, not running` : "no ROM") : "";
     this.ui.calcRom.textContent = rom ? ` · ${rom}` : "";
   }
