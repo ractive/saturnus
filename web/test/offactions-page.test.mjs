@@ -99,13 +99,13 @@ test("desktop: an off button sinks in every kind, in both themes: no fill, a ver
       '<button id="t-danger" class="danger" role="menuitem" type="button" aria-disabled="true">Purge…</button></div>');
     return true;
   })()`);
-  const off = ["#reset", "#load", "#cmdline-edit", "#bar-edit", "#t-primary", "#t-item", "#t-danger"];
+  const off = ["#reset", "#load", "#contrast button", "#cmdline-edit", "#bar-edit", "#t-primary", "#t-item", "#t-danger"];
   /** The off item's icon and label against the on item's: the same left edges. */
   const edges = `["#t-item-on", "#t-item"].map((q) => [...document.querySelectorAll(q + " > *")].map((e) => Math.round(e.getBoundingClientRect().left * 10) / 10))`;
   for (const theme of ["light", "dark"]) {
     await p.ev(`document.querySelector("sat-controls").setTheme(${JSON.stringify(theme)}); true`);
     await sleep(400);
-    const l = await p.ev(looks([...off, "#fullscreen", "#t-primary-on", "#speed button[aria-checked=true]", "#contrast", "#contrast button", "#contrast button + button", "#speed", "#speed button + button"]));
+    const l = await p.ev(looks([...off, "#fullscreen", "#t-primary-on", "#speed button[aria-checked=true]", "#speed button + button"]));
     const on = l["#fullscreen"];
     assert.equal(on.clear, false, `${theme}: an enabled button has a fill`);
     for (const q of off) {
@@ -114,13 +114,8 @@ test("desktop: an off button sinks in every kind, in both themes: no fill, a ver
       assert.notEqual(l[q].border, on.border, `${theme} ${q}: not the enabled border`);
       assert.ok(l[q].contrast >= 3, `${theme} ${q}: text ${l[q].contrast}:1 on its surface`);
     }
-    // Segments: no fill and no border of their own, on or off (they sit
-    // on the group's track); the group's own border stays.
-    assert.equal(l["#contrast button"].clear, true, `${theme}: an off segment has no fill`);
-    assert.ok(l["#contrast button"].contrast >= 3, `${theme}: an off segment's text ${l["#contrast button"].contrast}:1`);
-    assert.match(l["#contrast button + button"].left, / 0px$/, `${theme}: an off segment has no border`);
-    assert.match(l["#speed button + button"].left, / 0px$/, `${theme}: an on segment has none either`);
-    assert.equal(l["#contrast"].border, l["#speed"].border, `${theme}: the group of off segments keeps its border`);
+    // Segments: no border of their own (they sit on the group's track).
+    assert.match(l["#speed button + button"].left, / 0px$/, `${theme}: a segment has no border`);
     const [onEdges, offEdges] = await p.ev(edges);
     assert.deepEqual(offEdges, onEdges, `${theme}: an off menu item's icon and label line up with an on one's`);
     assert.equal(l["#t-primary-on"].clear, false, `${theme}: an enabled primary keeps its accent`);

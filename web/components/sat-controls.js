@@ -82,7 +82,7 @@ const TEMPLATE = `
 
   <section class="group">
     <div class="field-label" id="contrast-label">Display</div>
-    <div class="segmented" role="group" aria-labelledby="contrast-label" id="contrast">
+    <div class="panel-row" role="group" aria-labelledby="contrast-label" id="contrast">
       <button type="button" data-darker="false" title="ON and −: a lighter display" disabled>${icon("lighter", "ic-sm")}Lighter</button>
       <button type="button" data-darker="true" title="ON and +: a darker display" disabled>${icon("darker", "ic-sm")}Darker</button>
     </div>
