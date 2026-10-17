@@ -180,7 +180,7 @@ the emulator page's own writes, with no line held.
 - [x] Names: nav labels Files / Calculator, landing `<h1>` and `<title>`; `web/test/site.test.mjs`, `nav-page.test.mjs` and the landing screenshots (`web/landing/shots.mjs`) updated
 - [x] `web/test/tx-shared.test.mjs` rewritten: tx lists a variable typed in the emulator, copies both ways, an emulator ATTN or an open command line in the middle (a refusal toast, no stall, no SERVER on the emulator's screen), the chip shows while tx is connected and goes when tx disconnects, a `serialOpen` from either page on the shared machine is refused with the message; the private-calculator e2e (`just tx-e2e DIR`) unchanged and green
 - [x] Docs: `web/protocol.md` (Shared calculators: `peers`, the serial refusal on a shared machine, `keysElsewhere` gone; the new fields; the policy note under Typing), [[docs/saturnus-tx]] (Devices: HubDevice beside KermitDevice), `web/README.md`, CHANGELOG (Unreleased), decision log (the gap decisions)
-- [ ] Owner: on the 48GX and 49G, emulator and tx side by side: a drag each way, rename, purge, backup; typing in the emulator meanwhile; the chip's Show brings tx forward
+- [ ] Owner: on the 48GX and 49G, emulator and tx side by side: a drag each way, rename, purge, backup; typing in the emulator meanwhile; the chip's Show brings tx forward — superseded by the one app (iterations 50d and 51); the owner checks iteration 50d/51 instead
 - [ ] Owner: the new landing headline and the nav labels read right on the site and on a phone
 
 ## Acceptance

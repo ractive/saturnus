@@ -688,7 +688,7 @@ fn a_stop_anywhere_leaves_the_calculator_at_its_stack() {
     }
 }
 
-/// A calculator left in `SERVER` (as a state saved by saturnus tx may
+/// A calculator left in `SERVER` (as a state saved by Files may
 /// be): `probeServer` (`Op::Server` without `end`) finds the server and
 /// leaves it running, `endServer` ends it; at its stack both find none
 /// and type nothing, and the stack is as it was.

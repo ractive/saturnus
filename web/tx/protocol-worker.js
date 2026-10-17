@@ -1,4 +1,4 @@
-// saturnus tx's protocol Worker: the device (saturnus-tx through its wasm
+// Files' protocol Worker: the device (saturnus-tx through its wasm
 // bindings, ../pkg) runs here, not in the page, so its timers keep their
 // time when the tab is hidden (a page's timers are throttled to one
 // wake-up a second, and after five minutes hidden to one a minute; a

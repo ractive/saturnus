@@ -106,7 +106,7 @@ export class MemoryView {
             patch[key] = r.value;
             errors[name] = null;
           } else if (inProgress(r.reason)) {
-            // Another page's write (saturnus tx) or send runs: what was
+            // Another page's write (Files) or send runs: what was
             // shown stays, no error, and it is read again after it.
             retry = true;
           } else if (busy && this.store.state[key]) {

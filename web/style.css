@@ -124,7 +124,7 @@
 :where(#calculator-view) .help dd { margin: 0; }
 :where(#calculator-view) .help p { margin: var(--s2) 0 0; }
 
-/* The way to saturnus tx (shared/site-links.js), under the tagline. */
+/* The way to Files (shared/site-links.js), under the tagline. */
 :where(#calculator-view) .site-link { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); color: var(--accent-text); font-size: var(--fs-md); text-underline-offset: 2px; }
 :where(#calculator-view) .site-link:hover { color: var(--ink); }
 /* This tab's calculators are its own (app.js watchUnshared): said for as long as it lasts. */
@@ -140,7 +140,7 @@
   overflow-wrap: anywhere;
 }
 :where(#calculator-view) .status.error { color: var(--error); }
-/* saturnus tx works this calculator (the hub's `peers`): no Disconnect here, tx disconnects in tx. */
+/* Files works this calculator (the hub's `peers`): no Disconnect here, tx disconnects in tx. */
 :where(#calculator-view) .tx-chip {
   margin: var(--s1) 0 0;
   font: var(--fs-sm)/var(--lh) var(--mono);

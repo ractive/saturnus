@@ -321,10 +321,10 @@ first release `V=0.1.0`. Every step says what to check before the next.
    and `.../bucket/satx.json` answer.
 8. **Installers on the release**: `release.yml`'s success started
    `desktop.yml` with the tag (`gh run list -w desktop.yml -e workflow_run -L 1`); watch it;
-   `gh release view vV` now also lists the twelve installers (six per
-   app), and with the Apple secrets the `cask` jobs have updated both
-   casks: `gh api repos/ractive/homebrew-tap/contents/Casks/saturnus-app.rb -q .name`
-   and `.../Casks/saturnus-tx.rb` answer.
+   `gh release view vV` now also lists the six installers of the
+   one app, and with the Apple secrets the `cask` job has updated its
+   cask: `gh api repos/ractive/homebrew-tap/contents/Casks/saturnus-app.rb -q .name`
+   answers.
 9. **Web page**: `gh workflow run pages.yml --ref main`, with `main`
    still at the tag's commit (`git fetch --tags` and
    `git rev-parse vV^{commit} origin/main` print the same hash): the
@@ -333,15 +333,15 @@ first release `V=0.1.0`. Every step says what to check before the next.
    (0.5.0's first try). Watch it as in
    step 5 (both jobs pass: `build`, then `ractive`, the FTPS upload to
    ractive.ch; there is no GitHub Pages deployment any more); open
-   <https://ractive.ch/saturnus/emulator/>, load a ROM
+   <https://ractive.ch/saturnus/app/>, load a ROM
    from a local file, and check the About panel: its first line reads
    `saturnus V, build <id>`, with V this release and `<id>` the 16 hex
    digits `web/site.sh` printed in the `build` job's log ("web/site.sh:
-   emulator/ build <id>, N files precached"). A different build is an
+   app/ build <id>, N files precached"). A different build is an
    old service worker: reload, or the update notice's Reload. The
    desktop app's About reads `saturnus V, desktop app`. Then open
-   <https://ractive.ch/saturnus/transfer/>: "Add an emulated
-   calculator" lists the ROM just loaded in the emulator and connects to
+   Files (the home page's link or `#/files`): "Add an emulated
+   calculator" lists the ROM just loaded in Calculator and connects to
    it (its HOME listed).
 10. **docs.rs**: `https://docs.rs/crate/NAME/V` shows a successful build
     for each of the nine crates of the publish list ("crates.io"), minutes
@@ -366,12 +366,9 @@ Recovery:
   overwrites, so delete what it attached
   (`gh release delete-asset vV <file> --yes`) and dispatch it again
   (`gh workflow run desktop.yml --ref main -f release-tag=vV`).
-  When only one app's build failed, nothing was attached (the `attach`
-  job needs every build): fix it on `main` if the cause is in the code
-  (then `V+1`), else dispatch again with `-f app=both`. To attach one
-  app's installers alone (the other's already there), dispatch with
-  `-f app=saturnus` or `-f app=tx`; that run's `cask` job leaves the other
-  app's cask alone.
+  When a system's build failed, nothing was attached (the `attach` job
+  needs every build): fix it on `main` if the cause is in the code (then
+  `V+1`), else dispatch again.
 - **A cask** fails (token, network, a check of the `.dmg`): rerun the
   failed `cask` job (`gh run rerun <id> --failed`); each cask is its own
   job and never moves a cask backwards.
@@ -386,21 +383,17 @@ builds the wasm
 package (`web/build.sh`), assembles the site with
 `web/site.sh` (the landing page `web/landing/` at the top with
 `web/site.htaccess` as `.htaccess` and the kill switch `sw.js`; the
-emulator under `emulator/`: every page file in `web/` but `tx.html`, the
-components, the shared code, the package, the manifest, the icons and
-its own service worker; saturnus tx under `transfer/`: `tx.html` as its
-`index.html`, `tx/` with its package, the shared code, the emulator's
-package for the emulated calculator, its own marker
-`.saturnus-transfer`, manifest, icons and service worker with a build
-hash over `transfer/` only; `web/README.md`, "The site"), and publishes
+app under `app/`: the one document `index.html` with the views'
+modules (`tx/` is Files'), the components, the shared code, the one
+wasm package, the manifest, the icons and its own service worker with a
+build hash; `emulator/` and `transfer/` hold only the kill-switch
+`sw.js`; `web/README.md`, "The site"), and publishes
 it by FTP to the owner's site (<https://ractive.ch/saturnus/>, the
-emulator at <https://ractive.ch/saturnus/emulator/>, the transfer page
-at <https://ractive.ch/saturnus/transfer/>, `httpdocs/saturnus/` on
+app at <https://ractive.ch/saturnus/app/>, `httpdocs/saturnus/` on
 ractive.ch; the `FTP_PASSWORD` secret of the `pages` environment, the same the site's
-own deploy uses). Each subsite's service worker keeps its own caches
-(`saturnus:/saturnus/emulator/:<build>`,
-`saturnus:/saturnus/transfer/:<build>`); the build log prints one
-"web/site.sh: emulator/ build <id>" and one "transfer/ build <id>" line.
+own deploy uses). The app's service worker keeps its own caches
+(`saturnus:/saturnus/app/:<build>`); the build log prints one
+"web/site.sh: app/ build <id>" line.
 The first copy on ractive.ch was committed into that site's repository
 by hand (ractive.ch PR 8); from then on this workflow keeps it current.
 GitHub Pages (enabled 2026-10-06) was disabled and its site deleted on
@@ -422,11 +415,10 @@ this workflow writes there (its PR 8 copy is to be removed with an
 URL(...)` of the assembled page names a file in it: before iteration 21
 `pages.yml` copied a fixed file list without `romstore.js`, which the
 Worker imports since iteration 20, and the next deploy would have broken
-the page. It checks every `href` and `src` of each subsite's
-`index.html` the same way. `web/site.sh --list` prints the emulator's
+the page. It checks every `href` and `src` of the app's
+`index.html` the same way. `web/site.sh --list` prints the app's
 page files; the desktop app embeds the same set (see "Desktop app").
-`web/site.sh --list transfer` prints the transfer page's (for its
-desktop app, iteration 40). Built in CI, the
+Built in CI, the
 wasm names only the runner's paths (`/home/runner/...`) in its panic
 messages; a local build would name the builder's home directory, so the
 page is deployed only from CI.
@@ -445,9 +437,8 @@ artifacts; given a `release-tag` it builds that tag (not the dispatched
 branch) and attaches the installers to that existing release (the
 release must exist first, for example from `release.yml`); assets
 already on the release are never replaced, so a rerun needs them deleted
-by hand first. With them goes one checksums file per app built,
-`saturnus-app-SHA256SUMS` and `saturnus-tx-SHA256SUMS`
-(`sha256sum --check` format).
+by hand first. With them goes one checksums file,
+`saturnus-app-SHA256SUMS` (`sha256sum --check` format).
 A dispatch with `release-tag` is the rebuild and recovery path
 ("Recovery"). A pre-release later promoted to a release gets no new run
 (the casks skip pre-releases): delete its installers and dispatch.
@@ -520,8 +511,8 @@ endpoint).
 ### Files in the app
 
 Iteration 51 ([[iterations/iteration-51-one-desktop-app]]) folded saturnus
-tx's app (`crates/saturnus-tx-tauri`, iteration 40) into this one: one
-app, one identifier (`ch.ractive.saturnus`), one cask. What Files adds:
+tx's app (the former `crates/saturnus-tx-tauri`, iteration 40) into
+this one: one app, one identifier (`ch.ractive.saturnus`), one cask. What Files adds:
 
 - **The page's wasm**: Files' protocol, aplet server and private
   calculators run in the page's wasm workers, so `build.rs` embeds the
@@ -542,7 +533,7 @@ app, one identifier (`ch.ractive.saturnus`), one cask. What Files adds:
 
 `desktop.yml`'s `cask` job keeps the cask `saturnus-app` in
 `ractive/homebrew-tap` (`Casks/saturnus-app.rb`, not `saturnus`, which is
-the CLI formula there). The tap's `saturnus-tx` cask (saturnus tx's app
+the CLI formula there). The tap's `saturnus-tx` cask (the former separate app
 until iteration 51) is removed in the tap by hand. It runs after `attach`, so only with a release tag (a release, or a
 dispatch with `release-tag`), and only with the Apple secrets; otherwise its steps
 skip. A draft or pre-release, a tag that is not the latest release, or a

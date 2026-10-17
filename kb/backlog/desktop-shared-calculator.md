@@ -12,7 +12,7 @@ tags:
 
 # Desktop tx on the desktop emulator's running calculator
 
-On the web, saturnus tx uses the calculator running in the emulator tab
+On the web, saturnus tx (now Files) uses the calculator running in the emulator tab
 (the SharedWorker hub, iterations 46 and 47; "Files" connects to it). The
 two desktop apps cannot: separate processes and webviews, so desktop tx
 only boots a private copy from the emulator app's ROM (own memory).
@@ -55,6 +55,6 @@ of code and 600 of tests across about 14 files), so deferred.
 
 ## Outcome
 
-Done otherwise in [[iterations/iteration-51-one-desktop-app]] (owner,
+Superseded by [[iterations/iteration-51-one-desktop-app]] (owner,
 2026-10-17): one desktop app, Files reaches the native calculator in the
 same page (`web/native-hub.js`); no loopback, no token.

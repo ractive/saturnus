@@ -2,7 +2,7 @@
 // Per model the user's own state (Save state, Load state) under the
 // model's name, written by the emulator page (web/backend.js), and the
 // auto-saved one (iteration 27) under `auto:<model>`, the calculator the
-// emulator and saturnus tx both show (iteration 46), written only by the
+// emulator and Files both show (iteration 46), written only by the
 // calculators' worker (web/hub.js) whenever it changed and settled.
 
 import { STATE_DB as DB_NAME } from "./storage-names.js";

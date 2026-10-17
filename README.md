@@ -623,7 +623,7 @@ runs on real calculators) and takes the objects on the wire from
 control API and satx over the serial port instead (above).
 
 The link is the products' emulated wire (`saturnus_host::wire`, which
-the hidden writes of the emulator page and the desktop app step in
+the hidden writes of Calculator and the desktop app step in
 turns), blocked on. It runs on emulated time only. The Kermit client's clock is the
 emulated time the calculator spent idle while a reply was awaited: the
 calculator answers a host command only when it is done, so time it

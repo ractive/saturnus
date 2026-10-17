@@ -65,7 +65,7 @@ three sets (README, CHANGELOG, `packaging/`, other workflows) run no job.
   `crates/saturnus-host`, `crates/saturnus-drive` (the `saturnus`
   feature of satx-core and satx), `tools/saturnng-oracle/`,
   `scripts/satx-e2e-cli.sh`, `Cargo.toml`, `Cargo.lock`, `e2e.yml`.
-  saturnus tx (`crates/saturnus-tx*`, `web/tx/`) is not in the list on
+  Files (`crates/saturnus-tx*`, `web/tx/`) is not in the list on
   purpose: nothing in the job builds it, and its e2e against the emulated
   calculators is local (`just tx-e2e`);
 - on a pull request with the label `e2e`: adding the label starts a run,
@@ -110,7 +110,7 @@ in sync.
 ## The Tauri apps in the workspace
 
 `crates/saturnus-tauri` (one desktop app since iteration 51, which
-folded saturnus tx's `crates/saturnus-tx-tauri` into it) links the system webview: WebView2 on Windows and
+folded the former `crates/saturnus-tx-tauri` into it) links the system webview: WebView2 on Windows and
 WKWebView on macOS come with the OS, but on Linux the build needs the
 webkit2gtk-4.1 development packages (and GTK 3, libsoup 3, libxdo). An
 ubuntu runner does not have them, so `cargo clippy --workspace` would fail

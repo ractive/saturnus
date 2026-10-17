@@ -87,7 +87,7 @@ class Conn {
     this.hidden = false;
     /** It asked for `memoryChanged`. */
     this.watch = false;
-    /** What it was last told in `peers` (an emulator page): a page that never meets saturnus tx hears none. */
+    /** What it was last told in `peers` (an emulator page): a page that never meets Files hears none. */
     this.peers = false;
     /** Gone: it left. */
     this.gone = false;
@@ -128,7 +128,7 @@ class Engine {
     this.sentSpeed = "1";
     this.sentHidden = false;
     this.watching = false;
-    /** Whether its emulator pages were last told a saturnus tx page is on it (`peers`). */
+    /** Whether its emulator pages were last told a Files page is on it (`peers`). */
     this.sentPeers = false;
     this.stopped = false;
     /** A stop waits for a send to end (`retryStop`), outside the hub's queue. */
@@ -238,21 +238,21 @@ export class Hub {
     this.settle(e);
   }
 
-  /** `conn` shows its home again (an emulator page's own ROM, or none: no saturnus tx on it). */
+  /** `conn` shows its home again (an emulator page's own ROM, or none: no Files on it). */
   toHome(conn) {
     conn.machine = conn.home;
     conn.home?.conns.add(conn);
     this.tellPeers(conn, false);
   }
 
-  /** Tell emulator page `conn` whether saturnus tx is on what it shows, when that changed for it (`hello` asks again: `always`). */
+  /** Tell emulator page `conn` whether Files is on what it shows, when that changed for it (`hello` asks again: `always`). */
   tellPeers(conn, tx, always = false) {
     if (conn.who !== "emulator" || (conn.peers === tx && !always)) return;
     conn.peers = tx;
     conn.post({ type: "peers", tx });
   }
 
-  /** Whether a saturnus tx page is on `e`. */
+  /** Whether a Files page is on `e`. */
   txOn(e) {
     return [...e.conns].some((c) => c.who === "tx");
   }
@@ -280,7 +280,7 @@ export class Hub {
     for (const k of ["status", "keys", "frame"]) {
       if (e.last[k]) conn.post(e.last[k]);
     }
-    // An emulator page hears whether saturnus tx is on the calculator it shows now.
+    // An emulator page hears whether Files is on the calculator it shows now.
     this.tellPeers(conn, this.txOn(e));
     this.settle(e);
   }
@@ -302,14 +302,14 @@ export class Hub {
     }
   }
 
-  /** Hidden only when every page that shows it is (saturnus tx never says so). */
+  /** Hidden only when every page that shows it is (Files never says so). */
   hiddenOf(e) {
     return e.conns.size > 0 && [...e.conns].every((c) => c.hidden);
   }
 
   /**
    * The speed: the emulator page's, or the last speed a page asked for
-   * when no emulator page shows it. saturnus tx's memory commands run as
+   * when no emulator page shows it. Files' memory commands run as
    * fast as the host can at any speed (web/protocol.md).
    */
   speedOf(e) {
@@ -325,7 +325,7 @@ export class Hub {
     this.command(e, null, { cmd: "setSpeed", speed });
   }
 
-  /** Tell `e`'s emulator pages whether a saturnus tx page is on it (`peers`), when that changed. */
+  /** Tell `e`'s emulator pages whether a Files page is on it (`peers`), when that changed. */
   announcePeers(e) {
     const tx = this.txOn(e);
     if (tx === e.sentPeers) return;
@@ -502,7 +502,7 @@ export class Hub {
   /**
    * `e`'s core failed (a wasm panic): it is stopped without a save and
    * dropped. Every page on it hears `CALC_STOPPED`: its waiting replies
-   * as errors, saturnus tx a `gone`, the emulator page a status without a
+   * as errors, Files a `gone`, the emulator page a status without a
    * model and an `error`. A page whose home it was gets a new home at its
    * next command.
    */
@@ -527,7 +527,7 @@ export class Hub {
     }
   }
 
-  /** Tell `e`'s saturnus tx pages but `except` that it is gone, and send them home. */
+  /** Tell `e`'s Files pages but `except` that it is gone, and send them home. */
   dropTx(e, message, except = null) {
     for (const c of [...e.conns]) {
       if (c === except || c.who !== "tx") continue;
@@ -779,7 +779,7 @@ export class Hub {
     switch (m.cmd) {
       case "leave": return this.leave(conn, () => this.reply(conn, m, true, null));
       case "attach":
-        // saturnus tx: the calculator of a kept ROM (`rom`, `romName`), running or booted.
+        // Files: the calculator of a kept ROM (`rom`, `romName`), running or booted.
         return this.answer(conn, m, () => this.bootKept(conn, String(m.model), bytesOf(m.rom), String(m.romName ?? ""), false));
       case "hello":
         conn.watch = false;

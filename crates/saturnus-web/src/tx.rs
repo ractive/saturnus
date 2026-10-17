@@ -1,4 +1,4 @@
-//! The bindings of saturnus tx for the transfer page (`web/tx/`,
+//! The bindings of Files for the transfer page (`web/tx/`,
 //! `kb/docs/saturnus-tx.md`), in the one package `web/build.sh` builds
 //! into `web/pkg`:
 //!

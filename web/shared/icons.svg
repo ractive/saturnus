@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg">
-<!-- The icon set of both pages (the emulator and saturnus tx): stroked
+<!-- The icon set of both pages (the emulator and Files): stroked
      symbols, used as <svg class="ic"><use href="#ic-…"/></svg>. Fetched
      once and put into the page by shared/components/icons.js
      (`loadIcons`); drawn in the current colour by shared/tokens.css (.ic). -->
@@ -38,7 +38,7 @@
   <!-- The display's contrast as brightness: one disc, long rays (lighter) or dots (darker). -->
   <symbol id="ic-lighter" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 6V2.5M16.24 7.76l2.48-2.48M18 12h3.5M16.24 16.24l2.48 2.48M12 18v3.5M7.76 16.24l-2.48 2.48M6 12H2.5M7.76 7.76 5.28 5.28"/></symbol>
   <symbol id="ic-darker" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 4h.01M17.66 6.34h.01M20 12h.01M17.66 17.66h.01M12 20h.01M6.34 17.66h.01M4 12h.01M6.34 6.34h.01"/></symbol>
-  <!-- saturnus tx: a plug (connect a calculator), the settings sliders, a refresh arrow pair, a file with a fold, a calculator. -->
+  <!-- Files: a plug (connect a calculator), the settings sliders, a refresh arrow pair, a file with a fold, a calculator. -->
   <symbol id="ic-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v4"/></symbol>
   <symbol id="ic-settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
   <symbol id="ic-refresh" viewBox="0 0 24 24"><path d="M19.5 9A8 8 0 0 0 5 7.5M4.5 15A8 8 0 0 0 19 16.5"/><path d="M5 3.5v4h4M19 20.5v-4h-4"/></symbol>
