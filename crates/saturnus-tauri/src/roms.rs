@@ -407,6 +407,45 @@ impl Library {
         self.boot_last = on;
         self.save();
     }
+
+    /// The remembered ROMs whose files are there and not marked changed,
+    /// for Files (`emulator_roms`, iteration 51): `[{model, fileName,
+    /// sha256}]` in the models' order, never a path.
+    pub fn kept(&self) -> Value {
+        let rows: Vec<Value> = Model::ALL
+            .into_iter()
+            .filter(|m| self.slot_ready(*m))
+            .filter_map(|m| {
+                let r = self.roms.get(&m)?;
+                Some(json!({
+                    "model": m.name(),
+                    "fileName": file_name(&r.path),
+                    "sha256": r.sha256.to_ascii_lowercase(),
+                }))
+            })
+            .collect();
+        Value::Array(rows)
+    }
+
+    /// The bytes of `model`'s remembered ROM, read with the runner's cap
+    /// and only while they are what was remembered (a changed file marks
+    /// the slot, as a boot would).
+    pub fn rom_bytes(&mut self, model: Model) -> Result<Vec<u8>, String> {
+        let r = self
+            .roms
+            .get(&model)
+            .ok_or_else(|| format!("no ROM chosen for the HP {} yet", title(model)))?;
+        let rom = read_capped(&r.path, max_rom_file())?;
+        if romid::identify(&rom).sha256 != r.sha256 {
+            self.changed.insert(model);
+            return Err(format!(
+                "{} (the HP {} ROM) has changed since it was chosen; choose it again",
+                file_name(&r.path),
+                title(model)
+            ));
+        }
+        Ok(rom)
+    }
 }
 
 /// The regular files beside `chosen` (not below, not `chosen` itself, no
@@ -594,6 +633,37 @@ mod tests {
         let v: Value = serde_json::from_slice(&std::fs::read(&settings).unwrap()).unwrap();
         assert_eq!(v["roms"], json!({}));
         assert_eq!(v["lastModel"], Value::Null);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Files' view of the library (iteration 51): the ready ROMs with
+    /// their file names and SHA-256, never a path; the bytes by model, only
+    /// while they are what was remembered.
+    #[test]
+    fn files_reads_the_kept_roms_by_model() {
+        let dir = temp("kept");
+        let sx = dir.join("sx.bin");
+        std::fs::write(&sx, image(256 * KB, 1)).unwrap();
+        let mut lib = Library::open(None);
+        assert_eq!(lib.kept(), json!([]));
+        lib.choose(Model::Hp48sx, &sx).unwrap();
+        let sha = saturnus_host::sha256::hex_digest(&image(256 * KB, 1));
+        assert_eq!(
+            lib.kept(),
+            json!([{"model": "48sx", "fileName": "sx.bin", "sha256": sha}])
+        );
+        assert!(!lib.kept().to_string().contains(dir.to_str().unwrap()));
+        assert_eq!(lib.rom_bytes(Model::Hp48sx).unwrap(), image(256 * KB, 1));
+        assert!(lib.rom_bytes(Model::Hp48gx).is_err(), "none chosen");
+        // Changed: refused, the slot marked, no longer listed.
+        std::fs::write(&sx, image(256 * KB, 2)).unwrap();
+        assert!(
+            lib.rom_bytes(Model::Hp48sx)
+                .unwrap_err()
+                .contains("changed")
+        );
+        assert_eq!(slot(&lib, "48sx")["state"], "changed");
+        assert_eq!(lib.kept(), json!([]));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

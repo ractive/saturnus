@@ -103,7 +103,7 @@ export function folderError(err, name = "") {
 }
 
 /**
- * The desktop app's refusals (crates/saturnus-tx-tauri, files.rs): a change
+ * The desktop app's refusals (crates/saturnus-tauri, files.rs): a change
  * outside the folders it may change ("outside"), a recursive remove of the
  * home folder or a folder directly in it, an aplet written into the home
  * folder ("refused"); as `{kind, message}` in plain words, or null.

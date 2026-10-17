@@ -1,27 +1,23 @@
-//! saturnus tx, the desktop app (kb/iterations/iteration-40-tx-desktop.md):
-//! the web app's Files view (web/index.html, route #/files, embedded by
-//! `build.rs`) in a Tauri
-//! window, with what a browser cannot give it as commands. The protocol
-//! stays in the page's wasm (kb/docs/saturnus-tx.md, "Crates and
-//! folders"); this side only moves bytes and files:
+//! What the page's Files view needs of the computer (iteration 51; the
+//! commands of the former saturnus tx app, iteration 40): its protocol
+//! stays in the page's wasm (kb/docs/saturnus-tx.md, "Crates and folders");
+//! this side only moves bytes and files.
 //!
 //! - **Serial** ([`serial`]): `serial_ports` (the adapters' names),
 //!   `serial_open` (a port at the page's settings; its bytes and its loss
 //!   come back on the channel the page passes), `serial_write` (the bytes
 //!   as the request's raw body), `serial_close`. Ports are closed when the
 //!   page (re)loads.
-//! - **Files** ([`files`]): the page's folder pane is the computer's file
+//! - **Files** ([`files`]): the folder pane is the computer's file
 //!   system, opening at the home folder (`folder_home`), with
 //!   `folder_list`, `folder_stat`, `folder_read`, `folder_create`,
 //!   `folder_write`, `folder_mkdir`, `folder_remove`, `folder_rename`, and
 //!   `folder_pick` (Tauri's folder dialog, "Open a folder…").
 //!   `save_file` saves a download through a save dialog (the webview's own
 //!   downloads do not reach the disk).
-//!
 //! - **Remembered folders** ([`places`]): `folder_recent`, `folder_used`
-//!   and `folder_recent_clear`, the pane's "Recent folders".
-//! - **The emulator app's ROMs** ([`emulator`]): `emulator_roms` and
-//!   `emulator_rom`, read from its settings, never a path to the page.
+//!   and `folder_recent_clear`, the pane's "Recent folders", in
+//!   `folders.json` in the app's config folder.
 //!
 //! Scope (owner, 2026-10-11 and 2026-10-14): the folder pane browses
 //! everything the user's account may, as a file manager does:
@@ -39,32 +35,28 @@
 //! guards against a bug in the page, not against a hostile page, which
 //! would leave the header out. What else stays tight: no Tauri plugin but
 //! the dialog (opened from Rust only; the page has no dialog, fs, shell or
-//! opener permission), the capability grants nothing from core (the
-//! serial bytes come on a channel, not an event), the page is the
-//! embedded files only under a strict CSP, every path is a list of plain
-//! names checked here ([`files::check_name`]: no `..`, no separators), only
-//! plain files and folders are listed or read, and a read is capped.
-
-pub mod emulator;
-pub mod files;
-pub mod places;
-pub mod serial;
+//! opener permission), the serial bytes come on a channel, the page is
+//! the embedded files only under a strict CSP, every path is a list of
+//! plain names checked here ([`files::check_name`]: no `..`, no
+//! separators), only plain files and folders are listed or read, and a
+//! read is capped.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeBody, InvokeResponseBody, Request, Response};
-use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
+use crate::{files, places, serial};
+
 /// The open serial ports, shared with the commands.
 #[derive(Debug, Default)]
-struct Serial(Arc<serial::Ports>);
+pub struct Serial(pub Arc<serial::Ports>);
 
 /// Run blocking `f` off the main thread.
-async fn blocking<T: Send + 'static>(
+pub(crate) async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(f)
@@ -130,7 +122,7 @@ fn path_header(request: &Request<'_>) -> Result<Vec<String>, String> {
 // ------------------------------------------------------------ serial
 
 #[tauri::command]
-async fn serial_ports() -> Result<Vec<serial::Port>, String> {
+pub async fn serial_ports() -> Result<Vec<serial::Port>, String> {
     blocking(serial::ports).await
 }
 
@@ -141,7 +133,7 @@ struct Lost<'a> {
 }
 
 #[tauri::command]
-async fn serial_open(
+pub async fn serial_open(
     state: State<'_, Serial>,
     name: String,
     baud: u32,
@@ -170,7 +162,7 @@ async fn serial_open(
 }
 
 #[tauri::command]
-async fn serial_write(state: State<'_, Serial>, request: Request<'_>) -> Result<(), String> {
+pub async fn serial_write(state: State<'_, Serial>, request: Request<'_>) -> Result<(), String> {
     let id: u32 = header(&request, "x-port")?
         .parse()
         .map_err(|_| "bad x-port header".to_string())?;
@@ -180,7 +172,7 @@ async fn serial_write(state: State<'_, Serial>, request: Request<'_>) -> Result<
 }
 
 #[tauri::command]
-async fn serial_close(state: State<'_, Serial>, id: u32) -> Result<(), String> {
+pub async fn serial_close(state: State<'_, Serial>, id: u32) -> Result<(), String> {
     let ports = Arc::clone(&state.0);
     blocking(move || {
         ports.close(id);
@@ -199,7 +191,7 @@ async fn fs_call<T: Send + 'static>(
 }
 
 #[tauri::command]
-async fn folder_home(app: AppHandle) -> Result<Vec<String>, String> {
+pub async fn folder_home(app: AppHandle) -> Result<Vec<String>, String> {
     let home = app
         .path()
         .home_dir()
@@ -209,7 +201,8 @@ async fn folder_home(app: AppHandle) -> Result<Vec<String>, String> {
 
 /// The remembered folders and the roots (the scope note), shared with the
 /// folder commands.
-struct Folders(Arc<Mutex<places::Places>>);
+#[derive(Debug)]
+pub struct Folders(pub Arc<Mutex<places::Places>>);
 
 /// Run `f` with the places, off the main thread.
 async fn with_places<T: Send + 'static>(
@@ -248,7 +241,7 @@ fn served(request: &Request<'_>) -> bool {
 /// The folder chosen in Tauri's dialog, as names; `None` when cancelled.
 /// It becomes a root, remembered for the next runs.
 #[tauri::command]
-async fn folder_pick(
+pub async fn folder_pick(
     app: AppHandle,
     state: State<'_, Folders>,
 ) -> Result<Option<Vec<String>>, String> {
@@ -270,17 +263,17 @@ async fn folder_pick(
 }
 
 #[tauri::command]
-async fn folder_list(path: Vec<String>) -> Result<Vec<files::Entry>, String> {
+pub async fn folder_list(path: Vec<String>) -> Result<Vec<files::Entry>, String> {
     fs_call(move || files::list(&path)).await
 }
 
 #[tauri::command]
-async fn folder_stat(path: Vec<String>) -> Result<files::Entry, String> {
+pub async fn folder_stat(path: Vec<String>) -> Result<files::Entry, String> {
     fs_call(move || files::stat(&path)).await
 }
 
 #[tauri::command]
-async fn folder_read(
+pub async fn folder_read(
     state: State<'_, Folders>,
     path: Vec<String>,
     start: Option<u64>,
@@ -297,7 +290,7 @@ async fn folder_read(
 }
 
 #[tauri::command]
-async fn folder_create(
+pub async fn folder_create(
     state: State<'_, Folders>,
     request: Request<'_>,
     path: Vec<String>,
@@ -319,7 +312,7 @@ async fn folder_create(
 }
 
 #[tauri::command]
-async fn folder_write(state: State<'_, Folders>, request: Request<'_>) -> Result<(), String> {
+pub async fn folder_write(state: State<'_, Folders>, request: Request<'_>) -> Result<(), String> {
     let path = path_header(&request)?;
     let bytes = raw_body(&request, "folder_write")?;
     let at = files::resolve(&path).map_err(|e| e.to_page())?;
@@ -339,13 +332,13 @@ async fn folder_write(state: State<'_, Folders>, request: Request<'_>) -> Result
 }
 
 #[tauri::command]
-async fn folder_mkdir(state: State<'_, Folders>, path: Vec<String>) -> Result<(), String> {
+pub async fn folder_mkdir(state: State<'_, Folders>, path: Vec<String>) -> Result<(), String> {
     let at = files::resolve(&path).map_err(|e| e.to_page())?;
     checked(&state, move |r| r.check(&at), move || files::mkdir(&path)).await
 }
 
 #[tauri::command]
-async fn folder_remove(
+pub async fn folder_remove(
     state: State<'_, Folders>,
     path: Vec<String>,
     recursive: bool,
@@ -364,7 +357,7 @@ async fn folder_remove(
 }
 
 #[tauri::command]
-async fn folder_rename(
+pub async fn folder_rename(
     state: State<'_, Folders>,
     dir: Vec<String>,
     from: String,
@@ -382,19 +375,19 @@ async fn folder_rename(
 /// The pane's "Recent folders": `[{names, picked, used}]`, newest first,
 /// those that are there.
 #[tauri::command]
-async fn folder_recent(state: State<'_, Folders>) -> Result<Vec<places::Place>, String> {
+pub async fn folder_recent(state: State<'_, Folders>) -> Result<Vec<places::Place>, String> {
     with_places(&state, |p| Ok(p.recent())).await
 }
 
 /// The page reports a folder its pane showed: to the top of the list.
 #[tauri::command]
-async fn folder_used(state: State<'_, Folders>, path: Vec<String>) -> Result<(), String> {
+pub async fn folder_used(state: State<'_, Folders>, path: Vec<String>) -> Result<(), String> {
     with_places(&state, move |p| p.used(path)).await
 }
 
 /// "Clear recent folders": every remembered folder forgotten.
 #[tauri::command]
-async fn folder_recent_clear(state: State<'_, Folders>) -> Result<(), String> {
+pub async fn folder_recent_clear(state: State<'_, Folders>) -> Result<(), String> {
     with_places(&state, |p| {
         p.clear();
         Ok(())
@@ -402,48 +395,22 @@ async fn folder_recent_clear(state: State<'_, Folders>) -> Result<(), String> {
     .await
 }
 
-// ------------------------------------------------------------ the emulator's ROMs
-
-/// The emulator app's settings file, if there is a config folder.
-#[derive(Clone)]
-struct EmulatorSettings(Option<PathBuf>);
-
-#[tauri::command]
-async fn emulator_roms(
-    settings: State<'_, EmulatorSettings>,
-) -> Result<Vec<emulator::Rom>, String> {
-    let Some(file) = settings.0.clone() else {
-        return Ok(Vec::new());
-    };
-    blocking(move || Ok(emulator::roms(&file))).await
-}
-
-#[tauri::command]
-async fn emulator_rom(
-    settings: State<'_, EmulatorSettings>,
-    model: String,
-) -> Result<Response, String> {
-    let Some(file) = settings.0.clone() else {
-        return Err("the emulator app has no settings here".into());
-    };
-    blocking(move || emulator::rom(&file, &model))
-        .await
-        .map(Response::new)
-}
-
-/// Debug builds' folder for both apps' settings (`SATURNUS_SETTINGS_DIR`,
-/// as the emulator app reads it), so tests never touch the user's.
+/// Debug builds' settings folder (`SATURNUS_SETTINGS_DIR`, or under the
+/// self-test hook the temp directory, as the ROM library's), so tests
+/// never touch the user's.
 fn debug_settings_dir() -> Option<PathBuf> {
     #[cfg(debug_assertions)]
     if let Some(dir) = std::env::var_os("SATURNUS_SETTINGS_DIR") {
         return Some(PathBuf::from(dir));
+    } else if std::env::var_os("SATURNUS_SELFTEST").is_some() {
+        return Some(std::env::temp_dir().join("saturnus-selftest-settings"));
     }
     None
 }
 
-/// The places of this run: the home folder and `folders.json` in tx's
-/// config folder.
-fn load_places(app: &AppHandle) -> Result<places::Places, String> {
+/// The places of this run: the home folder and `folders.json` in the
+/// app's config folder.
+pub fn load_places(app: &AppHandle) -> Result<places::Places, String> {
     let home = app
         .path()
         .home_dir()
@@ -456,35 +423,11 @@ fn load_places(app: &AppHandle) -> Result<places::Places, String> {
     Ok(places::Places::load(file, &home))
 }
 
-/// The emulator app's `settings.json`: its config folder beside tx's.
-fn emulator_settings(app: &AppHandle) -> Option<PathBuf> {
-    match debug_settings_dir() {
-        Some(dir) => Some(dir),
-        None => app
-            .path()
-            .config_dir()
-            .ok()
-            .map(|d| d.join(emulator::EMULATOR_ID)),
-    }
-    .map(|d| d.join(emulator::SETTINGS_FILE))
-}
-
-/// The last part of `name` (a file name the page offers), never a path.
-fn offered_name(name: &str) -> String {
-    let last = name.rsplit(['/', '\\']).next().unwrap_or_default();
-    let last = last.trim_start_matches('.');
-    if last.is_empty() {
-        "download".into()
-    } else {
-        last.into()
-    }
-}
-
 /// Save the request's bytes where the user says, offering the `x-name`
 /// header's name. Resolves to whether they were saved.
 #[tauri::command]
-async fn save_file(app: AppHandle, request: Request<'_>) -> Result<bool, String> {
-    let name = offered_name(&header(&request, "x-name")?);
+pub async fn save_file(app: AppHandle, request: Request<'_>) -> Result<bool, String> {
+    let name = crate::offered_name(&header(&request, "x-name")?, "download");
     let bytes = raw_body(&request, "save_file")?;
     blocking(move || {
         let Some(chosen) = app
@@ -505,68 +448,6 @@ async fn save_file(app: AppHandle, request: Request<'_>) -> Result<bool, String>
     .await
 }
 
-/// Opt out of App Nap: macOS throttles the timers of an app whose window
-/// is in the background, which would stretch the protocol's pauses into
-/// the calculator's timeouts during a long transfer.
-#[cfg(target_os = "macos")]
-fn no_app_nap() {
-    use objc2_foundation::{NSActivityOptions, NSProcessInfo, NSString};
-    let activity = NSProcessInfo::processInfo().beginActivityWithOptions_reason(
-        NSActivityOptions::UserInitiatedAllowingIdleSystemSleep,
-        &NSString::from_str("transferring files over a serial cable"),
-    );
-    std::mem::forget(activity);
-}
-
-/// Run the app.
-pub fn run() {
-    #[cfg(target_os = "macos")]
-    no_app_nap();
-    let result = tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .manage(Serial::default())
-        .setup(|app| {
-            let handle = app.handle();
-            let places = load_places(handle)?;
-            app.manage(Folders(Arc::new(Mutex::new(places))));
-            app.manage(EmulatorSettings(emulator_settings(handle)));
-            Ok(())
-        })
-        // A (re)loaded page holds no port: let go of the old page's.
-        .on_page_load(|webview, payload| {
-            if payload.event() == PageLoadEvent::Started {
-                webview.state::<Serial>().0.close_all();
-            }
-        })
-        .invoke_handler(tauri::generate_handler![
-            serial_ports,
-            serial_open,
-            serial_write,
-            serial_close,
-            folder_home,
-            folder_pick,
-            folder_list,
-            folder_stat,
-            folder_read,
-            folder_create,
-            folder_write,
-            folder_mkdir,
-            folder_remove,
-            folder_rename,
-            folder_recent,
-            folder_used,
-            folder_recent_clear,
-            emulator_roms,
-            emulator_rom,
-            save_file,
-        ])
-        .run(tauri::generate_context!());
-    if let Err(e) = result {
-        eprintln!("saturnus tx: {e}");
-        std::process::exit(1);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
@@ -585,14 +466,5 @@ mod tests {
         assert!(percent_decode("%+1").is_none(), "a sign is not a hex digit");
         assert!(percent_decode("%-1").is_none());
         assert!(percent_decode("%4a%4A").as_deref() == Some("JJ"));
-    }
-
-    #[test]
-    fn a_saved_file_is_offered_by_its_name_only() {
-        assert_eq!(offered_name("HOME.hp"), "HOME.hp");
-        assert_eq!(offered_name("../../etc/passwd"), "passwd");
-        assert_eq!(offered_name("C:\\a\\b.zip"), "b.zip");
-        assert_eq!(offered_name(".hidden"), "hidden");
-        assert_eq!(offered_name("dir/"), "download");
     }
 }

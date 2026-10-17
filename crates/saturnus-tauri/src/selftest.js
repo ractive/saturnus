@@ -4,13 +4,16 @@
 // dialogs cannot be scripted: under the hook the Rust side takes the ROM
 // from the variable and a state file from the temp directory; the saved
 // state's slot is in the hook's state folder. The page sends no paths,
-// as ever.
+// as ever. One document since iteration 50d: the calculator is the
+// `#/calculator` route; Files reaches it through the views' hub
+// (web/native-hub.js, iteration 51).
 (async () => {
   const SECS = __SECS__;
   const invoke = window.__TAURI__.core.invoke;
   const log = (line) => invoke("selftest_log", { line: String(line) });
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   try {
+    if (!location.hash.startsWith("#/calculator")) location.hash = "#/calculator";
     while (!window.saturnus) await sleep(100);
     const s = window.saturnus;
     await log(`host ${s.store.state.host}, models ${s.store.state.models.join(",")}`);
@@ -122,6 +125,20 @@
     await sleep(800);
     await log(`flags shown: ${document.querySelector("sat-explorer .flags-sum")?.innerText}; ${document.querySelectorAll("sat-explorer .flag").length} described`);
     document.getElementById("tab-vars").click();
+    // Files on the running calculator, as its HubDevice does it: the views'
+    // hub, the memory read, a variable stored and got back as bytes.
+    const { nativeHub } = await import("./native-hub.js");
+    const files = nativeHub().client("tx");
+    await files.request("hello");
+    const at = await files.request("attach", { model: "48sx" });
+    await files.request("watchMemory", { on: true });
+    const text = "%%HP: T(3)A(R)F(.);\r\n42";
+    await files.request("storeFile", { dir: ["HOME"], name: "SELFT", data: new TextEncoder().encode(text), replace: false });
+    const tree = await files.request("memoryTree");
+    const got = await files.request("fetchFile", { dir: ["HOME"], name: "SELFT" });
+    await log(`files: attached ${at.model} (running ${at.attached}), HOME has SELFT ${tree.variables.some((v) => v.name === "SELFT")}, got ${got.data instanceof Uint8Array ? got.data.length : "no"} bytes starting ${JSON.stringify(new TextDecoder().decode(got.data.slice(0, 8)))}`);
+    await files.request("purge", { dir: ["HOME"], name: "SELFT" });
+    await files.close();
     const acc = (x) => x.emulatedMs + x.owedMs;
     const measure = async (label) => {
       const a = await s.stats();

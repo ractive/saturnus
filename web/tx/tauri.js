@@ -1,9 +1,9 @@
-// The desktop app's link and folders (kb/iterations/iteration-40-tx-desktop.md):
-// what the page uses instead of Web Serial and the File System Access API
-// when it runs in saturnus tx's Tauri window (`window.__TAURI__`, as the
-// emulator's backend.js picks its backend). The commands are
-// crates/saturnus-tx-tauri's; the protocol stays in this page's wasm, the
-// native side only moves bytes and files.
+// The desktop app's link and folders (kb/iterations/iteration-40-tx-desktop.md,
+// iteration 51): what Files uses instead of Web Serial and the File System
+// Access API when it runs in the desktop app (`window.__TAURI__`, as
+// Calculator picks its backend). The commands are crates/saturnus-tauri's
+// (`transfer.rs`); the protocol stays in this page's wasm, the native side
+// only moves bytes and files.
 //
 // - `TauriSerialLink`: a native serial port (`serial_open`,
 //   `serial_write`, `serial_close`); the bytes read and the port's loss
@@ -26,8 +26,8 @@
 //   `NoModificationAllowedError` with the app's words, which folder.js
 //   shows as they are. `recentNative()`, `usedNative(names)` and
 //   `clearRecentNative()` are the pane's "Recent folders".
-// - `emulatorRoms()` and `emulatorRom(model)`: the emulator desktop app's
-//   ROMs (kept-roms.js), never a path.
+// - `emulatorRoms()` and `emulatorRom(model)`: the app's ROM library
+//   (Calculator's; kept-roms.js), never a path.
 // - `saveFile(name, bytes)`: a download, through a save dialog.
 
 import { Folder } from "./folder.js";
@@ -306,10 +306,10 @@ export const usedNative = (names) => call("folder_used", { path: names });
 /** Forget the recent folders (and the picked ones' right to be changed). */
 export const clearRecentNative = () => call("folder_recent_clear");
 
-/** The emulator desktop app's ROMs: `[{model, fileName, sha256}]`. */
+/** The app's ROM library's ready ROMs: `[{model, fileName, sha256}]`. */
 export const emulatorRoms = () => call("emulator_roms");
 
-/** The bytes of the emulator desktop app's ROM of `model`. */
+/** The bytes of the app's ROM of `model`. */
 export async function emulatorRom(model) {
   return new Uint8Array(await call("emulator_rom", { model }));
 }

@@ -30,10 +30,22 @@
 //! changed and settled, and boots each model with the state kept for it;
 //! `bootModel` with `fresh` cold-boots and forgets it. Closing the window
 //! saves an unsaved change first.
+//!
+//! One app (iteration 51): the document's Files view runs here too. It
+//! reaches the running calculator through the same `command` (the page
+//! shares the one bridge between its views, web/native-hub.js;
+//! `fetchFile` with `inline` answers the bytes instead of opening a save
+//! dialog), the computer's serial ports and files through the commands
+//! of [`transfer`], and the ROM library read-only (`emulator_roms`,
+//! `emulator_rom`: file names, SHA-256 and bytes by model, never a path).
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod files;
 pub mod order;
+pub mod places;
 pub mod roms;
+pub mod serial;
+pub mod transfer;
 
 /// The machine thread, shared with the CLI's control API
 /// (`saturnus_drive::runner`).
@@ -124,7 +136,7 @@ const MAX_SAVE_BYTES: usize = 4 * 1024 * 1024;
 /// The file name `saveFile` offers: the last part of what the page asked
 /// for, without a directory or a leading dot; `fallback` if nothing is
 /// left.
-fn offered_name(asked: &str, fallback: &str) -> String {
+pub(crate) fn offered_name(asked: &str, fallback: &str) -> String {
     let base = asked.rsplit(['/', '\\']).next().unwrap_or_default();
     let base = base.trim_start_matches('.').trim();
     if base.is_empty() {
@@ -135,8 +147,9 @@ fn offered_name(asked: &str, fallback: &str) -> String {
 }
 
 /// The file `msg` needs: none for a `storeFile` that carries its bytes
-/// (a file dropped on the page), a `saveState` that answers the bytes or
-/// a `loadState` that carries them.
+/// (a file dropped on the page, or Files'), a `fetchFile` with `inline`
+/// (Files': the bytes in the reply), a `saveState` that answers the bytes
+/// or a `loadState` that carries them.
 fn need(msg: &Value) -> Option<Need> {
     let slot = || {
         (msg.get("slot").and_then(Value::as_bool) == Some(true)).then(|| {
@@ -157,6 +170,8 @@ fn need(msg: &Value) -> Option<Need> {
         }),
         "loadState" => slot(),
         "storeFile" if msg.get("data").is_none() => Some(Need::StoreFile),
+        // Files' (iteration 51): the bytes come back in the reply.
+        "fetchFile" if msg.get("inline").and_then(Value::as_bool) == Some(true) => None,
         "fetchFile" => {
             let name = msg
                 .get("name")
@@ -789,6 +804,29 @@ fn send_in_turn(machine: &Machine, session: &str, seq: u64, req: Request) -> Res
         .map_err(|_| internal("the calculator has stopped"))
 }
 
+/// The ROM library's ready ROMs for Files: `[{model, fileName, sha256}]`.
+#[tauri::command]
+async fn emulator_roms(roms: State<'_, Roms>) -> Result<Value, String> {
+    let lib = Arc::clone(&roms.0);
+    transfer::blocking(move || Ok(lock(&lib)?.kept())).await
+}
+
+/// The bytes of the ROM library's ROM of `model`, while they are what was
+/// chosen.
+#[tauri::command]
+async fn emulator_rom(
+    roms: State<'_, Roms>,
+    model: String,
+) -> Result<tauri::ipc::Response, String> {
+    let model: saturnus_core::Model = model
+        .parse()
+        .map_err(|_| format!("{model:?} is not a model"))?;
+    let lib = Arc::clone(&roms.0);
+    transfer::blocking(move || lock(&lib)?.rom_bytes(model))
+        .await
+        .map(tauri::ipc::Response::new)
+}
+
 /// The window's theme, as the page's (web/shared/theme.js): "light" or "dark"
 /// fixed, anything else (null) the system's. The macOS title bar and the
 /// window's own controls follow it.
@@ -851,14 +889,15 @@ fn selftest(app: &tauri::App) {
 
 /// Opt out of App Nap: macOS throttles the timers and CPU of an app whose
 /// window is hidden or in the background, which would slow the emulated
-/// calculator below real time while it computes. Idle system sleep stays
-/// allowed. The activity lasts as long as the process.
+/// calculator below real time while it computes, and stretch a transfer's
+/// pauses into the calculator's timeouts. Idle system sleep stays allowed.
+/// The activity lasts as long as the process.
 #[cfg(target_os = "macos")]
 fn no_app_nap() {
     use objc2_foundation::{NSActivityOptions, NSProcessInfo, NSString};
     let activity = NSProcessInfo::processInfo().beginActivityWithOptions_reason(
         NSActivityOptions::UserInitiatedAllowingIdleSystemSleep,
-        &NSString::from_str("emulating a calculator in real time"),
+        &NSString::from_str("emulating a calculator in real time and transferring files"),
     );
     std::mem::forget(activity);
 }
@@ -869,6 +908,7 @@ pub fn run() {
     no_app_nap();
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(transfer::Serial::default())
         .setup(|app| {
             let store = match state_dir(app.handle()) {
                 Ok(dir) => Some(Box::new(StateDir(dir)) as Box<dyn runner::StateStore>),
@@ -884,20 +924,57 @@ pub fn run() {
             });
             let lib = Library::open(settings_file(app));
             app.manage(Roms(Arc::new(Mutex::new(lib))));
+            let places = transfer::load_places(app.handle())?;
+            app.manage(transfer::Folders(Arc::new(Mutex::new(places))));
             #[cfg(debug_assertions)]
             selftest(app);
             Ok(())
+        })
+        // A (re)loaded page holds no serial port: let go of the old page's.
+        .on_page_load(|webview, payload| {
+            if payload.event() == tauri::webview::PageLoadEvent::Started {
+                webview.state::<transfer::Serial>().0.close_all();
+            }
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 save_before_close(window.app_handle());
             }
         });
+    // One list for both profiles: the self-test hook is the debug builds'.
+    macro_rules! handler {
+        ($($extra:ident),*) => {
+            tauri::generate_handler![
+                command,
+                set_theme,
+                emulator_roms,
+                emulator_rom,
+                transfer::serial_ports,
+                transfer::serial_open,
+                transfer::serial_write,
+                transfer::serial_close,
+                transfer::folder_home,
+                transfer::folder_pick,
+                transfer::folder_list,
+                transfer::folder_stat,
+                transfer::folder_read,
+                transfer::folder_create,
+                transfer::folder_write,
+                transfer::folder_mkdir,
+                transfer::folder_remove,
+                transfer::folder_rename,
+                transfer::folder_recent,
+                transfer::folder_used,
+                transfer::folder_recent_clear,
+                transfer::save_file,
+                $($extra),*
+            ]
+        };
+    }
     #[cfg(debug_assertions)]
-    let builder =
-        builder.invoke_handler(tauri::generate_handler![command, set_theme, selftest_log]);
+    let builder = builder.invoke_handler(handler![selftest_log]);
     #[cfg(not(debug_assertions))]
-    let builder = builder.invoke_handler(tauri::generate_handler![command, set_theme]);
+    let builder = builder.invoke_handler(handler![]);
     let result = builder.run(tauri::generate_context!());
     if let Err(e) = result {
         eprintln!("saturnus: {e}");
@@ -975,6 +1052,16 @@ mod tests {
         assert_eq!(n(json!({"cmd": "saveState"})), None, "the bytes, answered");
         assert_eq!(n(json!({"cmd": "loadState", "state": "AA=="})), None);
         assert_eq!(n(json!({"cmd": "loadState", "slot": false})), None);
+        // Files' fetch (iteration 51): the bytes in the reply, no dialog.
+        assert_eq!(
+            n(json!({"cmd": "fetchFile", "dir": ["HOME"], "name": "X", "inline": true})),
+            None
+        );
+        assert_eq!(
+            n(json!({"cmd": "fetchFile", "dir": ["HOME"], "name": "X"})),
+            Some(Need::FetchFile("X.hp".into()))
+        );
+        assert_eq!(n(json!({"cmd": "backup"})), None, "its bytes, answered");
 
         let dir = std::env::temp_dir().join(format!("saturnus-slot-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);

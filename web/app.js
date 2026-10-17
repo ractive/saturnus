@@ -8,7 +8,8 @@
 // parts (web/pwa.js). Nothing runs at import. No framework, no bundler.
 // See web/README.md and web/protocol.md.
 
-import { createBackend } from "./backend.js";
+import { WorkerBackend } from "./backend.js";
+import { nativeHub } from "./native-hub.js";
 import { Bindings, action } from "./bindings.js";
 import { stepContrast } from "./contrast.js";
 import { editButtonState, editTarget } from "./editor.js";
@@ -40,7 +41,7 @@ import { KEYS as PREFS } from "./shared/storage-names.js";
 import { watchLogo } from "./logo.js";
 import { CLOCK_MODELS, watchClockOnStart } from "./clock.js";
 import { setView, shown } from "./view.js";
-import { applySiteLinks, connectModel, inDesktopApp } from "./shared/site-links.js";
+import { applySiteLinks, connectModel } from "./shared/site-links.js";
 
 const prefs = {
   get(key) {
@@ -317,10 +318,8 @@ function appActions(backend, store, memory, bindings) {
     { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the ${backend.host === "tauri" ? "app" : "page"}'s actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
     { id: "panel", title: root.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with model, ROM, speed and saved states.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!root.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
-    // Files, on this calculator when it can reach it (its route, web/router.js); not in the desktop app.
-    ...(inDesktopApp() ? [] : [
-      { id: "open-tx", title: "Open Files", description: "Move files between calculators, emulated or on a cable, and this computer.", keywords: "files tx transfer send receive kermit serial cable backup computer", run: () => { location.hash = filesHref(store); } },
-    ]),
+    // Files, on this calculator when it can reach it (its route, web/router.js).
+    { id: "open-tx", title: "Open Files", description: "Move files between calculators, emulated or on a cable, and this computer.", keywords: "files tx transfer send receive kermit serial cable backup computer", run: () => { location.hash = filesHref(store); } },
     // The tour, and each chapter alone (found by a search).
     { id: "tour", title: "Show me around", description: "A short tour of the page, one element at a time. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },
     ...chaptersFor({ booted: s.booted }).map((c) => ({ id: `tour-${c.id}`, title: `Tour: ${c.title}`, description: `The tour's chapter on ${c.title[0].toLowerCase()}${c.title.slice(1)}.`, keywords: "tour help guide introduction tutorial", searchOnly: true, run: () => startTour(c.id) })),
@@ -367,11 +366,10 @@ function watchUnshared(backend, store) {
 
 /**
  * The panel's link to Files: its route on the running calculator when
- * Files can reach it (`filesHref`). Hidden in the desktop app.
+ * Files can reach it (`filesHref`).
  */
 function watchTxLink(store) {
   const a = $("to-transfer");
-  if (inDesktopApp()) return;
   const set = () => a.setAttribute("href", filesHref(store));
   store.watch(["booted", "roms"], set);
   set();
@@ -420,12 +418,12 @@ function acceptCalculatorDrops(controls, backend, store, writes) {
  * the calculator this view shows (the hub's `peers`). Show is Files'
  * route on that calculator (`#/files/<model>`: the view is shown, nothing
  * reloaded). No Disconnect: Files disconnects in Files (owner,
- * 2026-10-14). Not in the desktop app.
+ * 2026-10-14). In the desktop app `peers` comes from web/native-hub.js.
  */
 function watchTxPeer(backend, store) {
   const chip = $("tx-chip");
   const show = $("tx-show");
-  if (!chip || !show || inDesktopApp()) return;
+  if (!chip || !show) return;
   const set = () => show.setAttribute("href", store.state.booted ? `#/files/${store.state.booted}` : "#/files");
   store.watch(["booted"], set);
   set();
@@ -680,7 +678,8 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
   applySiteLinks(root);
   // The icon sprite (shared/icons.svg), fetched once.
   loadIcons();
-  const backend = createBackend();
+  // The desktop app: the one native calculator, shared with Files (web/native-hub.js).
+  const backend = window.__TAURI__ ? nativeHub().backend : new WorkerBackend();
   const store = new Store();
   connect(backend, store);
   watchUnshared(backend, store);

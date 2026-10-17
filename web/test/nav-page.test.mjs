@@ -4,9 +4,9 @@
 // command to Files, Files' header link to Calculator, both brands home,
 // the home page's link to the landing page; switching views never loads
 // the page again and never stops the calculator; back and forward follow
-// the routes. In the desktop app (`window.__TAURI__`, simulated) the
-// links stay hidden, there is no home page and the window opens the
-// calculator. And leaving mid-transfer asks first (beforeunload).
+// the routes. In the desktop app (`window.__TAURI__`, simulated) Files
+// links to Calculator too (one app, iteration 51), there is no home page
+// and the window opens the calculator. And leaving mid-transfer asks first (beforeunload).
 // Skipped without Chrome or the wasm package.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -26,7 +26,7 @@ async function until(ev, expression, ms, what) {
 /** A fake desktop app's globals: enough for the page's modules to load (the emulator's backend never answers). */
 const TAURI = `window.__TAURI__ = { core: { invoke: () => new Promise(() => {}) }, event: { listen: async () => () => {} } };`;
 
-test("Calculator links to Files, its palette opens Files, both brands go home; none in the desktop app", { timeout: 60_000 }, async (t) => {
+test("Calculator links to Files, its palette opens Files, both brands go home; no home page in the desktop app", { timeout: 60_000 }, async (t) => {
   const c = await session(t);
   if (!c) return;
   const { send, ev, port } = c;
@@ -54,13 +54,12 @@ test("Calculator links to Files, its palette opens Files, both brands go home; n
   assert.equal(await ev(`document.getElementById("calculator-view").hidden`), true, "Calculator hidden, not removed");
   assert.deepEqual(c.errors, []);
 
-  // The desktop app: no link, no palette action, no home page: the brand stays on the calculator.
+  // The desktop app: no home page, the brand stays on the calculator.
   await send("Page.addScriptToEvaluateOnNewDocument", { source: TAURI });
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html` });
   await until(ev, `!!window.__TAURI__ && document.readyState === "complete" && window.saturnusApp?.view === "calculator"`, 15_000, "the page loaded as the app, on the calculator");
   assert.equal(await ev("location.hash"), "#/calculator");
-  assert.equal(await ev(`document.getElementById("to-transfer").hidden`), true);
   assert.equal(await ev(`document.querySelector(".home-landing").hidden`), true);
   await ev(`location.hash = "#/"; true`);
   await until(ev, `location.hash === "#/calculator"`, 5_000, "the brand's home is the calculator");
@@ -96,9 +95,10 @@ test("Files links to Calculator, its brand goes home; #/files/<model> says why i
   await p.until(`[...document.querySelectorAll(".toast")].some((t) => t.textContent.includes("The HP 38G is not connected here: it sends and receives files itself"))`, 10_000, "the reason said");
   assert.equal(await ev("tx.panes[0].place?.kind ?? null"), null, "the left pane as it was");
 
+  // The desktop app links its views too (one app, iteration 51).
   await send("Page.addScriptToEvaluateOnNewDocument", { source: TAURI });
   await p.open(port);
-  assert.equal(await ev(`document.getElementById("to-emulator").hidden`), true);
+  assert.equal(await ev(`document.getElementById("to-emulator").hidden`), false);
 });
 
 test("the home page: the kept calculators with Calculator and Files, the running one marked; views switch without a reload", { timeout: 120_000 }, async (t) => {

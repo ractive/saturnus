@@ -417,13 +417,15 @@ export class Pane {
   /**
    * The emulator's own calculator of kept ROM `rom` (`name` its file
    * name), shared with the emulator page through the calculators' hub
-   * (web/shared/hub-device.js, iteration 47): joined and shown, nothing
-   * typed on it. Resolves to the place, or null when it failed (said in a
+   * (web/shared/hub-device.js, iteration 47; in the desktop app the native
+   * calculator, iteration 51): joined and shown, nothing typed on it. Resolves to the place, or null when it failed (said in a
    * toast).
    */
   async addShared(rom, name, model) {
     if (this.place && !(await this.close())) return null;
-    const device = new HubDevice(new HubClient({ who: "tx" }), { helpers: () => this.app.helpers() });
+    // The browser's hub, or the desktop app's one calculator (`app.hubClient`, web/native-hub.js).
+    const calc = this.app.hubClient ? this.app.hubClient() : new HubClient({ who: "tx" });
+    const device = new HubDevice(calc, { helpers: () => this.app.helpers() });
     const heading = `Emulated ${modelTitle(model)}`;
     const place = { id: `${this.id}:${++placeSerial}`, kind: "device", device, model, emulated: true, hub: true, emulator: null, rom, title: heading, heading };
     this.wireDevice(place);

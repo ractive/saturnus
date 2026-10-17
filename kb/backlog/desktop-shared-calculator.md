@@ -2,7 +2,7 @@
 type: backlog
 title: Desktop tx on the desktop emulator's running calculator
 date: 2026-10-17
-status: deferred
+status: completed
 priority: low
 tags:
   - backlog
@@ -52,3 +52,9 @@ of code and 600 of tests across about 14 files), so deferred.
 - Quitting the emulator mid-copy kills the operation (on the web the
   SharedWorker outlives the tab): an owner decision.
 - A second loopback listener: a security doc and decision-log entry.
+
+## Outcome
+
+Done otherwise in [[iterations/iteration-51-one-desktop-app]] (owner,
+2026-10-17): one desktop app, Files reaches the native calculator in the
+same page (`web/native-hub.js`); no loopback, no token.
