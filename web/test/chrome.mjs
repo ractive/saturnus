@@ -187,11 +187,15 @@ async function connect(url, describe, onGone = () => {}) {
     try { ws.close(); } catch { /* closing */ }
   };
   // The app's routes are in the hash (web/router.js): a navigation to the
-  // address the page has, or to it with another hash, would not load the
-  // page again. Through a blank page, every navigation with a hash loads it.
-  const navigate = async (method, params = {}) => {
-    if (method === "Page.navigate" && String(params.url ?? "").includes("#")) await send(method, { url: "about:blank" });
-    return send(method, params);
+  // address the page has, or to it with another hash, would only move
+  // within the page. A navigation with a hash gets a query of its own
+  // (`?nav=N`, which the app ignores), so it always loads the page.
+  let loads = 0;
+  const navigate = (method, params = {}) => {
+    const url = String(params.url ?? "");
+    if (method !== "Page.navigate" || !url.includes("#") || !/^https?:/.test(url)) return send(method, params);
+    const [base, hash] = [url.slice(0, url.indexOf("#")), url.slice(url.indexOf("#"))];
+    return send(method, { ...params, url: `${base}${base.includes("?") ? "&" : "?"}nav=${++loads}${hash}` });
   };
   return { send: navigate, errors, close };
 }
