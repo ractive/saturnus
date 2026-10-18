@@ -93,7 +93,14 @@ particular glibc and install on any x86_64 Debian, Ubuntu, Fedora or RHEL.
 **Desktop app**: installers on the
 [releases page](https://github.com/ractive/saturnus/releases), `.dmg`
 (macOS, Apple silicon), `.msi` or setup `.exe` (Windows x86_64), `.deb`,
-`.rpm` or `.AppImage` (Linux x86_64). The macOS app is signed and
+`.rpm` or `.AppImage` (Linux x86_64). On a Mac also with Homebrew:
+
+```sh
+brew trust --cask ractive/tap/saturnus-app   # once: Homebrew 5.1.15+ refuses untrusted taps
+brew install --cask ractive/tap/saturnus-app
+```
+
+The macOS app is signed and
 notarised. The Windows installers are not signed yet: SmartScreen says
 "Windows protected your PC"; click "More info", then "Run anyway".
 
