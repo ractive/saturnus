@@ -237,6 +237,8 @@ section {
 section + section { border-top: 1px solid var(--rule-soft); }
 section > h2 { margin-bottom: var(--s2); }
 section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5); }
+/* The models' intro runs as wide as the row of cards below it. */
+.models > h2 + p { max-width: none; }
 
 /* The hero: text beside the 48GX; stacked on a phone. */
 .hero {
