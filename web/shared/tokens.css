@@ -98,7 +98,7 @@
   --s6: 32px;
   --gutter: 16px;
   /* Between the sections of a settings column (a title and its card). */
-  --sec-gap: 18px;
+  --sec-gap: 28px;
   /* A card's inner padding, and its rows'. */
   --card-pad: 12px;
 

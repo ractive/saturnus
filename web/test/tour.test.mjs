@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { CHAPTERS, SETUPS, TourRun, animationsDone, applies, chapter, chaptersFor, context, fillText, nextChapter, offerShown } from "../tour.js";
 
-const WHEN = { host: ["browser", "app"], pointer: ["fine", "coarse"], phone: [true, false], mac: [true, false] };
+const WHEN = { host: ["browser", "app"], pointer: ["fine", "coarse"], phone: [true, false], mac: [true, false], shifts: [1, 2] };
 
 /** Every place the tour can run: host × pointer × phone × Mac. */
 function places(booted = "48gx") {
@@ -63,6 +63,11 @@ test("a step applies when every condition of its `when` holds", () => {
   assert.ok(ids(context({ host: "app" })).includes("switch"));
   // No keys to change by touch.
   assert.ok(!ids(context({ pointer: "coarse", phone: true })).includes("shortcuts"));
+  // Shift-clicks right after Keys, in the words of the calculator's shift keys; none by touch.
+  const calc = (c) => new TourRun(chapter("calculator"), c).steps.map((s) => s.id);
+  assert.deepEqual(calc(context({ shifts: 2 })).slice(0, 2), ["keys", "shift-click"]);
+  assert.deepEqual(calc(context({ shifts: 1 })).slice(0, 2), ["keys", "shift-click-one"]);
+  assert.ok(!calc(context({ pointer: "coarse" })).some((id) => id.startsWith("shift-click")));
 });
 
 test("the memory view's chapter only while a 48SX, 48GX or 49G runs; the next chapter", () => {
@@ -84,6 +89,8 @@ test("the words: a binding's key in parentheses, none by touch or without one; �
   assert.equal(fillText("Edit{key:edit} opens.", context({ keys })), "Edit opens.");
   assert.equal(fillText("Paste ({mod}V), {alt}+click.", context({ mac: true })), "Paste (⌘V), Option+click.");
   assert.equal(fillText("Paste ({mod}V), {alt}+click.", context({ mac: false })), "Paste (Ctrl+V), Alt+click.");
+  assert.equal(fillText("{ctrl-click}, {alt-click}; hold {ctrl}.", context({ mac: true })), "Control-click, Option-click; hold Control.");
+  assert.equal(fillText("{ctrl-click}, {alt-click}; hold {ctrl}.", context({ mac: false })), "Ctrl+click, Alt+click; hold Ctrl.");
   // Every step's words come out without a placeholder left.
   for (const ctx of places()) for (const c of CHAPTERS) for (const s of c.steps) assert.ok(!/[{}]/.test(fillText(s.text, ctx)), `${c.id}/${s.id}`);
 });

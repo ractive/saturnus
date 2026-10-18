@@ -40,6 +40,10 @@ impl ExampleSpec {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Entry {
+    /// What the mnemonic stands for ("Residual" for RSD), only where that
+    /// says more than the mnemonic itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     /// One or two sentences, ours.
     pub description: String,
     /// The stack effect, arguments before `→`, results after, level 1

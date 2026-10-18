@@ -596,7 +596,9 @@ body.resizing * { cursor: col-resize !important; }
 /* The memory view's content: cards (components.css) on the panel,
    inside the gutter. The lists scroll inside theirs; the preview of one
    object is a card of its own under them. */
-:where(#calculator-view) .layer .card { flex: none; margin: 0 var(--gutter); }
+:where(#calculator-view) .layer .card { margin: 0 var(--gutter); }
+/* The two split cards keep their share of the height (`flex` of their own). */
+:where(#calculator-view) .layer .card:not(.vars-split, .cmds-split) { flex: none; }
 :where(#calculator-view) .layer .preview.card { margin: var(--s3) var(--gutter) var(--gutter); }
 :where(#calculator-view) .layer .preview:empty { display: none; }
 
@@ -633,6 +635,8 @@ body.resizing * { cursor: col-resize !important; }
   min-height: 150px;
   display: grid;
   grid-template-columns: var(--tree-col) 1fr;
+  /* One row the card's height, so the tree and the list scroll inside it. */
+  grid-template-rows: minmax(0, 1fr);
 }
 :where(#calculator-view) .tree { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule-soft); }
 /* The divider between the tree and the list, as the page's edges. */
@@ -951,10 +955,15 @@ body.resizing * { cursor: col-resize !important; }
   min-height: 150px;
   display: grid;
   grid-template-columns: minmax(120px, 34%) 1fr;
+  /* One row the card's height, so the tree and the list scroll inside it. */
+  grid-template-rows: minmax(0, 1fr);
 }
 :where(#calculator-view) .cmds-menus { overflow: auto; padding: var(--s1) 0; border-right: 1px solid var(--rule-soft); }
 :where(#calculator-view) .cmds-menus .node.other { font-family: var(--font); color: var(--muted); }
 :where(#calculator-view) .cmds-menus .node.other.shown { color: var(--ink); }
+/* What the mnemonic stands for, after it: muted, in the UI font, cut
+   with the cell's ellipsis; hidden where the pane is narrow. */
+:where(#calculator-view) .cmds-list .cmd-long { margin-left: var(--s2); font: var(--fs-sm)/1 var(--font); color: var(--muted); }
 :where(#calculator-view) .cmds-list td.stack { font: var(--fs-sm)/1.5 var(--mono); color: var(--muted); max-width: 0; width: 60%; overflow: hidden; text-overflow: ellipsis; }
 :where(#calculator-view) .cmds-entry { flex: 1; min-height: 0; overflow: auto; }
 :where(#calculator-view) .cmds-entry .entry { padding: var(--card-pad) var(--card-pad) 20px; }
@@ -971,6 +980,7 @@ body.resizing * { cursor: col-resize !important; }
   :where(#calculator-view) .list .sum { display: none; }
   :where(#calculator-view) .vars-split { --tree-default: max(92px, 28%); }
   :where(#calculator-view) .levels .type { display: none; }
+  :where(#calculator-view) .cmds-list .cmd-long { display: none; }
 }
 
 /* ------------------------------------------------- the calculator shown */
@@ -1090,6 +1100,7 @@ body.resizing * { cursor: col-resize !important; }
 }
 :where(#calculator-view) .prow-desc { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 :where(#calculator-view) .prow[aria-selected=true] .prow-desc { color: var(--ink); }
+:where(#calculator-view) .prow-long { font-weight: 600; }
 :where(#calculator-view) .prow-hint { visibility: hidden; font-size: 10px; color: var(--muted); text-align: center; }
 :where(#calculator-view) .prow[aria-selected=true] .prow-hint, :where(#calculator-view) .palette-list:hover .prow-hint, :where(#calculator-view) .palette-list.hints .prow-hint { visibility: visible; }
 :where(#calculator-view) .prow-go { display: none; color: var(--muted); }
@@ -1233,7 +1244,12 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .entry { padding: var(--s4) 20px 20px; display: flex; flex-direction: column; gap: 10px; }
 :where(#calculator-view) .entry h3, :where(#calculator-view) .entry h4, :where(#calculator-view) .entry p, :where(#calculator-view) .entry dl { margin: 0; }
 :where(#calculator-view) .entry-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+:where(#calculator-view) .entry-send { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s2); }
+:where(#calculator-view) .entry-sent { font-size: var(--fs-sm); color: var(--accent-text); }
+:where(#calculator-view) .entry-sent.error { color: var(--error); }
 :where(#calculator-view) .entry-name { font: 600 var(--fs-2xl)/1.2 var(--mono); overflow-wrap: anywhere; }
+/* "RSD · Residual": the long name in the UI font, normal weight, muted. */
+:where(#calculator-view) .entry-long { font: 400 var(--fs-xl)/1.2 var(--font); color: var(--muted); }
 :where(#calculator-view) .entry-title { font-family: var(--font); font-size: var(--fs-xl); letter-spacing: -0.01em; }
 :where(#calculator-view) .entry-models { display: flex; gap: var(--s1); margin-left: auto; }
 :where(#calculator-view) .chip {

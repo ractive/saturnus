@@ -87,6 +87,10 @@ struct ReferenceFile {
 
 #[derive(Debug, Deserialize)]
 struct Entry {
+    /// What the mnemonic stands for ("Residual" for RSD), where that
+    /// says more than the mnemonic itself.
+    #[serde(default)]
+    name: Option<String>,
     description: String,
     stack: String,
     #[serde(default)]
@@ -344,6 +348,7 @@ pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
         "category": first.as_ref().map(|c| c["category"].clone()),
         "category_source": first,
         "categories": categories,
+        "long_name": entry.and_then(|e| e.name.as_deref()),
         "description": entry.map(|e| e.description.as_str()),
         "stack": entry.map(|e| e.stack.as_str()),
         "stack_verified": ran(d, name, &models),
@@ -544,6 +549,9 @@ pub fn text(entry: &Value) -> String {
         .as_array()
         .map(|a| a.iter().map(s).collect())
         .unwrap_or_default();
+    if let Some(long) = entry["long_name"].as_str() {
+        out.push_str(&format!("\nname:   {long}"));
+    }
     out.push_str(&format!("\nmodels: {}\n", models.join(" ")));
     if let Some(cats) = entry["categories"].as_object() {
         // `menu:` is where the ROM offers it, `key:` where a manual says
@@ -734,6 +742,15 @@ mod tests {
             "{asr}"
         );
         assert!(!asr.contains("group:"), "{asr}");
+        // The long name says what the mnemonic stands for; a plain word
+        // (DROP) has none.
+        assert_eq!(h["long_name"], "Arithmetic shift right");
+        assert!(
+            asr.contains("\nname:   Arithmetic shift right\nmodels: "),
+            "{asr}"
+        );
+        assert!(drop["long_name"].is_null());
+        assert!(!text(&drop).contains("\nname:"));
         let gcd = one("ABCUV", Some("49g"));
         assert_eq!(gcd["categories"]["49g"]["key"]["category"], "Arithmetic");
         assert_eq!(gcd["category_source"]["source"], "rom");

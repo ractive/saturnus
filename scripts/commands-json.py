@@ -11,7 +11,10 @@ page's lookup rules (`web/reference.js`) are those of `saturnus ref`
     scripts/commands-json.py                # write web/commands.json
     scripts/commands-json.py --check [FILE] # the committed file is current
 
-What the page gets per command: `description`, `stack`, our `group`
+What the page gets per command: `name`, the long name that says what
+the mnemonic stands for ("Residual" for RSD; only where it says more than
+the mnemonic, so absent for most plain words), `description`, `stack`,
+our `group`
 (only where no ROM menu and no manual places it), `pages` (manual id to
 PDF page) and `models`, one entry per model that has the command, with
 the ROM's `menus`, the manual's `key` (`category`, `manual`, `page`,
@@ -79,6 +82,8 @@ def build():
         ref = reference.get(name)
         if ref is None:
             raise SystemExit(f"{name} has no entry in reference.json")
+        if ref.get("name"):
+            entry["name"] = ref["name"]
         entry["description"] = ref["description"]
         entry["stack"] = ref["stack"]
         if ref.get("category"):

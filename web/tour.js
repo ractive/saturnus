@@ -14,6 +14,7 @@
 
 import { KEYS } from "./shared/storage-names.js";
 import { WRITABLE_MODELS } from "./norom.js";
+import { clickLabel } from "./shiftclick.js";
 
 /**
  * What a setup opens. `panel`: the controls (the side panel, or the
@@ -113,18 +114,26 @@ export const CHAPTERS = [
         when: { pointer: "coarse" },
       },
       {
+        id: "shift-click",
+        anchor: "sat-calculator .skin",
+        title: "Shifted functions",
+        text: "Skip the shift keys: {ctrl-click} a key for its left-shifted function, {alt-click} for its right-shifted one. Hold {ctrl} or {alt} and the keys light up with what each click reaches.",
+        setup: "calculator",
+        when: { pointer: "fine", shifts: 2 },
+      },
+      {
+        id: "shift-click-one",
+        anchor: "sat-calculator .skin",
+        title: "Shifted functions",
+        text: "Skip the shift key: {ctrl-click} or {alt-click} a key for its shifted function. Hold {ctrl} or {alt} and the keys light up with what it reaches.",
+        setup: "calculator",
+        when: { pointer: "fine", shifts: 1 },
+      },
+      {
         id: "paste",
         anchor: "sat-calculator canvas",
         title: "Paste",
         text: "Paste ({mod}V) types the clipboard into the calculator's command line, key by key.",
-        setup: "calculator",
-        when: { pointer: "fine" },
-      },
-      {
-        id: "shift-click",
-        anchor: "sat-calculator .skin",
-        title: "Shifted functions",
-        text: "Ctrl+click a key for its left-shifted function, {alt}+click for its right-shifted one. Hold Ctrl or {alt} to see what they reach.",
         setup: "calculator",
         when: { pointer: "fine" },
       },
@@ -274,10 +283,11 @@ export const CHAPTERS = [
 /**
  * Where the tour runs: `host` "browser" or "app", `pointer` "fine" or
  * "coarse", `phone` (below 760 px), `mac`, `booted` (the running model or
- * null) and `keys` (an action's key label, or "").
+ * null), `shifts` (the shift keys of the calculator shown, 1 or 2) and
+ * `keys` (an action's key label, or "").
  */
-export function context({ host = "browser", pointer = "fine", phone = false, mac = false, booted = null, keys = () => "" } = {}) {
-  return { host, pointer, phone, mac, booted, keys };
+export function context({ host = "browser", pointer = "fine", phone = false, mac = false, booted = null, shifts = 2, keys = () => "" } = {}) {
+  return { host, pointer, phone, mac, booted, shifts, keys };
 }
 
 /** Whether `step` shows under `ctx` (every condition of its `when` holds). */
@@ -310,7 +320,8 @@ export function nextChapter(id, ctx) {
 /**
  * `text` with its placeholders filled: `{key:id}` the binding's label in
  * parentheses (nothing without one, or by touch), `{mod}` ⌘ or Ctrl+,
- * `{alt}` Option or Alt.
+ * `{ctrl}` Control or Ctrl, `{alt}` Option or Alt, `{ctrl-click}` and
+ * `{alt-click}` as the keys' tooltips write them (web/shiftclick.js).
  */
 export function fillText(text, ctx) {
   return text
@@ -318,7 +329,9 @@ export function fillText(text, ctx) {
       const k = ctx.pointer === "coarse" ? "" : ctx.keys(id);
       return k ? ` (${k})` : "";
     })
+    .replace(/\{(ctrl|alt)-click\}/g, (_, mod) => clickLabel(mod, ctx.mac))
     .replace(/\{mod\}/g, ctx.mac ? "⌘" : "Ctrl+")
+    .replace(/\{ctrl\}/g, ctx.mac ? "Control" : "Ctrl")
     .replace(/\{alt\}/g, ctx.mac ? "Option" : "Alt");
 }
 

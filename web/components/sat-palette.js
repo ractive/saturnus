@@ -546,7 +546,8 @@ export class SatPalette extends HTMLElement {
     switch (row.kind) {
       case "command":
         head = el("div", { class: "prow-head" }, el("span", { class: "prow-name", text: row.name }), el("span", { class: "prow-stack", text: row.stack }));
-        desc = row.description;
+        // What the mnemonic stands for leads the description: "Residual · Computes …".
+        desc = row.longName ? [el("span", { class: "prow-long", text: row.longName }), " · ", row.description] : row.description;
         break;
       case "variable":
         head = el("div", { class: "prow-head" }, el("span", { class: "prow-name", text: row.name }),
@@ -566,7 +567,7 @@ export class SatPalette extends HTMLElement {
         head = el("div", { class: "prow-head" }, el("span", { class: "prow-name prow-title", text: row.name }));
         desc = off || row.description;
     }
-    node.append(el("div", { class: "prow-main" }, head, desc ? el("div", { class: "prow-desc", text: desc }) : null), kind);
+    node.append(el("div", { class: "prow-main" }, head, desc ? el("div", { class: "prow-desc" }, ...[desc].flat()) : null), kind);
     node.append(i < 9 ? el("kbd", { class: "prow-hint", text: this.shortcutLabel(i + 1) }) : el("span", { class: "prow-hint" }));
     // The phone sheet: a tapped row opens its entry.
     node.append(iconEl("chevron-right", "prow-go"));

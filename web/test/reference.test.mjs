@@ -76,6 +76,28 @@ test("sto and store both find STO", () => {
   assert.deepEqual(int.slice(0, 3), [...int.slice(0, 3)].sort((a, b) => a.localeCompare(b)));
 });
 
+test("a long name is searchable: above a stem and a description match", () => {
+  // commands.json carries reference.json's `name` where there is one.
+  assert.equal(data.commands.RSD.name, "Residual");
+  assert.equal(data.commands.LSQ.name, "Least squares");
+  assert.equal(data.commands.DROP.name, undefined);
+  // "residual" also starts with RE (a stem) and is in other descriptions.
+  const rsd = search(sx, "residual");
+  assert.equal(rsd[0].name, "RSD", `${names(rsd).slice(0, 6)}`);
+  assert.equal(rsd[0].longName, "Residual");
+  assert.ok(rsd.some((r) => r.name === "RE"), "the stem is still listed");
+  // Two words that are a long name: the command first, then the send row.
+  assert.deepEqual(names(search(g49, "least squares")).slice(0, 2), ["LSQ", "send:least squares"]);
+  assert.equal(findCommands(g49, "Residual")[0].name, "RSD");
+  // The beginnings of the long name's words: above a description match.
+  const eig = names(search(g49, "eigenval"));
+  assert.deepEqual(eig.slice(0, 2).sort(), ["EGV", "EGVL"], `${eig.slice(0, 6)}`);
+  // A command without a long name is found as before.
+  const drop = search(g49, "DROP")[0];
+  assert.equal(drop.name, "DROP");
+  assert.equal(drop.longName, null);
+});
+
 test("variables rank with the commands, actions after them, and no match is an empty list plus the send row", () => {
   const variables = [{ name: "SINE", path: ["HOME"], type: "Program" }, { name: "A", path: ["HOME"], type: "Real Number" }];
   const actions = [{ id: "save", title: "Save state" }, { id: "speed", title: "Speed: max", keywords: "fast" }];

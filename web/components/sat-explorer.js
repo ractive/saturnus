@@ -29,7 +29,7 @@ import { ObjectLoader } from "../memory.js";
 import { dropRefusal, newDirectoryRefusal, pathText, screenNameRefusal } from "../writes.js";
 import { directoryAt, findVariables, flagRows } from "../objects.js";
 import { checksumText, previewOf, sizeText, summary, typeTitle } from "../shared/objects.js";
-import { NOT_IN_MENU, OTHER_MENUS, exampleText, findCommands, findMenu, flattenMenus, menuCommands } from "../reference.js";
+import { NOT_IN_MENU, OTHER_MENUS, exampleText, findCommands, findMenu, flattenMenus, menuCommands, spaced } from "../reference.js";
 import { IndexWatch } from "../palette.js";
 import { contextItems, subjectActions } from "../actions.js";
 import { exportScale, graphicBits, graphicDrawable, graphicFileName, graphicRgba, graphicScale, graphicSize, graphicText, graphicThumb } from "../shared/graphic.js";
@@ -2027,7 +2027,8 @@ export class SatExplorer extends HTMLElement {
     const pane = ui.panes.stack;
     pane.querySelector(":scope > .pane-error")?.remove();
     const levels = s.memoryStack;
-    pane.querySelector(".levels-wrap").hidden = !levels;
+    // An empty stack has no list card, only the hint below.
+    pane.querySelector(".levels-wrap").hidden = !levels?.length;
     if (!levels) {
       ui.stackPreview.replaceChildren();
       if (s.memoryErrors.stack) pane.prepend(this.readError("the stack", s.memoryErrors.stack));
@@ -2333,7 +2334,9 @@ Object.assign(SatExplorer.prototype, {
       "data-name": c.name,
       tabindex: -1,
     },
-    el("td", { class: "name" }, el("span", { class: "obj-name", text: c.name })),
+    el("td", { class: "name", title: c.longName ? `${c.name}: ${c.longName}` : null },
+      el("span", { class: "obj-name", text: c.name }),
+      c.longName ? el("span", { class: "cmd-long", text: c.longName }) : null),
     el("td", { class: "stack", title: c.stack, text: c.stack }))));
     ui.cmdsEmpty.hidden = rows.length > 0;
     ui.cmdsEmpty.textContent = needle ? `No command matches “${needle}”.` : "No commands here.";
@@ -2361,8 +2364,32 @@ Object.assign(SatExplorer.prototype, {
       onTry: canType ? (x) => this.tryExample(x) : null,
       whyNot: canType ? null : "Start the calculator to try an example",
       tried: this.tried,
+      onSend: canType ? (verb) => this.sendCommand(command.name, verb) : null,
+      whyNotSend: canType ? null : "Start the calculator first",
+      sent: this.sent?.name === command.name ? this.sent : null,
     }));
     ui.cmdsEntry.scrollTop = top;
+  },
+
+  /**
+   * Run or Type from the entry (or Enter, ⌘/Ctrl+Enter on the list): the
+   * command's name run on the stack, or typed into the command line,
+   * spaced from its neighbours as Search does (web/reference.js `spaced`).
+   */
+  async sendCommand(name, verb) {
+    if (!this.backend || this.sent?.busy) return;
+    this.sent = { name, busy: true, text: verb === "run" ? `Running ${name}…` : `Typing ${name}…`, error: false };
+    this.renderCommands();
+    try {
+      const line = await this.backend.commandLine().catch(() => null);
+      const r = await this.backend[verb](line?.active ? spaced(name, line) : name);
+      this.sent = r.error
+        ? { name, text: `The calculator says: ${r.error}`, error: true }
+        : { name, text: verb === "insert" ? "Typed into the command line." : r.running ? "Sent. The calculator is still working on it." : "Sent. The result is on the calculator's display.", error: false };
+    } catch (err) {
+      this.sent = { name, text: String(err?.message ?? err), error: true };
+    }
+    this.renderCommands();
   },
 
   /** "Try it" from the tab: the example's text, run; the outcome shows under it. */
@@ -2448,8 +2475,14 @@ Object.assign(SatExplorer.prototype, {
       case "ArrowUp": pick(rows[i - 1]); break;
       case "Home": pick(rows[0]); break;
       case "End": pick(rows.at(-1)); break;
-      case " ":
-      case "Enter": pick(rows[i]); break;
+      case " ": pick(rows[i]); break;
+      // Enter runs the command, ⌘/Ctrl+Enter types it, as in Search.
+      case "Enter": {
+        pick(rows[i]);
+        const s = this.store.state;
+        if (s.booted && this.backend) this.sendCommand(rows[i].dataset.name, e.metaKey || e.ctrlKey ? "insert" : "run");
+        break;
+      }
       default:
         return;
     }

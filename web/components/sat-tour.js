@@ -134,6 +134,7 @@ export class SatTour extends HTMLElement {
       phone: matchMedia(PHONE).matches,
       mac: this.mac,
       booted: this.store?.state.booted ?? null,
+      shifts: document.querySelector("sat-calculator")?.keyNames?.has("shift") ? 1 : 2,
       keys: (id) => this.bindings?.labelOf(id) ?? "",
     });
   }

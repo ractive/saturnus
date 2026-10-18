@@ -78,6 +78,10 @@ export function buildIndex(data, model) {
       codes: toCodes(name).toUpperCase(),
       friendly: ASCII.test(name) ? null : f,
       friendlyUnique: unique,
+      // What the mnemonic stands for ("Residual" for RSD), or null.
+      longName: entry.name ?? null,
+      longUpper: entry.name?.toUpperCase() ?? "",
+      longWords: (entry.name ?? "").toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
       description: entry.description,
       descUpper: entry.description.toUpperCase(),
       descWords: entry.description.toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
@@ -276,12 +280,16 @@ const T = {
   prefix: 800, variablePrefix: 800, menu: 770,
   within: 600, variableWithin: 600, action: 590, actionWithin: 560, // stem sits above within: `STO` for "store"
   stem: 650, word: 400, description: 350, example: 200,
+  // The long name ("Residual" for RSD): the whole of it above a stem (RE
+  // for "residual"), its words' beginnings above a description match.
+  longName: 700, longNameWords: 450,
 };
 const KIND_ORDER = { variable: 0, command: 1, menu: 2, action: 3, send: 4 };
 
 /**
  * The suggestions for `query`: the model's commands (by the lookup rules
- * above, then prefix, substring, description and example text), the
+ * above, then prefix, substring, long name, description and example
+ * text), the
  * user's `variables` (`[{name, path}]`), the `actions` (`[{id, title,
  * keywords?, off?, searchOnly?}]`, a `searchOnly` one listed for a
  * query only), the ROM's menus, and "send as typed" for text that is
@@ -312,11 +320,13 @@ export function search(index, query, { variables = [], actions = [], typing = tr
     else if (c.friendly !== null && (c.friendly === upper || c.codes === upper)) score = c.friendlyUnique ? T.exactOther : T.alias;
     else if (c.upper.startsWith(upper) || (c.friendly !== null && c.friendly.startsWith(upper)) || c.codes.startsWith(upper) || (decodedUpper !== null && c.upper.startsWith(decodedUpper))) score = T.prefix;
     else if (c.upper.includes(upper) || (c.friendly !== null && c.friendly.includes(upper)) || (decodedUpper !== null && c.upper.includes(decodedUpper))) score = T.within;
+    else if (c.longUpper && c.longUpper === words.join(" ")) score = T.longName;
     else if (single && c.upper.length >= 2 && upper.startsWith(c.upper)) score = T.stem;
+    else if (c.longWords.length && words.every((w) => c.longWords.some((l) => l.startsWith(w)))) score = T.longNameWords;
     else if (single && c.descWords.some((w) => w.startsWith(upper))) score = T.word;
     else if (words.every((w) => c.descUpper.includes(w))) score = T.description;
     else if (c.exampleText.includes(upper)) score = T.example;
-    if (score) rows.push({ kind: "command", name: c.name, command: c, stack: c.stack, description: c.description, score });
+    if (score) rows.push({ kind: "command", name: c.name, command: c, longName: c.longName, stack: c.stack, description: c.description, score });
   }
   if (typing) {
     for (const v of variables) {
@@ -355,13 +365,15 @@ export function search(index, query, { variables = [], actions = [], typing = tr
   if (typing) {
     // Text that is not a single name is sent as typed, first, but after
     // the actions when it names one ("save state" saves the state, it
-    // does not type two names); a bare token that names nothing exactly
-    // can still be sent, last.
+    // does not type two names) and after the commands whose long name it
+    // is ("least squares" is LSQ); a bare token that names nothing
+    // exactly can still be sent, last.
     const send = { kind: "send", name: q, score: 0 };
     const exact = out.some((r) => r.score >= T.exactOther || r.score === T.variableExact);
     if (!single) {
       const named = out.some((r) => r.kind === "action" && namesAction(r.action, words));
-      out.splice(named ? out.findLastIndex((r) => r.kind === "action") + 1 : 0, 0, send);
+      const long = out.findLastIndex((r) => r.kind === "command" && r.score === T.longName) + 1;
+      out.splice(Math.max(named ? out.findLastIndex((r) => r.kind === "action") + 1 : 0, long), 0, send);
     }
     else if (!exact) out.push(send);
   }

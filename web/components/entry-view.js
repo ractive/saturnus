@@ -1,7 +1,7 @@
-// One command's reference entry as DOM: name, the models that have it,
-// stack effect, our description, where the ROM and the manuals put it,
-// the examples generated on the emulator (each with "Try it"), the deep
-// links into the manuals. Shared by the palette's detail pane and the
+// One command's reference entry as DOM: name (and long name), the models that have it,
+// Run and Type for the command itself, stack effect, our description,
+// where the ROM and the manuals put it, the examples generated on the
+// emulator (each with "Try it"), the deep links into the manuals. Shared by the palette's detail pane and the
 // explorer's Commands tab; it renders what web/reference.js reads.
 
 import { exampleResult, exampleText, manualLinks, placement, stackVerified } from "../reference.js";
@@ -36,7 +36,9 @@ export function entryView(index, command, ctx = {}) {
   const links = manualLinks(index, command, [model]);
   const others = manualLinks(index, command).filter((l) => !links.some((x) => x.id === l.id));
   const head = el("div", { class: "entry-head" },
-    el("h3", { class: "entry-name", text: command.name }),
+    // The mnemonic, then what it stands for where that says more: "RSD · Residual".
+    el("h3", { class: "entry-name" }, command.name,
+      command.longName ? el("span", { class: "entry-long" }, " ", el("span", { class: "sep", "aria-hidden": "true", text: "· " }), command.longName) : null),
     el("div", { class: "entry-models", "aria-label": "Models with this command" },
       ...data.models.map((m) => {
         const has = Boolean(command.entry.models[m]);
@@ -78,6 +80,7 @@ export function entryView(index, command, ctx = {}) {
 
   return el("div", { class: "entry" },
     head,
+    sendRow(command, ctx),
     stackBox(command),
     el("p", { class: "entry-desc", text: command.description }),
     whereRows.length ? el("dl", { class: "entry-where" }, ...whereRows) : null,
@@ -92,6 +95,28 @@ export function entryView(index, command, ctx = {}) {
           ...links.map((l) => el("li", {}, link(l.url, `${l.title}, p. ${l.page}`))),
           ...others.map((l) => el("li", { class: "muted" }, link(l.url, `${l.title}, p. ${l.page}`), ` (${l.models.map(shortTitle).join(", ")})`))))
       : null);
+}
+
+/**
+ * Run and Type for the command itself, on the calculator's stack as it
+ * is (`ctx.onSend(verb)`, verb "run" or "insert"; off with `whyNotSend`),
+ * and the outcome of the last one (`ctx.sent`). None in the palette,
+ * whose Enter does the same.
+ */
+function sendRow(command, ctx) {
+  if (!ctx.onSend && !ctx.whyNotSend) return null;
+  const button = (verb, text, title, primary) => {
+    const b = el("button", { type: "button", class: primary ? "primary small" : "small", disabled: !ctx.onSend || ctx.sent?.busy, title: ctx.onSend ? title : ctx.whyNotSend, text });
+    b.addEventListener("click", (e) => {
+      if (e.detail > 0) b.blur();
+      ctx.onSend?.(verb);
+    });
+    return b;
+  };
+  return el("div", { class: "entry-send" },
+    button("run", "Run", `Type ${command.name} and press ENTER: it works on the stack as it is (Enter in the list)`, true),
+    button("insert", "Type", `Type ${command.name} into the command line, without running it (⌘/Ctrl+Enter in the list)`, false),
+    ctx.sent ? el("span", { class: `entry-sent${ctx.sent.error ? " error" : ""}`, role: "status", text: ctx.sent.text }) : null);
 }
 
 function exampleRow(x, i, ctx) {

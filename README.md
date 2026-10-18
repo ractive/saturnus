@@ -710,7 +710,7 @@ that ran the command (interactive, plotting and I/O commands).
 | File | What | Made by |
 |---|---|---|
 | `48sx.json`, `48gx.json`, `49g.json` | The ROM's command names, with library and command numbers; the menus that offer each (`menus`) and which key opens which root menu (`menu_keys`) | `saturnus-refgen catalog`, then `saturnus-refgen menus` |
-| `reference.json` | Our description, stack effect and example inputs per command, and our group where neither the ROM's menus nor a manual places it | written by hand |
+| `reference.json` | Our long name (what the mnemonic stands for, where it says more: `RSD` "Residual"), description, stack effect and example inputs per command, and our group where neither the ROM's menus nor a manual places it | written by hand |
 | `examples-48sx.json`, ... | Each example input run on that model: the typed input stack and result, the display text, or the calculator's error | `saturnus-refgen examples` |
 | `manuals.json` | The public URLs of HP's manuals and the PDF page of each command in them | `scripts/manual-pages.py` |
 | `categories.json` | Per command and model, the key or menu a manual names for it (`MTH`, `PLOT`, `Keyboard`, the 49G CAS's `Arithmetic`), with the manual and page, and the ROM's menus (`menus`, as in the catalogs) | `scripts/manual-categories.py` and `saturnus-refgen menus` |
