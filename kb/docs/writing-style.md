@@ -68,6 +68,9 @@ Machine-read strings (JSON keys, CLI flag and subcommand names, protocol
 messages, storage keys, file names, CSS classes, test selectors), code
 comments (except crate-level docs shown on docs.rs), the changelog's
 released sections, `AI_NOTICE`, `LICENSE`, and `kb/`. `web/about.json`,
-`web/flags.json` and `web/commands.json` are generated from the wiki
-(`just about`, `just flags`, `just commands`): fix their texts at the
-source, not in the JSON.
+`web/flags.json` and `web/commands.json` are generated: fix their texts
+at the source, not in the JSON. `about.json` takes its sources from the
+wiki and its own texts (the ROM notes) from `scripts/about-json.py`
+(`just about`); `commands.json` comes from
+`crates/saturnus-cli/data/commands/reference.json` (`just commands`);
+`flags.json` from the wiki (`just flags`).
