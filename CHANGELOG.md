@@ -5,6 +5,23 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## 0.7.0 (2026-10-18)
+
+- **Calculators and ROMs on the home page.** Choosing, switching, giving
+  a ROM and removing a calculator happen on the home page (⋯ menu with
+  Change ROM… and Remove, "New calculator" with Choose… and Download);
+  "Start the last calculator when the app opens" picks the start page.
+  The Calculator panel shows the ROM with Change ROM… and links home.
+- **Command reference**: long names (RSD "Residual", DUP "Duplicate"),
+  shown in the entry and the list and found by search; Run and Type for
+  the command itself; examples as the stack before and after the
+  command; the menu tree and the list scroll inside their card.
+- **One look** for the panel, the memory view and the home page: cards,
+  bold headings, the panel grouped into ROM, Clock, Speed and Display.
+- No Files link and no Edit button on models without them; the tour
+  points out Control- and Option-click for the shifted functions; the
+  storage line explains Keep permanently.
+
 ## 0.6.0 (2026-10-17)
 
 - **One app.** The emulator and saturnus tx are one app, "saturnus",
