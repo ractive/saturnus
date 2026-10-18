@@ -10,6 +10,9 @@
   --desk: #dad7ce;
   --panel: #f1efe9;
   --paper: #fbfaf6;
+  /* The cards (models, Get it): off-white with a touch of forest green. */
+  --card: #f3f6f0;
+  --card-border: #dde4da;
   --ink: #23221e;
   --muted: #6c6962;
   --rule: #cbc7bb;
@@ -69,6 +72,8 @@
     --desk: #1c1c1b;
     --panel: #272724;
     --paper: #1e1e1c;
+    --card: #1d221f;
+    --card-border: #2f3833;
     --ink: #e8e5dd;
     --muted: #a19e95;
     --rule: #3f3e39;
@@ -280,8 +285,8 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   flex-direction: column;
   container-type: inline-size;
   padding: var(--s4);
-  background: var(--paper);
-  border: 1px solid var(--rule-soft);
+  background: var(--card);
+  border: 1px solid var(--card-border);
   border-radius: var(--r-lg);
 }
 /* Every case has the same height, set from the card's width (container
@@ -471,8 +476,8 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   grid-template-rows: subgrid;
   row-gap: var(--s3);
   padding: var(--s5);
-  background: var(--paper);
-  border: 1px solid var(--rule-soft);
+  background: var(--card);
+  border: 1px solid var(--card-border);
   border-top: 3px solid var(--accent);
   border-radius: var(--r-lg);
   min-width: 0;
