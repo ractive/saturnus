@@ -360,13 +360,13 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .dlg-line { margin-top: var(--s2); font-size: var(--fs-lg); }
 .dlg-price { margin-top: var(--s2); color: var(--muted); font-size: var(--fs-sm); }
 .dlg-facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s3) var(--s5);
+  columns: 2;
+  column-gap: var(--s5);
   margin: 0;
   padding-top: var(--s4);
   border-top: 1px solid var(--rule-soft);
 }
+.dlg-facts > div { break-inside: avoid; padding-bottom: var(--s3); }
 .dlg-facts dt { font-size: var(--fs-sm); color: var(--muted); }
 .dlg-facts dd { margin: 0; }
 .dlg-part { margin-bottom: var(--s5); max-width: 62ch; }
@@ -391,7 +391,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   .dlg-head > img { grid-row: auto; }
   .dlg-head > .dlg-facts { grid-column: 1 / -1; }
   .dlg-head img { width: 84px; }
-  .dlg-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3) var(--s4); }
+  .dlg-facts { column-gap: var(--s4); }
   .dlg-head h3 { font-size: var(--fs-xl); }
   .dlg-line { font-size: var(--fs-base); }
 }
