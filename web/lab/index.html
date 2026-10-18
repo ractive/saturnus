@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="color-scheme" content="light dark">
+<title>saturnus lab</title>
+<meta name="description" content="A design study: the HP 48GX or 49G ROM as the engine under a modern, keyless UI. Typed commands, the whole stack rendered from decoded objects, graphs at the screen's resolution.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="lab.css">
+<script src="../shared/models.js"></script>
+<script src="../shared/theme-boot.js"></script>
+</head>
+<body>
+<!-- The lab (kb/research/modern-ui-on-the-rom.md): a throwaway prototype of a
+     terminal-and-stack UI over the real ROM. Nothing of the app (../index.html)
+     is loaded here; only the hub Worker, the tokens and a few pure modules
+     are shared. -->
+<header class="lab-bar">
+  <a class="brand" href="../" title="saturnus">
+    <svg class="logo" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg>
+    <span>saturnus</span><span class="lab-tag">lab</span>
+  </a>
+  <span id="lab-model" class="lab-model muted">no calculator</span>
+  <span id="lab-status" class="lab-status" role="status" aria-live="polite"></span>
+  <span class="lab-spacer"></span>
+  <button id="lab-screen" class="small" type="button" aria-pressed="false" title="The calculator's own screen (for forms, menus and apps)">Screen</button>
+  <button id="lab-keys" class="small" type="button" aria-pressed="false" title="The calculator's keys, for what no command does">Keys</button>
+  <button id="lab-rom" class="small" type="button" title="Choose a ROM file">ROM…</button>
+  <input id="lab-file" type="file" hidden>
+</header>
+
+<main class="lab-main">
+  <section id="lab-stack" class="lab-stack" aria-label="The stack">
+    <div id="lab-empty" class="lab-empty">
+      <h1>A calculator with no keys</h1>
+      <p>The HP 48GX or 49G ROM runs underneath. Type a command below and press Enter; the whole stack is drawn here from the calculator's memory, level 1 at the bottom. <kbd>⌘K</kbd> focuses the line, <kbd>Tab</kbd> completes a command, <kbd>↑</kbd> brings back the last one.</p>
+      <p id="lab-boot-hint" class="muted">Start with a kept ROM: <span id="lab-kept"></span> or <button id="lab-rom-2" class="link" type="button">choose a ROM file</button>.</p>
+    </div>
+    <ol id="lab-levels" class="lab-levels" aria-label="Stack levels"></ol>
+    <ol id="lab-results" class="lab-results" aria-label="Graphs"></ol>
+  </section>
+
+  <aside id="lab-lcd" class="lab-lcd" hidden aria-label="The calculator's screen">
+    <div class="lab-lcd-head">
+      <span class="caps">The calculator's screen</span>
+      <span id="lab-ann" class="lab-ann" aria-label="Annunciators"></span>
+      <button id="lab-lcd-close" class="icon small" type="button" title="Hide the screen" aria-label="Hide the screen">×</button>
+    </div>
+    <canvas id="lab-canvas" class="lab-canvas" width="131" height="64" aria-label="The display, as the ROM draws it"></canvas>
+    <div id="lab-softkeys" class="lab-softkeys" aria-label="Menu keys"></div>
+    <div id="lab-keygrid" class="lab-keygrid" hidden aria-label="Keys"></div>
+  </aside>
+</main>
+
+<footer class="lab-foot">
+  <ol id="lab-log" class="lab-log" aria-label="What was run"></ol>
+  <div id="lab-suggest" class="lab-suggest" role="listbox" aria-label="Suggestions" hidden></div>
+  <form id="lab-form" class="lab-form" autocomplete="off">
+    <span class="lab-prompt" aria-hidden="true">›</span>
+    <input id="lab-input" class="lab-input" type="text" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="send" placeholder="Type a command or a number… (⌘K)" aria-label="Command line" aria-autocomplete="list" aria-controls="lab-suggest">
+    <button id="lab-run" class="primary small" type="submit" title="Run (Enter)">Run</button>
+  </form>
+  <p id="lab-line" class="lab-line muted" hidden></p>
+</footer>
+
+<script type="module" src="lab.js"></script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+/* The lab (kb/research/modern-ui-on-the-rom.md): a terminal-and-stack UI
+   over the ROM. Only the shared tokens (../shared/tokens.css) are used;
+   nothing of the app's own stylesheets. */
+
+:root {
+  --lab-level-fs: 22px;
+  --lab-max-w: 920px;
+}
+
+html, body { height: 100%; }
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--paper);
+  overscroll-behavior: none;
+}
+
+/* ------------------------------------------------------------------ bar */
+.lab-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: calc(var(--s2) + var(--safe-t)) var(--gutter) var(--s2);
+  border-bottom: 1px solid var(--rule-soft);
+  background: var(--panel);
+  flex: none;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+}
+.logo .ring { fill: none; stroke: var(--muted); stroke-width: 1.6; }
+.logo .planet { fill: var(--accent); }
+.lab-tag {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--accent-text);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-pill);
+  padding: 0 var(--s2);
+  line-height: 1.6;
+}
+.lab-model { font-size: var(--fs-md); white-space: nowrap; }
+.lab-status { font-size: var(--fs-md); color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lab-status.busy { color: var(--accent-text); }
+.lab-status.error { color: var(--error); }
+.lab-spacer { flex: 1 1 auto; }
+.lab-bar button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+
+/* ----------------------------------------------------------------- main */
+.lab-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  gap: var(--s5);
+  padding: 0 var(--gutter);
+  overflow: hidden;
+}
+.lab-stack {
+  flex: 1 1 auto;
+  max-width: var(--lab-max-w);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s4) 0;
+}
+/* The column sits at the bottom (not justify-content: flex-end, which
+   would make the overflow above unreachable by scrolling). */
+.lab-levels { margin-top: auto; }
+.lab-empty { margin: auto 0; max-width: 60ch; }
+.lab-empty h1 { font-size: var(--fs-2xl); font-weight: 600; margin: 0 0 var(--s3); }
+.lab-empty p { margin: 0 0 var(--s3); }
+.lab-kept button { margin-right: var(--s2); }
+
+/* The levels: a column, level 1 at the bottom. Each row has its number in
+   a gutter, the object, and the type on the right. */
+.lab-levels {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lab-level {
+  display: grid;
+  grid-template-columns: 3ch 1fr auto;
+  gap: var(--s3);
+  align-items: baseline;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-md);
+  transition: background-color var(--t);
+}
+.lab-level:hover { background: var(--panel); }
+.lab-level.fresh { animation: lab-fresh 600ms var(--ease); }
+@keyframes lab-fresh { from { background: var(--accent-soft); } to { background: transparent; } }
+.lab-level .n {
+  font: var(--fs-sm)/1 var(--mono);
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.lab-level .obj {
+  min-width: 0;
+  font: var(--lab-level-fs)/1.3 var(--mono);
+  overflow-wrap: anywhere;
+}
+.lab-level .type {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.lab-level:first-child .obj { font-size: var(--lab-level-fs); }
+/* Level 1 reads as the answer: a notch larger, in ink. */
+.lab-level[data-level="1"] { padding-top: var(--s3); padding-bottom: var(--s3); border-top: 1px solid var(--rule-soft); border-radius: 0; margin-top: var(--s2); }
+.lab-level[data-level="1"] .obj { font-size: calc(var(--lab-level-fs) * 1.25); }
+/* The lab's own results (a graph), under the stack, kept while it changes. */
+.lab-results { list-style: none; margin: var(--s2) 0 0; padding: 0; display: grid; gap: var(--s2); }
+.lab-results .lab-level { grid-template-columns: 3ch 1fr auto; }
+.lab-level .obj .num { font-variant-numeric: tabular-nums; }
+.lab-level .obj .str { color: var(--syn-str); }
+.lab-level .obj .name { color: var(--syn-var); }
+.lab-level .obj .unit { color: var(--syn-cmd); font-size: 0.8em; margin-left: 0.15em; }
+.lab-level .obj .tag { color: var(--syn-kw); font-size: 0.75em; margin-right: 0.4em; vertical-align: 0.1em; }
+.lab-level .obj .delim { color: var(--syn-delim); }
+.lab-level .obj .kw { color: var(--syn-kw); }
+.lab-level .obj .cmd { color: var(--syn-cmd); }
+.lab-level .obj .partial { color: var(--muted); }
+/* A list: its items as chips that wrap. */
+.lab-list { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s2); font-size: 0.85em; align-items: baseline; }
+.lab-list .item { background: var(--panel); border-radius: var(--r-sm); padding: 0 var(--s1); }
+.lab-list .more { color: var(--muted); font-size: var(--fs-sm); }
+/* A matrix: a grid, columns to the right. */
+.lab-matrix { border-collapse: collapse; font-size: 0.8em; }
+.lab-matrix td { padding: 1px var(--s2); text-align: right; font-variant-numeric: tabular-nums; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); }
+.lab-matrix tr:first-child td { border-top: 1px solid var(--rule); }
+.lab-matrix tr:last-child td { border-bottom: 1px solid var(--rule); }
+/* A program: its lines indented by structure. */
+.lab-prog { margin: 0; font: inherit; font-size: 0.75em; white-space: pre; overflow-x: auto; }
+/* An algebraic: the expression, and Plot when it is a function of X. */
+.lab-alg { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; }
+.lab-alg sup { font-size: 0.65em; }
+.lab-alg .lab-plot-btn { font-size: var(--fs-sm); }
+/* A graphic, drawn crisp at an integer multiple of the device pixel. */
+.lab-grob { display: block; image-rendering: pixelated; border: 1px solid var(--rule); background: var(--display); max-width: 100%; height: auto; }
+/* A graph card the lab drew (a `:plot`), in the stack column. */
+.lab-graph { display: block; width: 100%; max-width: 440px; border-radius: var(--r-md); border: 1px solid var(--rule-soft); background: var(--card); }
+.lab-graph-wrap { display: grid; gap: var(--s1); }
+.lab-graph-wrap .cap { font: var(--fs-sm)/1.4 var(--font); color: var(--muted); }
+
+/* ------------------------------------------------------------------ LCD */
+.lab-lcd {
+  flex: 0 0 auto;
+  width: min(420px, 100%);
+  align-self: flex-end;
+  margin-bottom: var(--s4);
+  padding: var(--s3);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: var(--s2);
+}
+.lab-lcd-head { display: flex; align-items: center; gap: var(--s2); }
+.lab-lcd-head .caps { flex: 1 1 auto; }
+.lab-ann { font: var(--fs-xs)/1 var(--mono); color: var(--accent-text); letter-spacing: 0.05em; }
+.lab-lcd-head .icon.small { width: 28px; height: 28px; min-height: 0; }
+.lab-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 131 / 64;
+  image-rendering: pixelated;
+  background: var(--display);
+  border-radius: var(--r-sm);
+}
+.lab-softkeys { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--s1); }
+.lab-softkeys button, .lab-keygrid button { min-height: max(28px, calc(var(--tap) - 8px)); padding: 0; font: var(--fs-sm)/1 var(--mono); border-radius: var(--r-sm); }
+.lab-keygrid { display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; }
+.lab-keygrid button { grid-column: span var(--w, 5); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); }
+.lab-keygrid button.shift-l { background: var(--accent-soft); }
+.lab-keygrid button.shift-r { background: var(--syn-match); }
+
+/* ----------------------------------------------------------------- foot */
+.lab-foot {
+  flex: none;
+  position: relative;
+  padding: var(--s2) var(--gutter) calc(var(--s3) + var(--safe-b));
+  border-top: 1px solid var(--rule-soft);
+  background: var(--panel);
+}
+.lab-foot > * { max-width: var(--lab-max-w); margin-left: auto; margin-right: auto; }
+.lab-log { list-style: none; margin: 0 auto var(--s2); padding: 0; display: grid; gap: 2px; font: var(--fs-md)/1.4 var(--mono); }
+.lab-log li { display: flex; gap: var(--s2); color: var(--muted); min-width: 0; }
+.lab-log li .text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.lab-log li.error { color: var(--error); }
+.lab-log li .what { flex: none; }
+.lab-form {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  background: var(--control);
+  border: 1px solid var(--control-border);
+  border-radius: var(--r-md);
+  padding: 0 var(--s2) 0 var(--s3);
+  box-shadow: var(--shadow-ctl);
+}
+.lab-form:focus-within { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: -1px; }
+.lab-prompt { color: var(--accent-text); font: var(--fs-xl)/1 var(--mono); }
+.lab-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: var(--fs-xl)/1.4 var(--mono);
+  min-height: max(var(--tap), 44px);
+  outline: none;
+  color: var(--ink);
+}
+.lab-input::placeholder { color: var(--muted); font-family: var(--font); font-size: var(--fs-base); }
+.lab-line { margin: var(--s1) auto 0; font: var(--fs-sm)/1.4 var(--mono); }
+/* Suggestions: a popover over the stack, above the input. */
+.lab-suggest {
+  position: absolute;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: 100%;
+  margin: 0 auto var(--s1);
+  max-width: var(--lab-max-w);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+  z-index: 2;
+}
+.lab-suggest [role=option] {
+  display: grid;
+  grid-template-columns: minmax(8ch, auto) 1fr;
+  gap: var(--s3);
+  align-items: baseline;
+  padding: var(--s1) var(--s3);
+  cursor: pointer;
+  min-height: var(--row);
+}
+.lab-suggest [role=option][aria-selected=true] { background: var(--accent-soft); }
+.lab-suggest .sname { font: var(--fs-base)/1.4 var(--mono); }
+.lab-suggest .sdesc { font-size: var(--fs-md); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.lab-suggest .sdesc b { font-weight: 500; color: var(--ink); }
+.lab-suggest .sdesc .fx { font-family: var(--mono); margin-right: var(--s2); }
+
+/* ---------------------------------------------------------------- phone */
+@media (max-width: 760px) {
+  :root { --lab-level-fs: 19px; }
+  .lab-main { flex-direction: column; gap: 0; }
+  .lab-stack { flex: 1 1 0; min-height: 96px; }
+  .lab-lcd { width: 100%; align-self: stretch; margin-bottom: var(--s2); max-height: 62dvh; overflow-y: auto; }
+  .lab-model { display: none; }
+  .lab-level { grid-template-columns: 2.5ch 1fr; }
+  .lab-level .type { display: none; }
+  .lab-suggest [role=option] { grid-template-columns: 1fr; gap: 0; }
+  .lab-suggest .sdesc { white-space: normal; }
+  .lab-suggest [role=option]:nth-child(n+6) { display: none; }
+  .lab-input::placeholder { font-size: var(--fs-md); }
+}
