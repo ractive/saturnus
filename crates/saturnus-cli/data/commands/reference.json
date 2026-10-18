@@ -1,6 +1,7 @@
 {
   "commands": {
     "!": {
+      "name": "Factorial",
       "description": "Computes the factorial of a non-negative integer; for other reals it uses the gamma function, giving Γ(x+1).",
       "stack": "n → n!; x → Γ(x+1); 'symb' → '(symb)!'",
       "examples": [
@@ -16,6 +17,7 @@
       ]
     },
     "%": {
+      "name": "Percent",
       "description": "Computes y percent of x, i.e. x·y/100. Units on x carry over to the result.",
       "stack": "x y → x·y/100; x_unit y → (x·y/100)_unit; 'symb' y → '%(symb,y)'",
       "examples": [
@@ -60,6 +62,7 @@
       "skip": "a delimiter of command-line and program source, not a command that runs on its own"
     },
     "*": {
+      "name": "Multiply",
       "description": "Multiplies two objects: numbers, binary integers, units (combining their dimensions), algebraics, and arrays including matrix by matrix or matrix by vector products.",
       "stack": "x y → x*y; [[matrix]] [array] → [array]'; x_unit1 y_unit2 → (x*y)_unit1*unit2",
       "category": "Keyboard",
@@ -100,6 +103,7 @@
       ]
     },
     "+": {
+      "name": "Add",
       "description": "Adds two objects: numbers, binary integers, arrays of equal size, compatible unit objects and algebraics. With strings it concatenates, and with a list it appends or joins lists.",
       "stack": "x y → x+y; \"str1\" \"str2\" → \"str1str2\"; {list} obj → {list'}",
       "category": "Keyboard",
@@ -116,6 +120,7 @@
       ]
     },
     "-": {
+      "name": "Subtract",
       "description": "Subtracts level 1 from level 2 for reals, complex numbers, binary integers, same-size arrays, compatible units and algebraics.",
       "stack": "x y → x-y; z1 z2 → z1-z2; 'symb1' 'symb2' → 'symb1-symb2'",
       "category": "Keyboard",
@@ -132,6 +137,7 @@
       ]
     },
     "/": {
+      "name": "Divide",
       "description": "Divides level 2 by level 1 for numbers, binary integers, units and algebraics; with a matrix in level 1 it solves the linear system for the array in level 2.",
       "stack": "x y → x/y; [array] [[matrix]] → [array]'; 'symb1' 'symb2' → 'symb1/symb2'",
       "category": "Keyboard",
@@ -154,6 +160,7 @@
       "skip": "a syntax separator, not a command that does anything on its own"
     },
     "<": {
+      "name": "Less than",
       "description": "Compares level 2 against level 1 and pushes 1 if it is smaller, else 0; accepts reals, binary integers, strings (compared by character code) and units of compatible dimension, and yields a symbolic comparison for names or algebraics.",
       "stack": "x y → 0/1; \"s1\" \"s2\" → 0/1; 'symb' x → 'symb<x'",
       "examples": [
@@ -169,6 +176,7 @@
       ]
     },
     "=": {
+      "name": "Equation",
       "description": "Joins two objects into an equation with the first as left side and the second as right side. Evaluating the equation numerically gives the difference of the two sides.",
       "stack": "obj1 obj2 → 'obj1=obj2'",
       "category": "Keyboard",
@@ -182,6 +190,7 @@
       ]
     },
     "==": {
+      "name": "Equal (test)",
       "description": "Tests two objects for equality, returning 1 or 0; reals and complex numbers compare by value, other objects by type and content. When a name or algebraic is involved it returns a symbolic comparison instead.",
       "stack": "obj1 obj2 → 0/1; 'symb' x → 'symb==x'",
       "examples": [
@@ -197,6 +206,7 @@
       ]
     },
     ">": {
+      "name": "Greater than",
       "description": "Compares level 2 against level 1 and pushes 1 if it is larger, else 0; accepts reals, binary integers, strings and compatible units, and yields a symbolic comparison for names or algebraics.",
       "stack": "x y → 0/1; \"s1\" \"s2\" → 0/1; 'symb' x → 'symb>x'",
       "examples": [
@@ -1358,6 +1368,7 @@
       ]
     },
     "COS": {
+      "name": "Cosine",
       "description": "Cosine of an angle in the current angle mode, for reals, complex numbers and algebraics.",
       "stack": "x → cos x; z → cos z; 'symb' → 'COS(symb)'",
       "category": "Keyboard",
@@ -2039,6 +2050,7 @@
       "skip": "draws into the graphics picture and returns nothing to the stack"
     },
     "DRAW3DMATRIX": {
+      "name": "Draw 3D matrix",
       "description": "Draws a matrix as a 3D bar chart, one bar per element, with heights scaled between a given minimum and maximum value.",
       "stack": "[[matrix]] x_min x_max →",
       "category": "PLOT",
@@ -2072,6 +2084,7 @@
       ]
     },
     "DROP2": {
+      "name": "Drop two",
       "description": "Discards the top two stack objects.",
       "stack": "obj1 obj2 →",
       "examples": [
@@ -2104,6 +2117,7 @@
       ]
     },
     "DUP": {
+      "name": "Duplicate",
       "description": "Duplicates the top stack object.",
       "stack": "obj → obj obj",
       "examples": [
@@ -2116,6 +2130,7 @@
       ]
     },
     "DUP2": {
+      "name": "Duplicate two",
       "description": "Duplicates the top two stack objects, keeping their order.",
       "stack": "obj1 obj2 → obj1 obj2 obj1 obj2",
       "examples": [
@@ -2125,6 +2140,7 @@
       ]
     },
     "DUPDUP": {
+      "name": "Duplicate twice",
       "description": "Pushes two extra copies of the level 1 object.",
       "stack": "x → x x x",
       "examples": [
@@ -4642,6 +4658,7 @@
       ]
     },
     "NIP": {
+      "name": "Drop level 2",
       "description": "Removes the object on level 2, leaving the level 1 object in its place.",
       "stack": "x y → y",
       "examples": [
@@ -5047,6 +5064,7 @@
       ]
     },
     "PICK3": {
+      "name": "Pick level 3",
       "description": "Pushes a copy of the object found on level 3.",
       "stack": "x y z → x y z x",
       "examples": [
@@ -6780,6 +6798,7 @@
       ]
     },
     "SIN": {
+      "name": "Sine",
       "description": "Sine of an angle, read in whichever angle mode is active (degrees, radians or grads); complex arguments and algebraics are accepted too.",
       "stack": "x → sin x; z → sin z; 'symb' → 'SIN(symb)'",
       "category": "Keyboard",
@@ -7529,6 +7548,7 @@
       ]
     },
     "TAN": {
+      "name": "Tangent",
       "description": "Tangent of an angle in the current angle mode, for reals, complex numbers and algebraics.",
       "stack": "x → tan x; z → tan z; 'symb' → 'TAN(symb)'",
       "category": "Keyboard",
@@ -7719,6 +7739,7 @@
       "skip": "internal routine of the statistics interval forms with undocumented arguments"
     },
     "TICKS": {
+      "name": "System clock ticks",
       "description": "Returns the system clock as a binary integer counting ticks of 1/8192 second; differences of two readings time an operation.",
       "stack": "→ #n",
       "examples": [
@@ -8125,6 +8146,7 @@
       ]
     },
     "UNROT": {
+      "name": "Unrotate",
       "description": "Rotates the top three stack levels the opposite way to ROT: the object on level 1 moves to level 3 and the other two move up.",
       "stack": "x y z → z x y",
       "examples": [
@@ -8708,6 +8730,7 @@
       ]
     },
     "^": {
+      "name": "Power",
       "description": "Raises level 2 to the power in level 1. A negative real base with a fractional exponent gives a complex result; symbolic arguments give an algebraic.",
       "stack": "x y → x^y; z1 z2 → z1^z2; 'symb' y → 'symb^y'",
       "category": "Keyboard",
@@ -8753,6 +8776,7 @@
       ]
     },
     "e": {
+      "name": "Euler's number",
       "description": "Returns the base of natural logarithms, either as the symbol 'e' or, when numeric results or numeric constants are selected, as the real 2.71828182846.",
       "stack": "→ 'e'; → x",
       "category": "MTH",
@@ -8785,6 +8809,7 @@
       ]
     },
     "i": {
+      "name": "Imaginary unit",
       "description": "Returns the imaginary unit, either as the symbol 'i' or, when evaluated numerically, as the complex number (0,1).",
       "stack": "→ 'i'; → z",
       "category": "MTH",
@@ -9072,6 +9097,7 @@
       ]
     },
     "π": {
+      "name": "Pi",
       "description": "Returns the constant pi, either as the symbol 'π' or, when numeric results or numeric constants are selected, as the 12-digit real 3.14159265359.",
       "stack": "→ 'π'; → x",
       "category": "Keyboard",
@@ -9563,6 +9589,7 @@
       ]
     },
     "√": {
+      "name": "Square root",
       "description": "Gives the principal square root. A negative real yields a complex result, and units and algebraics are handled as well.",
       "stack": "x → √x; z → √z; 'symb' → '√symb'",
       "category": "Keyboard",
@@ -9579,6 +9606,7 @@
       ]
     },
     "∞": {
+      "name": "Infinity",
       "description": "Puts the symbolic constant for unsigned infinity on the stack, for use in limits, integrals and series.",
       "stack": "→ '∞'",
       "category": "Constants",
@@ -9610,6 +9638,7 @@
       ]
     },
     "≠": {
+      "name": "Not equal",
       "description": "Tests two objects for inequality, returning 1 when they differ and 0 when they are equal; with names or algebraics it builds a symbolic comparison.",
       "stack": "obj1 obj2 → 0/1; 'symb' x → 'symb≠x'",
       "examples": [
@@ -9622,6 +9651,7 @@
       ]
     },
     "≤": {
+      "name": "Less than or equal",
       "description": "Compares level 2 against level 1 and pushes 1 if it is smaller or equal, else 0; accepts reals, binary integers, strings and compatible units, and yields a symbolic comparison for names or algebraics.",
       "stack": "x y → 0/1; \"s1\" \"s2\" → 0/1; 'symb' x → 'symb≤x'",
       "examples": [
@@ -9634,6 +9664,7 @@
       ]
     },
     "≥": {
+      "name": "Greater than or equal",
       "description": "Compares level 2 against level 1 and pushes 1 if it is larger or equal, else 0; accepts reals, binary integers, strings and compatible units, and yields a symbolic comparison for names or algebraics.",
       "stack": "x y → 0/1; \"s1\" \"s2\" → 0/1; 'symb' x → 'symb≥x'",
       "examples": [
