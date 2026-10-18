@@ -265,7 +265,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model-row {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--s4);
+  gap: var(--s6);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -277,12 +277,13 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
    wider and shorter than the 48s). */
 .model img {
   display: block;
-  width: 100%;
   height: auto;
   aspect-ratio: 1 / 2;
   object-fit: contain;
   object-position: center bottom;
-  margin-bottom: var(--s3);
+  /* Some air around each case: the picture is narrower than its text. */
+  width: 84%;
+  margin: 0 auto var(--s3);
 }
 .model h3 {
   display: flex;
