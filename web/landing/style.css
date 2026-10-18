@@ -282,7 +282,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   object-fit: contain;
   object-position: center bottom;
   /* Some air around each case: the picture is narrower than its text. */
-  width: 84%;
+  width: 90%;
   margin: 0 auto var(--s3);
 }
 .model h3 {
