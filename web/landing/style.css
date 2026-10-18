@@ -263,7 +263,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   .hero-calc img { width: 150px; }
 }
 
-/* The models: rows of cards. */
+/* The models: one grid of twelve cards. */
 .model-row {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -272,21 +272,16 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   padding: 0;
   list-style: none;
 }
-/* The models whose ROM is read out of one's own calculator, below the rest. */
-.model-row.second { margin-top: var(--s7); }
-/* Every case in a row has the same height, set from the card's width
-   (container units): the row's widest case, the 38G among the first six
-   and the 42S/27S/17B family among the rest, fills 90% of its card,
-   up to the height the six-a-row layout gives (300 and 260 px). */
-.model { min-width: 0; display: flex; flex-direction: column; container-type: inline-size; }
+/* Every case has the same height, set from the card's width (container
+   units) so that the widest, the 42S/27S/17B family, fills 90% of its
+   card, and no taller than 260 px when the cards are wide. */
 .model img {
   display: block;
-  height: min(186cqi, 300px);
+  height: min(161cqi, 260px);
   width: auto;
   max-width: 100%;
   margin: 0 auto var(--s3);
 }
-.model-row.second .model img { height: min(161cqi, 260px); }
 .model h3 {
   display: flex;
   align-items: center;
@@ -426,9 +421,13 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model-dlg.instant,
 .model-dlg.instant::backdrop { transition: none; }
 
-/* Six cards a row on a wide screen, three on a tablet, two on a phone. */
+/* Twelve cards: six a row on a wide screen, then four, three, two. */
+.model-row { row-gap: var(--s6); }
 @media (max-width: 1099px) {
-  .model-row { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--s6); }
+  .model-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 799px) {
+  .model-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 599px) {
   .model-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5) var(--s4); }
