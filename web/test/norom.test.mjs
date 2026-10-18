@@ -23,7 +23,7 @@ test("the empty state: none asked for, not running, or no ROM; the 42S needs a d
   assert.equal(emptyText("49g", "HP 49G", { asked: true }), "No ROM for the HP 49G.");
   assert.equal(noRomText("49g", "HP 49G"), "No ROM for the HP 49G.");
   assert.match(noRomText("42s", "HP 42S"), /read the ROM out of your own calculator/);
-  assert.match(noRomText("19bii", "HP 19BII"), /no download, and saturnus has no way to get this ROM for you/);
+  assert.match(noRomText("19bii", "HP 19BII"), /There is no download for it\. If you have the file, choose it\./);
   assert.doesNotMatch(noRomText("19bii", "HP 19BII"), /own calculator/);
   for (const m of ["27s", "17bii", "17b", "28s"]) {
     assert.match(noRomText(m, m), /HP never published it: read the ROM out of your own calculator/);

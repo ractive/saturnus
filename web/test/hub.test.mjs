@@ -494,7 +494,7 @@ test("two hubs (two tabs' own Workers): the model's auto-save lock lets one keep
   await a.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
   await b.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
   assert.equal(a.events("autoSaveOff").length, 0);
-  assert.match(b.events("autoSaveOff")[0].message, /HP 48GX also runs in another saturnus tab/);
+  assert.match(b.events("autoSaveOff")[0].message, /HP 48GX is also open in another saturnus tab/);
   const eb = engineOf(two.hub, "48gx");
   assert.equal(eb.host.autoSave, false, "its engine saves nothing");
   eb.host.owed = 4;

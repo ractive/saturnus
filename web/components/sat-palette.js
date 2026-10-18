@@ -39,7 +39,7 @@ const TEMPLATE = `
         <span class="palette-glyph" aria-hidden="true">${icon("chevron-right")}</span>
         <input type="text" aria-label="Command, variable, action, or text to send" placeholder="Command, variable, action, or text to send" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
         <span class="palette-model"></span>
-        <kbd class="palette-key" title="Opens and closes this palette"></kbd>
+        <kbd class="palette-key" title="Opens and closes Search"></kbd>
         <kbd class="palette-esc">esc</kbd>
         <button type="button" class="icon palette-close" title="Close" aria-label="Close">${icon("close")}</button>
       </div>

@@ -143,7 +143,7 @@ const TEMPLATE = `
     <div class="card">
       <button id="fullscreen" type="button" class="row-btn">${icon("expand", "ic-sm")}Fullscreen</button>
       <button id="shortcuts" type="button" class="row-btn">${icon("keyboard", "ic-sm")}<span>Keyboard shortcuts</span><kbd class="shortcuts-key kbd-hint" hidden></kbd></button>
-      <button id="about" type="button" class="row-btn">${icon("info", "ic-sm")}<span>About saturnus and its sources</span></button>
+      <button id="about" type="button" class="row-btn">${icon("info", "ic-sm")}<span>About saturnus</span></button>
     </div>
   </section>
 

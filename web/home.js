@@ -39,12 +39,12 @@ const title = (m) => TITLES[m] ?? m;
 
 /** Where a ROM is kept, per host. */
 const KEPT_HINTS = {
-  file: "Kept in this browser so you do not have to pick them again; never uploaded.",
+  file: "Kept in this browser so you do not have to choose them again. Never uploaded.",
   dialog: "The app reads each ROM from where it is; one you download is kept in the app's data folder. Nothing is uploaded.",
 };
 /** How a new calculator gets its ROM, per host (`touch`: a finger's screen, which cannot drop a file). */
 const NEW_HINTS = {
-  file: "Choose the model's ROM file, or drop it on this page. Several files at once each go to their model.",
+  file: "Choose the model's ROM file, or drop it here. Several files at once each go to their model.",
   touch: "Choose the model's ROM file. Several files at once each go to their model.",
   dialog: "Choose the model's ROM file; the other ROMs in its folder are recognised and go to their models.",
 };
@@ -146,7 +146,7 @@ export class Home {
     const touch = !this.app && globalThis.matchMedia?.("(pointer: coarse)").matches;
     $("#home-new-hint").textContent = NEW_HINTS[touch ? "touch" : roms.romSource];
     $("#home-source-hint").textContent = SOURCE_HINTS[roms.romSource];
-    if (this.app) $(".home-boot-last-label").textContent = "Start the last calculator when the app starts";
+    if (this.app) $(".home-boot-last-label").textContent = "Start the last calculator when the app opens";
 
     // A handler's failure it did not show is shown here.
     const blurAfter = (fn) => (e) => {

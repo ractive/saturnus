@@ -101,7 +101,7 @@ fn answer(rx: &Receiver<Result<Value, String>>) -> Result<Value, String> {
     // Dropped unanswered: the page was reloaded while this waited behind
     // an older command, or the machine thread stopped.
     rx.recv().map_err(|_| {
-        "the action was cancelled because the page reloaded or the calculator stopped".to_string()
+        "the action was cancelled because the app reloaded or the calculator stopped".to_string()
     })?
 }
 
@@ -670,7 +670,7 @@ async fn rom_command(
         // gone and there is nothing to admit.
         my_turn
             .recv()
-            .map_err(|_| "the action was cancelled because the page reloaded".to_string())?;
+            .map_err(|_| "the action was cancelled because the app reloaded".to_string())?;
         let machine = app.state::<Machine>();
         let turn = (&*machine, owned.as_str(), seq);
         Ok::<_, String>(rom_turn(&app, &lib, turn, &msg))
@@ -796,7 +796,7 @@ fn send_in_turn(machine: &Machine, session: &str, seq: u64, req: Request) -> Res
         .lock()
         .map_err(|_| internal("the order of commands is lost"))?;
     if !order.holds(session, seq) {
-        return Err("the action was cancelled because the page reloaded".to_string());
+        return Err("the action was cancelled because the app reloaded".to_string());
     }
     machine
         .tx

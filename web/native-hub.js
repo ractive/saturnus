@@ -109,7 +109,7 @@ export class NativeHub {
         if (!model) return;
         // Known from the reply already: its `status` may come after it.
         this.running = model;
-        this.dropAll(cmd === "bootModel" && args.fresh ? "Calculator started this calculator afresh." : "Calculator started this calculator again.");
+        this.dropAll(cmd === "bootModel" && args.fresh ? "Calculator restarted this calculator with an empty memory." : "Calculator restarted this calculator.");
       }, () => {});
     }
     return answer;
@@ -154,7 +154,7 @@ export class NativeHub {
     this.romName = s?.romName ?? "";
     this.heardStatus?.();
     for (const c of this.attached()) {
-      if (c.model !== model) this.drop(c, model ? `Calculator runs the ${title(model)} now.` : "The calculator was turned off in Calculator.");
+      if (c.model !== model) this.drop(c, model ? `Calculator now runs the ${title(model)}.` : "The calculator was turned off in Calculator.");
     }
   }
 
@@ -179,11 +179,11 @@ export class NativeHub {
     const running = await this.knownRunning();
     if (running === undefined) {
       // Never boot over a calculator that may be running: Calculator owns it.
-      throw new Error("Calculator has not said which calculator runs yet. Try again in a moment.");
+      throw new Error("Calculator is still starting. Try again in a moment.");
     } else if (running === model) {
       booted = { model, romName: this.romName, restored: true, attached: true };
     } else if (running) {
-      throw new Error(`Calculator runs the ${title(running)}: Files reaches the calculator Calculator shows. Switch to the ${title(model)} there first.`);
+      throw new Error(`Calculator runs the ${title(running)}, and Files can only reach the calculator shown there. Switch to the ${title(model)} in Calculator first.`);
     } else {
       const r = await this.raw("bootModel", { model });
       booted = r?.booted;

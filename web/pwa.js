@@ -116,7 +116,7 @@ function showUpdate(reload) {
   box.className = "update-notice";
   box.setAttribute("role", "status");
   const text = document.createElement("p");
-  text.textContent = "A new version of saturnus is ready. Reloading restarts the calculator (save its state first to keep it); otherwise the new version starts once every saturnus page has closed.";
+  text.textContent = "A new version of saturnus is ready. Reloading restarts the calculator, so save its state first. Otherwise the new version starts once every saturnus tab is closed.";
   const later = document.createElement("button");
   later.type = "button";
   later.textContent = "Later";
@@ -140,7 +140,7 @@ function showUpdate(reload) {
 function showOthers() {
   const box = document.querySelector(".update-notice");
   if (!box) return;
-  box.querySelector("p").textContent = "A new version of saturnus is ready. Other saturnus pages are open and keep this version; it starts once every saturnus page has closed.";
+  box.querySelector("p").textContent = "A new version of saturnus is ready. Other saturnus tabs are open and keep this version; the new one starts once every saturnus tab is closed.";
   box.querySelector("button.primary")?.remove();
   const later = box.querySelector("button");
   if (later) later.textContent = "OK";
@@ -308,7 +308,7 @@ export function showStorageOffer(store, choice, doc = document, host = null) {
       return b;
     };
     if (offer === "ask") {
-      text.textContent = "Keep this ROM on this device? Without this, the browser may delete it when space runs low, and you'd have to pick it again.";
+      text.textContent = "Keep this ROM on this device? Without this, the browser may delete it when space runs low, and you would have to choose it again.";
       const keep = button("Keep it", () => {
         keep.disabled = true;
         choice.keep();

@@ -21,7 +21,7 @@ const TEMPLATE = `
     </div>
     <div class="about-body">
       <p class="about-version"></p>
-      <p class="about-tour"><button type="button" class="tour-start">Show me around</button> <span class="hint">A short tour of the page, one element at a time.</span></p>
+      <p class="about-tour"><button type="button" class="tour-start">Show me around</button> <span class="hint">A short tour of the app.</span></p>
       <div class="about-statement"></div>
       <h3>Checked against</h3>
       <ul class="about-oracles"></ul>
@@ -168,7 +168,7 @@ export class SatAbout extends HTMLElement {
 SatAbout.prototype.loadManuals = async function loadManuals() {
   const list = this.querySelector(".about-manuals");
   if (!this.reference) {
-    list.append(el("li", { class: "about-where" }, "Not available on this page."));
+    list.append(el("li", { class: "about-where" }, "Not available here."));
     return;
   }
   try {
