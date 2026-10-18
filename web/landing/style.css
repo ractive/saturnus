@@ -11,8 +11,8 @@
   --panel: #f1efe9;
   --paper: #fbfaf6;
   /* The cards (models, Get it): off-white with a touch of forest green. */
-  --card: #e5ece3;
-  --card-border: #cfdacb;
+  --card: #ebefe7;
+  --card-border: #d7ded3;
   --ink: #23221e;
   --muted: #6c6962;
   --rule: #cbc7bb;
@@ -72,8 +72,8 @@
     --desk: #1c1c1b;
     --panel: #272724;
     --paper: #1e1e1c;
-    --card: #1f2a24;
-    --card-border: #33443a;
+    --card: #1e2622;
+    --card-border: #313e37;
     --ink: #e8e5dd;
     --muted: #a19e95;
     --rule: #3f3e39;
