@@ -272,19 +272,18 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 }
 /* The models whose ROM is read out of one's own calculator, below the rest. */
 .model-group { margin: var(--s6) 0 var(--s4); }
-.model { min-width: 0; display: flex; flex-direction: column; }
-/* Every case stands on one line, whatever its proportions (the 42S is
-   wider and shorter than the 48s). */
+/* Every case in a row has the same height, set from the card's width
+   (container units): the row's widest case, the 38G among the first six
+   and the 42S/27S/17B family among the rest, fills 90% of its card. */
+.model { min-width: 0; display: flex; flex-direction: column; container-type: inline-size; }
 .model img {
   display: block;
-  height: auto;
-  aspect-ratio: 1 / 2;
-  object-fit: contain;
-  object-position: center bottom;
-  /* Some air around each case: the picture is narrower than its text. */
-  width: 90%;
+  height: 186cqi;
+  width: auto;
+  max-width: 100%;
   margin: 0 auto var(--s3);
 }
+.model-group + .model-row .model img { height: 161cqi; }
 .model h3 {
   display: flex;
   align-items: center;
