@@ -9,7 +9,7 @@ the per-model machine wiring. No I/O and no threads: the crate builds for
 
 It is a clean-room implementation, written from public hardware
 documentation and observed behaviour, not from the source code of other
-emulators. No ROM is included: you supply the ROM image of a calculator
+emulators. No ROM is included: you supply the ROM file of a calculator
 you own, or one HP allows to be downloaded for emulator use (the
 `saturnus` command-line tool from the
 [`saturnus`](https://crates.io/crates/saturnus) crate fetches
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 Related crates: [`saturnus-objects`](https://crates.io/crates/saturnus-objects)
 reads RPL objects and the user memory of a paused machine;
 [`saturnus-drive`](https://crates.io/crates/saturnus-drive) drives a
-machine from a native host (key scripts, idle waits, screen dumps).
+machine from a native host (key scripts, idle waits, screen images).
 
 ## Licence
 

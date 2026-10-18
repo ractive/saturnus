@@ -1,6 +1,6 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-//! HP 48/49 RPL objects for saturnus hosts (the web page, a desktop shell,
-//! the Kermit test host), without any I/O or protocol stack: builds for
+//! HP 48/49 RPL objects for saturnus hosts (the app in the browser and on
+//! the desktop, the Kermit test host), without any I/O or protocol stack: builds for
 //! `wasm32` like the core.
 //!
 //! - [`object`]: the typed object model ([`Object`], JSON through serde)

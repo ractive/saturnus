@@ -1,10 +1,11 @@
 # saturnus
 
-The `saturnus` command: a headless emulator of the HP Saturn calculators
-(HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII), built on the
-[`saturnus-core`](https://crates.io/crates/saturnus-core) core. Part of
-[saturnus](https://github.com/ractive/saturnus), which also has a web
-page (<https://ractive.ch/saturnus/>) and a desktop app.
+The `saturnus` command: an emulator of the HP Saturn calculators (HP 48SX,
+48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII) for the
+command line, built on
+[`saturnus-core`](https://crates.io/crates/saturnus-core). Part of
+[saturnus](https://github.com/ractive/saturnus), which also runs in the
+browser (<https://ractive.ch/saturnus/>) and as a desktop app.
 
 ```sh
 cargo install saturnus
@@ -15,20 +16,22 @@ Prebuilt binaries for Linux, macOS and Windows are on the
 
 ## ROMs
 
-No ROM is included. `saturnus rom fetch` downloads the ROM images HP
+No ROM is included. `saturnus rom fetch` downloads the ROM files HP
 allows for emulator use (48SX, 48GX, 38G, 49G, 39G/40G) from hpcalc.org
-after asking, and checks size and SHA-256:
+after asking, and checks their size and SHA-256:
 
 ```sh
 saturnus rom fetch --model 48gx --dir roms
 ```
 
-The HP 42S ROM was never released: dump your own calculator.
+The 42S, 27S, 17BII, 17B and 28S ROMs were never released: read the ROM
+out of your own calculator. The 19BII cannot read out its own ROM; use a
+ROM file you already have.
 
 ## What it does
 
 ```sh
-# Boot, run a key script, dump the screen (text or PNG), save the state.
+# Start, play a key script, save the screen (text or PNG) and the state.
 saturnus run --model 48gx --rom roms/gxrom-r --keys keys.txt \
     --screen out.png --save boot.state
 
@@ -36,11 +39,11 @@ saturnus run --model 48gx --rom roms/gxrom-r --keys keys.txt \
 # API (HTTP + JSON on 127.0.0.1:4840) until Ctrl-C.
 saturnus run --model 48gx --rom roms/gxrom-r --serve
 
-# Drive a serving instance: keys, screen, stack.
+# Control the running calculator: keys, screen, stack.
 saturnus ctl --help
 
 # Look up a built-in command (48SX, 48GX, 49G): description, stack
-# effect, menu, examples run on this emulator, manual pages.
+# effect, menu, examples run in saturnus, manual pages.
 saturnus ref "->LIST"
 
 # Disassemble ROM code.

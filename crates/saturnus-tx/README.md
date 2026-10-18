@@ -1,7 +1,7 @@
 # saturnus-tx
 
-The device layer of saturnus tx, the transfer page and desktop app
-(`kb/docs/saturnus-tx.md`): what a user does with an HP 48S/SX, 48G/GX or
+The device layer of Files, the app's view for moving files, in the browser
+and in the desktop app (`kb/docs/saturnus-tx.md`): what a user does with an HP 48S/SX, 48G/GX or
 49G in Kermit server mode, as whole requests over `satx-core`'s sans-I/O
 `Machine`. No I/O, no threads, no clock of its own; it builds for
 `wasm32-unknown-unknown` (a CI step). Not published (`publish = false`).

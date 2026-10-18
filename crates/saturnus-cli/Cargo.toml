@@ -1,7 +1,7 @@
 [package]
 name = "saturnus"
 version.workspace = true
-description = "Command-line front end of the saturnus emulator: run ROMs headless, script keys, dump screens, serve the serial port and the control API"
+description = "The saturnus emulator of HP calculators on the command line: run ROMs, play key scripts, save screens, serve the serial port and the control API"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

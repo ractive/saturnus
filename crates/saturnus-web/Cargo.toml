@@ -1,7 +1,7 @@
 [package]
 name = "saturnus-web"
 version.workspace = true
-description = "WebAssembly bindings for the browser UI: the saturnus emulator core, and Files' device over a link given by JavaScript with the preview parts of saturnus-objects"
+description = "WebAssembly bindings for the app in the browser: the saturnus emulator core, and Files' device over a link given by JavaScript with the preview parts of saturnus-objects"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

@@ -1,7 +1,7 @@
 [package]
 name = "saturnus-drive"
 version.workspace = true
-description = "Driving a saturnus machine from the host: key scripts, idle waits, scripted boot and server start, ROM loading, screen dumps, and the machine thread of the native hosts"
+description = "Drives a saturnus machine from a native host: key scripts, idle waits, scripted boot and server start, ROM loading, screen images, and the native hosts' machine thread"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

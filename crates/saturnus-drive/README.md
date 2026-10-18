@@ -13,8 +13,8 @@ desktop app are built on.
   asleep and the display unchanged).
 - `autostart`: the per-model keys that take a cold-booted calculator to
   its stack, and the Kermit server start.
-- `rom`: loading a ROM image with a size check.
-- `screen`: screen dumps as text or PNG.
+- `rom`: loading a ROM file with a size check.
+- `screen`: the screen as text or PNG.
 - `files`: ROM and state files read with a size cap, written whole.
 - `runner`: the machine thread that drives the front ends' JSON protocol
   (`saturnus_host::protocol`) with the wall clock and a channel.
