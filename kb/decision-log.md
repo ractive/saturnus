@@ -4285,3 +4285,12 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   keep their values; 51's Files-on-the-running-calculator needs
   bytes-returning native commands and an in-page multiplexer, and the
   desktop app gets wasm and a CSP that allows it.
+
+## 2026-10-18 (auto power-off stays)
+
+- **The ROMs' auto power-off stays as it is**: each ROM switches off
+  after about ten idle minutes, and ON brings the calculator back with
+  its state intact. Removing it would mean patching the idle counter per
+  ROM revision (fragile, and ROM digging against the clean-room rule),
+  hiding time from it (breaks the clock), or pressing ON for the user
+  when the ROM switches off (a workaround). No setting for it.
