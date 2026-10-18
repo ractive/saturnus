@@ -78,9 +78,11 @@ test("the service worker's cache prefix is the module's rule, with the colon tha
   assert.ok(!app.startsWith(old) && !old.startsWith(app), "the old worker's prefix and the app's are not prefixes of each other");
 });
 
-test("the landing page stores nothing and runs no script", () => {
+test("the landing page stores nothing; its one script only steps between the dialogs", () => {
   const landing = readFileSync(join(WEB, "landing", "index.html"), "utf8");
-  assert.ok(!/<script/.test(landing), "the landing page has no script");
+  assert.deepEqual(landing.match(/<script[^>]*>/g), ['<script type="module" src="dialogs.js">'], "one script, the dialogs'");
+  const dialogs = readFileSync(join(WEB, "landing", "dialogs.js"), "utf8");
+  assert.ok(!/localStorage|sessionStorage|indexedDB|document\.cookie|caches|fetch\(/.test(dialogs), "dialogs.js stores and fetches nothing");
 });
 
 // Files (web/tx/): its own keys under `saturnus.transfer.`, its own

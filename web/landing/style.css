@@ -293,6 +293,137 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model p { font-size: var(--fs-sm); color: var(--muted); }
 .model .rom { margin-top: var(--s2); }
 .model .rom a { color: var(--accent-text); }
+/* The picture, the name and "More" open the model's dialog (invoker
+   commands, no script): buttons that look like what they wrap. */
+.model button,
+.model-dlg .dlg-tools button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.model-pic { display: block; width: 100%; }
+.model h3 button { display: flex; align-items: center; gap: var(--s2); font-weight: inherit; }
+.model h3 button:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.year { font-weight: 400; color: var(--muted); font-size: var(--fs-sm); }
+.model .more { margin-top: var(--s2); }
+.model .more button { color: var(--accent-text); font-size: var(--fs-sm); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.model .more button:hover { text-decoration-thickness: 2px; }
+
+/* A model's dialog: centred, up to 720px, scrolling inside; on a phone a
+   sheet from the bottom. Esc and a click outside close it (closedby). */
+.model-dlg {
+  width: min(720px, calc(100vw - 2 * var(--gutter)));
+  max-width: none;
+  max-height: calc(100dvh - var(--s7));
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 12px 40px rgba(20, 18, 12, 0.25);
+  overflow: hidden;
+}
+.model-dlg[open] { display: flex; flex-direction: column; }
+.model-dlg::backdrop { background: rgba(20, 18, 12, 0.45); }
+.dlg-body { overflow-y: auto; overscroll-behavior: contain; padding: var(--s5); }
+.dlg-tools {
+  position: absolute;
+  top: var(--s2);
+  right: var(--s2);
+  z-index: 1;
+  display: flex;
+  gap: var(--s1);
+}
+.dlg-tools button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+}
+.model-dlg .dlg-tools button { text-align: center; font-size: 28px; line-height: 1; color: var(--muted); background: var(--paper); }
+.model-dlg .dlg-tools button:hover { background: var(--hover); color: var(--ink); }
+.dlg-head {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: var(--s4) var(--s5);
+  align-items: start;
+  padding: 0 0 var(--s5) 0;
+  margin-bottom: var(--s5);
+  border-bottom: 1px solid var(--rule-soft);
+}
+.dlg-head > img { grid-row: 1 / span 2; }
+.dlg-head img { display: block; width: 180px; height: auto; aspect-ratio: 1 / 2; object-fit: contain; object-position: center bottom; }
+.dlg-head h3 { padding-right: 136px; display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); font-size: var(--fs-2xl); }
+.dlg-head .year { font-size: var(--fs-lg); }
+.dlg-line { margin-top: var(--s2); font-size: var(--fs-lg); }
+.dlg-price { margin-top: var(--s2); color: var(--muted); font-size: var(--fs-sm); }
+.dlg-facts {
+  columns: 2;
+  column-gap: var(--s5);
+  margin: 0;
+  padding-top: var(--s4);
+  border-top: 1px solid var(--rule-soft);
+}
+.dlg-facts > div { break-inside: avoid; padding-bottom: var(--s3); }
+.dlg-facts dt { font-size: var(--fs-sm); font-weight: 600; }
+.dlg-facts dd { margin: 0; }
+.dlg-part { margin-bottom: var(--s5); max-width: 62ch; }
+.dlg-part h4 { margin: 0 0 var(--s2); font-size: var(--fs-base); font-weight: 600; }
+.dlg-part ul { margin: 0; padding-left: 1.2em; }
+.dlg-part li + li { margin-top: var(--s1); }
+.dlg-part p + p { margin-top: var(--s2); }
+.dlg-sources { font-size: var(--fs-sm); }
+.dlg-sources a { overflow-wrap: anywhere; }
+.dlg-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
+@media (max-width: 600px) {
+  .model-dlg {
+    width: 100%;
+    max-height: calc(100dvh - var(--s5));
+    height: calc(100dvh - var(--s5));
+    margin: auto 0 0;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    border-bottom: 0;
+  }
+  .dlg-body { padding: var(--s4) var(--gutter) calc(var(--s5) + env(safe-area-inset-bottom)); }
+  .dlg-head { grid-template-columns: 84px minmax(0, 1fr); gap: var(--s4); padding-right: 0; }
+  .dlg-head h3 { padding-right: 0; }
+  .dlg-body { padding-top: calc(var(--s2) + 48px); }
+  .dlg-head > img { grid-row: auto; }
+  .dlg-head > .dlg-facts { grid-column: 1 / -1; }
+  .dlg-head img { width: 84px; }
+  .dlg-facts { column-gap: var(--s4); }
+  .dlg-head h3 { font-size: var(--fs-xl); }
+  .dlg-line { font-size: var(--fs-base); }
+}
+/* The entry: a short rise and fade, CSS alone; none for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .model-dlg,
+  .model-dlg::backdrop {
+    transition: opacity 180ms var(--ease), transform 180ms var(--ease), overlay 180ms allow-discrete, display 180ms allow-discrete;
+  }
+  .model-dlg { opacity: 0; transform: translateY(12px); }
+  .model-dlg[open] { opacity: 1; transform: none; }
+  .model-dlg::backdrop { opacity: 0; }
+  .model-dlg[open]::backdrop { opacity: 1; }
+  @starting-style {
+    .model-dlg[open] { opacity: 0; transform: translateY(12px); }
+    .model-dlg[open]::backdrop { opacity: 0; }
+  }
+  @media (max-width: 600px) {
+    .model-dlg { transform: translateY(40px); }
+    @starting-style { .model-dlg[open] { transform: translateY(40px); } }
+  }
+}
+/* Stepping with ‹ › (dialogs.js): the next dialog replaces the last in
+   one frame, without the fade, so the backdrop stays put. */
+.model-dlg.instant,
+.model-dlg.instant::backdrop { transition: none; }
 
 @media (max-width: 1099px) {
   .model-row {

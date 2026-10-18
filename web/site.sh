@@ -3,7 +3,7 @@
 # directory given as the first argument (default: site/):
 #
 #   .htaccess           web/site.htaccess, for the Apache host (no redirects)
-#   index.html, ...     the landing page, web/landing/ (HTML, CSS, img/)
+#   index.html, ...     the landing page, web/landing/ (HTML, CSS, JS, img/)
 #   favicon.svg         web/favicon.svg
 #   sw.js               the kill switch, web/landing/sw.js: replaces the
 #                       service worker the emulator registered at /saturnus/
@@ -82,7 +82,7 @@ echo "made by web/site.sh" > "$out/$marker"
 # The top: the .htaccess (it applies to app/ too), the landing page, the
 # favicon and the kill switches (the old subsites' too).
 cp "$here/site.htaccess" "$out/.htaccess"
-for f in "$here"/landing/*.html "$here"/landing/*.css; do
+for f in "$here"/landing/*.html "$here"/landing/*.css "$here"/landing/*.js; do
   cp "$f" "$out/$(basename "$f")"
 done
 cp "$here"/landing/img/* "$out/img/"
