@@ -276,16 +276,17 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model-row.second { margin-top: var(--s7); }
 /* Every case in a row has the same height, set from the card's width
    (container units): the row's widest case, the 38G among the first six
-   and the 42S/27S/17B family among the rest, fills 90% of its card. */
+   and the 42S/27S/17B family among the rest, fills 90% of its card,
+   up to the height the six-a-row layout gives (300 and 260 px). */
 .model { min-width: 0; display: flex; flex-direction: column; container-type: inline-size; }
 .model img {
   display: block;
-  height: 186cqi;
+  height: min(186cqi, 300px);
   width: auto;
   max-width: 100%;
   margin: 0 auto var(--s3);
 }
-.model-row.second .model img { height: 161cqi; }
+.model-row.second .model img { height: min(161cqi, 260px); }
 .model h3 {
   display: flex;
   align-items: center;
