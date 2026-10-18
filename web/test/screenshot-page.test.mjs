@@ -61,9 +61,9 @@ async function page(t, width = 1280) {
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   for (let i = 0; i < 150 && !(await ev("!!window.saturnus").catch(() => false)); i++) await sleep(100);
   await ev("window.saturnus.started");
-  /** A real click in the middle of `selector`'s element (`button`: "left", "right"). */
+  /** A real click in the middle of `selector`'s element (`button`: "left", "right"), scrolled into sight (the panel scrolls). */
   const click = async (selector, button = "left") => {
-    const [x, y] = await ev(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+    const [x, y] = await ev(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e.scrollIntoView({ block: "center" }); const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
     await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
     await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button, clickCount: 1 });
     await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button, clickCount: 1 });
