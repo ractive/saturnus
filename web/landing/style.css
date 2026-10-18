@@ -52,7 +52,7 @@
   --measure: 1040px;
 
   --r-md: 7px;
-  --r-lg: 12px;
+  --r-lg: 8px;
   --r-pill: 999px;
   --shadow-1: 0 1px 2px rgba(30, 26, 16, 0.08);
   --t: 160ms;
@@ -213,8 +213,10 @@ pre {
   text-decoration: none;
   font-weight: 600;
   font-size: var(--fs-lg);
-  margin-right: auto;
 }
+/* The way back to the site saturnus belongs to. */
+.by { margin-right: auto; color: var(--muted); font-size: var(--fs-sm); text-decoration: none; }
+.by:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .top nav { display: flex; gap: var(--s4); flex-wrap: wrap; }
 .top nav a { color: var(--muted); text-decoration: none; font-size: var(--fs-sm); }
 .top nav a:hover { color: var(--ink); }
@@ -516,4 +518,17 @@ footer {
   font-size: var(--fs-sm);
 }
 footer p + p { margin-top: var(--s2); }
+/* The last row, as on ractive.ch: whose it is, and the source. */
+footer .foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--s3) var(--s5);
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--rule-soft);
+}
+footer .foot a { color: var(--ink); }
+footer .foot a:has(svg) { display: inline-flex; align-items: center; gap: var(--s2); text-decoration: none; }
+footer .foot a:has(svg):hover { text-decoration: underline; }
 footer p { max-width: 70ch; }
