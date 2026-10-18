@@ -2358,7 +2358,7 @@
     },
     "EVAL": {
       "name": "Evaluate",
-      "description": "Evaluates an object: a program runs, a name is replaced by what its variable holds, an algebraic is computed with the current variable values, and a list has its elements executed in turn. Data objects such as reals simply return themselves.",
+      "description": "Evaluates an object: a program runs, a name is replaced by what its variable holds, an algebraic is computed with the current variable values, and a list has its elements executed in turn. Data objects such as reals return themselves.",
       "stack": "obj → result",
       "category": "Keyboard",
       "examples": [
@@ -3474,7 +3474,7 @@
     },
     "IFT": {
       "name": "If-then",
-      "description": "Evaluates an object only when a test value is nonzero; when the test is zero both arguments are simply dropped. The one-branch counterpart of IFTE.",
+      "description": "Evaluates an object only when a test value is nonzero; when the test is zero both arguments are dropped. The one-branch counterpart of IFTE.",
       "stack": "test obj → result",
       "examples": [
         {
@@ -7934,7 +7934,7 @@
     },
     "TRNC": {
       "name": "Truncate",
-      "description": "Truncates a number to n decimal places, or to |n| significant digits when n is negative, simply cutting off the remaining digits instead of rounding.",
+      "description": "Truncates a number to n decimal places, or to |n| significant digits when n is negative, cutting off the remaining digits instead of rounding.",
       "stack": "x n → y; z n → z'; [array] n → [array]'",
       "examples": [
         {

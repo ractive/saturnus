@@ -27,7 +27,7 @@ export function noRomText(model, title) {
     return `No ROM for the ${title}. HP never published it: read the ROM out of your own calculator, then choose the file.`;
   }
   if (NO_ROM_SOURCE.includes(model)) {
-    return `No ROM for the ${title}. There is no download, and saturnus has no way to get this ROM for you. If you have it, choose the file.`;
+    return `No ROM for the ${title}. There is no download for it. If you have the file, choose it.`;
   }
   return `No ROM for the ${title}.`;
 }

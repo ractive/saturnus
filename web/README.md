@@ -1,57 +1,61 @@
-# saturnus web UI
+# The saturnus app
 
-The web app "saturnus" (iteration 50d): one HTML document, `index.html`,
-with a home page (the calculators this browser keeps) and two views,
-**Calculator** (the emulator) and **Files** (moving files between
-calculators and the computer), reached by routes in the address's hash. A
-static page around the WebAssembly build of the saturnus core
-(`crates/saturnus-web`, bindings over `crates/saturnus-host`). Plain
-HTML, CSS and ES modules; no framework or
-bundler. The same page is the front end of the desktop app
-(`crates/saturnus-tauri`, see the main README), Calculator and Files in
-one window since iteration 51.
+The app is one HTML document, `index.html`, with a home page (the
+calculators this browser keeps) and two views, **Calculator** and
+**Files** (moving files between calculators and the computer), reached
+by routes in the address's hash. It is a static page around the
+WebAssembly build of the saturnus core (`crates/saturnus-web`, bindings
+over `crates/saturnus-host`): plain HTML, CSS and ES modules, no
+framework or bundler. The same page is the front end of the desktop app
+(`crates/saturnus-tauri`, see the main README), with Calculator and
+Files in one window.
 
 ## Structure
 
-The page never touches the emulator directly. It talks to a **backend**
+The page never touches the calculator's core directly. It talks to a **backend**
 in the command/event protocol of [`protocol.md`](protocol.md):
 
-- `main.js`: the shell (iteration 50d). The routes (`router.js`, pure):
-  `#/` the home page (`home.js`, `home.css`), `#/calculator` and
-  `#/calculator/<model>` Calculator (on that model), `#/files` and
-  `#/files/<model>` Files (its left pane on that model's running
-  calculator, as Calculator's "Files" link and the home page ask). No
-  route: the last calculator's route when the home page's "Start the last
-  calculator when the app opens" is on and its ROM is still kept (read
-  from the ROM store directly in the browser, `tx/kept-roms.js`
-  `keptStart`, from the app's slots in the desktop app), else the home
-  page; the same in the browser and the desktop app. A view's module is imported and mounted on its
-  first visit (`mountCalculator`, `mountFiles`), then hidden and shown,
-  never unmounted: the calculator runs on and a transfer goes on in a
-  hidden view. Shown, a view's root is un-hidden first and then told
-  (`setShown(true)`: the widths fitted, a running tour placed again);
-  hidden, its toast and its open modal dialogs close first. Back and
-  forward follow `hashchange`; Calculator's model is written into its
-  route (`replaceState`), so a reload opens it again. The service worker
-  is registered here, for the document. The home page (iteration 53) is
-  where calculators are chosen, given a ROM and removed: it lists the
-  kept ROMs, each with Calculator, (48SX, 48GX, 49G) Files and a ⋯
-  (Change ROM…, Download again… in the app, Remove…), the running ones
-  marked "Running" (the hub's `engines`, asked only once the hub runs);
-  "New calculator" lists the models without a ROM with Choose… and where
-  to get it (the hpcalc.org link in the browser, Download… in the app);
-  under them the notice of what a choice found and its offers, "Connect
-  a calculator" (Files' connect dialog, or the line that says why the
-  browser cannot), and the ROMs' settings: start the last calculator,
-  whether the browser keeps them for good with Keep permanently, and
-  Remove ROMs…. Its ROM commands (`home-roms.js`) go through the hub as
-  a connection of its own in the browser (before its first command the
-  list is read from the ROM store directly, so no wasm loads for it),
-  whose `chooseRom` keeps the ROM without booting it (`boot: false`) and
-  names the model to open; in the desktop app through the document's
+- `main.js`: the shell. The routes (`router.js`, pure):
+  - `#/`: the home page (`home.js`, `home.css`);
+  - `#/calculator` and `#/calculator/<model>`: Calculator (on that model);
+  - `#/files` and `#/files/<model>`: Files, its left pane on that model's
+    running calculator (as Calculator's "Files" link and the home page
+    ask);
+  - no route: the last calculator's route when the home page's "Start
+    the last calculator when the app opens" is on and its ROM is still
+    kept (read from the ROM store directly in the browser,
+    `tx/kept-roms.js` `keptStart`; from the app's slots in the desktop
+    app), else the home page.
+
+  A view's module is imported and mounted on its first visit
+  (`mountCalculator`, `mountFiles`), then hidden and shown, never
+  unmounted: in a hidden view the calculator keeps running and a
+  transfer goes on. When shown, a view's root is un-hidden first and
+  then told (`setShown(true)`: the widths fitted, a running tour placed
+  again); when hidden, its toast and its open modal dialogs close first.
+  Back and forward follow `hashchange`; Calculator's model is written
+  into its route (`replaceState`), so a reload opens it again. The
+  service worker is registered here, for the document.
+
+  The home page is where calculators are chosen, given a ROM and
+  removed. It lists the kept ROMs, each with Calculator, Files (48SX,
+  48GX, 49G) and a ⋯ menu (Change ROM…, Download again… in the desktop
+  app, Remove…), the running ones marked "Running" (the hub's `engines`,
+  asked only once the hub runs). "New calculator" lists the models
+  without a ROM, with Choose… and where to get the ROM (the hpcalc.org
+  link in the browser, Download… in the desktop app). Below them come
+  the notice of what a choice found and its offers, "Connect a
+  calculator" (Files' connect dialog, or a line saying why the browser
+  cannot), and the ROM settings: start the last calculator, Keep
+  permanently (whether the browser keeps the ROMs for good) and Remove
+  ROMs…. In the browser its ROM commands (`home-roms.js`) go through the
+  hub as a connection of their own (before the first command the list
+  is read from the ROM store directly, so no wasm loads for it); there
+  `chooseRom` keeps the ROM without booting it (`boot: false`) and names
+  the model to open. In the desktop app they go through the document's
   TauriBackend, whose dialog chooses and boots. A kept ROM opens its
   calculator (`#/calculator/<model>`); choosing one stops no other
-  calculator. Calculator's panel shows its calculator read only with
+  calculator. Calculator's panel shows its calculator, read only, with
   "Switch calculator" (`#/`); without one, the display and the memory
   view say so and link home. Tests: `romrows-page.test.mjs` (the ⋯,
   New calculator, the removals), `nav-page.test.mjs`, `overflow.test.mjs`
@@ -63,7 +67,7 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   calculators" below); `TauriBackend` sends the same commands to the desktop
   app's native core (`invoke`) and hears the same events (`listen`). The
   page picks Tauri when `window.__TAURI__` exists, and has one
-  `TauriBackend` for the document behind `native-hub.js` (iteration 51):
+  `TauriBackend` for the document behind `native-hub.js`:
   Calculator's requests and Files' (`nativeHub().client("tx")`, its
   HubDevice) share the one native calculator, the memory watch and the
   visibility merged across them as `hub.js` does per connection
@@ -76,8 +80,8 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   display changed, `keys` when the keys down changed, `status` when the
   model, Run/Pause, a halt, the speed or the run loop changed, and
   `serial` with what the calculator sent on its serial port once a page
-  holds it (`serialOpen`, `serialWrite`, `serialClose`; the transfer
-  page's emulated calculator, `protocol.md`, "The serial port").
+  holds it (`serialOpen`, `serialWrite`, `serialClose`; Files' emulated
+  calculator, `protocol.md`, "The serial port").
 - `store.js`: one `EventTarget` with the page's state, fed by the
   backend's events and the controls (one-way: event, store, components).
 - `components/`: framework-free Web Components in the light DOM
@@ -207,21 +211,20 @@ emulated calculator" does with that kept ROM, asking nothing when the
 pane is empty or shows a folder; a pane connected to another calculator
 (a cable, a private emulated one) is replaced only after a question.
 When either pane already shows that calculator (that pane becomes the
-active one), or the left pane is joining it, nothing happens. A model
-it cannot reach is said why (`refusalText`: an aplet model, no serial
+active one), or the left pane is joining it, nothing happens. For a model
+it cannot reach, Files says why (`refusalText`: an aplet model, no serial
 port, no kept ROM). The home page links the landing page
 (`data-site="landing"`: `../` on the site, `landing/` served from
 `web/`; `applySiteLinks`). In the desktop app the link to the landing
 page is hidden; the home page, the brands' links to it and the links
-between Calculator and Files are there as in the browser (iterations
-51, 53).
+between Calculator and Files are there as in the browser.
 Tests: `site-links.test.mjs` (the hrefs, the routes, the start),
 `nav-page.test.mjs` (the links, the home page, back and forward, no
 reload, the desktop app), `tx-shared.test.mjs` (the link on the running
 48GX, Files' left pane on it, asked again: nothing; connected again after
 a disconnect).
 
-## Installed page (offline)
+## Installed app (offline)
 
 The published site is installable ("Add to Home Screen", Chrome's
 Install): `web/site.sh` adds what lives in `web/pwa/`:
@@ -239,8 +242,8 @@ Install): `web/site.sh` adds what lives in `web/pwa/`:
   A new deploy is a new build: the browser finds it on the next open (or
   when the installed app returns from the background), installs it beside
   the old one and waits. A page nobody has touched yet takes it at once
-  and reloads; a page in use shows a notice, as Reload restarts the
-  calculator; otherwise the new build starts once every page has closed.
+  and reloads; a page in use shows a notice instead, because reloading
+  restarts the calculator; otherwise the new build starts once every page has closed.
   The worker takes over only when the page asking is the only one open
   (other pages keep their build: taking over would hand them the next
   build's files mid-session); it claims pages only on the first install.
@@ -321,20 +324,20 @@ First get the ROM. The ROMs are HP's software, hosted by hpcalc.org with
 HP's permission for use with emulators; they are not part of saturnus,
 and saturnus does not host or pass them on. The home page's New
 calculator links each model without a ROM to its download page on
-hpcalc.org (the file name to expect in the link's tooltip; the models in
-the order 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B):
-download the zip there, unzip it and choose or drop the file. The page cannot fetch it
-itself, as hpcalc.org sends no cross-origin header; the desktop app
-downloads it with one click after asking. The links come from the
-table of known ROM files in `crates/saturnus-host/src/romid.rs` through
-the wasm core's `rom_download` (`web/test/download.test.mjs`). The
-42S, 27S, 17BII, 17B and 28S ROMs were never published: read them out
-of your own calculator (the 28S's over its infrared printer port into
-an HP 48, wiki: sources/emu42-pioneer-dump). The 19BII's ROM was never
-published either and cannot be read out (it has no memory scanner): the
-page says there is no download and saturnus has no way to get it, and
-runs it from a file you already have. Their images are taken in either of the two byte
-orders such files come in (wiki: hardware/saturn-models "ROM image
+hpcalc.org, in the order of `shared/models.js`, with the file name to
+expect in the link's tooltip. Download the zip there, unzip it and
+choose or drop the file. The page cannot fetch it itself, as hpcalc.org
+sends no cross-origin header; the desktop app downloads it with one
+click after asking. The links come from the table of known ROM files in
+`crates/saturnus-host/src/romid.rs` through the wasm core's
+`rom_download` (`web/test/download.test.mjs`). The 42S, 27S, 17BII, 17B
+and 28S ROMs were never published: read them out of your own calculator
+(the 28S's over its infrared printer port into an HP 48, wiki:
+sources/emu42-pioneer-dump). The 19BII's ROM was never published either
+and cannot be read out (it has no memory scanner): the app says there is
+no download and that saturnus has no way to get it, and runs it from a
+file you already have. These ROM files are accepted in either of the
+two byte orders they come in (wiki: hardware/saturn-models "ROM image
 forms").
 
 1. On the home page, New calculator, then Choose… the model's ROM file.
@@ -346,20 +349,22 @@ forms").
    once, or dropped on the home page (on a model's row: for that model).
    saturnus recognises each file and gives it to its model. If a file
    fits more than one model, a button lets you choose. Unknown files are
-   named and skipped (the rules: `protocol.md`, "ROM slots"); a dropped
-   file that is no ROM is said so there. The app takes ROMs only through
-   Choose… and Download…, and says so of a dropped file.
-   Dropped on Calculator (iteration 47), a calculator file (an HP
+   named and skipped (the rules: `protocol.md`, "ROM slots"), and a
+   dropped file that is not a ROM is reported there. The desktop app
+   takes ROMs only through Choose… and Download…, and says so when a file
+   is dropped.
+   Dropped on Calculator, a calculator file (an HP
    transfer header: `HPHP48-`, `HPHP49-`, `%%HP:`, or a `.txt` file that
    is text) is stored in the running 48SX's, 48GX's or 49G's current
    directory, with a toast ("X.hp stored as X in HOME"); any other file
-   is said not to be one (ROMs are chosen on the home page).
+   is reported as not one (ROMs are chosen on the home page).
    A ROM is never uploaded. A kept calculator's ⋯ holds Change ROM…,
    Download again… (the app) and Remove…. Remove… asks first and removes
    that model's ROM (the 39G's and the 40G's together when they share a
    file, the 49G's saved state with its ROM); a calculator that runs
-   from it stops, and its display says there is no ROM; while a send
-   types it is refused and nothing is removed. "Remove ROMs…" (it asks
+   from it stops, and its display says there is no ROM. While text is
+   being typed into that calculator, Remove… is refused and nothing is
+   removed. "Remove ROMs…" (it asks
    first) removes them all, with the saved 49G states (which contain the
    ROM).
 2. Keys: click or tap the keys of the drawn calculator, or use the keyboard
@@ -549,7 +554,7 @@ tested yet (Chrome does).
 
 **Cmd+K** (Ctrl+K elsewhere than a Mac; a binding, see Keyboard) or
 **Search** (the magnifier, over the calculator or in the phone's bar)
-opens the command palette, called Search on the page: one input over the calculator,
+opens the command palette, called Search in the app: one input over the calculator,
 which stays visible behind a dimmed backdrop. It is the command reference,
 the way to send commands and text to the calculator and the entry to the
 app's actions at once. While it is open the keys are its own; Escape
@@ -575,7 +580,7 @@ commands share lists them all (`INT` on the 49G: INT, then ∫). Each
 command row shows its stack effect and description; the selected row's
 full entry is beside the list: stack
 effect, description, the models that have it, the ROM's menu and the
-manual's key for it, the examples generated on the emulator (the stack before, the command,
+manual's key for it, the examples run in saturnus (the stack before, the command,
 the stack after, as the calculator displays them) with **Try it**, and links into the manuals' pages.
 
 On a phone (below 760 px) the palette is a sheet: the input at the top,
@@ -845,7 +850,7 @@ setting (`saturnus.view`) is removed on load.
   tests check that every key of the model's matrix is drawn exactly once,
   that keys do not overlap, that the alpha letters agree with the ROM and
   the wiki, that every model but the Pioneers (42S, 27S, 17BII, 17B) types
-  all 26 letters, that the six softkey labels the ROM draws sit over the
+  all 26 letters, that the six menu labels the ROM draws sit over the
   six menu keys (on the Pioneers within half a key pitch: their display is
   narrower than their key row), and
   that the case ends shortly below the bottom key row (on the 28S and
@@ -1045,7 +1050,7 @@ settings record, and deletes both saved 49G states (they contain the
 the landing page (`web/landing/`: `index.html`, `style.css`, `img/`; no
 script, it follows the device's colour scheme), `favicon.svg`, the
 `.htaccess` (it applies below too; no redirects) and `sw.js`, the kill
-switch; under `app/` the app (iteration 50d): `index.html` and every page
+switch; under `app/` the app: `index.html` and every page
 file, `tx/`, `shared/`, the wasm package, the manifest, the icons and
 `sw.js` with a BUILD hash over `app/` alone, so a landing-page change
 leaves the app's build and caches untouched. `emulator/` and
@@ -1054,8 +1059,8 @@ same kill switch (below). `web/site.sh --list` lists the app's page
 files, which the desktop app embeds (with the wasm package). `web/test/site.test.mjs` checks the
 layout.
 
-The calculator images in `web/landing/img/` are shots of the emulator
-page with each model's ROM running, made by `web/landing/shots.mjs`
+The calculator images in `web/landing/img/` are screenshots of the app
+with each model's ROM running, made by `web/landing/shots.mjs`
 (see its header for the WebP step); `img/og.png` is the Open Graph image.
 
 **The kill switch.** The app registers its worker with the scope `./`,
@@ -1076,7 +1081,7 @@ Tested by `web/test/killswitch.test.mjs`.
 **Names on the origin.** Every IndexedDB database, localStorage key,
 OPFS directory and cache prefix of the app is in
 `web/shared/storage-names.js`, with the values the two pages had before
-they became one app (iteration 50d), so kept ROMs, states, settings and
+they became one app, so kept ROMs, states, settings and
 folders are found again: the states `saturnus`, the ROMs
 `saturnus-roms`, Files' picked folders `saturnus-transfer` (store
 `folders`), its files in this browser in the OPFS directory
@@ -1118,12 +1123,12 @@ with a switch above them.
   `folder.js` is the folder (a picked one, or the files in this browser:
   OPFS or memory); `emulator.js` and `emulator-worker.js` are the private
   emulated calculator (saturnus's core booted from a ROM file chosen in
-  tx, keeping nothing; Max while it transfers, SERVER typed unless one I
-  packet finds the server running): the honest test of the cable path;
-  `shared/hub-device.js` is the emulator's own calculator of a kept ROM
+  Files, keeping nothing; Max while it transfers, SERVER typed unless one I
+  packet finds the server running), which tests the same path as a cable;
+  `shared/hub-device.js` is Calculator's own calculator of a kept ROM
   (`HubDevice` over `shared/calc-hub.js`'s `HubClient`; see "Shared
   calculators"); `kept-roms.js` reads the
-  emulator's kept ROMs, read only; `queue.js` the queue (one job per
+  kept ROMs (read only); `queue.js` the queue (one job per
   place at a time, in the order asked, the waiting ones cancellable);
   `transfers.js` the copies between places (planned, asked, then queued
   a job per item); `actions.js` what a row's menu, the pane's "⋯" and
@@ -1133,7 +1138,7 @@ with a switch above them.
   preview, actions, drops); `app.js` the composition root, the queue's
   list and the dialogs (connect, emulated calculator, settings, a name,
   the backup).
-- **Shared calculators** (iterations 46, 47 and 50d): an emulated 48SX,
+- **Shared calculators**: an emulated 48SX,
   48GX or 49G started from a ROM Calculator keeps is Calculator's own
   live calculator of that model, shown by both views at once. The
   document runs one hub Worker (`worker.js`, started by the first view
@@ -1153,17 +1158,17 @@ with a switch above them.
   it) to Calculator, which shows "Connected to Files · Show" under the
   status line (Show is Files' route on it; no Disconnect: Files
   disconnects in Files). Files works the calculator
-  as a `HubDevice` (`shared/hub-device.js`, iteration 47): the memory
+  as a `HubDevice` (`shared/hub-device.js`): the memory
   commands (`memoryTree` once per `memoryChanged`, `fetchFile`,
   `storeFile`, `rename`, `purge`, `createDir`, `backup`), hidden
-  transactions inside the engine between the emulator's keys and
+  transactions inside the engine between Calculator's keys and
   writes; nothing typed on it, no serial line held, a variable typed in
-  the emulator listed in Files at once, a refusal (a command line open
+  Calculator listed in Files at once, a refusal (a command line open
   there, typing, flag -33) said at once in Files' words. The serial port
   of a shared calculator is refused to every page ("This calculator is
   shared with another view, …"); a view alone on its engine opens it.
   No restore, graphics screen or fast transfer on it (owner,
-  2026-10-14): the emulator's Load state and the "+" above its display
+  2026-10-14): Calculator's Load state and the "+" above its display
   cover them; the backup checks the room itself (there is no free
   figure). The speed is Calculator's (Files' with no Calculator on
   it); a machine stops computing when every view that shows it is
@@ -1177,7 +1182,7 @@ with a switch above them.
   both ways, ATTN and an open command line refused in words, the chip,
   the serial refusal, a `.hp` dropped on the drawn calculator, the views
   switched back and forth while Files copies and the calculator runs).
-  In the desktop app (iteration 51) the shared calculator is the app's
+  In the desktop app the shared calculator is the app's
   one native calculator, through `native-hub.js` instead of the hub: its
   kept ROMs are the app's ROM library's (`kept-roms.js`, `emulator_roms`),
   a model other than the one running gets a private calculator.
@@ -1188,14 +1193,14 @@ with a switch above them.
   listed) or "Files in this browser" (OPFS, or memory; the right pane's
   default where no folder can be picked; its status line and the first
   copy into it say they are not on the disk and how to download one).
-- **Seeing what happens** (iteration 45): a calculator preview being
+- **Seeing what happens**: a calculator preview being
   read says what, from where and how far in the preview itself
   ("Reading P from the 48SX… 412 of 1,106 bytes", a bar, on a cable at
   2 s or more how long; `preview.js`'s `readingText`), drawn at most once
   per animation frame; the row being read, and both rows of a copy
   (`transfers.js`'s `mark`), get a thin bar under the name
   (`<device-list>`'s `setBusy`). "Show the packets" in the page's header
-  (hidden while there is nothing to show: only the emulator's
+  (hidden while there is nothing to show: only Calculator's
   calculators in the panes, none connecting, nothing served, no packet
   logged; `renderPacketsButton`) opens the cable console: every link a
   pane or the serving screen opens is wrapped by `cable.js`'s `TappedLink` (after the tests'
@@ -1241,7 +1246,7 @@ with a switch above them.
   a string, a folder as a directory with its contents. Between two
   calculators, saturnus-tx's copy plan: across families and from a
   48G/GX to a 48S/SX as text, with its warning. Everything a copy would
-  warn about (strings, the other family, what is left out) is said in
+  warn about (strings, the other family, what is left out) is put in
   one question before anything is sent, then "Replace X?" for what is in
   use, on either side; a directory is never replaced. Rows that were
   previewed also drag out to the desktop (`DownloadURL`, Chromium).

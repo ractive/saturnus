@@ -58,7 +58,7 @@ test("the 19BII's clamshell: side by side on a wide stage, stacked on a phone", 
   assert.ok(Math.abs(w / h - 137 / 40) < 0.05, `${w} x ${h}`);
   // No download and no way to read it out: the page says so.
   const text = await wide.ev("document.querySelector('sat-calculator').shadowRoot?.textContent ?? document.body.textContent");
-  assert.match(text, /saturnus has no way to get this ROM for you/);
+  assert.match(text, /There is no download for it/);
   await wide.close();
 
   const phone = await open(t, 390, 844, true);

@@ -93,7 +93,7 @@ test("the browser's: a kept calculator's ⋯, New calculator's Choose… and Dow
   await p.ev(`document.querySelector('#home-models button[data-model="38g"]').click(); true`);
   await sleep(100);
   assert.deepEqual(await p.ev("window.__acted"), [["choose", "48gx"], ["choose", "38g"]]);
-  assert.equal(await p.ev(`document.getElementById("home-new-hint").textContent`), "Choose the model's ROM file, or drop it on this page. Several files at once each go to their model.");
+  assert.equal(await p.ev(`document.getElementById("home-new-hint").textContent`), "Choose the model's ROM file, or drop it here. Several files at once each go to their model.");
   assert.match(await p.ev(`document.getElementById("home-source-hint").textContent`), /^Download opens the model's page on hpcalc\.org/);
   assert.match(await p.ev(`document.getElementById("home-kept-hint").textContent`), /^Kept in this browser/);
   assert.equal(await p.ev(`document.querySelector("#home-settings .home-boot-last-label").textContent`), "Start the last calculator when the app opens");

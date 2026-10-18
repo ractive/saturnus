@@ -116,7 +116,7 @@ test("attach: the running model is shown, none boots it from the library, anothe
   assert.deepEqual(await again.request("attach", { model: "48sx" }), { model: "48sx", romName: "sx.rom", restored: true, attached: true });
   assert.deepEqual(app.log(), [], "nothing booted");
   const other = app.hub.client("tx");
-  await assert.rejects(other.request("attach", { model: "49g" }), /Calculator runs the HP 48SX: .*Switch to the HP 49G there first/);
+  await assert.rejects(other.request("attach", { model: "49g" }), /Calculator runs the HP 48SX, .*Switch to the HP 49G in Calculator first/);
 });
 
 test("the bytes travel as base64: storeFile's data out, fetchFile's (inline) and backup's back", async () => {
@@ -166,13 +166,13 @@ test("gone: the calculator turned off, another model, Start fresh; memoryChanged
   app.emit({ type: "status", model: "48gx" });
   heard = await join();
   app.emit({ type: "status", model: "49g" });
-  assert.deepEqual(heard, ["gone: Calculator runs the HP 49G now."]);
+  assert.deepEqual(heard, ["gone: Calculator now runs the HP 49G."]);
 
   app.emit({ type: "status", model: "48gx" });
   heard = await join();
   await app.backend.startFresh("48gx");
   await settle();
-  assert.deepEqual(heard, ["gone: Calculator started this calculator afresh."]);
+  assert.deepEqual(heard, ["gone: This calculator was restarted in Calculator, with an empty memory."]);
   assert.deepEqual(peers, [true, false, true, false, true, false]);
   // A cancelled choice boots nothing: nobody is dropped.
   assert.equal(bootedModel("chooseRom", null), null);
@@ -231,7 +231,7 @@ test("a reload straight into Files: the running model is asked for, never booted
   // An app that never says: refused, still nothing booted.
   model = null;
   const quiet = fakeApp((m) => (m.cmd === "hello" ? { protocol: 1, host: "tauri", models: [] } : null));
-  await assert.rejects(quiet.hub.client("tx").request("attach", { model: "48gx" }), /has not said/);
+  await assert.rejects(quiet.hub.client("tx").request("attach", { model: "48gx" }), /is still starting/);
   assert.ok(!quiet.log().some((m) => m.cmd === "bootModel"));
 });
 
