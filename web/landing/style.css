@@ -266,7 +266,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 /* The models: one grid of twelve cards. */
 .model-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--s6);
   margin: 0;
   padding: 0;
@@ -275,10 +275,10 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model { min-width: 0; display: flex; flex-direction: column; container-type: inline-size; }
 /* Every case has the same height, set from the card's width (container
    units) so that the widest, the 42S/27S/17B family, fills 90% of its
-   card, and no taller than 260 px when the cards are wide. */
+   card, and no taller than 330 px when the cards are wide. */
 .model img {
   display: block;
-  height: min(161cqi, 260px);
+  height: min(161cqi, 330px);
   width: auto;
   max-width: 100%;
   margin: 0 auto var(--s3);
@@ -422,11 +422,8 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model-dlg.instant,
 .model-dlg.instant::backdrop { transition: none; }
 
-/* Twelve cards: five a row on a wide screen, then four, three, two. */
+/* Twelve cards: four a row (three full rows), then three, then two. */
 .model-row { row-gap: var(--s7); }
-@media (max-width: 1099px) {
-  .model-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
 @media (max-width: 799px) {
   .model-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
