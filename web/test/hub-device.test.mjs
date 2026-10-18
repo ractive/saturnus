@@ -258,8 +258,8 @@ test("queued operations run one at a time; the waiting ones can be cancelled; go
   await assert.rejects(b, (err) => err.kind === "cancelled");
   const lost = [];
   d.addEventListener("lost", (e) => lost.push(e.detail));
-  hub.dispatchEvent(new CustomEvent("gone", { detail: "The emulator's ROM of this calculator was removed." }));
-  assert.deepEqual(lost, ["The emulator's ROM of this calculator was removed."]);
+  hub.dispatchEvent(new CustomEvent("gone", { detail: "This calculator's ROM was removed in Calculator." }));
+  assert.deepEqual(lost, ["This calculator's ROM was removed in Calculator."]);
   assert.equal(d.connection, null);
   await d.close();
   assert.equal(hub.closed, true);
