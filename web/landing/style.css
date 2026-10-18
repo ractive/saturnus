@@ -264,7 +264,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 /* The models: a row of cards, which scrolls sideways on a narrow screen. */
 .model-row {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--s4);
   margin: 0;
   padding: 0;
