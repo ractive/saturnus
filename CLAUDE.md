@@ -56,6 +56,15 @@ which must build for `wasm32`. Its kb is `kb/satx/`; its backlog items are
   (`just satx-e2e-saturnus 49g` takes the ROMs from `SATURNUS_ROM_DIR`,
   else `roms/`). `scripts/satx-e2e-cli.sh` is the CLI's script.
 
+# Browser checks
+Look at pages, take screenshots and try interactions with `ff-rdp` (Firefox
+over the remote debugging protocol: `ff-rdp launch --headless`, then
+`navigate`, `click`, `screenshot`, `geometry`, `responsive`, `a11y`; see
+`ff-rdp --help`), not with ad-hoc headless Chrome scripts. The committed
+page tests in `web/test/` keep their Chrome helper (`chrome.mjs`, run in CI).
+Problems found in ff-rdp go to `~/devel/ff-rdp/kb/backlog/issues/` as an
+issue file in that folder's format.
+
 # PR discipline
 One iteration = one branch (`iter-N/short-description`) = one PR. Self-review
 the diff. Commit messages end with
