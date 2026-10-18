@@ -248,7 +248,7 @@ function appActions(backend, store, memory, bindings) {
   });
   const dialog = backend.romSource === "dialog";
   // The home page: where calculators are started, given a ROM and removed (iteration 53).
-  const home = { id: "home", title: "Switch calculator", description: "Your calculators on the home page: start another, give one its ROM, or remove one.", keywords: "switch calculator model rom change choose new remove delete home start", run: () => { location.hash = "#/"; } };
+  const home = { id: "home", title: "Switch calculator", description: "The home page: start, add or remove a calculator.", keywords: "switch calculator model rom change choose new remove delete home start", run: () => { location.hash = "#/"; } };
   // The Edit button's own words: what it edits, or why it cannot.
   const edit = editState(store, bindings);
   // The screen images in the look chosen in the panel; the twins in the
@@ -261,14 +261,14 @@ function appActions(backend, store, memory, bindings) {
     // With no calculator running, the way to one comes first.
     ...(s.booted ? [] : [home]),
     ...(s.booted ? [
-      { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "Stops the calculator's clock, or starts it again.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
+      { id: "run", title: s.running ? "Pause the calculator" : "Run the calculator", description: "Stops the calculator, or lets it run again.", keywords: "pause run stop resume", run: () => backend.pause(s.running) },
       { id: "reset", title: "Reset the calculator", description: "Restarts the calculator; its memory is kept.", keywords: "reset restart", run: () => backend.reset() },
-      { id: "save", title: "Save state", description: `Keeps the calculator's whole state in ${dialog ? "the app" : "this browser"}, one per model; it replaces the last one.`, keywords: "save state snapshot", run: () => ui.controls.saveState() },
+      { id: "save", title: "Save state", description: `Saves the calculator's whole state in ${dialog ? "the app" : "this browser"}, one per model. It replaces the last one.`, keywords: "save state snapshot", run: () => ui.controls.saveState() },
       home,
       ...(CLOCK_MODELS.has(s.booted) ? [{ id: "set-clock", title: "Set the clock", description: "Sets the calculator's date and time to this computer's.", keywords: "clock time date set now", run: () => ui.controls.setClockNow() }] : []),
       { id: "darker", title: "Darker display", description: `One step darker, as ON and + on the calculator${keyHint(bindings, "darker")}.`, keywords: "contrast darker display lcd on plus", run: () => stepContrast(backend, store, true) },
-      { id: "copy-screen", title: "Copy screen", description: `Copy the display as a picture${look}${keyHint(bindings, "copyScreen")}.`, keywords: "copy screen screenshot image picture png clipboard display lcd", run: () => ui.calc.copyScreen(s.screenLook) },
-      { id: "copy-screen-other", title: `Copy screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: `Copy the display as a picture${otherLook}.`, keywords: "copy screen screenshot image picture png clipboard display lcd black white", searchOnly: true, run: () => ui.calc.copyScreen(s.screenLook === "bw" ? "lcd" : "bw") },
+      { id: "copy-screen", title: "Copy screen", description: `Copy the display as a PNG image${look}${keyHint(bindings, "copyScreen")}.`, keywords: "copy screen screenshot image picture png clipboard display lcd", run: () => ui.calc.copyScreen(s.screenLook) },
+      { id: "copy-screen-other", title: `Copy screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: `Copy the display as a PNG image${otherLook}.`, keywords: "copy screen screenshot image picture png clipboard display lcd black white", searchOnly: true, run: () => ui.calc.copyScreen(s.screenLook === "bw" ? "lcd" : "bw") },
       { id: "save-screen", title: "Save screen", description: `Save the display as a PNG file${look}${keyHint(bindings, "saveScreen")}.`, keywords: "save screen screenshot image picture png file download display lcd", run: () => ui.calc.saveScreen(s.screenLook) },
       { id: "save-screen-other", title: `Save screen (${s.screenLook === "bw" ? "LCD colours" : "black on white"})`, description: `Save the display as a PNG file${otherLook}.`, keywords: "save screen screenshot image picture png file download display lcd black white", searchOnly: true, run: () => ui.calc.saveScreen(s.screenLook === "bw" ? "lcd" : "bw") },
       // The screen as a graphic (GROB): off, saying why, where the memory cannot be written.
@@ -282,28 +282,28 @@ function appActions(backend, store, memory, bindings) {
       // After the palette has closed, which gives the focus back to the page.
       { id: "fresh", title: "Start fresh", description: "Restart with empty memory, like a new calculator. Asks first; your saved state stays.", keywords: "start fresh new cold boot clear memory wipe empty", run: () => setTimeout(() => ui.controls.startFresh(), 0) },
     ] : []),
-    speed("1", "1×"), speed("2", "2×"), speed("4", "4×"), speed("max", "max"),
+    speed("1", "1×"), speed("2", "2×"), speed("4", "4×"), speed("max", "Max"),
     { id: "vars", title: "Variables", description: "The calculator's variables, read live.", keywords: "memory explorer variables directory", run: layerTab("vars") },
-    { id: "stack", title: "Stack", description: "The memory view's Stack tab.", keywords: "memory explorer stack levels", run: layerTab("stack") },
+    { id: "stack", title: "Stack", description: "The calculator's stack, level by level.", keywords: "memory explorer stack levels", run: layerTab("stack") },
     { id: "flags", title: "Flags", description: "The calculator's flags, with what each one means.", keywords: "memory explorer flags toggle", run: layerTab("flags") },
     { id: "commands", title: "Browse the reference by menu", description: "The command reference, by the calculator's menus.", keywords: "commands reference menu browse help", run: layerTab("commands") },
     { id: "layer", title: s.layer ? "Hide the memory view" : "Show the memory view", description: `The memory view beside the calculator${keyHint(bindings, "layer")}.`, keywords: "memory explorer toggle layer", run: () => setLayerOpen(memory, !s.layer) },
     ...["system", "light", "dark"].map((t) => ({
       id: `theme-${t}`,
       title: `Theme: ${t[0].toUpperCase()}${t.slice(1)}${s.theme === t ? " (on)" : ""}`,
-      description: t === "system" ? "The page's colours follow the device's light or dark setting." : `The page in its ${t} colours, whatever the device's setting.`,
+      description: t === "system" ? "The app's colours follow the device's light or dark setting." : `${t[0].toUpperCase()}${t.slice(1)} colours, whatever the device's setting.`,
       keywords: "theme colours colors dark light mode system appearance",
       run: () => ui.controls.setTheme(t),
     })),
     { id: "fullscreen", title: isFullscreen() ? "Leave fullscreen" : "Fullscreen", description: `The calculator alone, edge to edge${keyHint(bindings, "fullscreen")}.`, keywords: "fullscreen full screen", run: () => toggleFullscreen(store, bindings) },
     // After the palette has closed, which gives the focus back to the page.
-    { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the ${backend.host === "tauri" ? "app" : "page"}'s actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
+    { id: "shortcuts", title: "Keyboard shortcuts", description: `What each key does; change the keys for ON, α, the shifts and the app's actions${keyHint(bindings, "shortcuts")}.`, keywords: "keyboard shortcuts keys bindings rebind hotkeys layout", run: () => setTimeout(() => ui.shortcuts.open(), 0) },
     { id: "panel", title: root.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with the calculator, Reset, saved states and the speed.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!root.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
     // Files, on this calculator when it can reach it (its route, web/router.js).
     { id: "open-tx", title: "Open Files", description: "Move files between calculators, emulated or on a cable, and this computer.", keywords: "files tx transfer send receive kermit serial cable backup computer", run: () => { location.hash = filesHref(store); } },
     // The tour, and each chapter alone (found by a search).
-    { id: "tour", title: "Show me around", description: "A short tour of the page, one element at a time. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },
+    { id: "tour", title: "Show me around", description: "A short tour of the app. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },
     ...chaptersFor({ booted: s.booted }).map((c) => ({ id: `tour-${c.id}`, title: `Tour: ${c.title}`, description: `The tour's chapter on ${c.title[0].toLowerCase()}${c.title.slice(1)}.`, keywords: "tour help guide introduction tutorial", searchOnly: true, run: () => startTour(c.id) })),
   ];
 }

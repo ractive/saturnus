@@ -10,7 +10,7 @@ import { confirmAction } from "./shared/components/confirm.js";
 export function confirmFresh(title, doc = document) {
   return confirmAction({
     title: `Start the ${title} fresh?`,
-    body: "Its stack, variables and settings go, as on a new calculator. Your saved state stays.",
+    body: "Its stack, variables and settings are cleared, as on a new calculator. Your saved state stays.",
     action: "Start fresh",
     doc,
   });

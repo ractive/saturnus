@@ -44,7 +44,7 @@ export { SERIAL_SHARED };
 /** The serial commands refused on a shared calculator (`serialClose` is answered and does nothing). */
 const SERIAL_REFUSED = new Set(["serialOpen", "serialWrite"]);
 /** What a page hears when another tab keeps `model`'s state (its auto-save lock is taken). */
-export const autoSaveOff = (model) => `The ${globalThis.SATURNUS_MODEL_TITLES[model] ?? model} also runs in another saturnus tab, which keeps its state: this tab does not save it.`;
+export const autoSaveOff = (model) => `The ${globalThis.SATURNUS_MODEL_TITLES[model] ?? model} is also open in another saturnus tab, which saves its state. This tab does not.`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -588,7 +588,7 @@ export class Hub {
     }
     const created = !e;
     if (e) {
-      this.dropTx(e, fresh ? "The emulator started this calculator afresh." : "The emulator started this calculator with another ROM.", conn);
+      this.dropTx(e, fresh ? "The emulator restarted this calculator with an empty memory." : "The emulator restarted this calculator with another ROM.", conn);
       if (!fresh) {
         // Another ROM of the model: the running machine is kept first, and restored on the new ROM.
         e.host.saveNow();

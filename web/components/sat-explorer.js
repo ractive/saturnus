@@ -62,7 +62,7 @@ const TEMPLATE = `
     <p class="layer-status"><span class="layer-status-live" role="status"></span><span class="layer-status-hint"></span></p>
     <div class="layer-busy" hidden>
       <p class="layer-busy-text"></p>
-      <p class="layer-busy-detail">The calculator does this itself, out of sight. Its screen comes back when it is done.</p>
+      <p class="layer-busy-detail">The calculator does this in the background. Its screen comes back when it is done.</p>
     </div>
     <div class="empty layer-empty" hidden>
       <h3></h3>
@@ -578,7 +578,7 @@ export class SatExplorer extends HTMLElement {
   /** What the Commands tab says instead of its panes, or null. */
   commandsEmptyState(s) {
     const shown = s.booted ?? s.model;
-    if (!this.reference) return { title: "No command reference", text: "The command reference is not available on this page." };
+    if (!this.reference) return { title: "No command reference", text: "The command reference is not available here." };
     if (shown && !["48sx", "48gx", "49g"].includes(shown)) {
       return {
         title: `No command reference for the ${MODEL_TITLES[shown] ?? shown}`,
@@ -1781,7 +1781,7 @@ export class SatExplorer extends HTMLElement {
       if (row) return { el: row, dir: [...JSON.parse(row.dataset.path), row.dataset.name] };
       return { el: pane.contains(e.target) ? pane : null, dir: [...this.browse] };
     };
-    const refusal = () => (this.writes ? dropRefusal(this.store.state) : "This page cannot store files on the calculator.");
+    const refusal = () => (this.writes ? dropRefusal(this.store.state) : "The calculator cannot take files here.");
     const clear = () => {
       for (const n of this.querySelectorAll(".drop-over")) n.classList.remove("drop-over");
     };
@@ -2353,7 +2353,7 @@ Object.assign(SatExplorer.prototype, {
       ui.cmdsEntry.replaceChildren(el("div", { class: "preview-hint" },
         el("h3", { text: needle ? `${rows.length} ${rows.length === 1 ? "command matches" : "commands match"}` : (menu?.kind === "menu" && menu.path.startsWith("MENU ") ? menu.title : menu?.path ?? "Commands") }),
         el("p", { text: needle
-          ? "Names first, then descriptions, as the palette ranks them. Select one to see its entry."
+          ? "Names first, then descriptions, as Search ranks them. Select one to see its entry."
           : `${rows.length} ${rows.length === 1 ? "command" : "commands"}${menu?.children.length ? ` in this menu and its ${menu.children.length} submenus` : ""}, in the calculator's order. Select one for its stack effect, description, examples and manual pages.` })));
       return;
     }

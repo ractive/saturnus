@@ -34,7 +34,7 @@ const READ_CHUNK: usize = 4096;
 /// What the page says when the port is held elsewhere (web/tx/links.js's
 /// `PORT_IN_USE`, the same words as the browser's).
 pub const PORT_IN_USE: &str =
-    "The serial port is in use by another tab or program; close it there and try again.";
+    "The serial port is in use by another program; close it there and try again.";
 
 /// A port as the page lists it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -270,7 +270,7 @@ impl Ports {
             // Checked and inserted under the lock `close_all` takes.
             let mut table = self.open.lock().unwrap_or_else(PoisonError::into_inner);
             if self.generation.load(Ordering::Acquire) != generation {
-                return Err("The page was reloaded while the port opened.".into());
+                return Err("The app was reloaded while the port was opening.".into());
             }
             table.insert(id, Arc::clone(&open));
         }

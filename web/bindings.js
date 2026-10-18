@@ -207,7 +207,7 @@ export function reserved(text, { isMac = false, host = "worker" } = {}) {
   if (digit && browser && only(mod)) return `${isMac ? "Cmd" : "Ctrl"}+digit switches the browser's tabs.`;
   if (digit && browser && !isMac && only({ alt: true })) return "Alt+digit switches tabs in browsers on Linux.";
   if (c.code === "Escape" && only({ shift: true })) return "Shift+Esc opens Firefox's process manager.";
-  if (browser && c.code === "KeyC" && only({ ...mod, shift: true })) return "The browser's inspect element (its developer tools); the page may never get it.";
+  if (browser && c.code === "KeyC" && only({ ...mod, shift: true })) return "The browser's developer tools (inspect element); the app may never get it.";
   if (c.code === "Escape" && only({})) return "In fullscreen, most browsers take Esc to leave fullscreen. Chrome gives a short press to the page and leaves fullscreen when Esc is held.";
   if (isMac) {
     if (only({ meta: true }) && ["KeyQ", "KeyW", "KeyH", "KeyM", "Tab", "Space"].includes(c.code)) return "The system's: quit, close, hide, minimise or switch.";
@@ -392,7 +392,7 @@ export class Bindings {
   /** The row-number modifier's warning, or null. */
   numberWarning(mod = this.numberModifier) {
     const browser = this.host !== "tauri";
-    if (browser && ((this.isMac && mod === "meta") || (!this.isMac && mod === "ctrl"))) return "The browser uses this to switch tabs; the palette may not get it.";
+    if (browser && ((this.isMac && mod === "meta") || (!this.isMac && mod === "ctrl"))) return "The browser uses this to switch tabs; Search may not get it.";
     return null;
   }
 
