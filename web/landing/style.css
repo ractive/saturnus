@@ -455,25 +455,35 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 @media (max-width: 899px) { .feature-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 599px) { .feature-list { grid-template-columns: 1fr; } }
 
-/* Get it: three cards, then the ROM note. */
+/* Get it: three cards, then the ROM note. The cards share their rows
+   (subgrid), so the titles, the texts, the buttons and the small print
+   line up across the three whatever their lengths. */
 .get-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s4);
 }
 .get-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s3);
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: var(--s3);
   padding: var(--s5);
   background: var(--paper);
   border: 1px solid var(--rule-soft);
+  border-top: 3px solid var(--accent);
   border-radius: var(--r-lg);
   min-width: 0;
 }
-.get-card p:has(.button) { margin-top: auto; padding-top: var(--s2); }
+.get-card h3 { font-size: var(--fs-xl); }
+.get-card .get-action { padding-top: var(--s2); align-self: end; }
 .get-card .button { max-width: 100%; text-align: center; }
-@media (max-width: 899px) { .get-grid { grid-template-columns: 1fr; } }
+.get-card .fine { margin: 0; padding-top: var(--s3); border-top: 1px solid var(--rule-soft); }
+.get .terminal { margin-top: var(--s4); scroll-margin-top: var(--s6); }
+@media (max-width: 899px) {
+  .get-grid { grid-template-columns: 1fr; }
+  .get-card { grid-row: auto; grid-template-rows: none; }
+}
 
 .rom-note {
   margin-top: var(--s5);

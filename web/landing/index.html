@@ -749,22 +749,24 @@
     <div class="get-card">
       <h3>Web</h3>
       <p>Nothing to install. The app works offline after the first visit and can be added to a phone's home screen.</p>
-      <p><a class="button" href="app/">Open saturnus</a></p>
+      <p class="get-action"><a class="button primary" href="app/">Open saturnus</a></p>
+      <p class="fine">Your ROM and your work stay on your device.</p>
     </div>
     <div class="get-card">
       <h3>Desktop app</h3>
       <p>macOS (Apple silicon), Windows and Linux. The app downloads a model's ROM from hpcalc.org for you, after asking.</p>
-      <p><a class="button" href="https://github.com/ractive/saturnus/releases">Download from the releases page</a></p>
+      <p class="get-action"><a class="button" href="https://github.com/ractive/saturnus/releases">Download from the releases page</a></p>
       <p class="fine">The Mac app is signed and notarised. Windows will ask once before the first start; the release notes say what to click.</p>
     </div>
     <div class="get-card">
       <h3>Command line</h3>
       <p>Run a ROM with a key script, save the screen, serve the serial port for Kermit, or drive the calculator from a script.</p>
-      <p class="fine">Install it with one of the lines below. Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases">releases page</a> (the package <code>saturnus</code>; the desktop app's is <code>saturnus-app</code>).</p>
+      <p class="get-action"><a class="button" href="#install">Install lines below</a></p>
+      <p class="fine">Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases">releases page</a> (the package <code>saturnus</code>; the desktop app's is <code>saturnus-app</code>).</p>
     </div>
   </div>
 
-  <div class="terminal" aria-label="Install the command line">
+  <div id="install" class="terminal" aria-label="Install the command line">
     <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
 <pre><code><span class="c"># Rust</span>
 <span class="l">cargo install saturnus</span>
