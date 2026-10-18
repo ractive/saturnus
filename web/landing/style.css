@@ -346,25 +346,26 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model-dlg .dlg-close:hover { background: var(--hover); color: var(--ink); }
 .dlg-head {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: var(--s5);
-  align-items: end;
-  padding-right: var(--s6);
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: var(--s4) var(--s5);
+  align-items: start;
+  padding: 0 var(--s6) var(--s5) 0;
   margin-bottom: var(--s5);
+  border-bottom: 1px solid var(--rule-soft);
 }
-.dlg-head img { display: block; width: 120px; height: auto; aspect-ratio: 1 / 2; object-fit: contain; object-position: center bottom; }
+.dlg-head > img { grid-row: 1 / span 2; }
+.dlg-head img { display: block; width: 140px; height: auto; aspect-ratio: 1 / 2; object-fit: contain; object-position: center bottom; }
 .dlg-head h3 { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); font-size: var(--fs-2xl); }
 .dlg-head .year { font-size: var(--fs-lg); }
 .dlg-line { margin-top: var(--s2); font-size: var(--fs-lg); }
 .dlg-price { margin-top: var(--s2); color: var(--muted); font-size: var(--fs-sm); }
 .dlg-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s3) var(--s5);
-  margin: 0 0 var(--s5);
-  padding: var(--s4) 0;
+  margin: 0;
+  padding-top: var(--s4);
   border-top: 1px solid var(--rule-soft);
-  border-bottom: 1px solid var(--rule-soft);
 }
 .dlg-facts dt { font-size: var(--fs-sm); color: var(--muted); }
 .dlg-facts dd { margin: 0; }
@@ -386,7 +387,9 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
     border-bottom: 0;
   }
   .dlg-body { padding: var(--s4) var(--gutter) calc(var(--s5) + env(safe-area-inset-bottom)); }
-  .dlg-head { grid-template-columns: 84px minmax(0, 1fr); gap: var(--s4); }
+  .dlg-head { grid-template-columns: 84px minmax(0, 1fr); gap: var(--s4); padding-right: 0; }
+  .dlg-head > img { grid-row: auto; }
+  .dlg-head > .dlg-facts { grid-column: 1 / -1; }
   .dlg-head img { width: 84px; }
   .dlg-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3) var(--s4); }
   .dlg-head h3 { font-size: var(--fs-xl); }
