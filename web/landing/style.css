@@ -267,12 +267,23 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--s6);
+  gap: var(--s4);
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.model { min-width: 0; display: flex; flex-direction: column; container-type: inline-size; }
+/* Each model a card like the Get it cards, so its edges line up with the
+   page, whatever the shape of the case inside. */
+.model {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
+  padding: var(--s4);
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-lg);
+}
 /* Every case has the same height, set from the card's width (container
    units) so that the widest, the 42S/27S/17B family, fills 90% of its
    card, and no taller than 330 px when the cards are wide. */
@@ -423,12 +434,13 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model-dlg.instant::backdrop { transition: none; }
 
 /* Twelve cards: four a row (three full rows), then three, then two. */
-.model-row { row-gap: var(--s7); }
+.model-row { row-gap: var(--s4); }
 @media (max-width: 799px) {
   .model-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 599px) {
-  .model-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5) var(--s4); }
+  .model-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+  .model { padding: var(--s3); }
 }
 
 /* What you can do: six short items. */
