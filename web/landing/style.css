@@ -241,9 +241,7 @@ section {
 }
 section + section { border-top: 1px solid var(--rule-soft); }
 section > h2 { margin-bottom: var(--s2); }
-section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5); }
-/* The models' intro runs as wide as the row of cards below it. */
-.models > h2 + p { max-width: none; }
+section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
 
 /* The hero: text beside the 48GX; stacked on a phone. */
 .hero {
@@ -500,16 +498,13 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   border-radius: 0 var(--r-lg) var(--r-lg) 0;
 }
 .rom-note h3 { margin-bottom: var(--s2); }
-.rom-note p { max-width: 70ch; }
 
 /* Files, and satx on the command line. */
-.transfer p { max-width: 64ch; }
 .transfer > p { margin-bottom: var(--s3); }
 .transfer-app { margin-top: var(--s5); padding-top: var(--s4); border-top: 1px solid var(--rule-soft); }
 .transfer-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
 
 /* The knowledge base. */
-.about p { max-width: 64ch; }
 .links { display: flex; flex-wrap: wrap; gap: var(--s4) var(--s5); margin-top: var(--s4); }
 
 /* ---------------------------------------------------------------- footer */
@@ -536,4 +531,3 @@ footer .foot {
 footer .foot a { color: var(--ink); }
 footer .foot a:has(svg) { display: inline-flex; align-items: center; gap: var(--s2); text-decoration: none; }
 footer .foot a:has(svg):hover { text-decoration: underline; }
-footer p { max-width: 70ch; }
