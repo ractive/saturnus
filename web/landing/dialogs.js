@@ -1,13 +1,23 @@
 // Stepping between the model dialogs: ‹ and › open the neighbour by an
-// invoker command (show-modal, no script needed); this closes the dialog
-// they sit in first, so the dialogs do not pile up, and maps ← and → to
-// them. Stores nothing. Without it the buttons still work, the dialogs
-// then stack (Esc goes back one).
+// invoker command (show-modal, no script needed). This swaps the two in
+// one frame instead, the next opened and the last closed without the
+// fade, so the backdrop does not flicker, and maps ← and → to them.
+// Stores nothing. Without it the buttons still work; the dialogs then
+// stack (Esc goes back one).
 
 document.addEventListener("command", (e) => {
-  if (e.command !== "show-modal") return;
+  if (e.command !== "show-modal" || !e.target.matches("dialog.model-dlg")) return;
   const from = e.source?.closest("dialog.model-dlg");
-  if (from && from !== e.target) from.close();
+  if (!from || from === e.target) {
+    // Opened from the page: with its fade.
+    e.target.classList.remove("instant");
+    return;
+  }
+  e.preventDefault();
+  from.classList.add("instant");
+  e.target.classList.add("instant");
+  e.target.showModal();
+  from.close();
 }, true);
 
 document.addEventListener("keydown", (e) => {

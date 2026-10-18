@@ -420,6 +420,10 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
     @starting-style { .model-dlg[open] { transform: translateY(40px); } }
   }
 }
+/* Stepping with ‹ › (dialogs.js): the next dialog replaces the last in
+   one frame, without the fade, so the backdrop stays put. */
+.model-dlg.instant,
+.model-dlg.instant::backdrop { transition: none; }
 
 @media (max-width: 1099px) {
   .model-row {
