@@ -4,7 +4,7 @@
 // emulator (each with "Try it"), the deep links into the manuals. Shared by the palette's detail pane and the
 // explorer's Commands tab; it renders what web/reference.js reads.
 
-import { exampleResult, exampleText, manualLinks, placement, stackVerified } from "../reference.js";
+import { exampleBefore, exampleResult, exampleText, manualLinks, placement, stackVerified } from "../reference.js";
 import { MODEL_TITLES } from "../norom.js";
 import { el } from "../shared/dom.js";
 
@@ -119,14 +119,26 @@ function sendRow(command, ctx) {
     ctx.sent ? el("span", { class: `entry-sent${ctx.sent.error ? " error" : ""}`, role: "status", text: ctx.sent.text }) : null);
 }
 
+/** Stack levels as the calculator shows them, the deepest first and level 1 last. */
+function stackSide(lines, cls, label) {
+  return el("div", { class: `ex-stack ${cls}`, role: "group", "aria-label": label }, ...(lines.length
+    ? lines.map((line, j) => el("div", { class: "ex-line" },
+      el("span", { class: "ex-level", text: `${lines.length - j}:` }), el("span", { class: "ex-text", text: line })))
+    : [el("span", { class: "muted ex-empty", text: "empty stack" })]));
+}
+
+/**
+ * One example as the calculator shows it: the stack before, the command
+ * that ran on it, the stack after (or the error); a setup run first as
+ * a line above.
+ */
 function exampleRow(x, i, ctx) {
   const r = exampleResult(x);
-  const out = r.error
-    ? el("div", { class: "ex-out error" }, el("span", { class: "ex-level", text: "Error" }), el("span", { class: "ex-text", text: r.error }))
-    : el("div", { class: "ex-out" }, ...(r.lines.length
-      ? r.lines.map((line, j) => el("div", { class: "ex-line" },
-        el("span", { class: "ex-level", text: `${r.lines.length - j}:` }), el("span", { class: "ex-text", text: line })))
-      : [el("span", { class: "muted ex-empty", text: "an empty stack" })]));
+  const before = stackSide(exampleBefore(x), "ex-before", "Stack before");
+  const after = r.error
+    ? el("div", { class: "ex-stack ex-after error", role: "group", "aria-label": "Error" },
+      el("span", { class: "ex-level", text: "Error:" }), el("span", { class: "ex-text", text: r.error }))
+    : stackSide(r.lines, "ex-after", "Stack after");
   const text = exampleText(x);
   const tried = ctx.tried?.example === x ? ctx.tried : null;
   let tryBtn = null;
@@ -140,11 +152,12 @@ function exampleRow(x, i, ctx) {
     tryBtn = el("button", { type: "button", class: "ex-try", disabled: true, title: ctx.whyNot, text: "Try it" });
   }
   return el("li", { class: "ex", "data-example": i },
-    el("div", { class: "ex-in" },
-      el("code", { class: "ex-text", text: text }),
-      x.effect ? el("span", { class: "ex-effect", text: x.effect }) : null),
-    el("div", { class: "ex-arrow", "aria-hidden": "true", text: "→" }),
-    out,
+    x.setup ? el("p", { class: "ex-setup" }, "After ", el("code", { text: x.setup })) : null,
+    before,
+    el("div", { class: "ex-cmd", title: x.effect || null },
+      el("code", { class: "ex-run", text: x.run }),
+      el("span", { class: "ex-arrow", "aria-hidden": "true", text: "→" })),
+    after,
     tryBtn,
     tried ? el("p", { class: `ex-tried${tried.error ? " error" : ""}`, text: tried.text }) : null);
 }

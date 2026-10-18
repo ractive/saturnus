@@ -1282,29 +1282,54 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .entry .sep { color: var(--muted); }
 :where(#calculator-view) .entry h4 { margin-top: 6px; }
 :where(#calculator-view) .entry h4 .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
-:where(#calculator-view) .entry-examples { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+:where(#calculator-view) .entry-examples { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; container: examples / inline-size; }
+/* An example as the calculator shows it: the stack before, the command,
+   the stack after, "Try it" at the right edge; stacked when narrow. */
 :where(#calculator-view) .ex {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px 10px;
+  gap: 6px 10px;
   padding: 7px 10px;
   background: var(--panel);
   border: 1px solid var(--rule);
   border-radius: var(--r-md);
 }
-:where(#calculator-view) .ex-in { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-:where(#calculator-view) .ex-text { font: var(--fs-md)/1.4 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
-:where(#calculator-view) .ex-effect { font-size: var(--fs-xs); color: var(--muted); }
-:where(#calculator-view) .ex-arrow { color: var(--accent); font-size: var(--fs-lg); }
-:where(#calculator-view) .ex-out { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-:where(#calculator-view) .ex-line { display: flex; gap: 6px; align-items: baseline; }
-:where(#calculator-view) .ex-level { flex: none; font: var(--fs-xs)/1.4 var(--mono); color: var(--muted); min-width: 2ch; text-align: right; }
-:where(#calculator-view) .ex-out.error .ex-level { color: var(--error); min-width: 0; }
-:where(#calculator-view) .ex-out.error .ex-text { color: var(--error); }
+:where(#calculator-view) .ex-setup { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--muted); overflow-wrap: anywhere; }
+:where(#calculator-view) .ex-setup code { font: var(--fs-sm)/1.4 var(--mono); color: var(--ink); }
+:where(#calculator-view) .ex-stack {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 8px;
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-sm);
+}
+:where(#calculator-view) .ex-line { display: flex; gap: 8px; align-items: baseline; }
+:where(#calculator-view) .ex-level { flex: none; font: var(--fs-xs)/1.4 var(--mono); color: var(--muted); min-width: 2ch; }
+/* An object that fits on its line right-aligned, as on the calculator's
+   stack; a longer one wraps left-aligned across the side's width. */
+:where(#calculator-view) .ex-text { flex: 0 1 auto; margin-left: auto; min-width: 0; font: var(--fs-md)/1.4 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(#calculator-view) .ex-empty { font-size: var(--fs-sm); text-align: center; }
+:where(#calculator-view) .ex-after.error { flex-direction: row; gap: 8px; align-items: baseline; border-color: var(--error); }
+:where(#calculator-view) .ex-after.error .ex-level { color: var(--error); min-width: 0; }
+:where(#calculator-view) .ex-after.error .ex-text { color: var(--error); margin-left: 0; }
+:where(#calculator-view) .ex-cmd { display: flex; align-items: center; gap: 6px; max-width: 24ch; min-width: 0; }
+:where(#calculator-view) .ex-run { font: 600 var(--fs-md)/1.4 var(--mono); color: var(--accent-text); text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(#calculator-view) .ex-arrow { color: var(--accent); font-size: var(--fs-lg); line-height: 1; }
 :where(#calculator-view) .ex-try { font-size: var(--fs-sm); white-space: nowrap; }
 :where(#calculator-view) .ex-tried { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--accent-text); }
 :where(#calculator-view) .ex-tried.error { color: var(--error); }
+/* A narrow pane (a phone, the palette's detail): before, command, after
+   one under the other, the arrow pointing down, "Try it" below. */
+@container examples (max-width: 470px) {
+  :where(#calculator-view) .ex { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  :where(#calculator-view) .ex-cmd { justify-content: center; max-width: none; }
+  :where(#calculator-view) .ex-arrow { order: -1; transform: rotate(90deg); }
+  :where(#calculator-view) .ex-try { justify-self: start; margin-top: 2px; }
+}
 :where(#calculator-view) .entry-manuals ul { margin: 0; padding-left: 18px; font-size: var(--fs-sm); line-height: 1.6; }
 :where(#calculator-view) .entry a { color: var(--accent-text); text-underline-offset: 2px; }
 :where(#calculator-view) .entry-names { font: var(--fs-sm)/1.7 var(--mono); overflow-wrap: anywhere; }
@@ -1487,12 +1512,6 @@ body.resizing * { cursor: col-resize !important; }
   :where(#calculator-view) .prow-hint { display: none; }
   :where(#calculator-view) .prow-go { display: block; }
   :where(#calculator-view) .prow-desc { white-space: normal; }
-  :where(#calculator-view) .ex { grid-template-columns: minmax(0, 1fr) auto; }
-  :where(#calculator-view) .ex-arrow { display: none; }
-  :where(#calculator-view) .ex-in { grid-column: 1; grid-row: 1; }
-  :where(#calculator-view) .ex-try { grid-column: 2; grid-row: 1; align-self: start; justify-self: end; }
-  :where(#calculator-view) .ex-out { grid-column: 1 / -1; grid-row: 2; padding-top: 2px; border-top: 1px solid var(--rule-soft); }
-  :where(#calculator-view) .ex-tried { grid-row: 3; }
 }
 
 /* Coarse pointers: the shortcut chips grow to a finger's size too (after

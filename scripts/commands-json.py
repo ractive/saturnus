@@ -19,9 +19,11 @@ our `group`
 PDF page) and `models`, one entry per model that has the command, with
 the ROM's `menus`, the manual's `key` (`category`, `manual`, `page`,
 `other` when it is another model's manual), the `examples` (`setup`,
-`input`, `run`, `display`, `effect`, `error`) and the `skip` reason where
-none was generated. The typed stacks of the examples stay out: the page
-shows the calculator's own display text. The key legends that place a
+`input`, `run`, `before`, `display`, `effect`, `error`) and the `skip`
+reason where none was generated. `before` and `display` are the stack
+before and after the command as the calculator displays it, level 1
+first. The typed stacks of the examples stay out: the page shows the
+calculator's own display text. The key legends that place a
 command no manual mentions come from the skins at run time.
 
 The output is read by `scripts/commands-json.py --check` in CI, which
@@ -36,7 +38,7 @@ REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "crates" / "saturnus-cli" / "data" / "commands"
 OUT = REPO / "web" / "commands.json"
 MODELS = ["48sx", "48gx", "49g"]
-EXAMPLE_FIELDS = ["setup", "input", "run", "display", "effect", "error"]
+EXAMPLE_FIELDS = ["setup", "input", "run", "before", "display", "effect", "error"]
 
 
 def load(name):

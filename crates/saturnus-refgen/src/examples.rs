@@ -41,6 +41,10 @@ pub struct Example {
     pub run: String,
     /// The input stack typed, level 1 first.
     pub stack: Vec<Value>,
+    /// The display text of the input stack, read like `display`, level 1
+    /// first: the stack the command runs on as the calculator shows it.
+    #[serde(default)]
+    pub before: Vec<String>,
     /// The stack afterwards typed, level 1 first (on an error: as the
     /// calculator left it, display text only in `display`).
     pub result: Vec<Value>,
@@ -156,6 +160,7 @@ impl Runner {
             input: spec.input.clone(),
             run: run.clone(),
             stack: Vec::new(),
+            before: Vec::new(),
             result: Vec::new(),
             display: Vec::new(),
             error: None,
@@ -176,6 +181,7 @@ impl Runner {
                         .iter()
                         .map(object_json)
                         .collect::<Result<_>>()?;
+                    example.before = levels.display;
                 }
                 Ok(Err(e)) => return Ok(failed(example, format!("in input: {}", e.error))),
                 Err(e) => return Ok(failed(example, format!("in input: {e:#}"))),
@@ -303,6 +309,7 @@ mod tests {
             input: String::new(),
             run: "Y".into(),
             stack: Vec::new(),
+            before: Vec::new(),
             result: Vec::new(),
             display: Vec::new(),
             error: None,

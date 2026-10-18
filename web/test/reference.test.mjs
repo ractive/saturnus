@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import {
-  NOT_IN_MENU, OTHER_MENUS, buildIndex, enterPlan, enterVerb, exampleResult, exampleText, findCommands, findMenu,
+  NOT_IN_MENU, OTHER_MENUS, buildIndex, enterPlan, enterVerb, exampleBefore, exampleResult, exampleText, findCommands, findMenu,
   flattenMenus, fromCodes, friendly, menuLabel,
   isSingleToken, keyLegend, manualLinks, menuCommands, placement, search, spaced, stackVerified, toCodes,
 } from "../reference.js";
@@ -227,6 +227,17 @@ test("the Enter rule mimics the keys and Cmd/Ctrl+Enter does the opposite", () =
   assert.equal(spaced("SIN", { text: "1 2", cursor: 1 }), " SIN");
   assert.equal(spaced("SIN", { text: "12", cursor: 1 }), " SIN ");
   assert.equal(spaced("SIN", { text: "1 ", cursor: 2 }), "SIN");
+});
+
+test("an example's stack before the command is the calculator's display, level 1 last: 10 on a 48GX, 10. on the 49G", () => {
+  const gx = buildIndex(data, "48gx");
+  const pick = gx.byName.get("PICK").per.examples[0];
+  assert.deepEqual(pick.before, ["3", "30", "20", "10"]);
+  assert.deepEqual(exampleBefore(pick), ["10", "20", "30", "3"]);
+  assert.deepEqual(exampleResult(pick), { lines: ["10", "20", "30", "10"] });
+  const pick49 = g49.byName.get("PICK").per.examples[0];
+  assert.deepEqual(exampleBefore(pick49), ["10.", "20.", "30.", "3."]);
+  assert.deepEqual(exampleBefore({}), []);
 });
 
 test("examples, placement and manual links read the data as saturnus ref prints them", () => {

@@ -575,8 +575,8 @@ commands share lists them all (`INT` on the 49G: INT, then ∫). Each
 command row shows its stack effect and description; the selected row's
 full entry is beside the list: stack
 effect, description, the models that have it, the ROM's menu and the
-manual's key for it, the examples generated on the emulator as input →
-result with **Try it**, and links into the manuals' pages.
+manual's key for it, the examples generated on the emulator (the stack before, the command,
+the stack after, as the calculator displays them) with **Try it**, and links into the manuals' pages.
 
 On a phone (below 760 px) the palette is a sheet: the input at the top,
 the list under it, and a tapped row opens its entry as a second step

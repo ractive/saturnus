@@ -438,6 +438,11 @@ export function exampleText(example) {
   return [example.setup, example.input, example.run].filter(Boolean).join(" ");
 }
 
+/** The stack the example's command ran on as the calculator showed it: display lines, level 1 last. */
+export function exampleBefore(example) {
+  return [...(example.before ?? [])].reverse();
+}
+
 /** The example's result as the calculator showed it: display lines, level 1 last, or its error. */
 export function exampleResult(example) {
   if (example.error) return { error: example.error };
