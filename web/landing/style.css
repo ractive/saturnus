@@ -346,7 +346,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model-dlg .dlg-close:hover { background: var(--hover); color: var(--ink); }
 .dlg-head {
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr);
+  grid-template-columns: 180px minmax(0, 1fr);
   gap: var(--s4) var(--s5);
   align-items: start;
   padding: 0 var(--s6) var(--s5) 0;
@@ -354,7 +354,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   border-bottom: 1px solid var(--rule-soft);
 }
 .dlg-head > img { grid-row: 1 / span 2; }
-.dlg-head img { display: block; width: 140px; height: auto; aspect-ratio: 1 / 2; object-fit: contain; object-position: center bottom; }
+.dlg-head img { display: block; width: 180px; height: auto; aspect-ratio: 1 / 2; object-fit: contain; object-position: center bottom; }
 .dlg-head h3 { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); font-size: var(--fs-2xl); }
 .dlg-head .year { font-size: var(--fs-lg); }
 .dlg-line { margin-top: var(--s2); font-size: var(--fs-lg); }
