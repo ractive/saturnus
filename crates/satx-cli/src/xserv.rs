@@ -38,8 +38,8 @@ const REPLY_FAILURES: u32 = 4;
 const QUIET: Duration = Duration::from_millis(200);
 
 /// Shown under every `xserv` subcommand's help.
-const UNVERIFIED: &str = "UNVERIFIED ON HARDWARE: no calculator has answered satx's XSERV yet \
-(the emulated 49G has none). Start XSERV on the calculator instead of SERVER.";
+const UNVERIFIED: &str = "NOT YET TESTED ON A REAL CALCULATOR: no calculator has answered satx's \
+XSERV yet (the emulated 49G has none). Start XSERV on the calculator instead of SERVER.";
 
 /// The `xserv` subcommands.
 #[derive(Subcommand, Debug)]
@@ -356,7 +356,7 @@ impl Ctx {
     }
 
     pub(crate) fn xserv(&mut self, command: XservCmd) -> Result<Option<Outcome>> {
-        let label = |cmd: &str| format!("xserv {cmd} (unverified on hardware)");
+        let label = |cmd: &str| format!("xserv {cmd} (not yet tested on a real calculator)");
         match command {
             XservCmd::Ls => {
                 let mut client = self.xserv_open()?;
@@ -426,7 +426,7 @@ impl Ctx {
         }
         let options = self.xserv_xmodem()?;
         let mut client = self.xserv_open()?;
-        let what = format!("xserv get {name} (unverified on hardware)");
+        let what = format!("xserv get {name} (not yet tested on a real calculator)");
         client
             .send(&XservCommand::Get(name.to_string()))
             .with_context(|| what.clone())?;
@@ -490,7 +490,7 @@ impl Ctx {
         }
         let options = self.xserv_xmodem()?;
         let mut client = self.xserv_open()?;
-        let what = format!("xserv put {name} (unverified on hardware)");
+        let what = format!("xserv put {name} (not yet tested on a real calculator)");
         client.send(&cmd).with_context(|| what.clone())?;
         let mut session = XmodemSession::new(client.into_transport(), options);
         let report = session.send(&data).with_context(|| what.clone())?;

@@ -1,6 +1,7 @@
-//! `saturnus`: run Saturn calculator ROMs headless, replay key scripts,
-//! dump the screen, serve the serial port and the control API, drive a
-//! running emulator (`ctl`), disassemble ROM code and fetch ROM images.
+//! `saturnus`: run HP calculator ROMs without a window, play key scripts,
+//! save the screen, serve the serial port and the control API, control a
+//! running calculator (`ctl`), look up commands, disassemble ROM code and
+//! download ROM files.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 mod control;
@@ -26,8 +27,7 @@ use serde_json::{Value, json};
 use serial::{BridgeOptions, SerialPort, SerialSpec, ServeHook};
 
 /// Command-line emulator of the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S,
-/// 17BII, 17B, 28S and 19BII
-/// calculators.
+/// 17BII, 17B, 28S and 19BII calculators.
 #[derive(Debug, Parser)]
 #[command(name = "saturnus", version)]
 struct Cli {
@@ -37,9 +37,9 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
-    /// Start a calculator from its ROM file and play a key script. It writes
-    /// the screen and the state only if --screen or --save ask for them.
-    /// With --serve, --serial or --control it keeps running until Ctrl-C.
+    /// Start a calculator from its ROM file and play a key script. The screen
+    /// and the state are written only with --screen or --save. With --serve,
+    /// --serial or --control it keeps running until Ctrl-C.
     Run(Box<RunArgs>),
     /// Control a `saturnus run --serve` through its control API.
     Ctl(Box<control::client::CtlArgs>),
@@ -162,8 +162,8 @@ struct RunArgs {
     #[arg(long, conflicts_with = "serial")]
     no_serial: bool,
     /// Before serving, answer the boot prompt with NO (unless `--load`)
-    /// and put the calculator in file-transfer mode (its Kermit server:
-    /// ALPHA ALPHA S E R V E R ENTER).
+    /// and start the calculator's Kermit server for file transfers, as
+    /// typing SERVER does.
     #[arg(long)]
     autostart: bool,
     /// Stop after the first serial client disconnects (stdin EOF for
