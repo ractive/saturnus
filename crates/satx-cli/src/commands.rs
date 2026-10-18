@@ -1218,10 +1218,10 @@ impl Ctx {
         }
         if info.size_nibbles.is_none() {
             return Err(Hinted::new(
-                format!("{label} is not a complete backup: its directory breaks off"),
+                format!("{label} is not a complete backup: its directory is cut short"),
                 format!(
                     "the file is truncated or damaged; `satx object inspect {}` shows where \
-                     it breaks off",
+                     it ends",
                     shell_quote(label)
                 ),
             )

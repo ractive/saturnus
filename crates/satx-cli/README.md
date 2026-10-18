@@ -25,11 +25,22 @@ satx-core's README (`crates/satx-core/README.md`).
 
 ## Usage
 
-Install from source (Rust stable):
+Install, one of:
 
 ```sh
-cargo install --path crates/satx-cli    # puts `satx` in ~/.cargo/bin
+cargo install satx                  # from crates.io, any platform with Rust
+
+brew trust --formula ractive/tap/satx   # once: Homebrew 5.1.15+ refuses untrusted taps
+brew install ractive/tap/satx           # macOS (Apple silicon), Linux
 ```
+
+```powershell
+scoop bucket add ractive https://github.com/ractive/scoop-bucket
+scoop install satx                  # Windows
+```
+
+or an archive, `.deb` or `.rpm` from the
+[releases page](https://github.com/ractive/saturnus/releases).
 
 On the calculator, run `SERVER` (the display shows "Awaiting Server Cmd.").
 satx talks at 9600 baud; `satx info` shows the calculator's IOPAR. Then:

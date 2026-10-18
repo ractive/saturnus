@@ -198,7 +198,7 @@ test("ATTN or an open command line in Calculator: Files is refused at once in wo
   await until(emu.ev, "window.saturnus.backend.commandLine().then((c) => c?.active)", 10_000, "a command line open in the emulator");
   const refused = Date.now();
   await p.drop({ "REFUSED.txt": "%%HP: T(3)A(R)F(.);\r\n\\<< 3 \\>>\r\n" });
-  await p.until(`[...document.querySelectorAll(".toast")].some((e) => /The calculator is busy in Calculator: finish or cancel the command line there\\./.test(e.textContent))`, 5_000, "the refusal said");
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => /The calculator is busy: finish or cancel its command line in Calculator\\./.test(e.textContent))`, 5_000, "the refusal said");
   assert.ok(Date.now() - refused < 5_000, "at once");
   await p.idle(5_000, "nothing left waiting");
   assert.equal((await p.names()).includes("REFUSED"), false);

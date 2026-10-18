@@ -191,8 +191,8 @@ test("a directory that holds variables is purged only with its count", async () 
 test("the engine's refusals come back in tx's words, at once", async () => {
   const { hub, d } = await connected();
   for (const [engine, words] of [
-    ["the command line is open: finish it (ENTER) or cancel it (ON) first", "The calculator is busy in Calculator: finish or cancel the command line there."],
-    ["typing is in progress (releaseAll stops it)", /busy in Calculator: it is typing/],
+    ["the command line is open: finish it (ENTER) or cancel it (ON) first", "The calculator is busy: finish or cancel its command line in Calculator."],
+    ["typing is in progress (releaseAll stops it)", /busy typing in Calculator/],
     ["a transfer is in progress (releaseAll stops it)", /busy with another transfer/],
     ["flag -33 is set (I/O over infrared): clear it for transfers over the wire", /Flag -33 is set/],
   ]) {
