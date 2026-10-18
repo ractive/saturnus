@@ -1,5 +1,5 @@
 // The landing page's model cards (web/landing/index.html): each card's
-// "More", its name and its picture open the model's <dialog> by invoker
+// "More" and its picture open the model's <dialog> by invoker
 // commands (commandfor/command), Esc closes it, so does a
 // click outside (closedby="any") and the close button. Every dialog is
 // labelled by its heading, no id is used twice, and the dialog fits a
@@ -75,9 +75,9 @@ test("each model card opens its dialog; Esc, a click outside and × close it", {
       await until(ev, `!document.getElementById("${id}").open`, 3_000, `${m}: Esc closes it`);
     }
 
-    // The name and the picture open it too; a click outside and × close it.
-    await ev(`document.querySelectorAll(".model h3 button")[10].click(); true`);
-    await until(ev, `document.getElementById("dlg-28s").open`, 3_000, "the name opens it");
+    // The picture opens it too; a click outside and × close it.
+    await ev(`document.querySelectorAll(".model .model-pic")[10].click(); true`);
+    await until(ev, `document.getElementById("dlg-28s").open`, 3_000, "the picture opens it");
     await send("Input.dispatchMouseEvent", { type: "mousePressed", x: 8, y: 8, button: "left", clickCount: 1 });
     await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: 8, y: 8, button: "left", clickCount: 1 });
     await until(ev, `!document.getElementById("dlg-28s").open`, 3_000, "a click outside closes it");

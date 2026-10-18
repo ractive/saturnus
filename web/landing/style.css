@@ -307,9 +307,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   cursor: pointer;
 }
 .model-pic { display: block; width: 100%; }
-.model h3 button { display: flex; align-items: center; gap: var(--s2); width: 100%; font-weight: inherit; }
 .model h3 .year { margin-left: auto; }
-.model h3 button:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .year { font-weight: 400; color: var(--muted); font-size: var(--fs-sm); }
 .model .more { margin-top: auto; padding-top: var(--s2); }
 .model .more button { color: var(--accent-text); font-size: var(--fs-sm); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
