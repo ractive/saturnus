@@ -4,7 +4,6 @@
 // scale 2, into web/landing/raw/ (gitignored). Then, for img/:
 //   for m in 48sx 48gx 49g 38g 39g 40g 42s 27s 17bii 17b 28s 19bii; do magick raw/$m.png -trim +repage t.png;
 //     for w in 320 640; do magick t.png -resize ${w}x -quality 82 -define webp:alpha-quality=90 img/$m-$w.webp; done; done
-//   for w in 560 1120; do magick raw/48gx.png -trim +repage -resize ${w}x -quality 84 -define webp:alpha-quality=90 img/48gx-hero-$w.webp; done
 // Usage: SATURNUS_ROM_DIR=../../roms node shots.mjs [model ...]
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

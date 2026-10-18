@@ -253,12 +253,12 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .actions { display: flex; flex-wrap: wrap; gap: var(--s3); margin: var(--s5) 0 var(--s4); }
 .hero .fine { max-width: 34rem; }
 .hero-calc { margin: 0; justify-self: end; }
-.hero-calc img { display: block; width: 300px; height: auto; }
+.hero-calc img { display: block; width: 200px; height: auto; }
 
 @media (max-width: 799px) {
   .hero { grid-template-columns: 1fr; padding-top: var(--s4); }
   .hero-calc { justify-self: center; }
-  .hero-calc img { width: 220px; }
+  .hero-calc img { width: 150px; }
 }
 
 /* The models: a row of cards, which scrolls sideways on a narrow screen. */

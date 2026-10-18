@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="316 30 144 248" width="144" height="248" role="img" aria-label="An HP 48 calculator, drawn flat, showing a sine plot">
+  <!-- The same drawing as the saturnus card on ractive.ch: body, LCD with a sine plot, softkeys, two key rows, number pad. -->
+  <rect x="316" y="30" width="144" height="248" rx="16" fill="#00362a"/>
+  <rect x="332" y="48" width="112" height="64" rx="4" fill="#cdeede"/>
+  <line x1="338" y1="80.0" x2="438" y2="80.0" stroke="#00362a" stroke-width="0.8" opacity="0.35"/>
+  <polyline points="338.0,80.0 339.2,77.4 340.5,74.9 341.8,72.4 343.0,70.0 344.2,67.8 345.5,65.7 346.8,63.8 348.0,62.2 349.2,60.8 350.5,59.7 351.8,58.8 353.0,58.3 354.2,58.0 355.5,58.1 356.8,58.4 358.0,59.1 359.2,60.0 360.5,61.2 361.8,62.7 363.0,64.4 364.2,66.4 365.5,68.5 366.8,70.8 368.0,73.2 369.2,75.7 370.5,78.3 371.8,80.9 373.0,83.4 374.2,86.0 375.5,88.4 376.8,90.7 378.0,92.9 379.2,94.9 380.5,96.7 381.8,98.3 383.0,99.6 384.2,100.6 385.5,101.4 386.8,101.8 388.0,102.0 389.2,101.8 390.5,101.4 391.8,100.6 393.0,99.6 394.2,98.3 395.5,96.7 396.8,94.9 398.0,92.9 399.2,90.7 400.5,88.4 401.8,86.0 403.0,83.4 404.2,80.9 405.5,78.3 406.8,75.7 408.0,73.2 409.2,70.8 410.5,68.5 411.8,66.4 413.0,64.4 414.2,62.7 415.5,61.2 416.8,60.0 418.0,59.1 419.2,58.4 420.5,58.1 421.8,58.0 423.0,58.3 424.2,58.8 425.5,59.7 426.8,60.8 428.0,62.2 429.2,63.8 430.5,65.7 431.8,67.8 433.0,70.0 434.2,72.4 435.5,74.9 436.8,77.4 438.0,80.0" fill="none" stroke="#00362a" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="332.0" y="128" width="14.5" height="7" rx="2" fill="#fffae3" opacity="0.9"/>
+  <rect x="351.5" y="128" width="14.5" height="7" rx="2" fill="#fffae3" opacity="0.9"/>
+  <rect x="371.0" y="128" width="14.5" height="7" rx="2" fill="#fffae3" opacity="0.9"/>
+  <rect x="390.5" y="128" width="14.5" height="7" rx="2" fill="#fffae3" opacity="0.9"/>
+  <rect x="410.0" y="128" width="14.5" height="7" rx="2" fill="#fffae3" opacity="0.9"/>
+  <rect x="429.5" y="128" width="14.5" height="7" rx="2" fill="#fffae3" opacity="0.9"/>
+  <rect x="332.0" y="147" width="14.5" height="10" rx="3" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="351.5" y="147" width="14.5" height="10" rx="3" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="371.0" y="147" width="14.5" height="10" rx="3" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="390.5" y="147" width="14.5" height="10" rx="3" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="410.0" y="147" width="14.5" height="10" rx="3" fill="#d9874a"/>
+  <rect x="429.5" y="147" width="14.5" height="10" rx="3" fill="#a0d1bf"/>
+  <rect x="332.0" y="164" width="34.0" height="10" rx="3" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="371.0" y="164" width="14.5" height="10" rx="3" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="390.5" y="164" width="14.5" height="10" rx="3" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="410.0" y="164" width="14.5" height="10" rx="3" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="429.5" y="164" width="14.5" height="10" rx="3" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="332.0" y="186" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="355.6" y="186" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="379.2" y="186" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="402.8" y="186" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="426.4" y="186" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="332.0" y="207" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="355.6" y="207" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="379.2" y="207" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="402.8" y="207" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="426.4" y="207" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="332.0" y="228" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="355.6" y="228" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="379.2" y="228" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="402.8" y="228" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="426.4" y="228" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="332.0" y="249" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.28"/>
+  <rect x="355.6" y="249" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="379.2" y="249" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="402.8" y="249" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.42"/>
+  <rect x="426.4" y="249" width="17.6" height="13" rx="3.5" fill="#a0d1bf" fill-opacity="0.28"/>
+</svg>
