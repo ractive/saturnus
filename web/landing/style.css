@@ -272,7 +272,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 }
 /* The models whose ROM is read out of one's own calculator, below the rest. */
 .model-group { margin: var(--s6) 0 var(--s4); }
-.model { min-width: 0; }
+.model { min-width: 0; display: flex; flex-direction: column; }
 /* Every case stands on one line, whatever its proportions (the 42S is
    wider and shorter than the 48s). */
 .model img {
@@ -284,7 +284,6 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   object-position: center bottom;
   margin-bottom: var(--s3);
 }
-.model .rom { overflow-wrap: anywhere; }
 .model h3 {
   display: flex;
   align-items: center;
@@ -293,8 +292,6 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   margin-bottom: var(--s1);
 }
 .model p { font-size: var(--fs-sm); color: var(--muted); }
-.model .rom { margin-top: var(--s2); }
-.model .rom a { color: var(--accent-text); }
 /* The picture, the name and "More" open the model's dialog (invoker
    commands, no script): buttons that look like what they wrap. */
 .model button,
@@ -312,7 +309,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model h3 button { display: flex; align-items: center; gap: var(--s2); font-weight: inherit; }
 .model h3 button:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .year { font-weight: 400; color: var(--muted); font-size: var(--fs-sm); }
-.model .more { margin-top: var(--s2); }
+.model .more { margin-top: auto; padding-top: var(--s2); }
 .model .more button { color: var(--accent-text); font-size: var(--fs-sm); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .model .more button:hover { text-decoration-thickness: 2px; }
 
