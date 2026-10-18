@@ -296,7 +296,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 /* The picture, the name and "More" open the model's dialog (invoker
    commands, no script): buttons that look like what they wrap. */
 .model button,
-.model-dlg .dlg-close {
+.model-dlg .dlg-tools button {
   font: inherit;
   color: inherit;
   background: none;
@@ -331,31 +331,35 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model-dlg[open] { display: flex; flex-direction: column; }
 .model-dlg::backdrop { background: rgba(20, 18, 12, 0.45); }
 .dlg-body { overflow-y: auto; overscroll-behavior: contain; padding: var(--s5); }
-.dlg-close {
+.dlg-tools {
   position: absolute;
   top: var(--s2);
   right: var(--s2);
   z-index: 1;
+  display: flex;
+  gap: var(--s1);
+}
+.dlg-tools button {
   width: 40px;
   height: 40px;
   display: grid;
   place-items: center;
   border-radius: var(--r-pill);
 }
-.model-dlg .dlg-close { text-align: center; font-size: 28px; line-height: 1; color: var(--muted); background: var(--paper); }
-.model-dlg .dlg-close:hover { background: var(--hover); color: var(--ink); }
+.model-dlg .dlg-tools button { text-align: center; font-size: 28px; line-height: 1; color: var(--muted); background: var(--paper); }
+.model-dlg .dlg-tools button:hover { background: var(--hover); color: var(--ink); }
 .dlg-head {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
   gap: var(--s4) var(--s5);
   align-items: start;
-  padding: 0 var(--s6) var(--s5) 0;
+  padding: 0 0 var(--s5) 0;
   margin-bottom: var(--s5);
   border-bottom: 1px solid var(--rule-soft);
 }
 .dlg-head > img { grid-row: 1 / span 2; }
 .dlg-head img { display: block; width: 180px; height: auto; aspect-ratio: 1 / 2; object-fit: contain; object-position: center bottom; }
-.dlg-head h3 { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); font-size: var(--fs-2xl); }
+.dlg-head h3 { padding-right: 136px; display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); font-size: var(--fs-2xl); }
 .dlg-head .year { font-size: var(--fs-lg); }
 .dlg-line { margin-top: var(--s2); font-size: var(--fs-lg); }
 .dlg-price { margin-top: var(--s2); color: var(--muted); font-size: var(--fs-sm); }
@@ -367,7 +371,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   border-top: 1px solid var(--rule-soft);
 }
 .dlg-facts > div { break-inside: avoid; padding-bottom: var(--s3); }
-.dlg-facts dt { font-size: var(--fs-sm); color: var(--muted); }
+.dlg-facts dt { font-size: var(--fs-sm); font-weight: 600; }
 .dlg-facts dd { margin: 0; }
 .dlg-part { margin-bottom: var(--s5); max-width: 62ch; }
 .dlg-part h4 { margin: 0 0 var(--s2); font-size: var(--fs-base); font-weight: 600; }
@@ -388,6 +392,8 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   }
   .dlg-body { padding: var(--s4) var(--gutter) calc(var(--s5) + env(safe-area-inset-bottom)); }
   .dlg-head { grid-template-columns: 84px minmax(0, 1fr); gap: var(--s4); padding-right: 0; }
+  .dlg-head h3 { padding-right: 0; }
+  .dlg-body { padding-top: calc(var(--s2) + 48px); }
   .dlg-head > img { grid-row: auto; }
   .dlg-head > .dlg-facts { grid-column: 1 / -1; }
   .dlg-head img { width: 84px; }

@@ -1,9 +1,10 @@
 // The landing page's model cards (web/landing/index.html): each card's
 // "More", its name and its picture open the model's <dialog> by invoker
-// commands (commandfor/command, no script), Esc closes it, so does a
+// commands (commandfor/command), Esc closes it, so does a
 // click outside (closedby="any") and the close button. Every dialog is
 // labelled by its heading, no id is used twice, and the dialog fits a
-// 390px phone without sideways scrolling. Needs Chrome 135 or later (the
+// 390px phone without sideways scrolling. ‹ and › (and ← →, dialogs.js)
+// step to the neighbouring model, one dialog open at a time. Needs Chrome 135 or later (the
 // page, not the wasm package); skipped without Chrome.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -50,7 +51,7 @@ test("each model card opens its dialog; Esc, a click outside and × close it", {
     assert.deepEqual(markup.dialogs, MODELS.map((m) => `dlg-${m}`));
     assert.ok(markup.labelled, "every dialog is labelled by its heading");
     assert.ok(markup.closedby, "every dialog closes on Esc and a click outside");
-    assert.equal(markup.scripts, 0, "no script");
+    assert.equal(markup.scripts, 1, "one script: dialogs.js, ← and → between the dialogs");
 
     const open = (id) => ev(`document.getElementById(${JSON.stringify(id)}).open && document.getElementById(${JSON.stringify(id)}).matches(":modal")`);
     const esc = async () => {
@@ -84,6 +85,30 @@ test("each model card opens its dialog; Esc, a click outside and × close it", {
     await until(ev, `document.getElementById("dlg-49g").open`, 3_000, "the picture opens it");
     await ev(`document.querySelector("#dlg-49g .dlg-close").click(); true`);
     await until(ev, `!document.getElementById("dlg-49g").open`, 3_000, "× closes it");
+
+    // › and ‹ step to the neighbour, ← and → too; one dialog open at a time, the ends wrap.
+    const opened = () => ev(`[...document.querySelectorAll("dialog[open]")].map((d) => d.id).join()`);
+    const key = async (k, code) => {
+      await send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: k, code, windowsVirtualKeyCode: code === "ArrowLeft" ? 37 : 39 });
+      await send("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: code === "ArrowLeft" ? 37 : 39 });
+    };
+    await ev(`document.getElementById("dlg-49g").showModal(); true`);
+    await ev(`document.querySelector("#dlg-49g .dlg-next").click(); true`);
+    await until(ev, `document.getElementById("dlg-38g").open`, 3_000, "› opens the next");
+    assert.equal(await opened(), "dlg-38g", "› closes the one it sits in");
+    await key("ArrowLeft", "ArrowLeft");
+    await until(ev, `document.getElementById("dlg-49g").open`, 3_000, "← opens the previous");
+    await ev(`document.querySelector("#dlg-49g .dlg-prev").click(); true`);
+    await key("ArrowRight", "ArrowRight");
+    await key("ArrowRight", "ArrowRight");
+    await until(ev, `document.getElementById("dlg-38g").open`, 3_000, "‹ then → →");
+    assert.equal(await opened(), "dlg-38g");
+    await ev(`document.getElementById("dlg-38g").close(); document.getElementById("dlg-48sx").showModal(); true`);
+    await key("ArrowLeft", "ArrowLeft");
+    await until(ev, `document.getElementById("dlg-19bii").open`, 3_000, "← on the first wraps to the last");
+    assert.equal(await opened(), "dlg-19bii");
+    await esc();
+    await until(ev, `!document.querySelector("dialog[open]")`, 3_000, "Esc closes it");
 
     // A phone: a sheet the screen's width, nothing wider than the page.
     await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
