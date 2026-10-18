@@ -109,7 +109,7 @@ export class NativeHub {
         if (!model) return;
         // Known from the reply already: its `status` may come after it.
         this.running = model;
-        this.dropAll(cmd === "bootModel" && args.fresh ? "Calculator restarted this calculator with an empty memory." : "Calculator restarted this calculator.");
+        this.dropAll(cmd === "bootModel" && args.fresh ? "This calculator was restarted in Calculator, with an empty memory." : "This calculator was restarted in Calculator.");
       }, () => {});
     }
     return answer;

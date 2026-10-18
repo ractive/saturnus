@@ -172,7 +172,7 @@ test("gone: the calculator turned off, another model, Start fresh; memoryChanged
   heard = await join();
   await app.backend.startFresh("48gx");
   await settle();
-  assert.deepEqual(heard, ["gone: Calculator restarted this calculator with an empty memory."]);
+  assert.deepEqual(heard, ["gone: This calculator was restarted in Calculator, with an empty memory."]);
   assert.deepEqual(peers, [true, false, true, false, true, false]);
   // A cancelled choice boots nothing: nobody is dropped.
   assert.equal(bootedModel("chooseRom", null), null);
