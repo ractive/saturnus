@@ -144,7 +144,7 @@ export function previewPlan(entry) {
 }
 
 /** What the page says when its own files are from two builds (a deploy caught half way, a stale cache). */
-export const MIXED_FILES = "This page's files are from different versions. Reload the page.";
+export const MIXED_FILES = "The app's files are from different versions. Reload the page.";
 
 /**
  * A row dragged out to the desktop as file `name` at blob URL `url`: the
@@ -161,7 +161,7 @@ export function failureText(err) {
   const message = String(err?.message ?? err ?? "");
   switch (kind) {
     case "noAnswer":
-      return "No calculator answered. Is it in server mode, and is the cable in both ends? The settings let you try a fixed speed.";
+      return "No calculator answered. Is it in server mode, and is the cable plugged in at both ends? In Settings you can try a fixed speed.";
     case "nameClash":
       return `${err.varName ?? "That name"} is already there.`;
     case "isDirectory":

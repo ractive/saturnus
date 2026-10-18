@@ -48,7 +48,7 @@ export class EmulatedCalculator extends EventTarget {
     this.port = this.worker;
     this.joined = Promise.resolve();
     this.worker.onmessage = (e) => this.receive(e.data);
-    this.worker.onerror = (e) => this.fail(e.message || "the emulator failed to start");
+    this.worker.onerror = (e) => this.fail(e.message || "the emulated calculator failed to start");
   }
 
   receive(m) {

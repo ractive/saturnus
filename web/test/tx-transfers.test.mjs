@@ -142,7 +142,7 @@ test("a folder to a calculator: files and folders; strings, names, Replace X? an
   // 1BAD asks a name (given GOOD), then the plan asks about the strings, then "Replace X?".
   const a = transfers(h, ["GOOD", true, true]);
   const r = await a.t.copy({ from: dir, fromPath: ["hp-files"], items, to: calc, toPath: ["HOME"] });
-  assert.deepEqual(a.asked.map((q) => q.title), ["A name for it", "Copy 4 items to the 48gx?", "Replace X?"]);
+  assert.deepEqual(a.asked.map((q) => q.title), ["Choose a name", "Copy 4 items to the 48gx?", "Replace X?"]);
   assert.deepEqual(a.asked[1].sections[0].items, ["SUB/B.md", "notes.md"]);
   assert.deepEqual(r.copied.sort(), ["1BAD.txt", "SUB", "X.txt", "notes.md"]);
   const home = (await device.list(["HOME"])).entries;

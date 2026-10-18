@@ -93,8 +93,8 @@ test("failures read as sentences; the 49G's note after FINISH", () => {
   assert.equal(failureText({ kind: "nameClash", varName: "X" }), "X is already there.");
   assert.equal(failureText(new Error("the calculator said: No Room")), "The calculator said: No Room");
   // A request the wasm package does not know: the page's files are from two builds.
-  assert.equal(failureText(new Error('no request "pict"')), "This page's files are from different versions. Reload the page.");
-  assert.equal(problemText(new Error('no request "pict"')), "This page's files are from different versions. Reload the page.");
+  assert.equal(failureText(new Error('no request "pict"')), "The app's files are from different versions. Reload the page.");
+  assert.equal(problemText(new Error('no request "pict"')), "The app's files are from different versions. Reload the page.");
   assert.equal(disconnectNote("48gx"), "The calculator has left server mode.");
   assert.match(disconnectNote("49g"), /^The calculator has left server mode\. .*algebraic mode.*one list/);
 });
@@ -300,7 +300,7 @@ test("a protocol Worker that fails is a lost link; a closed client rejects as cl
   await new Promise((r) => setTimeout(r, 0));
   w.onmessage({ data: { type: "failed", message: "unreachable" } });
   await assert.rejects(req, /unreachable/);
-  assert.deepEqual(lost, ["the transfer part of the page stopped (unreachable)"]);
+  assert.deepEqual(lost, ["Files stopped working (unreachable)"]);
   await assert.rejects(client.request({ type: "list" }), (err) => err.kind === "closed");
   const w2 = make();
   const c2 = new ProtocolClient(link, { worker: () => w2 });

@@ -231,7 +231,7 @@ test("what a preview being read says: where from, how far, and how long when it 
   assert.equal(readingText({ ...base, emulated: true, from: "emulated 48GX" }).hint, "");
   assert.equal(readingText({ ...base, emulated: true, from: "emulated 48GX", done: 100, started: 0, at: 1000 }).hint, "About 10 s left.");
   // Behind another job: it says so, no amount.
-  assert.deepEqual(readingText({ ...base, waiting: "Copying PRG…" }), { line: "Reading P from the 48SX…", amount: "Waiting for another job first: Copying PRG.", hint: "" });
+  assert.deepEqual(readingText({ ...base, waiting: "Copying PRG…" }), { line: "Reading P from the 48SX…", amount: "Waiting for another transfer first: Copying PRG.", hint: "" });
   // Never more than all; a folder's read says only what.
   assert.equal(readingText({ ...base, done: 5000 }).amount, "1,106 of 1,106 bytes");
   assert.deepEqual(readingText({ name: "P" }), { line: "Reading P…", amount: "", hint: "" });

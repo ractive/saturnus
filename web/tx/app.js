@@ -414,7 +414,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
    * button), `check(name)` why it is refused or null (the calculator's rule
    * by default). Resolves to the name, or null.
    */
-  function askName({ title = "A name for it", why = "", suggested = "", action = "Put", check = null } = {}) {
+  function askName({ title = "Choose a name", why = "", suggested = "", action = "Put", check = null } = {}) {
     return new Promise((resolve) => {
       ui.nameTitle.textContent = title;
       ui.nameWhy.textContent = why;
@@ -424,7 +424,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
       const test = async () => {
         const name = ui.nameInput.value.trim();
         let problem;
-        if (!name) problem = "A name is needed.";
+        if (!name) problem = "Enter a name.";
         else if (check) problem = await check(name);
         else problem = (await helpers()).name_problem(name) ? "The calculator does not take this as a name." : null;
         ui.nameProblem.textContent = problem ?? "";
@@ -469,10 +469,10 @@ export function mountFiles(root, { shown = () => true } = {}) {
     // The emulator's own calculator has no free figure: its backup says so itself when it does not fit.
     const fits = memory?.fits ?? true;
     ui.backupText.textContent = hub
-      ? `A backup is one file with everything in HOME. While it runs, the ${name} needs twice what HOME holds free, and 1 KB more. ${HUB_RESTORE}`
+      ? `A backup is one file with everything in HOME. While it runs, the ${name} needs free memory of twice HOME's size plus 1 KB. ${HUB_RESTORE}`
       : fits
         ? `A backup is one file with everything in HOME, which a restore puts back. The ${name} has room for it.`
-        : `There is not room on the ${name} for a backup: while it runs, it needs twice what HOME holds free, and 1 KB more.`;
+        : `The ${name} does not have room for a backup: while it runs, it needs free memory of twice HOME's size plus 1 KB.`;
     ui.backupMemory.hidden = !memory;
     ui.backupMemory.replaceChildren(...(memory ? [
       el("dt", { text: "Free memory" }), el("dd", { text: bytesText(memory.free) }),
@@ -619,14 +619,14 @@ export function mountFiles(root, { shown = () => true } = {}) {
   async function openConnectDialog(pane) {
     if (isTauri()) return openNativeConnect(pane);
     if (!hasWebSerial()) {
-      say("This browser cannot reach a serial port: open the page in Chrome or Edge on a computer.", { error: true });
+      say("This browser cannot reach a serial port: open the app in Chrome or Edge on a computer.", { error: true });
       return;
     }
     target = pane;
     renderConnectDialog();
     const known = await knownPort();
     ui.connectKnown.hidden = !known;
-    ui.connectKnown.textContent = known ? "This browser already has a port for this page from last time." : "";
+    ui.connectKnown.textContent = known ? "This browser remembers the port from last time." : "";
     ui.connectOther.hidden = !known;
     ui.connectGo.textContent = known ? "Connect" : "Choose the port";
     ui.connectGo.onclick = () => connectPort(known ? Promise.resolve(known) : navigator.serial.requestPort());
@@ -700,7 +700,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
       setActive(left.id);
       const p = left.place;
       if (p?.kind === "device") {
-        const go = await ask({ title: `Connect the emulator's ${EMULATED_NAMES[model]}?`, body: `The emulator asks for its ${EMULATED_NAMES[model]} here. ${p.title} is disconnected from this pane.`, action: "Connect" });
+        const go = await ask({ title: `Connect the ${EMULATED_NAMES[model]} from Calculator?`, body: `Calculator asks to connect its ${EMULATED_NAMES[model]} here. ${p.title} is disconnected from this pane.`, action: "Connect" });
         if (!go) return null;
       }
       return await addKept(left, r);

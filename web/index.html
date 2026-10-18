@@ -126,7 +126,7 @@
   <section id="queue" class="queue" aria-labelledby="queue-title" hidden>
     <div class="queue-head">
       <h2 id="queue-title">Transfers</h2>
-      <button id="cancel-waiting" class="link" type="button" hidden>Cancel the waiting ones</button>
+      <button id="cancel-waiting" class="link" type="button" hidden>Cancel waiting transfers</button>
     </div>
     <ol id="queue-list" class="queue-list"></ol>
   </section>
@@ -189,7 +189,7 @@
         <li>The calculator needs its own serial cable, and most computers a USB serial adapter for it.</li>
         <li>On Linux, your user must be in the <code>dialout</code> group (<code>uucp</code> on Arch) to reach the port.</li>
         <li>On Windows, adapters with fake Prolific chips are refused by current drivers; one with an FTDI or a genuine chip works.</li>
-        <li>The page finds the speed by itself. If that fails, set a fixed one in the settings.</li>
+        <li>Files finds the speed by itself. If that fails, set a fixed speed in Settings.</li>
       </ul>
     </details>
     <p id="connect-known" class="muted" hidden></p>
@@ -205,7 +205,7 @@
 <dialog id="port-dialog" class="tx-dialog" aria-labelledby="port-title">
   <form method="dialog" class="tx-dialog-box">
     <h2 id="port-title">Choose the port</h2>
-    <p id="port-none" class="muted" hidden>No serial port is there. Plug in the cable's adapter, then look again.</p>
+    <p id="port-none" class="muted" hidden>No serial port found. Plug in the cable's adapter, then look again.</p>
     <div class="settings-row">
       <label for="port-select">Port</label>
       <select id="port-select"></select>
@@ -221,9 +221,9 @@
 <dialog id="emulated-dialog" class="tx-dialog" aria-labelledby="emulated-title">
   <form method="dialog" class="tx-dialog-box">
     <h2 id="emulated-title">Add an emulated calculator</h2>
-    <p>The 48SX, 48GX or 49G you use in Calculator, as you left it. While it is here, Calculator shows it as in use.</p>
+    <p>The 48SX, 48GX or 49G you use in Calculator, as you left it. While it is open here, Calculator shows it as in use.</p>
     <div id="emulated-roms" class="emulated-roms"></div>
-    <p id="emulated-none" class="muted" hidden>No ROM is kept in this browser yet. Calculator keeps the ROMs you give it. Or choose a ROM file here: it starts an empty calculator, and nothing of it is kept.</p>
+    <p id="emulated-none" class="muted" hidden>No ROM is kept in this browser yet: add one in Calculator. Or choose a ROM file here; that calculator starts empty and is not kept.</p>
     <div class="tx-dialog-actions">
       <button value="cancel" type="submit">Cancel</button>
       <button id="emulated-file" type="button">Choose a ROM file…</button>
@@ -235,7 +235,7 @@
   <form method="dialog" class="tx-dialog-box">
     <h2 id="settings-title">Settings</h2>
     <h3 class="caps">Connection</h3>
-    <label class="switch"><input id="set-find" type="checkbox" checked> <span>Find the speed and parity by listening</span></label>
+    <label class="switch"><input id="set-find" type="checkbox" checked> <span>Find the speed and parity automatically</span></label>
     <div class="settings-row">
       <label for="set-baud">Speed</label>
       <select id="set-baud">
@@ -254,7 +254,7 @@
       </select>
     </div>
     <p id="set-now" class="settings-note" hidden></p>
-    <p class="muted settings-note">They apply at the next connect. A calculator starts at 9600 baud with no parity. The link itself: Kermit, 8 data bits (7 with parity), one stop bit, no flow control.</p>
+    <p class="muted settings-note">Changes apply the next time you connect. A calculator starts at 9600 baud with no parity. The rest is fixed: Kermit, 8 data bits (7 with parity), one stop bit, no flow control.</p>
     <div class="tx-dialog-actions">
       <button class="primary" value="close" type="submit">Done</button>
     </div>
@@ -263,7 +263,7 @@
 
 <dialog id="name-dialog" class="tx-dialog" aria-labelledby="name-title">
   <form method="dialog" class="tx-dialog-box">
-    <h2 id="name-title">A name for it</h2>
+    <h2 id="name-title">Choose a name</h2>
     <p id="name-why"></p>
     <label for="name-input" class="visually-hidden">Name</label>
     <input id="name-input" type="text" autocomplete="off" spellcheck="false">

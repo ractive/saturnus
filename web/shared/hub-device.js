@@ -55,13 +55,13 @@ export class HubFailure extends Error {
  */
 export function refusalText(message) {
   const m = String(message ?? "");
-  if (/command line is open/.test(m)) return "The calculator is busy in the emulator: finish or cancel the command line there.";
-  if (/typing is in progress/.test(m)) return "The calculator is busy in the emulator: it is typing. Try again when it is done.";
-  if (/transfer is in progress|already in progress/.test(m)) return "The calculator is busy with another transfer in the emulator. Try again when it is done.";
-  if (/flag -33 is set/.test(m)) return "Flag -33 is set on the calculator (I/O over infrared): clear it in the emulator, then try again.";
-  if (/larger than \d+ bytes/.test(m)) return `The file is larger than ${MAX_STORE_BYTES / 1024} KB, the most the emulator's calculator takes.`;
-  if (/^the CPU is halted/.test(m)) return `The calculator in the emulator has stopped (${m.replace(/^the CPU is halted: /, "")}): reset it there.`;
-  if (m === "no ROM loaded") return "The emulator's calculator is not running.";
+  if (/command line is open/.test(m)) return "The calculator is busy in Calculator: finish or cancel the command line there.";
+  if (/typing is in progress/.test(m)) return "The calculator is busy in Calculator: it is typing. Try again when it is done.";
+  if (/transfer is in progress|already in progress/.test(m)) return "The calculator is busy with another transfer in Calculator. Try again when it is done.";
+  if (/flag -33 is set/.test(m)) return "Flag -33 is set on the calculator (I/O over infrared): clear it in Calculator, then try again.";
+  if (/larger than \d+ bytes/.test(m)) return `The file is larger than ${MAX_STORE_BYTES / 1024} KB, the most the calculator in Calculator takes.`;
+  if (/^the CPU is halted/.test(m)) return `The calculator in Calculator has stopped (${m.replace(/^the CPU is halted: /, "")}): reset it there.`;
+  if (m === "no ROM loaded") return "The calculator in Calculator is not running.";
   return m;
 }
 
@@ -198,7 +198,7 @@ export class HubDevice extends EventTarget {
    * connection.
    */
   connect({ model, rom, romName = "" }) {
-    return this.run("Joining the emulator's calculator…", async () => {
+    return this.run("Connecting to the calculator in Calculator…", async () => {
       await this.request("hello");
       const booted = await this.request("attach", { model, rom, romName });
       const got = booted?.model ?? model;

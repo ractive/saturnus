@@ -64,7 +64,7 @@ async function handle(m) {
   try {
     await ready;
   } catch (err) {
-    answer(m, false, `the emulator failed to start: ${err?.message ?? err}`);
+    answer(m, false, `the emulated calculator failed to start: ${err?.message ?? err}`);
     return;
   }
   const { rom, bytes, ...rest } = m;
