@@ -191,8 +191,8 @@ test("a directory that holds variables is purged only with its count", async () 
 test("the engine's refusals come back in tx's words, at once", async () => {
   const { hub, d } = await connected();
   for (const [engine, words] of [
-    ["the command line is open: finish it (ENTER) or cancel it (ON) first", "The calculator is busy in the emulator: finish or cancel the command line there."],
-    ["typing is in progress (releaseAll stops it)", /busy in the emulator: it is typing/],
+    ["the command line is open: finish it (ENTER) or cancel it (ON) first", "The calculator is busy: finish or cancel its command line in Calculator."],
+    ["typing is in progress (releaseAll stops it)", /busy typing in Calculator/],
     ["a transfer is in progress (releaseAll stops it)", /busy with another transfer/],
     ["flag -33 is set (I/O over infrared): clear it for transfers over the wire", /Flag -33 is set/],
   ]) {
@@ -258,8 +258,8 @@ test("queued operations run one at a time; the waiting ones can be cancelled; go
   await assert.rejects(b, (err) => err.kind === "cancelled");
   const lost = [];
   d.addEventListener("lost", (e) => lost.push(e.detail));
-  hub.dispatchEvent(new CustomEvent("gone", { detail: "The emulator's ROM of this calculator was removed." }));
-  assert.deepEqual(lost, ["The emulator's ROM of this calculator was removed."]);
+  hub.dispatchEvent(new CustomEvent("gone", { detail: "This calculator's ROM was removed in Calculator." }));
+  assert.deepEqual(lost, ["This calculator's ROM was removed in Calculator."]);
   assert.equal(d.connection, null);
   await d.close();
   assert.equal(hub.closed, true);

@@ -1,8 +1,12 @@
 # kermit-proto
 
-A sans-IO Kermit client (user Kermit) for talking to the Kermit server of an
-HP 48 or 49 series calculator: send and get files, run host commands, list
-the directory, end server mode.
+A sans-IO Kermit client and server for HP calculators. The client (user
+Kermit) talks to the Kermit server of an HP 48 or 49 series calculator: send
+and get files, run host commands, list the directory, end server mode. The
+server (`Server`) is the "disk drive" that the 38G, 39G and 40G send aplets
+to and get them from. Both share the codec, the prefixing and the Send-Init
+negotiation; this page describes the client, and the `Server` docs say
+where the server differs.
 
 The crate never touches a port, a clock or a file. The caller owns all three:
 it reads and writes the link (a serial port, a TCP bridge to an emulator),
@@ -15,8 +19,8 @@ Supported: short packets (up to 94 bytes), block checks 1, 2 and 3, control
 prefixing, 8th-bit prefixing and repeat compression as negotiated in the
 Send-Init exchange, and the server commands `R` (get), `S` (send), `C` (host
 command), `G D` (directory), `G F` (finish), `G L` (logout) and `I` (info).
-Not supported: server mode, long packets and sliding windows (the HP
-calculators use neither); attribute packets are acknowledged and ignored.
+Not supported: long packets and sliding windows (the HP calculators use
+neither); attribute packets are acknowledged and ignored.
 
 ## The seam
 

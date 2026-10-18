@@ -1232,7 +1232,7 @@ mod tests {
             v["message"]
                 .as_str()
                 .unwrap()
-                .contains("1 variable(s) and 2")
+                .contains("1 variable and 2 directories")
         );
         let (v, _) = outcome_json(Outcome::Restored);
         assert!(v["message"].as_str().unwrap().contains("reconnect"));

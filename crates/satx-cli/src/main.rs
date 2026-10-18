@@ -24,17 +24,15 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::output::Format;
 
-const ABOUT: &str =
-    "Talk to an HP 48/49 in Kermit server mode: list, get, put, run, repl, pict, backup";
+const ABOUT: &str = "Move files to and from an HP 48 or 49G, run commands on it and back it up";
 
 const LONG_ABOUT: &str = "\
-Talk to an HP 48SX/GX or 49G over a serial cable (or to an emulator over TCP).
+Talk to an HP 48SX/GX or 49G over a serial cable, or to an emulator over TCP.
 
 Start the Kermit server on the calculator first: run SERVER (the display
 shows \"Awaiting Server Cmd.\"). satx then lists, copies, renames and deletes
 variables, runs RPL commands, fetches the graphics screen PICT and backs up
-HOME. All
-transfers run at 9600 baud. `object`, `grob`, `chars` and `completions` work
+HOME. All transfers run at 9600 baud. `object`, `grob`, `chars` and `completions` work
 on this computer and need no calculator.
 
 Output is text on a terminal and JSON when piped (`--format` overrides):
@@ -50,12 +48,12 @@ Examples:
   satx ls HOME/GAMES                  # change to HOME/GAMES and list it
   satx get PRG -o prg.hp              # download PRG (binary)
   satx put prg.hp --as PRG2           # upload a file as PRG2
-  satx put prg.hp --protocol xmodem   # XRECV typed on a 48G/GX or 49G
+  satx put prg.hp --protocol xmodem   # upload by XModem (48G/GX, 49G)
   satx run '6 7 *'                    # evaluate RPL, print the stack
-  satx repl                           # RPL line by line on one link; :help
+  satx repl                           # type RPL line by line; :help
   satx pict -o plot.png               # the graphics screen PICT as PNG
   satx backup -o home.hp              # archive HOME to a file
-  satx --port tcp://localhost:4848 ls # an emulator
+  satx --port tcp://localhost:4848 ls # list on an emulator
   satx ls --json | jq '.results[].name'
   satx object inspect prg.hp          # type and size of a file (offline)
   satx grob to-png pic.hp             # a GROB file as PNG (offline)
@@ -100,8 +98,8 @@ pub struct Global {
     /// The calculator stays there afterwards.
     #[arg(long, global = true, value_name = "PATH", help_heading = "Connection")]
     pub dir: Option<String>,
-    /// Seconds to wait for each Kermit packet before resending (1-600); a host
-    /// command (run, rm, mv, ...) is never resent.
+    /// Seconds to wait for each Kermit packet before resending (1-600). Commands
+    /// such as run, rm and mv are never resent.
     #[arg(
         long,
         global = true,
@@ -111,7 +109,7 @@ pub struct Global {
         help_heading = "Connection"
     )]
     pub timeout: u64,
-    /// Resends per packet before giving up (0-50); host commands get none.
+    /// Resends per packet before giving up (0-50); run, rm, mv and the like get none.
     #[arg(
         long,
         global = true,
@@ -140,7 +138,7 @@ pub struct Global {
 /// The commands.
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    /// List serial ports; USB ones are candidates for auto-pick.
+    /// List serial ports; with exactly one USB serial port, satx uses it by default.
     Ports,
     /// Model, ROM version, free memory, current directory, IOPAR, transfer mode.
     Info,
@@ -170,8 +168,8 @@ kept unless --force.
 --protocol xmodem (48G/GX and 49G; the 48S/SX has no XModem): the Kermit
 server cannot start XSEND, so satx ends server mode and prints what to type
 on the calculator, 'NAME' XSEND then ENTER, and waits --start-timeout
-seconds for it. satx cuts the padding of the last block by walking the
-object; a file it cannot walk keeps every byte received. Afterwards type
+seconds for it. satx removes the padding of the last block by reading the
+object's length; a file whose length it cannot read keeps every byte received. Afterwards type
 SERVER on the calculator again. A 49G in algebraic mode is switched to RPN
 first (-95 SF switches back). --dry-run shows the plan and keeps the server.
 
@@ -185,8 +183,8 @@ Examples:
     Get(commands::GetArgs),
     /// Upload a file as a variable (binary; ASCII for %%HP: text files).
     #[command(after_help = "\
-The name defaults to the file name without extension, %XX codes read back
-as get writes them (A%3FB.hp stores A?B). A file without an
+The name defaults to the file name without extension, with get's %XX codes
+decoded (A%3FB.hp stores A?B). A file without an
 HPHP48/HPHP49 header is stored as a String in binary mode. A %%HP: text file
 goes in ASCII mode unless --binary. If the name exists, put refuses unless
 --overwrite, which sends the file as SATXPT first and only then replaces the
@@ -269,8 +267,8 @@ Examples:
     /// Save the graphics screen PICT (plots, drawings) as a PNG.
     #[command(after_help = "\
 PICT is the calculator's graphics screen: what PLOT, DRAW, PIXON or LINE
-drew. It persists while the calculator serves, so a plot made before SERVER
-can be fetched. satx recalls PICT into SATXTMP, sends it and deletes it; if
+drew. It stays while the calculator is in server mode, so a plot made before
+SERVER can be fetched. satx recalls PICT into SATXTMP, sends it and deletes it; if
 a variable SATXTMP already exists, pict stops and changes nothing. A PICT
 nothing was ever drawn into is empty (0x0) and gives an error.
 
@@ -332,11 +330,11 @@ Examples:
     Settings(commands::SettingsArgs),
     /// End server mode on the calculator (Kermit FINISH).
     Finish,
-    /// XSERV commands for a 49g+/50g running XSERV (UNVERIFIED on hardware).
+    /// Talk to a 49g+/50g running XSERV (not yet tested on a real calculator).
     #[command(after_help = "\
-UNVERIFIED ON HARDWARE: the XSERV framing follows HP's own client code as
-the wiki describes it; no calculator has answered satx yet (the emulated 49G
-has no XSERV). Reports welcome.
+NOT YET TESTED ON A REAL CALCULATOR: the XSERV framing follows HP's own
+client code as the wiki describes it; no calculator has answered satx yet
+(the emulated 49G has no XSERV). Reports are welcome.
 
 Start XSERV on the calculator instead of SERVER. --dir is sent as an E
 command (HOME A B) first. get and put run XModem with HP's CRC and 1k blocks;

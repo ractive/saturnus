@@ -36,14 +36,14 @@ export function fastWords({ direction, name, model, plan = null, emulated = fals
   if (!plan) {
     return {
       title,
-      lead: `The page ends server mode on ${who}, then you start the transfer on it.`,
+      lead: `Files ends server mode on ${who}, then you start the transfer on it.`,
       keys: null,
       notes: [],
       status: "Ending server mode…",
     };
   }
   const notes = [];
-  if (plan.switchedToRpn) notes.push("The calculator was in algebraic mode, so the page switched it to RPN for the command. It goes back when you reconnect.");
+  if (plan.switchedToRpn) notes.push("The calculator was in algebraic mode, so Files switched it to RPN for the command. It goes back when you reconnect.");
   if (put && model === "48gx") notes.push(`If the transfer fails, ${name} may be left on the calculator as an empty string.`);
   notes.push("To stop it on the calculator, press ON.");
   const minutes = Math.round(waitS / 60);

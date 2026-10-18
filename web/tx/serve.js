@@ -110,11 +110,11 @@ export class ServeSession extends EventTarget {
         else if (e.data?.type === "workerFailed") reject(new Error(e.data.message));
         else this.receive(e.data);
       };
-      this.worker.onerror = (e) => reject(new Error(e.message || "the transfer part of the page failed to start"));
+      this.worker.onerror = (e) => reject(new Error(e.message || "Files failed to start"));
     });
     this.worker.postMessage({ cmd: "init", files });
     await ready;
-    this.worker.onerror = (e) => this.lose(`the transfer part of the page stopped (${e.message})`);
+    this.worker.onerror = (e) => this.lose(`Files stopped working (${e.message})`);
     this.link.addEventListener("data", this.onData);
     this.link.addEventListener("lost", this.onLost);
     await this.link.open({ baud: 9600, parity: "none", dataBits: 8 });
@@ -163,7 +163,7 @@ export class ServeSession extends EventTarget {
         this.emit(m);
         break;
       case "workerFailed":
-        this.lose(`the transfer part of the page stopped (${m.message})`);
+        this.lose(`Files stopped working (${m.message})`);
         break;
       default:
         this.emit(m);
@@ -321,7 +321,7 @@ export class ServeView {
   renderSetup() {
     const head = el("div", { class: "serve-head" },
       el("h2", { id: "serve-title", tabindex: "-1", text: "Serve a folder to a 38G, 39G or 40G" }),
-      el("p", { text: "These calculators start every transfer themselves: this page is the “disk drive” they send aplets to and get them from. Choose a folder and the calculator, start, then press SEND or RECV on the calculator." }),
+      el("p", { text: "These calculators start every transfer themselves: the app is the “disk drive” they send aplets to and get them from. Choose a folder and the calculator, start, then press SEND or RECV on the calculator." }),
     );
     const folderBox = el("section", { class: "serve-step", "aria-labelledby": "serve-folder-title" },
       el("h3", { id: "serve-folder-title", class: "caps", text: "Folder" }),
@@ -353,8 +353,8 @@ export class ServeView {
     }
     choice("file", "An emulated one from a ROM file…", "A 38G, 39G or 40G ROM; it is not kept", "calculator", () => this.chooseRomFile());
     calcBox.append(choices);
-    if (!hasWebSerial() && !isTauri()) calcBox.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port: for a real calculator, open this page in Chrome or Edge on a computer. The emulated ones work here too." }));
-    if (!(this.roms ?? []).length) calcBox.append(el("p", { class: "muted", text: "The emulator on this site keeps the ROMs you give it; a 38G, 39G or 40G ROM kept there shows up here." }));
+    if (!hasWebSerial() && !isTauri()) calcBox.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port: for a real calculator, open the app in Chrome or Edge on a computer. The emulated ones work here too." }));
+    if (!(this.roms ?? []).length) calcBox.append(el("p", { class: "muted", text: "Calculator keeps the ROMs you give it; a 38G, 39G or 40G ROM kept there shows up here." }));
 
     const actions = el("div", { class: "tx-dialog-actions serve-actions" });
     actions.append(this.button("Back", null, () => this.close(), { id: "serve-back" }));

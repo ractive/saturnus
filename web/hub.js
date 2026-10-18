@@ -588,7 +588,7 @@ export class Hub {
     }
     const created = !e;
     if (e) {
-      this.dropTx(e, fresh ? "The emulator restarted this calculator with an empty memory." : "The emulator restarted this calculator with another ROM.", conn);
+      this.dropTx(e, fresh ? "This calculator was restarted in Calculator, with an empty memory." : "This calculator was restarted in Calculator, with another ROM.", conn);
       if (!fresh) {
         // Another ROM of the model: the running machine is kept first, and restored on the new ROM.
         e.host.saveNow();
@@ -686,7 +686,7 @@ export class Hub {
       if (model === null || model === m) this.forgotten.add(m);
     }
     for (const e of going) {
-      this.dropTx(e, "The emulator's ROM of this calculator was removed.", conn);
+      this.dropTx(e, "This calculator's ROM was removed in Calculator.", conn);
       await this.stop(e);
     }
     await this.keeping;
@@ -756,7 +756,7 @@ export class Hub {
     try {
       await this.ready;
     } catch (err) {
-      this.reply(conn, m, false, `the emulator failed to start: ${err?.message ?? err}`);
+      this.reply(conn, m, false, `the calculator failed to start: ${err?.message ?? err}`);
       return;
     }
     if (m.cmd === "join") {

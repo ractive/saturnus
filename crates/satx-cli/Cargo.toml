@@ -7,7 +7,7 @@ repository.workspace = true
 homepage.workspace = true
 # rustyline 18 (the REPL) uses std's file locks, stable since 1.89.
 rust-version = "1.89"
-description = "satx: transfer files between HP 48/49 calculators and a computer over serial"
+description = "Transfer files between HP 48 and 49G calculators and a computer over a serial cable"
 
 [[bin]]
 name = "satx"

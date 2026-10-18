@@ -2,8 +2,8 @@
 
 What every front end of [saturnus](https://github.com/ractive/saturnus)
 needs around the emulator core ([`saturnus-core`](https://crates.io/crates/saturnus-core)):
-the browser page's WebAssembly bindings, the desktop app and the
-command-line tool's control API all use it. No bindings, no I/O and no
+the app's WebAssembly bindings, the desktop app and the command-line
+tool's control API all use it. No bindings, no I/O and no
 threads: like the core it builds for `wasm32-unknown-unknown`.
 
 - `protocol`: the front ends' command/event protocol and its wall-clock
@@ -20,8 +20,8 @@ threads: like the core it builds for `wasm32-unknown-unknown`.
 - `typing`: typing text into the calculator's command line (`insert`,
   `run`, `replace`) and reading the line back from RAM.
 - `layout` and `skins`: each model's keys in their places and its drawn
-  calculator, as data (serializable for the page).
-- `romid`: which model a ROM image belongs to, by SHA-256 or by size.
+  calculator, as data (serializable for the app).
+- `romid`: which model a ROM file belongs to, by SHA-256 or by size.
 
 ## Usage
 
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rom = std::fs::read("sxrom-j")?;
     let mut emu = Emulator::new(Model::Hp48sx, &rom)?;
 
-    // Boot and answer "Try To Recover Memory?" with NO (softkey F)...
+    // Boot and answer "Try To Recover Memory?" with NO (menu key F)...
     emu.run_ms(3000.0)?;
     emu.type_keys("f");
     while emu.keys_busy() {

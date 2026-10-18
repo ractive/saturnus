@@ -24,7 +24,7 @@ const grouped = (n) => Math.round(n).toLocaleString("en-US");
  */
 export function readingText(r) {
   if (!r?.from) return { line: `Reading ${r?.name ?? ""}…`.replace(" …", "…"), amount: "", hint: "" };
-  if (r.waiting) return { line: `Reading ${r.name} from the ${r.from}…`, amount: `Waiting for another job first: ${r.waiting.replace(/…$/, "")}.`, hint: "" };
+  if (r.waiting) return { line: `Reading ${r.name} from the ${r.from}…`, amount: `Waiting for another transfer first: ${r.waiting.replace(/…$/, "")}.`, hint: "" };
   const total = r.total ?? null;
   const done = Math.min(r.done ?? 0, total ?? Infinity);
   const amount = total ? `${grouped(done)} of ${grouped(total)} bytes` : done ? `${grouped(done)} bytes` : "";

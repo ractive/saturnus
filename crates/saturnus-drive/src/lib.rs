@@ -2,9 +2,9 @@
 //! shared by the `saturnus` CLI and the Kermit test host: key scripts
 //! ([`script`]), the scripted session with its idle wait ([`session`]),
 //! the per-model boot and Kermit server start ([`autostart`]), ROM loading
-//! ([`rom`]) and its download from hpcalc.org ([`fetch`]), screen dumps
-//! ([`screen`]), the native hosts' files ([`files`]) and the machine thread that drives the front-end protocol's
-//! state machine (`saturnus_host::protocol`) for the Tauri app and the
+//! ([`rom`]) and its download from hpcalc.org ([`fetch`]), the screen as
+//! text or PNG ([`screen`]), the native hosts' files ([`files`]) and the machine thread that drives the front-end protocol's
+//! state machine (`saturnus_host::protocol`) for the desktop app and the
 //! CLI's control API ([`runner`]).
 //!
 //! Unlike the core crate this one does file I/O, so it is not meant for

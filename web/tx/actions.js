@@ -56,7 +56,7 @@ export function rowActions({ kind, entries, other = null, otherFolders = true, x
 }
 
 /** What the emulator's own calculator says instead of a restore (owner, 2026-10-14). */
-export const HUB_RESTORE = "To go back to an earlier calculator, use Load state in the emulator.";
+export const HUB_RESTORE = "To go back to an earlier state, use Load state in Calculator.";
 
 /**
  * The pane's own "⋯": for a calculator (`connected` false after a

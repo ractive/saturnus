@@ -117,8 +117,8 @@ fn core_failure(message: String, err: &Error, link: &LinkInfo) -> Failure {
                 .into(),
         ),
         Error::Stalled(_) => Some(
-            "the calculator's side kept sending without the transfer moving on (a packet \
-             repeated over and over, or noise): check the cable, that nothing else uses the \
+            "the calculator kept sending without the transfer making progress (the same \
+             packet over and over, or line noise): check the cable, that nothing else uses the \
              port and that the calculator runs SERVER at 9600 baud, then run the command again"
                 .into(),
         ),
@@ -147,7 +147,7 @@ fn core_failure(message: String, err: &Error, link: &LinkInfo) -> Failure {
             })
         }
         Error::CommandTooLong { max, .. } => Some(format!(
-            "a host command must fit in one Kermit packet ({max} encoded bytes; \
+            "a command must fit in one Kermit packet ({max} encoded bytes; \
              « » → count as 3 or 4). Split it into several `satx run` calls (the stack \
              stays between calls), or `satx put` a program and run it by name"
         )),
@@ -172,7 +172,7 @@ fn core_failure(message: String, err: &Error, link: &LinkInfo) -> Failure {
         ),
         Error::Emulator(_) => Some(
             "saturnus://[MODEL@]ROM addresses (MODEL 48sx, the default, 48gx or 49g) need a \
-             readable ROM file of that model; use tcp://host:port for the Docker emulator"
+             readable ROM file of that model; use tcp://host:port for an emulator on TCP"
                 .into(),
         ),
         Error::Serial(_) => {
@@ -222,7 +222,7 @@ fn reply_hint(text: &str) -> Option<String> {
     }
     if text.ends_with("already exists") {
         return Some(format!(
-            "choose another name, or `satx rm {q}` first (`--dry-run` shows what goes)"
+            "choose another name, or `satx rm {q}` first (`--dry-run` shows what it deletes)"
         ));
     }
     if text.starts_with("not in step with the calculator") {

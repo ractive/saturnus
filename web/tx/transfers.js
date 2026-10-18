@@ -350,7 +350,7 @@ export class Transfers {
             name = null;
           }
           if (!name || h.name_problem(name)) {
-            name = await this.askName({ title: "A name for the directory", why: `The calculator does not take “${name ?? item.name}” as a name. What should the folder ${item.name} be called there?`, suggested: suggestName(name ?? item.name), action: "Copy" });
+            name = await this.askName({ title: "Name the directory", why: `The calculator does not take “${name ?? item.name}” as a name. What should the folder ${item.name} be called there?`, suggested: suggestName(name ?? item.name), action: "Copy" });
             if (!name) return null;
           }
           const there = find(name);
@@ -388,7 +388,7 @@ export class Transfers {
           name = null;
         }
         if (!name || h.name_problem(name)) {
-          name = await this.askName({ title: "A name for it", why: `The calculator does not take “${name ?? item.name}” as a name. What should ${item.name} be called there?`, suggested: suggestName(name ?? item.name), action: "Put" });
+          name = await this.askName({ title: "Choose a name", why: `The calculator does not take “${name ?? item.name}” as a name. What should ${item.name} be called there?`, suggested: suggestName(name ?? item.name), action: "Put" });
           if (!name) return null;
         }
         const there = find(name);
@@ -421,7 +421,7 @@ export class Transfers {
       sections.push({ text: familyMessage ?? "These files were made for the other calculator family: the calculator stores them as strings, not as the objects.", items: families });
     }
     if (strings.length) sections.push({ text: "These are not calculator files. The calculator keeps their contents as strings:", items: strings });
-    if (blocked.length) sections.push({ text: "Left out, because the name is taken by something a copy does not replace:", items: blocked });
+    if (blocked.length) sections.push({ text: "Left out: the name is taken by something a copy cannot replace:", items: blocked });
     return { steps, inUse, sections, stringsOnly: strings.length > 0 && !families.length && !blocked.length, nothing: blocked.length ? `Nothing was copied: ${namesText(blocked)}.` : null };
   }
 
@@ -434,7 +434,7 @@ export class Transfers {
     const going = plan.steps.filter((s) => !plan.blocked.includes(s.name)).map((s) => (s.directory ? `${s.name} (a directory, with all it holds)` : s.name));
     if (plan.warning && going.length) sections.push({ text: plan.warning, items: going });
     if (plan.untranslatable.length) sections.push({ text: "Left out: these have no text form the other calculator can read.", items: plan.untranslatable });
-    if (plan.blocked.length) sections.push({ text: "Left out: a directory has the name on one side (purge it first to copy these).", items: plan.blocked });
+    if (plan.blocked.length) sections.push({ text: "Left out: on one side the name belongs to a directory (purge it first to copy these).", items: plan.blocked });
     const sizes = new Map(items.map((e) => [e.name, e.size]));
     const steps = plan.steps.filter((s) => !plan.blocked.includes(s.name)).map((s) => ({
       name: s.name,

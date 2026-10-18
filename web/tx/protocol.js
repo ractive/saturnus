@@ -51,7 +51,7 @@ export class ProtocolClient extends EventTarget {
     });
     this.ready.catch(() => {});
     this.worker.onmessage = (e) => this.receive(e.data);
-    this.worker.onerror = (e) => this.fatal(e.message || "the protocol worker failed to start");
+    this.worker.onerror = (e) => this.fatal(e.message || "Files failed to start");
     this.onData = (e) => this.worker.postMessage({ cmd: "input", bytes: e.detail });
     this.onLost = (e) => {
       this.worker.postMessage({ cmd: "linkError", message: String(e.detail) });
@@ -73,7 +73,7 @@ export class ProtocolClient extends EventTarget {
     this.failAll(message);
     if (this.closed) return;
     this.closed = true;
-    this.dispatchEvent(new CustomEvent("lost", { detail: `the transfer part of the page stopped (${message})` }));
+    this.dispatchEvent(new CustomEvent("lost", { detail: `Files stopped working (${message})` }));
   }
 
   receive(m) {

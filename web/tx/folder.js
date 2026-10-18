@@ -92,7 +92,7 @@ export function folderError(err, name = "") {
   }[err?.name] ?? "failed";
   const message = {
     missing: `${name || "That"} is not there any more.`,
-    permission: "The page may not use this folder now. Allow it again.",
+    permission: "The app may not use this folder now. Allow it again.",
     "not-empty": `${name || "The folder"} is not empty.`,
     type: `${name || "That"} is a file where a folder was expected, or a folder where a file was.`,
     full: "There is no room left for the files in this browser.",
@@ -221,7 +221,7 @@ export class Folder extends EventTarget {
   /** Run `fn` with the permission checked first and the errors as FolderErrors. */
   async guard(name, fn) {
     if ((await this.permission()) !== "granted") {
-      throw new FolderError("permission", `The page may not use ${this.title} now. Allow it again.`);
+      throw new FolderError("permission", `The app may not use ${this.title} now. Allow it again.`);
     }
     try {
       return await fn();
@@ -725,7 +725,7 @@ export async function openRecent(entry, { store = handleStore(), now = Date.now 
   const folder = recentFolder(entry);
   try {
     if ((await folder.requestAccess()) !== "granted") {
-      throw new FolderError("permission", `The page may not use ${folder.title}. Choose it again, or another folder.`);
+      throw new FolderError("permission", `The app may not use ${folder.title}. Choose it again, or another folder.`);
     }
     // A folder deleted or moved since fails here, not at the first copy.
     await entry.handle.values().next();

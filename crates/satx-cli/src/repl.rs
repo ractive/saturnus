@@ -970,7 +970,7 @@ pub fn repl_hint(hint: &str) -> String {
         rest = &rest[start + len + 2..];
     }
     out.push_str(rest);
-    out.replace(" (`--dry-run` shows what goes)", "")
+    out.replace(" (`--dry-run` shows what it deletes)", "")
         .replace("with --as NAME", "with :put FILE NAME")
         .replace("with -o FILE", "as the FILE argument")
 }
@@ -1557,7 +1557,9 @@ mod tests {
              :quit))"
         );
         assert_eq!(
-            repl_hint("choose another name, or `satx rm X` first (`--dry-run` shows what goes)"),
+            repl_hint(
+                "choose another name, or `satx rm X` first (`--dry-run` shows what it deletes)"
+            ),
             "choose another name, or `:rm X` first"
         );
         // run becomes plain RPL (pict_on).

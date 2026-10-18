@@ -1,8 +1,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-//! WebAssembly bindings for the browser UI in `web/`, one package
-//! (`web/build.sh` into `web/pkg/`) for the emulator page and the transfer
-//! page. The transfer page's bindings are the [`tx`] module; the
-//! emulator's are here: a thin layer over [`saturnus_host`], whose
+//! WebAssembly bindings for the app in `web/`, one package
+//! (`web/build.sh` into `web/pkg/`) for its Calculator and Files views.
+//! Files' bindings are the [`tx`] module; Calculator's are here: a thin layer over [`saturnus_host`], whose
 //! protocol state machine (`saturnus_host::protocol::Engine`) answers
 //! every command the Worker does not keep for itself. Here only messages, errors and bytes cross
 //! between Rust and JavaScript.

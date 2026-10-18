@@ -8,7 +8,7 @@ homepage.workspace = true
 rust-version.workspace = true
 description = "The device layer of Files: connect and detect, list, get, put, directories, rename, purge, backup, restore and PICT over satx-core's sans-I/O machine; no I/O, builds for wasm32"
 readme = "README.md"
-# Used by the transfer page's bindings and the desktop app, both in this
+# Used by Files' bindings and the desktop app, both in this
 # repository (kb/docs/saturnus-tx.md, "Crates and folders").
 publish = false
 

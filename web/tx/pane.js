@@ -134,7 +134,7 @@ export class Pane {
     const p = this.place;
     if (!p) return "";
     if (p.kind === "device") {
-      if (p.hub) return p.device.connection ? "Connected to the emulator's calculator." : "";
+      if (p.hub) return p.device.connection ? "Connected to the calculator open in Calculator." : "";
       if (p.device.restarted) return "The calculator restarted.";
       if (p.device.leftServer) return "The calculator left server mode.";
       return p.device.connection ? `Connected at ${settingsText(p.device.connection.settings)}.` : "";
@@ -143,7 +143,7 @@ export class Pane {
     if (f.kind === "native") return "The files on this computer.";
     if (f.kind === "picked") return "A folder on this computer.";
     if (f.kind === "opfs") return BROWSER_FILES_NOTE;
-    return "Lost when this page closes. Use ⋯ → Download to save a file.";
+    return "Lost when you close this tab. Use ⋯ → Download to save a file.";
   }
 
   // ------------------------------------------------------------ the place
@@ -224,7 +224,7 @@ export class Pane {
     } else if (this.pending) {
       box.append(
         el("h2", { text: `Use the folder ${this.pending.title} again?` }),
-        el("p", { text: "The browser asks whether this page may read and write it. Nothing in it changes without a question." }),
+        el("p", { text: "The browser asks whether the app may read and write it. Nothing in it changes without a question." }),
       );
       button("Allow", "folder-open", () => this.allowPending(), { primary: true, id: "allow" });
       button("Choose another folder", "folder", () => this.openFolder(), { id: "pick" });
@@ -234,7 +234,7 @@ export class Pane {
       const left = !this.folders;
       box.append(
         el("h2", { text: left ? "A calculator" : "A folder, or a calculator" }),
-        el("p", { text: left ? "This side shows a calculator: one on a cable, or one emulated in this page. Copy to the other side by dragging, with F5, or from a row's menu." : "This side shows a folder on this computer, or a second calculator. Copy between the sides by dragging, with F5, or from a row's menu." }),
+        el("p", { text: left ? "This side shows a calculator: one on a cable, or one emulated in the app. Copy to the other side by dragging, with F5, or from a row's menu." : "This side shows a folder on this computer, or a second calculator. Copy between the sides by dragging, with F5, or from a row's menu." }),
       );
       const serial = hasSerial();
       const pick = canPickFolder();
@@ -250,9 +250,9 @@ export class Pane {
       const serveLink = el("button", { type: "button", class: "link", id: "serve-aplets", text: "Serve a folder to a 38G, 39G or 40G" });
       serveLink.addEventListener("click", () => this.app.openServe());
       if (left) box.append(el("p", { class: "serve-link" }, serveLink));
-      if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open this page in Chrome or Edge on a computer. The emulated calculator works here too." }));
+      if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open the app in Chrome or Edge on a computer. The emulated calculator works here too." }));
       if (pick && !left && !app) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
-      if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the page keeps files in the browser instead, not on your disk. Add files to them, and download what you copy there (⋯ → Download)." }));
+      if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the app keeps files in the browser instead, not on your disk. Add files to them, and download what you copy there (⋯ → Download)." }));
       if (this.note) box.append(el("p", { class: "start-note last-note", role: "status", text: this.note }));
       this.ui.empty.replaceChildren(box);
       return;
@@ -296,7 +296,7 @@ export class Pane {
       return true;
     }
     if (this.inUse) {
-      this.say(`${p.title} still has copies running or waiting: let them finish, or cancel the waiting ones.`, { error: true });
+      this.say(`${p.title} still has copies running or waiting: let them finish, or cancel the waiting transfers.`, { error: true });
       return false;
     }
     if (p.kind === "device") {
@@ -317,7 +317,7 @@ export class Pane {
       } finally {
         this.step = null;
       }
-      this.note = note ?? (p.hub ? "Disconnected. The emulator has the calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : disconnectNote(p.model));
+      this.note = note ?? (p.hub ? "Disconnected. The calculator stays in Calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : disconnectNote(p.model));
     } else {
       this.note = note ?? "";
     }
@@ -431,7 +431,7 @@ export class Pane {
     this.wireDevice(place);
     this.mine = place;
     this.note = "";
-    this.step = { title: heading, status: "Joining the emulator's calculator…", busy: true };
+    this.step = { title: heading, status: "Connecting to the calculator in Calculator…", busy: true };
     this.render();
     try {
       const conn = await device.connect({ model, rom, romName: name });
@@ -646,7 +646,7 @@ export class Pane {
       return;
     }
     if (perm !== "granted") {
-      this.say(`The page may not use ${f.title}. Choose it again, or another folder.`, { error: true });
+      this.say(`The app may not use ${f.title}. Choose it again, or another folder.`, { error: true });
       return;
     }
     this.pending = null;
@@ -721,7 +721,7 @@ export class Pane {
         if (this.place === place) this.keepDragUrl(key, file.data);
         if (kind === "binary") result = await this.describeFile(h, file.data);
         else if (kind === "text") result = { status: "shown", object: textObject("", h.text_of(file.data)) };
-        else result = { status: "none", note: "Not a calculator file: put on a calculator, it becomes a string." };
+        else result = { status: "none", note: "Not a calculator file: a calculator stores it as a string." };
       } else {
         const plan = previewPlan(entry);
         place.device.cancelQueued("preview");
@@ -772,7 +772,7 @@ export class Pane {
       const m = model?.toUpperCase();
       result.model = model;
       result.reason = model === "48sx" || model === "48gx"
-        ? `To show ${what} text, the page needs an HP ${m} ROM: start an emulated ${m} here, or add a ${m} ROM in the emulator on this site. Then select the file again.`
+        ? `To show ${what} text, the app needs an HP ${m} ROM: start an emulated ${m} here, or add a ${m} ROM in Calculator. Then select the file again.`
         : `To show ${what} text, copy it to a calculator: its preview there shows the text.`;
     }
     return result;
@@ -1032,13 +1032,13 @@ export class Pane {
 
   async mkdir() {
     const p = this.place;
-    const name = await this.app.askName({ title: p.kind === "folder" ? "New folder" : "New directory", why: p.kind === "folder" ? `A new folder in ${this.path.at(-1)}:` : `A new directory in ${this.path.at(-1)}:`, suggested: p.kind === "folder" ? "New folder" : "NEWDIR", action: "Make", check: (n) => this.nameCheck(n) });
+    const name = await this.app.askName({ title: p.kind === "folder" ? "New folder" : "New directory", why: p.kind === "folder" ? `A new folder in ${this.path.at(-1)}:` : `A new directory in ${this.path.at(-1)}:`, suggested: p.kind === "folder" ? "New folder" : "NEWDIR", action: "Create", check: (n) => this.nameCheck(n) });
     if (!name) return;
     const path = [...this.path];
     try {
       await this.app.queue.add({ label: `Make ${name}`, places: [p.id], run: () => (p.kind === "folder" ? p.folder.mkdir(path, name) : p.device.mkdir(path, name)) });
     } catch (err) {
-      if (!quiet(err)) this.say(`${name} was not made: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.say(`${name} was not created: ${problemText(err)}`, { error: true });
     }
   }
 
@@ -1071,7 +1071,7 @@ export class Pane {
         gone.push(e.name);
       } catch (err) {
         if (quiet(err)) continue;
-        if (err?.kind === "notEmpty" || err?.kind === "not-empty") this.say(`${e.name} changed since the question: it holds ${err.count} now. Nothing was removed.`, { error: true });
+        if (err?.kind === "notEmpty" || err?.kind === "not-empty") this.say(`${e.name} changed since you were asked: it holds ${err.count} now. Nothing was removed.`, { error: true });
         else this.say(`${e.name} was not removed: ${problemText(err)}`, { error: true });
       }
     }
@@ -1105,7 +1105,7 @@ export class Pane {
       got = await this.app.queue.add({ label: `Back up ${p.title}`, places: [p.id], run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.backup()) });
     } catch (err) {
       if (quiet(err)) return;
-      if (err?.kind === "noRoom") this.say(`There is not room for a backup: it needs ${this.app.bytesText(err.needed)} free, the calculator has ${this.app.bytesText(err.free)}. "Copy everything to a folder" needs none.`, { error: true });
+      if (err?.kind === "noRoom") this.say(`Not enough room for a backup: it needs ${this.app.bytesText(err.needed)} free, the calculator has ${this.app.bytesText(err.free)}. "Copy everything to a folder" needs no free memory.`, { error: true });
       else this.say(`No backup: ${problemText(err)}`, { error: true });
       return;
     }
@@ -1334,7 +1334,7 @@ export class Pane {
       // under it, the 48SX stores the variable PICT.1. Another name, asked.
       const h = await this.app.helpers();
       const name = await this.app.askName({
-        title: "A name for the graphics screen",
+        title: "Name the graphics screen",
         why: `PICT is the calculator's own name for its graphics screen. The variable in ${other.path.at(-1)} on the other calculator:`,
         suggested: "PIC",
         action: "Copy",
@@ -1464,7 +1464,7 @@ export class Pane {
       if (!p) return;
       const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated && !p.hub, hub: Boolean(p.hub), picked: p.picked, other: this.other.ready, otherFolders: this.other.folders, xmodem: this.xmodem });
       // A phone's header has no room for "Open in the emulator": it is here instead.
-      if (!this.ui.emulator.hidden && globalThis.matchMedia?.(NARROW_HEAD).matches) items.unshift({ id: "emulator", text: "Open in the emulator", icon: "calculator" }, "-");
+      if (!this.ui.emulator.hidden && globalThis.matchMedia?.(NARROW_HEAD).matches) items.unshift({ id: "emulator", text: "Show in Calculator", icon: "calculator" }, "-");
       openMenu({ anchor: this.ui.more, label: p.kind === "device" ? "Calculator" : "Folder", returnFocus: () => this.ui.more, items: items.map((it) => (it === "-" ? it : { ...it, run: () => this.runPaneAction(it.id) })) });
     });
     this.root.addEventListener("keydown", (e) => {

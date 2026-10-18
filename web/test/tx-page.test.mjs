@@ -405,7 +405,7 @@ test("between two calculators: the plan's warning before anything is sent; Cance
   await p.until(`tx.entry("GAMES", 1)?.directory === true`, 5_000, "GAMES on the 48SX");
   const sx = c.ev(`tx.panes[0].copySelection([tx.entry("X"), tx.entry("GAMES")]).then((r) => r)`);
   await p.until(`!!document.querySelector("dialog.confirm[open]")`, 5_000, "the GX to SX warning");
-  assert.match(await c.ev(`document.querySelector("dialog.confirm .confirm-box").textContent`), /HP 48G\/GX[\s\S]*Left out: a directory has the name on one side[\s\S]*GAMES/);
+  assert.match(await c.ev(`document.querySelector("dialog.confirm .confirm-box").textContent`), /HP 48G\/GX[\s\S]*Left out: on one side the name belongs to a directory[\s\S]*GAMES/);
   await c.ev(`document.querySelector("dialog.confirm .confirm-actions button:last-child").click()`);
   assert.deepEqual((await sx).copied, ["X"]);
   assert.deepEqual(c.errors, []);
@@ -484,7 +484,7 @@ test("backup into the folder, restore with its question, the restart and the rec
   await c.ev(`tx.panes[0].backup(); true`);
   await p.until(`document.getElementById("backup-dialog").open`, 5_000, "the backup dialog without room");
   assert.equal(await c.ev(`document.getElementById("backup-go").disabled`), true);
-  assert.match(await c.ev(`document.getElementById("backup-text").textContent`), /There is not room/);
+  assert.match(await c.ev(`document.getElementById("backup-text").textContent`), /does not have room for a backup/);
   await c.ev(`document.getElementById("backup-copy").click(); true`);
   await p.until(`!!tx.entry("48SX-HOME-2026-10-11-1432", 1)`, 10_000, "everything copied to a folder");
   assert.deepEqual(await c.ev(`tx.panes[1].place.folder.list(["hp-files", "48SX-HOME-2026-10-11-1432"]).then((l) => l.entries.map((e) => e.name).sort())`), ["GAMES", "PRG.hp", "X.hp"]);
@@ -968,7 +968,7 @@ test("an unplug says the calculator is gone, once; a Worker that fails drops the
   await p.idle(10_000);
   await c.ev(`tx.panes[0].place.device.client.worker.onmessage({ data: { type: "failed", message: "unreachable executed" } }); true`);
   await p.until(`!tx.panes[0].place && [...document.querySelectorAll(".toast")].some((e) => /unreachable executed/.test(e.textContent))`, 5_000, "dropped");
-  assert.match(await c.ev(`[...document.querySelectorAll(".toast")].map((e) => e.textContent).join("|")`), /The calculator is gone: the transfer part of the page stopped \(unreachable executed\)/);
+  assert.match(await c.ev(`[...document.querySelectorAll(".toast")].map((e) => e.textContent).join("|")`), /The calculator is gone: Files stopped working \(unreachable executed\)/);
   assert.deepEqual(c.errors, []);
 });
 

@@ -18,7 +18,7 @@ use crate::output::{Hint, Outcome, shell_quote};
 /// `object` subcommands.
 #[derive(Subcommand, Debug)]
 pub enum ObjectCommand {
-    /// Show what a transfer file holds: header, type, walked size, padding.
+    /// Show what a transfer file holds: header, type, object size, padding.
     #[command(after_help = "\
 Reads binary files (HPHP48-x / HPHP49-x header) and ASCII files (%%HP:
 header). For a binary file the object is walked nibble by nibble: the size is
@@ -181,7 +181,7 @@ fn inspect_one(file: &Path, model: ModelArg) -> Result<(Value, String, Vec<Hint>
             );
             Hinted::new(
                 format!("{label}: {what}: {e}"),
-                "satx cannot walk this object; the file may be truncated or hold a type satx \
+                "satx cannot find where this object ends; the file may be truncated or hold a type satx \
                  does not know. `satx get NAME --ascii` gets it as text instead",
             )
         })?;

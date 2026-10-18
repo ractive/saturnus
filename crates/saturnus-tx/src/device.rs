@@ -571,7 +571,7 @@ pub enum TxError {
     #[error("{0} does not exist")]
     NotFound(String),
     /// A purge of a directory that holds variables without their count.
-    #[error("{name} holds {count} variable(s)")]
+    #[error("{name} holds {}", plural(*.count, "variable", "variables"))]
     NotEmpty {
         /// The directory.
         name: String,
@@ -580,7 +580,7 @@ pub enum TxError {
     },
     /// A tree put to names in use without `replace` (their paths, `/`
     /// between the names).
-    #[error("{} already exist(s)", .0.join(", "))]
+    #[error("{} {}", .0.join(", "), if .0.len() == 1 { "already exists" } else { "already exist" })]
     NamesInUse(Vec<String>),
     /// A tree put would make a directory where a variable is.
     #[error("{0} is a variable, not a directory")]
@@ -601,7 +601,9 @@ pub enum TxError {
     },
     /// A tree put failed part of the way: what it made and stored before.
     #[error(
-        "{source}; {variables} variable(s) and {directories} director(y/ies) were stored before{}",
+        "{source}; {} and {} were stored before{}",
+        plural(*.variables, "variable", "variables"),
+        plural(*.directories, "directory", "directories"),
         if *.root_made { ", the new directory included" } else { "" }
     )]
     Partial {
@@ -629,6 +631,11 @@ pub enum TxError {
     /// The protocol, the link or the calculator.
     #[error(transparent)]
     Calc(#[from] satx_core::Error),
+}
+
+/// `n` with the noun for one or for several: "1 variable", "2 variables".
+fn plural(n: usize, one: &str, many: &str) -> String {
+    format!("{n} {}", if n == 1 { one } else { many })
 }
 
 fn list(tried: &[LinkSettings]) -> String {
