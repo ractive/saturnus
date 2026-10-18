@@ -9,25 +9,28 @@ behaviour of the calculators' own ROMs.
 
 ## What it does
 
-- Runs each calculator's own ROM, at the speed of the real calculator
+- Runs each calculator's own ROM at the speed of the real calculator
   (measured on the 48SX, 48GX and 49G; see "Speed").
 - In the browser and the desktop app: the calculator drawn on screen,
-  keyboard shortcuts, saved states, and a memory view with the
-  variables, stack and flags, where you can edit, store, rename and
-  delete them (48SX, 48GX, 49G).
-- A command palette (Cmd/Ctrl+K) with a reference of every built-in
-  command of the 48SX, 48GX and 49G, with examples run in saturnus.
+  keyboard shortcuts, saved states, and a memory view of the variables,
+  stack and flags, where you can edit, store, rename and delete them
+  (48SX, 48GX, 49G).
+- Search (Cmd/Ctrl+K), a command palette with a reference of every
+  built-in command of the 48SX, 48GX and 49G and examples run in
+  saturnus.
+- Files: moves files between a calculator, emulated or on a serial
+  cable, and your computer.
 - On the command line: run a ROM with a key script and save the screen,
-  connect the calculator's serial port for Kermit file transfers, and
-  control a running calculator through a local API (`saturnus ctl`).
+  connect the calculator's serial port for Kermit transfers, and control
+  a running calculator through a local API (`saturnus ctl`).
 
 ## Status
 
-Version 0.1.0 was released on 9 October 2026; later changes are in
-[CHANGELOG.md](CHANGELOG.md). The 48SX, 48GX and 49G show the same
-screens as the saturnng emulator in the tests below, and satx's Kermit
-tests pass on them. The 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII start
-and take keys, but there is no other emulator to compare them with.
+Releases and their changes are listed in [CHANGELOG.md](CHANGELOG.md).
+The 48SX, 48GX and 49G show the same screens as the saturnng emulator in
+the tests below, and satx's Kermit tests pass on them. The 38G, 39G, 40G,
+42S, 27S, 17BII, 17B, 28S and 19BII start and take keys, but there is no
+other emulator to compare them with.
 
 | Model | ROM | CPU clock | RAM | Card slots | Status |
 |-------|-----|-----------|-----|-------|--------|
@@ -42,17 +45,31 @@ and take keys, but there is no other emulator to compare them with.
 | HP 17BII | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | asks for a language, takes keys, clock runs, self-test passes (not compared) |
 | HP 17B | your own copy, 64 KB or 96 KB international (96 KB rev. B tested) | 1 MHz (uncalibrated) | 8 KB at #50000 | none | as the 17BII (not compared) |
 | HP 28S | your own copy, 128 KB (rev. 2BB tested) | 1 MHz (uncalibrated) | 32 KB at #C0000 | none | starts with "Memory Lost", takes keys, self-test passes (not compared) |
-| HP 19BII | a 128 KB image you have; there is no download and the calculator cannot read its own ROM out | 1 MHz (uncalibrated) | 8 KB at #C4000 | none | asks for a language, takes keys, clock runs, self-test passes (not compared) |
+| HP 19BII | a 128 KB ROM file you have; there is no download and the calculator cannot read its own ROM out | 1 MHz (uncalibrated) | 8 KB at #C4000 | none | asks for a language, takes keys, clock runs, self-test passes (not compared) |
 
 ## Install
 
-No ROM comes with saturnus; see "Getting the ROM" below.
+The ROMs are not included; see "Getting the ROM" below.
 
-**Web app**, nothing to install: <https://ractive.ch/saturnus/app/>
-(<https://ractive.ch/saturnus/> is the landing page): a home page with
-your calculators, Calculator and Files in one page.
-Choose a ROM file on your computer; it stays in your browser and nothing
-is uploaded.
+**In the browser**, nothing to install: open the app at
+<https://ractive.ch/saturnus/app/> (<https://ractive.ch/saturnus/> is
+the landing page). Its home page lists your calculators; Calculator and
+Files are its two views. Choose a ROM file on your computer: it stays in
+your browser and nothing is uploaded.
+
+**Desktop app**: installers are on the
+[releases page](https://github.com/ractive/saturnus/releases): `.dmg`
+(macOS, Apple silicon), `.msi` or setup `.exe` (Windows x86_64), `.deb`,
+`.rpm` or `.AppImage` (Linux x86_64). On a Mac also with Homebrew:
+
+```sh
+brew trust --cask ractive/tap/saturnus-app   # once: Homebrew 5.1.15+ refuses untrusted taps
+brew install --cask ractive/tap/saturnus-app
+```
+
+The macOS app is signed and notarised. The Windows installers are not
+signed yet: SmartScreen says "Windows protected your PC"; click "More
+info", then "Run anyway".
 
 **Command line** (`saturnus`), one of:
 
@@ -71,14 +88,14 @@ scoop install saturnus              # Windows
 or a prebuilt archive from the
 [releases page](https://github.com/ractive/saturnus/releases):
 `saturnus-v<version>-<target>.tar.gz` (Linux x86_64 and aarch64, gnu and
-musl; macOS aarch64) or `.zip` (Windows x86_64 and aarch64), checksums in `saturnus-SHA256SUMS`; the
-natively built ones also have an SBOM and a build provenance attestation
+musl; macOS aarch64) or `.zip` (Windows x86_64 and aarch64), with
+checksums in `saturnus-SHA256SUMS`. The natively built archives also
+have an SBOM and a build provenance attestation
 (`gh attestation verify <archive> --repo ractive/saturnus`).
 
-On Linux x86_64 the command line also comes as a package, named
-`saturnus`; it is not the desktop app's package `saturnus-app`, and the
-two can be installed side by side
-(`saturnus` and `saturnus-app`). Download
+On Linux x86_64 the command line also comes as a package named
+`saturnus`. It is a different package from the desktop app's
+(`saturnus-app`), and the two can be installed side by side. Download
 `saturnus-v<version>-x86_64-linux.deb` or `.rpm` from the releases page,
 then
 
@@ -90,34 +107,19 @@ sudo dnf install ./saturnus-v<version>-x86_64-linux.rpm   # Fedora, RHEL
 The binary in them is statically linked (musl), so they need no
 particular glibc and install on any x86_64 Debian, Ubuntu, Fedora or RHEL.
 
-**Desktop app**: installers on the
-[releases page](https://github.com/ractive/saturnus/releases), `.dmg`
-(macOS, Apple silicon), `.msi` or setup `.exe` (Windows x86_64), `.deb`,
-`.rpm` or `.AppImage` (Linux x86_64). On a Mac also with Homebrew:
+**Files** moves files between an HP 48 or 49 on a serial cable, an
+emulated calculator and your computer, and serves aplets to a 38G, 39G
+or 40G. It is part of the app: <https://ractive.ch/saturnus/app/#/files>
+in the browser (a cable needs Chrome or Edge), and in the desktop app,
+where it has native serial ports on every system and your computer's
+folders in its right pane. For a cable you need the calculator's own
+serial cable (the 38G's has 10 pins) and, on most computers, a USB
+serial adapter. On Linux your user must be in the `dialout` group
+(`uucp` on Arch): `sudo usermod -aG dialout $USER`, then log in again. On
+Windows, current drivers refuse adapters with fake Prolific chips; one
+with an FTDI or a genuine chip works.
 
-```sh
-brew trust --cask ractive/tap/saturnus-app   # once: Homebrew 5.1.15+ refuses untrusted taps
-brew install --cask ractive/tap/saturnus-app
-```
-
-The macOS app is signed and
-notarised. The Windows installers are not signed yet: SmartScreen says
-"Windows protected your PC"; click "More info", then "Run anyway".
-
-**Files, the transfer view**: files between an HP 48 or 49 on a serial
-cable, an emulated one and your computer, and aplets served to a 38G,
-39G or 40G. In the browser it is the web app's Files
-(<https://ractive.ch/saturnus/app/#/files>; Chrome or Edge for a cable);
-in the desktop app above it has native serial ports in every system,
-your computer's folders in its right pane, and the calculator running
-in Calculator; it replaces the separate saturnus tx app. The cable: the calculator's own serial cable (the 38G's has 10
-pins) and, on most computers, a USB serial adapter; on Linux your user
-must be in the `dialout` group (`uucp` on Arch): `sudo usermod -aG
-dialout $USER`, then log in again; on Windows, adapters with fake
-Prolific chips are refused by current drivers (one with an FTDI or a
-genuine chip works).
-
-**satx**, the transfer tool: `cargo install satx`,
+**satx**, the transfer tool for the command line: `cargo install satx`,
 `brew trust --formula ractive/tap/satx` then `brew install ractive/tap/satx`,
 `scoop install satx`, or its archives and packages (`satx`) on the
 releases page; see [its README](crates/satx-cli/README.md).
@@ -130,27 +132,6 @@ objects, user memory) and
 [`saturnus-drive`](https://crates.io/crates/saturnus-drive) (key scripts,
 screen dumps) on top.
 
-## Speed
-
-Emulated programs take as long as on the real calculators, within a few
-percent, on the HP Museum summation benchmark
-(`'Σ(X=1,n,XROOT(3,EXP(SIN(ATAN(X)))))'`):
-
-| Model | Run | Real | saturnus |
-| --- | --- | --- | --- |
-| HP 48SX | n = 1000 | 95.5 s | 95.5 s |
-| HP 48GX | n = 100 | 5.9 s | 5.9 s |
-| HP 49G (ROM 2.10) | FOR/NEXT, n = 100 | 5.5 s | 5.4 s |
-
-Instructions are timed with the SASM manual's cycle counts on the 48SX and
-the Meta Kernel counts (from the Saturn tutorial) on the 48GX, 49G, 38G,
-39G and 40G,
-plus a 13% display-refresh stall, times a per-model calibration factor.
-The factor (1.20-1.34) is fitted to these benchmarks; its cause is not
-known. See `kb/decision-log.md`, iteration 7. The 42S runs the SASM counts
-at a flat 1 MHz with no factor and no stall: there is no benchmark of a
-real 42S yet.
-
 ## Getting the ROM
 
 saturnus does not include HP's ROM files. They are HP's software, hosted
@@ -158,18 +139,19 @@ by hpcalc.org with HP's permission for use with emulators; they are not
 part of saturnus, and saturnus does not host or pass them on.
 
 - **Desktop app**: each model without a ROM has a "Download…" button. The
-  app says what it downloads, from where and under what terms, and after
-  you confirm downloads the ROM file from hpcalc.org, checks its size and
+  app says what it downloads, from where and under what terms. Once you
+  confirm, it downloads the ROM file from hpcalc.org, checks its size and
   SHA-256, keeps it in `roms` in its data folder (macOS `~/Library/
   Application Support/ch.ractive.saturnus/`, Linux
   `~/.local/share/ch.ractive.saturnus/`, Windows
   `%APPDATA%\ch.ractive.saturnus\`) and starts it.
-- **Web page**: a browser cannot download from hpcalc.org for the page,
-  so each model without a ROM links to its download page there and names
-  the file to expect; unzip it and drop the file on the page.
-- **CLI**: `saturnus rom fetch` downloads the HP 48SX ROM J, the HP 48GX
-  ROM R, the HP 49G ROM 2.15, the HP 38G ROM A1.67 or the HP 39G/40G ROM
-  from hpcalc.org after asking for confirmation, then checks its size and
+- **In the browser**: a browser cannot download from hpcalc.org for the
+  app, so each model without a ROM links to its download page there and
+  names the file to expect. Unzip it and drop the file on the app's home
+  page.
+- **Command line**: `saturnus rom fetch` downloads the HP 48SX ROM J, the
+  HP 48GX ROM R, the HP 49G ROM 2.15, the HP 38G ROM A1.67 or the HP
+  39G/40G ROM from hpcalc.org after asking, then checks its size and
   SHA-256:
 
 ```sh
@@ -204,34 +186,156 @@ was read from at #00100-#0013F; saturnus zeroes them when it loads the
 file. `--model 39g` and `--model 40g` also take the 1 MB packed form.
 
 The download uses the system `curl` with its own user agent (hpcalc.org
-serves junk to agents posing as a browser) and at most 8 MiB; saturnus
-unpacks the zip itself and writes the file only once it verifies. The CLI
-and the app share this code (`crates/saturnus-drive/src/fetch.rs`) and one
-table of the known ROM files with their URLs, sizes and SHA-256
-(`crates/saturnus-host/src/romid.rs`). `--yes` skips the prompt. An
-existing file that verifies is kept.
-`roms/` is ignored by git; never commit ROMs or state files.
+serves junk to agents posing as a browser) and takes at most 8 MiB.
+saturnus unpacks the zip itself and writes the file only once it
+verifies; an existing file that verifies is kept. `--yes` skips the
+question. The command line and the desktop app share this code
+(`crates/saturnus-drive/src/fetch.rs`) and one table of the known ROM
+files with their URLs, sizes and SHA-256
+(`crates/saturnus-host/src/romid.rs`). `roms/` is ignored by git; never
+commit ROMs or state files.
 
-**HP 42S.** HP never released the 42S ROM and no site may offer it, so
-`rom fetch --model 42s` refuses. Read the ROM out of your own calculator:
-the 42S sends its ROM over the infrared printer port to an HP 48 series
-calculator running a binary-safe INPRT (Christoph Gießelink's
+**HP 42S, 27S, 17BII, 17B and 28S.** HP never published these ROMs, so
+there is no download and `rom fetch` refuses them. Read the ROM out of
+your own calculator and pass it with `--rom FILE` (or choose it in the
+app). The 42S sends its ROM over the infrared printer port to an HP 48
+series calculator running a binary-safe INPRT (Christoph Gießelink's
 `PIONEER.TXT` in the Emu42 ROM upload package walks through it;
-`LEWISCRC` from the Emu42 package checks the file), then move it to the
-computer with Kermit. Pass
-the 64 KB ROM file with `--model 42s --rom FILE`. The tested file is
-revision C (SHA-256
+`LEWISCRC` from the Emu42 package checks the file); then move it to the
+computer with Kermit. The tested 42S file is revision C (64 KB, SHA-256
 `f4c5f9f0e1d89074b7ca49add99b3ea72ed7fae9370b421de20a0cd8384c08f3`); its
 self-test (EXIT + LN) shows "ROM OK".
 
 **HP 19BII.** There is no download, and saturnus has no way to get this
 ROM for you: the 19BII has no memory scanner, so it cannot read its own
-ROM out the way the 42S can. Pass a 128 KB image you have with
-`--model 19bii --rom FILE` (or choose it on the web page or in the
-desktop app); `rom fetch --model 19bii` refuses. The tested image's
-self-test (ON + the fifth menu key) shows "OK-19B II".
+ROM out the way the 42S can. Pass a 128 KB ROM file you have with
+`--model 19bii --rom FILE` (or choose it in the app);
+`rom fetch --model 19bii` refuses. The tested file's self-test (ON + the
+fifth menu key) shows "OK-19B II".
 
-## Running
+## Using the app
+
+The app runs in the browser and, with the same pages, as the desktop
+app.
+
+**Calculators.** On the home page, choose New calculator, then the
+model's ROM file (the same files as for the command line). Each ROM is
+kept per model, so you choose it once: the home page lists your
+calculators, each opened with its Calculator button, and the app can
+open on the last one. You can choose several files at once or drop them
+on the home page; each is recognised by its content (the ROM files
+`saturnus rom fetch` knows by SHA-256, others by size) and goes to its
+model.
+
+**The calculator.** Each model is drawn as its own skin, with every key
+in its cap colour, the shifted labels in the model's shift colours and
+the alpha letters where the model prints them. The 40G uses the 39G's
+drawing and the 17B the 17BII's, each with its own name. The skins are
+our own SVG drawings: the 48SX, 49G, 38G and 42S measured from
+photographs of the owner's calculators (the 48GX shares the 48SX's
+mould), the 27S, 17BII, 28S and 19BII from photographs on Wikimedia
+Commons, the 39G/40G and every model's labels from the keyboard figures
+in HP's manuals. No HP logo or wordmark appears; the saturnus logo sits
+in its place. The display shows the LCD with its annunciators and its
+contrast ("Darker display" and "Lighter display" press ON + and ON -).
+Without a calculator running, the display says so and links to the home
+page. The status line shows the model and ROM, whether the calculator is
+paused or halted, a send in progress and the last message.
+
+**Keys.** Click or tap the keys. Ctrl+click presses a key's left-shifted
+function, Alt/Option+click its right-shifted one, and holding Ctrl or
+Alt lights the labels they reach. On the computer keyboard, letters,
+digits, `+ - * /`, `.`, Space, Enter, Backspace, Delete (DEL), the
+arrows, `'`, `^` and F1-F6 (the menu keys) type as printed. ON (Escape),
+α (Tab), the shifts and the app's actions are shortcuts you can change
+in the "Keyboard shortcuts" dialog, which warns about keys the browser
+or another action already uses. Pasting text, or sending it from
+Search, types it into the command line key by key (48SX, 48GX, 49G).
+
+**Speed.** The calculator runs in real time, or at 2×, 4× or Max. The
+speed applies only while the calculator computes: while it waits for a
+key its clock runs in real time, so the auto-off (about ten minutes on
+the 48SX and 48GX) and the cursor blink keep their pace.
+
+**Memory view.** The Memory button opens the memory view beside the
+calculator (over it in a narrow window). It shows the calculator's
+variables, stack and flags live, read straight from its RAM: the
+directory tree of HOME with the current directory marked, the variables
+of a directory with type, size and checksum, a preview of the selected
+object with Copy text, the stack, and every system flag with what its
+state means. Programs are shown as indented text, with the ROM's own
+command names. From there you can edit an object or a stack level,
+store a file, save a variable as a file, create a directory, rename,
+purge, make a directory current and set or clear a flag; the calculator
+does these itself, out of sight. Browsing directories does not change
+the calculator's directory. 48SX, 48GX and 49G. Typing still goes to
+the calculator; Alt+M moves the keys into the memory view and Escape
+moves them back. The side panel and the memory view are resized from
+their inner edges, and the widths are remembered. See `web/README.md`,
+"Memory view".
+
+**Saved states.** The calculator keeps its state as a real one keeps its
+memory: a few seconds after the last key, and when the app is hidden,
+its state is saved, and a reload starts it as it was left, stack and
+variables included, with no "Try To Recover Memory?". An idle
+calculator is never written. Save state and Load state (which asks
+first) keep one more state per model, your own. "Save state to a file…"
+writes a `.sat` file that the browser, the desktop app and
+`saturnus run --load` all read. A state only loads with the ROM it was
+saved from. Search's "Start fresh" restarts the calculator with empty
+memory. Reset is a button; pausing is in Search.
+
+**What stays in the browser.** The chosen model, view, speed, panel and
+memory view with their widths, and changed keyboard shortcuts
+(localStorage `saturnus.*`); the ROM of each model (IndexedDB
+`saturnus-roms`); two saved states per model, yours and the automatic
+one (IndexedDB `saturnus`). "Remove ROMs" removes the ROMs and the saved
+49G states, which contain the 49G's ROM. Nothing is uploaded. Where the
+browser refuses to store (storage blocked or full) the app says so and
+works as before; choose the ROM again after a reload. See
+`web/README.md`.
+
+**In the desktop app** the calculator runs natively on its own thread,
+in real time (1×, 2×, 4× or Max). The ROM is a file chosen in a native
+dialog, or downloaded (see "Getting the ROM"). Save state and Load state
+work as in the browser, with one saved state per model in `states/` in
+the app's data folder; "Save state to a file…" and "Load state from a
+file…" use native dialogs. The calculator keeps its state across
+restarts, as in the browser, in the same folder. The app remembers each
+model's ROM file by its path, in `settings.json` in its config folder
+(macOS `~/Library/Application Support/ch.ractive.saturnus/`, Linux
+`~/.config/ch.ractive.saturnus/`, Windows `%APPDATA%\ch.ractive.saturnus\`),
+so choosing a model starts it, and the last model starts when the app
+opens (a setting). When you choose a ROM, the other ROMs in the same
+folder are recognised by content and given to their models at once; a
+file that only fits by size is offered, and an unknown one is left
+alone. A remembered file that was moved or changed is reported and
+asked for again. Files in the desktop app lists each USB serial adapter
+by name and remembers the last one; its right pane opens at your home
+folder and goes anywhere your account may ("Open a folder…" jumps).
+
+## Speed
+
+Emulated programs take as long as on the real calculators, within a few
+percent, on the HP Museum summation benchmark
+(`'Σ(X=1,n,XROOT(3,EXP(SIN(ATAN(X)))))'`):
+
+| Model | Run | Real | saturnus |
+| --- | --- | --- | --- |
+| HP 48SX | n = 1000 | 95.5 s | 95.5 s |
+| HP 48GX | n = 100 | 5.9 s | 5.9 s |
+| HP 49G (ROM 2.10) | FOR/NEXT, n = 100 | 5.5 s | 5.4 s |
+
+Instructions are timed with the SASM manual's cycle counts on the 48SX
+and the Meta Kernel counts (from the Saturn tutorial) on the 48GX, 49G,
+38G, 39G and 40G, plus a 13% display-refresh stall, times a per-model
+calibration factor. The factor (1.20-1.34) is fitted to these
+benchmarks; its cause is not known. See `kb/decision-log.md`, iteration
+7. The 42S, 27S, 17BII, 17B, 28S and 19BII run the SASM counts at 1 MHz
+with no factor: none of them has been compared with a real calculator
+yet.
+
+## Command line
 
 The binary is called `saturnus` (crate `saturnus`, in `crates/saturnus-cli`):
 
@@ -257,21 +361,22 @@ $S run --model 48sx --rom roms/sxrom-j --serve
 $S disasm --rom roms/sxrom-j --at 0 --count 20
 ```
 
-What makes `run` finish or serve:
+`run` either finishes or serves:
 
 - **It serves** when it has `--serve`, `--serial` or `--control`. It runs
   `--load`, cards, `--cycles`, the key script and `--autostart`, then
   serves in the foreground until Ctrl-C (SIGINT/SIGTERM) or, with
   `--exit-on-disconnect`, until the serial client leaves; then it writes
-  `--screen`, `--annunciators`, `--save` and the card files. What it
-  serves: `--serial SPEC` bridges the serial port (with `--serve`, by
-  default `tcp:4841` on models that have one; `--no-serial` turns that
-  off), and the control API runs on `--control ADDR` (with `--serve`, by
-  default on port 4840; `--no-control` turns it off). So `--serve` gives
-  both, `--serial` alone only the bridge, and a 42S serves the API with
-  `--serve` and still writes its outputs at the end. The calculator runs
-  in real time while it serves.
-- **Anything else finishes** on its own: it runs `--load`, cards,
+  `--screen`, `--annunciators`, `--save` and the card files.
+  `--serial SPEC` bridges the serial port (with `--serve`, by default
+  `tcp:4841` on models that have one; `--no-serial` turns that off), and
+  the control API runs on `--control ADDR` (with `--serve`, by default
+  on port 4840; `--no-control` turns it off). So `--serve` gives both,
+  and `--serial` alone only the bridge. A model without a serial port,
+  such as the 42S, serves only the API with `--serve` and still writes
+  its outputs at the end. The calculator runs in real time while it
+  serves.
+- **Otherwise it finishes** on its own: it runs `--load`, cards,
   `--cycles` and the key script, writes what was asked for, and stops.
   `--no-serial`, `--no-control` and `--token-file` without `--serve` are
   errors.
@@ -283,11 +388,11 @@ start.
 
 | Option | Meaning |
 |--------|---------|
-| `--model M` | calculator model: `48sx` (default), `48gx`, `49g`, `38g`, `39g`, `40g` or `42s` |
+| `--model M` | calculator model: `48sx` (default), `48gx`, `49g`, `38g`, `39g`, `40g`, `42s`, `27s`, `17bii`, `17b`, `28s` or `19bii` |
 | `--rom FILE` | ROM file; the size is checked |
 | `--load FILE` | restore a saved state first (it must come from the same ROM) |
 | `--cycles N` | run N CPU cycles before the key script |
-| `--keys FILE` | replay a key script |
+| `--keys FILE` | play a key script |
 | `--screen FILE` | write the final screen: `.txt` or `.png` |
 | `--annunciators FILE` | write the lit status indicators (annunciators), e.g. `alpha` or `-` |
 | `--save FILE` | save the state at the end |
@@ -313,17 +418,18 @@ slot 2), a power of two, two nibbles per byte like the ROM. They are
 written back only with `--card-writeback`; a saved state already
 contains the card contents.
 
-The `.txt` screen is 64 lines of 131 characters (16 lines on the 42S), `#`
-for a dark pixel and `.` for a light one, every line ended by a newline.
-The `.png` is 131×64 (131×16 on the 42S), 1 bit per pixel, dark pixels
-black.
+The `.txt` screen has one line per pixel row, `#` for a dark pixel and
+`.` for a light one, each line ended by a newline: 64 lines of 131
+characters, 16 lines of 131 on the 42S, 27S, 17BII and 17B, and 32
+lines of 137 on the 28S and 19BII. The `.png` has the same size, 1 bit
+per pixel, dark pixels black.
 
 ## Serial port and Kermit
 
 A serving `run` bridges the calculator's wired serial port (`--serial`,
-or `tcp:4841` with `--serve`), so Kermit clients
-such as [satx](crates/satx-cli/README.md) talk to saturnus the way they
-talk to the saturnng container or a real HP 48SX:
+or `tcp:4841` with `--serve`), so Kermit clients such as
+[satx](crates/satx-cli/README.md) talk to saturnus as they talk to the
+saturnng container or a real HP 48SX:
 
 ```sh
 $S run --model 48sx --rom roms/sxrom-j --serial tcp:4850 --autostart
@@ -331,10 +437,6 @@ $S run --model 48sx --rom roms/sxrom-j --serial tcp:4850 --autostart
 $S run --model 48gx --rom roms/gxrom-r --serial tcp:4862 --autostart
 $S run --model 49g --rom roms/rom.49g --serial tcp:4863 --autostart
 ```
-
-On the 49G `--autostart` answers NO and then OK on the "Memory Clear" box,
-and types SERVER with the 49G's letter keys. The 38G, 39G and 40G have no
-Kermit server command, so `--autostart` refuses them.
 
 | `--serial` | Meaning |
 |------------|---------|
@@ -345,29 +447,34 @@ Kermit server command, so `--autostart` refuses them.
 The order is: `--load`, cards, `--cycles`, the key script, then
 `--autostart`, then serving. `--autostart` answers "Try To Recover
 Memory?" with NO (skipped with `--load`) and types ALPHA ALPHA S E R V E R
-ENTER; the screen then shows "Awaiting Server Cmd.". When the port is
-listening, saturnus prints `serial bridged on tcp:HOST:PORT` on stdout
-(stderr for `stdio`), so scripts can wait for that line.
+ENTER; the screen then shows "Awaiting Server Cmd.". On the 49G it
+answers NO and then OK on the "Memory Clear" box, and types SERVER with
+the 49G's letter keys. The 38G, 39G and 40G have no Kermit server
+command, so `--autostart` refuses them. When the port is listening,
+saturnus prints `serial bridged on tcp:HOST:PORT` on stdout (stderr for
+`stdio`), so scripts can wait for that line.
 
-While serving, the calculator runs in real time on its own thread
-(the Tauri app's, `crates/saturnus-drive/src/runner.rs`, driving the
-protocol's state machine in `crates/saturnus-host/src/protocol/` as the
-browser does), which serves the bridge between its passes: 2 MHz of
-emulated cycles per real second, in passes every millisecond; a CPU
-asleep in SHUTDN costs nothing until a timer event or a byte from the
-client wakes it. A pass runs the wall time since the last one; what it
-cannot fit into its 4 ms budget, and anything beyond 100 ms (a stopped
-process, an overloaded host), is dropped instead of run in a burst. Kermit
-timeouts on both ends are wall-clock, so running flat out would break them.
-Incoming bytes reach the emulated UART at line rate (11.375 bit times per
-byte at the IOPAR baud rate); outgoing bytes are written to the socket as
-soon as the UART sends them, with Nagle disabled. At most 2 KiB wait for
-the UART; above that the bridge stops reading, so TCP flow control (or the
-bounded stdin pipe) holds a faster sender back. When a client leaves, what
-it already sent still goes out to the calculator, typically its final ACK;
-the next client is accepted once that has drained, so sessions never mix. Bytes the calculator
-sends while no client is connected are dropped; the container's pty keeps
-them instead, which is the stale NAK satx drains on connect.
+While serving, the calculator runs in real time on its own thread (the
+desktop app's, `crates/saturnus-drive/src/runner.rs`, driving the same
+state machine in `crates/saturnus-host/src/protocol/` as the browser),
+which serves the bridge between its passes: 2 MHz of emulated cycles per
+real second, in passes every millisecond. A CPU asleep in SHUTDN costs
+nothing until a timer event or a byte from the client wakes it. A pass
+runs the wall time since the last one; what does not fit into its 4 ms
+budget, and anything beyond 100 ms (a stopped process, an overloaded
+host), is dropped instead of run in a burst. Kermit timeouts on both ends
+are wall-clock, so running flat out would break them.
+
+Incoming bytes reach the emulated UART at line rate (11.375 bit times
+per byte at the IOPAR baud rate); outgoing bytes are written to the
+socket as soon as the UART sends them, with Nagle disabled. At most 2 KiB
+wait for the UART; above that the bridge stops reading, so TCP flow
+control (or the bounded stdin pipe) holds a faster sender back. When a
+client leaves, what it already sent still goes to the calculator
+(typically its final ACK); the next client is accepted once that has
+drained, so sessions never mix. Bytes the calculator sends while no
+client is connected are dropped; the container's pty keeps them instead,
+which is the stale NAK satx drains on connect.
 
 The bridge runs until SIGINT or SIGTERM (or, with `--exit-on-disconnect`,
 until the client leaves), then writes `--screen`, `--annunciators`,
@@ -377,8 +484,8 @@ undefined opcode), the run goes on: the halt is reported on stderr and by
 
 The serial port has no token: it is a raw wire, as on the calculator, so
 that satx and other Kermit or XMODEM clients work unchanged. It listens on
-127.0.0.1 unless `--serial-remote` says otherwise. A browser page can
-still send a request to it (a no-cors `fetch`), so the bridge looks at the
+127.0.0.1 unless `--serial-remote` says otherwise. A web page can still
+send a request to it (a no-cors `fetch`), so the bridge looks at the
 first bytes of every new connection and closes it, passing nothing to the
 calculator, if they start an HTTP request line (`GET `, `POST `, `PUT `,
 `HEAD `, `OPTIONS `, `DELETE `, `PATCH `, `TRACE `); the one-client slot is
@@ -454,9 +561,9 @@ A 504 means the command did not run and will not (it waited 90 s for the
 calculator), so a retry is safe; a key script that had already started is
 stopped and the 504 says so. A client that disconnects withdraws its
 command the same way. A 503 means nothing was queued (8 requests in
-progress, or 8 commands waiting).
-A busy port is refused at start with the process that holds it, where the
-platform tells us (lsof or ss on macOS and Linux, netstat on Windows).
+progress, or 8 commands waiting). A busy port is refused at start,
+naming the process that holds it where the platform says (lsof or ss on
+macOS and Linux, netstat on Windows).
 
 The endpoints (`web/protocol.md`, "HTTP", has the complete mapping and the
 status codes): `GET /v1/screen` (JSON rows, or `image/png` by `Accept`),
@@ -464,8 +571,9 @@ status codes): `GET /v1/screen` (JSON rows, or `image/png` by `Accept`),
 /v1/cmdline`, `GET`/`POST /v1/mem`, `GET`/`PUT /v1/snapshot`, `GET
 /v1/info`, `/v1/cycles`, `/v1/model`, `/v1/stack`, `/v1/tree`,
 `/v1/flags`, `POST /v1/memory` (the writes: `storeFile`, `fetchFile`,
-`purge`, `rename`, `createDir`, `changeDir`, `setFlag`). Bodies are the commands of the front end's
-protocol, the one the browser's Web Worker and the desktop app speak:
+`purge`, `rename`, `createDir`, `changeDir`, `setFlag`). The bodies are
+the commands of the protocol the app speaks to its calculator, in the
+browser and in the desktop app:
 
 ```sh
 T=$(cat ~/.config/saturnus/control-token)
@@ -479,12 +587,12 @@ real time while the calculator waits for keys) and return when it is idle;
 the clock then follows the wall clock again. Meanwhile the serial bridge
 waits, so do not send keys during a Kermit transfer.
 
-**How an agent uses it.** Start `saturnus run --serve` once (in the
-foreground, in its own terminal or as a background job of the agent's
-shell), then call `saturnus ctl` for keys, screens, the stack and the
-state, and on the 48SX, 48GX and 49G for variables (`tree`, `store`,
-`fetch`, `text`, `purge`, `rename`, `mkdir`, `cd`). satx over the serial
-port also works, as against a real calculator.
+**Scripts and AI agents.** Start `saturnus run --serve` once (in the
+foreground, in its own terminal or as a background job of the shell),
+then call `saturnus ctl` for keys, screens, the stack and the state,
+and on the 48SX, 48GX and 49G for variables (`tree`, `store`, `fetch`,
+`text`, `purge`, `rename`, `mkdir`, `cd`). satx over the serial port
+also works, as against a real calculator.
 
 ### Security
 
@@ -517,13 +625,13 @@ there). So:
   browser never lets a page read an answer or send the token.
 - **Reads do not write.** `GET` never changes anything; keys, typing,
   memory writes and loading a state need `POST` or `PUT`.
-- **Bounded.** Bodies are capped (256 KiB of JSON, 4 MiB of state), memory
+- **Limits.** Bodies are capped (256 KiB of JSON, 4 MiB of state); memory
   reads and writes stay inside the 20-bit address space and move at most
-  65536 nibbles, a request head must arrive within 2 s and a body within
-  20 s; connections still sending their head have their own budget of 16
+  65536 nibbles; a request head must arrive within 2 s and a body within
+  20 s. Connections still sending their head have their own budget of 16
   (the oldest is dropped for a new one), at most 8 authenticated requests
   run at once and at most 8 commands wait for the calculator, each
-  connection on its own thread: a slow or stalled client never holds up
+  connection on its own thread. A slow or stalled client never holds up
   the calculator or the serial port, and idle connections without the
   token cannot lock out the token holder.
 - **No files.** The API never takes a file path: states travel as bytes,
@@ -536,8 +644,8 @@ The rules and their tests: `kb/docs/control-api-security.md`.
 ## Key scripts
 
 A key script is a text file with one action per line. Times are emulated
-milliseconds, so a script gives the same result on any host. `#` starts a
-comment.
+milliseconds, so a script gives the same result on any computer. `#`
+starts a comment.
 
 | Action | Meaning |
 |--------|---------|
@@ -564,7 +672,7 @@ uses a key the model lacks is refused before it runs, e.g.
 
 | Group | Names |
 |-------|-------|
-| Softkeys | `a` `b` `c` `d` `e` `f` (also `f1` to `f6`) |
+| Menu keys | `a` `b` `c` `d` `e` `f` (also `f1` to `f6`) |
 | Row 2 and 3 | `mth` `prg` `cst` `var` `up` `nxt` `quote` `sto` `eval` `left` `down` `right` |
 | Row 4 | `sin` `cos` `tan` `sqrt` `power` `inv` |
 | Row 5 | `enter` `neg` `eex` `del` `backspace` |
@@ -618,76 +726,17 @@ multiply
 enter
 ```
 
-## Kermit test host
-
-`crates/saturnus-kermit` (not published) owns one emulated calculator and
-talks to its ROM's Kermit server in process, for the ROM-gated tests and
-for `saturnus-refgen`: it drives the machine's serial port directly
-(`Machine::serial_push`/`serial_drain`), runs satx's calculator
-operations through `satx-core`'s sans-I/O client (the same code satx
-runs on real calculators) and takes the objects on the wire from
-`saturnus_objects::transfer`. Agents use the
-control API and satx over the serial port instead (above).
-
-The link is the products' emulated wire (`saturnus_host::wire`, which
-the hidden writes of Calculator and the desktop app step in
-turns), blocked on. It runs on emulated time only. The Kermit client's clock is the
-emulated time the calculator spent idle while a reply was awaited: the
-calculator answers a host command only when it is done, so time it
-spends computing (not in SHUTDN) does not count toward the 6 s reply
-timeout, for up to 10 minutes per read; a packet that opens a
-transaction waits 200 ms of emulated time first (a command right after
-the final ACK is lost). The same exchange always leaves the same machine
-state, which is what lets `saturnus-refgen` regenerate its data byte for
-byte.
-
-On top of host commands, `G D`, GET, SEND and `G F` it has typed
-operations (`saturnus_kermit::semantic`): `eval`
-(levels 1..n typed, or the calculator's error with the stack's display
-text), the typed stack, push, pop, drop, variables and directories. They
-enter the server when needed (ON, then `SERVER`) and leave it unless
-asked to keep it. Values are decoded from the binary object a GET
-returns (wiki `protocols/hp-object-format`), so reals keep all 12 digits;
-programs, algebraics and units take their text from an ASCII GET of the
-same object. Levels are read without changing the stack through a
-temporary list variable (`SATRNTMP`, or `SATRNTM1` to `SATRNTM3` if
-taken). Source the calculator rejects as `Invalid Syntax` is tried again
-as an algebraic (`SIN(0.5)` as `'SIN(0.5)' EVAL`); source longer than one
-packet (77 encoded bytes) travels as a string that `STR→` compiles. An
-`eval` limit counts from the calculator's receipt of the command to the
-start of its reply; on the limit the calculator is interrupted with ON,
-which ends its server, and the text the 48SX ROM puts back on level 1 is
-dropped. The objects as JSON (`saturnus_objects::Object`):
-
-| Type | JSON |
-|------|------|
-| real | `{"type":"real","value":0.479425538604}`; exact to the calculator's 12 digits; text such as `"1.5E-400"` beyond an f64's exponent range |
-| integer (49G) | `{"type":"integer","value":5}`; text beyond 15 digits, e.g. `"1267650600228229401496703205376"` |
-| complex | `{"type":"complex","re":2.0,"im":-4.0}` |
-| string | `{"type":"string","value":"Hello"}` |
-| name, local name | `{"type":"name","value":"X"}`, `{"type":"local_name","value":"x"}` |
-| binary integer | `{"type":"binary","value":255,"base":"dec","text":"# 255d"}`; the base is the calculator's display mode |
-| list | `{"type":"list","items":[...]}` |
-| tagged | `{"type":"tagged","tag":"T","object":{...}}` |
-| unit | `{"type":"unit","value":9.81,"unit":"m/s^2"}` |
-| array | `{"type":"array","dims":[2,2],"items":[[{...},{...}],[{...},{...}]]}` (reals or complex numbers) |
-| program | `{"type":"program","source":"« 1 2 +\n»"}` |
-| algebraic | `{"type":"algebraic","source":"'X^2+1'"}` |
-| character | `{"type":"character","value":"A"}` |
-| command | `{"type":"command","source":"+"}`: a built-in command inside a list or program |
-| unknown | `{"type":"unknown","prolog":"02B1E","kind":"Graphic","nibbles":2196,"hex":"E1B20...","graphic":{"width":131,"height":64,"rows":"..."}}` (hex cut at 4096 nibbles; `graphic` on a GROB: its rows as hex, leftmost pixel in a byte's top bit, 1 dark) |
-
 ## Command reference
 
 `crates/saturnus-cli/data/commands/` holds a reference of every built-in
-command of the 48SX, 48GX and 49G, generated from the ROMs on the emulator by
-`saturnus-refgen` (`crates/saturnus-refgen`). In the web page and the
-desktop app it is the **command palette** (Cmd/Ctrl+K: suggestions while
-typing, the entry with its examples beside them, Enter sends the command
-to the calculator; `web/README.md`, "Command palette") and the Reference
-tab of the memory view; the page reads `web/commands.json`, folded from
-these files by `scripts/commands-json.py`. `saturnus ref` looks a
-command up (embedded in the binary):
+command of the 48SX, 48GX and 49G, generated from the ROMs on the
+emulator by `saturnus-refgen` (`crates/saturnus-refgen`). In the app it
+is Search (Cmd/Ctrl+K: suggestions while typing, the entry with its
+examples beside them, Enter sends the command to the calculator;
+`web/README.md`, "Search (the command palette)") and the Reference tab
+of the memory view; the app reads `web/commands.json`, folded from these
+files by `scripts/commands-json.py`. `saturnus ref` looks a command up
+(the data is built into the binary):
 
 ```sh
 saturnus ref STO --model 48sx     # description, stack effect, menu, examples, manual pages
@@ -697,22 +746,27 @@ saturnus ref '\.S'                # ∫ by the calculator's ASCII code (\-> \GS 
 
 An exact name wins. Otherwise the query may differ in case, use the
 calculator's ASCII translation codes (`\->`, `\GS`, `\.S`, ...), or a
-friendly spelling (`->LIST`, `SIGMA+`, `UPMATCH`) where that spelling is
+plain spelling (`->LIST`, `SIGMA+`, `UPMATCH`) where that spelling is
 no other command's name (`INT` is the 49G's `INT`, so `∫` is `\.S`). A
 query that names several commands (`Qr`: `QR` and `qr`) lists them and
 exits with status 2 (`--json`: `{"candidates": [...]}`). `--model`
-selects that model's menus, examples and manual pages. Where a command
-is: `menu:` the ROM's own menus that offer it (named by the key that
-opens the root menu and the labels of the keys down to it, `MTH BASE`;
-`MENU n` for a menu no key opens directly), `key:` the key or menu a
-manual names, with its page, or, without one, the key whose legend is the
-command's name; and only where none of these exists, `group:` our own
-grouping for browsing (not a menu location). `--json` gives them per
-model (`categories`), the first as `category` with its `category_source`
-(`rom`, `manual`, `keyboard` or `ours`).
+selects that model's menus, examples and manual pages.
 
-A stack effect marked "from the manuals, not run here" has no example
-that ran the command (interactive, plotting and I/O commands).
+Where a command is found:
+
+- `menu:` the ROM's own menus that offer it, named by the key that opens
+  the root menu and the labels down to it (`MTH BASE`; `MENU n` for a
+  menu no key opens directly);
+- `key:` the key or menu a manual names, with the manual and page, or,
+  without one, the key whose legend is the command's name;
+- `group:` only where none of these exists, our own grouping for
+  browsing, printed as `group: X (saturnus grouping; not a calculator
+  menu)`.
+
+`--json` gives them per model (`categories`), the first as `category`
+with its `category_source` (`rom`, `manual`, `keyboard` or `ours`). A
+stack effect marked "from the manuals, not run here" has no example that
+ran the command (interactive, plotting and I/O commands).
 
 | File | What | Made by |
 |---|---|---|
@@ -731,9 +785,9 @@ and the assembler (257).
 
 The menus come from the ROM too, without pressing through them:
 `saturnus-refgen menus` reads the built-in menu definitions from the ROM
-image (`saturnus_objects::menus`: `MENU`'s own code leads to them; wiki
+file (`saturnus_objects::menus`: `MENU`'s own code leads to them; wiki
 protocols/rpl-libraries, "Built-in menus") and names each menu by the key
-that opens it, observed by pressing every key and shifted key once and
+that opens it, found by pressing every key and shifted key once and
 reading the current menu from RAM:
 
 ```sh
@@ -741,19 +795,15 @@ saturnus-refgen menus --model 48sx --rom sxrom-j --catalog crates/saturnus-cli/d
   --categories crates/saturnus-cli/data/commands/categories.json --out crates/saturnus-cli/data/commands/48sx.json
 ```
 
-The categories come from the manuals' own statements of where a command
-is found: the 48SX owner's manual's operation index (48SX), the 48G
-Advanced User's Reference's "Keyboard Access" lines (48GX, and the 48SX
-where its own manual is silent), and the 49G Advanced User's Guide's
-"Access" lines (the 49G's computer algebra commands). The menu labels in
-those scans do not read reliably, so a category is the menu key the
-manual names (`MTH`, not `MTH PARTS`). A command no manual places has our
-own category, marked as ours, or none. "Ours" is an editorial grouping
-for browsing, not a statement of where the command's key is: `saturnus
-ref` prints it as `group: X (saturnus grouping; not a calculator menu)`, a manual's
-statement as `menu: X (manual, p. N)`. The groups will be replaced by the
-ROM's own menu definitions, decoded statically (shown on the 48SX in
-iteration 12c: 334 of 397 commands placed), in a follow-up.
+The manuals' categories come from their own statements of where a
+command is found: the 48SX owner's manual's operation index (48SX), the
+48G Advanced User's Reference's "Keyboard Access" lines (48GX, and the
+48SX where its own manual is silent), and the 49G Advanced User's
+Guide's "Access" lines (the 49G's computer algebra commands). The menu
+labels in those scans do not read reliably, so a category is the menu
+key the manual names (`MTH`, not `MTH PARTS`). A command that neither
+the ROM's menus nor a manual places has our own group, marked as ours,
+or none.
 
 ```sh
 R=/path/to/roms
@@ -789,144 +839,116 @@ link is `<url>#page=<n>`:
 | HP 48G Series Advanced User's Reference Manual | https://literature.hpcalc.org/community/hp48g-aur-en.pdf |
 | HP 49G Advanced User's Guide | https://literature.hpcalc.org/official/hp49g-aug-en.pdf |
 
-## Web UI
+## Building the app
 
 `web/` is a static page that runs the core compiled to WebAssembly
 (`crates/saturnus-web`, bindings over `crates/saturnus-host`). No
-framework, no bundler, no server code.
+framework, no bundler, no server code. `web/README.md` describes it in
+full.
 
 ```sh
 cargo install wasm-pack            # once
-web/build.sh                       # writes web/pkg/ (gitignored)
+web/build.sh                       # writes web/pkg/ (gitignored); also `just web`
 cd web && python3 -m http.server 4860
 # open http://127.0.0.1:4860/
 ```
 
-On the home page, New calculator, then choose the model's ROM file (the
-same files as for the CLI; a file goes to the model it is). Each ROM is
-kept in this browser, per model, so you choose it once: the home page
-lists your calculators, each opened with its Calculator button, and the
-app can open on the last one. Several files can be chosen at once, or
-dropped on the home page; each is recognised by its content (the ROM files
-`saturnus rom fetch` knows by SHA-256, others by size) and goes to its
-model. The core runs in a Web Worker in real
-time (or 2×, 4×, Max), sleeps while the calculator's CPU does, and pushes
-the display to the page when it changes. The speed applies only while the
-calculator computes: while it waits for a key its clock runs in real time
-at any speed, so the auto-off (about ten minutes on the 48SX and 48GX) and the
-cursor blink keep their pace. The page shows the LCD with
-its annunciators, the contrast as pixel darkness (each model's power-on
-contrast properly dark; "Darker display" and "Lighter display" in the
-panel and the palette send ON + and ON -), and the calculator drawn as a vector skin per
-model (48SX, 48GX, 49G, 38G, 39G, 42S; the 40G uses the 39G drawing with
-its own name): the case, the display window around the LCD, every key with its
-cap colour, the shifted labels above it in the model's shift colours and
-the alpha letters where the model prints them. The skins are our own SVG
-drawings: the 48SX, 49G, 38G and 42S measured from the owner's photographs
-of their calculators (the 48GX shares the 48SX's mould), the 39G/40G and
-every model's labels from the keyboard figures in HP's manuals; no HP logo or wordmark appears, the
-saturnus logo sits in its place. Without a calculator running the
-display says so and links back to the home page, and a key press makes
-that message pulse. Click or tap the keys (Ctrl+click is a
-key's left-shifted function, Alt/Option+click its right-shifted one, and
-holding either lights the labels it reaches), or use the
-computer keyboard: letters,
-digits, `+ - * /`, `.`, Space, Enter, Backspace, Delete (DEL), arrows,
-`'`, `^` and F1-F6 for the menu keys; ON (Escape), α (Tab), the shifts
-and the app's actions are shortcuts on physical keys that the "Keyboard
-shortcuts" dialog lists and lets you change, with warnings for keys the
-browser or another action takes. Reset and Save/Load state are
-buttons, pausing is in the command palette; the status line shows the model and ROM,
-paused or halted, a send in progress and the last message. Pasting text
-(or the command palette, Cmd/Ctrl+K) types it into the command line by
-key presses (48SX, 48GX, 49G).
-
-**Memory view.** The Memory button opens the memory view beside the
-calculator (over it on a narrow window). It shows the calculator's
-variables, stack and flags live, read straight from its RAM: the
-directory tree of HOME with the current directory marked, the variables
-of a directory with type, size and checksum, a typed preview of the
-selected object with copy-as-text, the stack, and every system flag with
-what its state means. Programs are shown as indented text, with the
-ROM's own command names. From there you can edit an object or a stack
-level, store a file, save a variable as a file, create a directory,
-rename, purge, make a directory current and set or clear a flag; the
-calculator does these itself, out of sight. Browsing directories does not
-change the calculator's directory. 48SX, 48GX and 49G. Typing still goes
-to the calculator; Alt+M moves the keyboard into the memory view and
-Escape back. The side panel and the memory view are resized from their
-inner edges, and the widths are remembered. The desktop app has the same
-memory view. See `web/README.md`, "Memory view".
-
-What stays in the browser: the chosen model, view, speed, panel and
-memory view with their widths, changed keyboard shortcuts (localStorage `saturnus.*`), the
-ROM of each model (IndexedDB `saturnus-roms`; "Remove ROMs" removes them,
-and the saved 49G states, which contain the 49G's ROM) and
-two saved states per model (IndexedDB `saturnus`): yours (Save state,
-Load state, which asks first) and the automatic one; "Save state to a
-file…" downloads a `.sat` file that the desktop app and `saturnus run
---load` read too. The calculator keeps its state like a
-real one keeps its memory: a few seconds after the last key, and when the
-page is hidden, the calculator's state is saved, and a reload starts it as
-it was left, stack and variables included, with no "Try To Recover Memory?"; an
-idle calculator is never written. The command palette's "Start fresh"
-cold-boots with an empty memory. Nothing is
-uploaded. Where the browser refuses to store (storage blocked or full)
-the page says so and works as before: choose the ROM again after a reload.
-A state only loads with the ROM it was saved from. See `web/README.md`.
-
-The app is published to <https://ractive.ch/saturnus/app/> by
-`.github/workflows/pages.yml`, with the landing page `web/landing/` at
-<https://ractive.ch/saturnus/> (manual; see `kb/docs/releasing.md` and
-`web/README.md`, "The site").
+The core runs in a Web Worker in real time (or 2×, 4×, Max), sleeps
+while the calculator's CPU does, and sends the display to the page when
+it changes. The app is published to <https://ractive.ch/saturnus/app/>
+by `.github/workflows/pages.yml`, with the landing page `web/landing/`
+at <https://ractive.ch/saturnus/> (run by hand; see
+`kb/docs/releasing.md` and `web/README.md`, "The site").
 
 ## Desktop app
 
-`crates/saturnus-tauri` is a Tauri 2 app with the same page as its front
-end and the core linked natively: the calculator runs on its own thread
-in real time (1×, 2×, 4× or Max), and sends the display to the window
-when it changes. The ROM is a file chosen in a native dialog. Save
-state and Load state work as in the browser, with one saved state per
-model in `states/` in the app's data folder (Load state asks first);
-"Save state to a file…" and "Load state from a file…" use native
-dialogs, and the `.sat` file loads in a browser or `saturnus run --load`
-too. The calculator also keeps its state by itself across restarts, as
-in the browser, in the same folder. The app remembers each model's ROM file by its path, in
-`settings.json` in its config folder (macOS `~/Library/Application
-Support/ch.ractive.saturnus/`, Linux `~/.config/ch.ractive.saturnus/`,
-Windows `%APPDATA%\ch.ractive.saturnus\`), so choosing a model starts it
-and the last model starts when the app opens (a setting). When you choose a ROM, the
-other ROMs in the same folder are recognised by content and given to
-their models at once; a file that only fits by size is offered, an
-unknown one is left alone. A remembered file that was moved or changed is
-reported and asked for again. It speaks the page's protocol (`web/protocol.md`), so the
-page does not know which host it runs on.
+`crates/saturnus-tauri` is a Tauri 2 app with the same pages as its
+front end and the core linked natively: the calculator runs on its own
+thread and sends the display to the window when it changes. It speaks
+the pages' protocol (`web/protocol.md`), so the pages do not know which
+host they run on.
 
 ```sh
 cargo install tauri-cli --version 2.12.1 --locked   # once
+just app               # builds the wasm package, then `cargo tauri dev` (the app from web/)
 cd crates/saturnus-tauri
-cargo tauri dev        # the app in development, from web/
 cargo tauri build      # an installer for this OS, in target/release/bundle/
 ```
 
-On Linux the app needs the system webview's development packages
+`cargo tauri build` builds the wasm package first (`web/build.sh`). On
+Linux the app needs the system webview's development packages
 (Debian/Ubuntu: `libwebkit2gtk-4.1-dev libxdo-dev libssl-dev`, and
-`librsvg2-dev patchelf` for `cargo tauri build`). Plain `cargo build` and
-`cargo test` leave the app out (it is not a default workspace member);
-`just tauri` runs its clippy and tests, `just app` is `cargo tauri dev`.
-Installers for macOS, Windows and Linux are built by
-`.github/workflows/desktop.yml` (manual; the macOS app is signed and
-notarised, the Windows installers are not; see `kb/docs/releasing.md`). The app icon is drawn from `web/logo.svg`; no
-HP mark appears.
+`librsvg2-dev patchelf` for `cargo tauri build`). Plain `cargo build`
+and `cargo test` leave the app out (it is not a default workspace
+member); `just tauri` runs its clippy and tests. Installers for macOS,
+Windows and Linux are built by `.github/workflows/desktop.yml` (run by a
+release or by hand; the macOS app is signed and notarised, the Windows
+installers are not; see `kb/docs/releasing.md`). The app icon is drawn
+from `web/logo.svg`; no HP mark appears.
 
-The app's Files view is the web app's (`web/index.html`, route
-`#/files`) with its wasm, plus native serial ports (the list names each
-USB adapter; the last one is remembered) and the computer's files for
-the right pane, which opens at your home folder and goes anywhere your
-account may ("Open a folder…" jumps). Its protocol runs in the page, as
-in the browser; the calculator Calculator runs natively is shared with
-it (`web/native-hub.js`). `cargo tauri build` builds the wasm package
-first (`web/build.sh`); `just app` builds it and runs `cargo tauri dev`.
+Files in the desktop app is the same view as in the browser
+(`web/index.html`, route `#/files`) with its wasm, plus native serial
+ports and the computer's files for the right pane. Its protocol runs in
+the page, as in the browser; the calculator that Calculator runs
+natively is shared with it (`web/native-hub.js`).
+
+## Kermit test host
+
+`crates/saturnus-kermit` (not published) owns one emulated calculator and
+talks to its ROM's Kermit server in process, for the ROM-gated tests and
+for `saturnus-refgen`. It drives the machine's serial port directly
+(`Machine::serial_push`/`serial_drain`), runs satx's calculator
+operations through `satx-core`'s sans-I/O client (the same code satx
+runs on real calculators) and takes the objects on the wire from
+`saturnus_objects::transfer`. Scripts and agents use the control API and
+satx over the serial port instead (above).
+
+The link is the emulated wire the app also uses for its hidden writes
+(`saturnus_host::wire`), here run to completion. It runs on emulated
+time only. The Kermit client's clock is the emulated time the calculator
+spent idle while a reply was awaited: the calculator answers a host
+command only when it is done, so time it spends computing (not in
+SHUTDN) does not count toward the 6 s reply timeout, for up to 10
+minutes per read. A packet that opens a transaction waits 200 ms of
+emulated time first (a command right after the final ACK is lost). The
+same exchange always leaves the same machine state, which is what lets
+`saturnus-refgen` regenerate its data byte for byte.
+
+On top of host commands, `G D`, GET, SEND and `G F` it has typed
+operations (`saturnus_kermit::semantic`): `eval` (levels 1..n typed, or
+the calculator's error with the stack's display text), the typed stack,
+push, pop, drop, variables and directories. They enter the server when
+needed (ON, then `SERVER`) and leave it unless asked to keep it. Values
+are decoded from the binary object a GET returns (wiki
+`protocols/hp-object-format`), so reals keep all 12 digits; programs,
+algebraics and units take their text from an ASCII GET of the same
+object. Levels are read without changing the stack, through a temporary
+list variable (`SATRNTMP`, or `SATRNTM1` to `SATRNTM3` if taken). Source
+the calculator rejects as `Invalid Syntax` is tried again as an
+algebraic (`SIN(0.5)` as `'SIN(0.5)' EVAL`); source longer than one
+packet (77 encoded bytes) travels as a string that `STR→` compiles. An
+`eval` limit counts from the calculator's receipt of the command to the
+start of its reply; at the limit the calculator is interrupted with ON,
+which ends its server, and the text the 48SX ROM puts back on level 1 is
+dropped. The objects as JSON (`saturnus_objects::Object`):
+
+| Type | JSON |
+|------|------|
+| real | `{"type":"real","value":0.479425538604}`; exact to the calculator's 12 digits; text such as `"1.5E-400"` beyond an f64's exponent range |
+| integer (49G) | `{"type":"integer","value":5}`; text beyond 15 digits, e.g. `"1267650600228229401496703205376"` |
+| complex | `{"type":"complex","re":2.0,"im":-4.0}` |
+| string | `{"type":"string","value":"Hello"}` |
+| name, local name | `{"type":"name","value":"X"}`, `{"type":"local_name","value":"x"}` |
+| binary integer | `{"type":"binary","value":255,"base":"dec","text":"# 255d"}`; the base is the calculator's display mode |
+| list | `{"type":"list","items":[...]}` |
+| tagged | `{"type":"tagged","tag":"T","object":{...}}` |
+| unit | `{"type":"unit","value":9.81,"unit":"m/s^2"}` |
+| array | `{"type":"array","dims":[2,2],"items":[[{...},{...}],[{...},{...}]]}` (reals or complex numbers) |
+| program | `{"type":"program","source":"« 1 2 +\n»"}` |
+| algebraic | `{"type":"algebraic","source":"'X^2+1'"}` |
+| character | `{"type":"character","value":"A"}` |
+| command | `{"type":"command","source":"+"}`: a built-in command inside a list or program |
+| unknown | `{"type":"unknown","prolog":"02B1E","kind":"Graphic","nibbles":2196,"hex":"E1B20...","graphic":{"width":131,"height":64,"rows":"..."}}` (hex cut at 4096 nibbles; `graphic` on a GROB: its rows as hex, leftmost pixel in a byte's top bit, 1 dark) |
 
 ## Differential tests against saturnng
 
@@ -946,13 +968,17 @@ is built from `tools/saturnng-oracle/` if it is missing; set `EMU_DIR` or
 `IMAGE` to change that. Each scenario starts a fresh container with
 `AUTOSTART=0 CARDS=0` and the scenario's model, so both sides have empty
 card slots. A scenario can change that in an optional `config` file next
-to `keys.txt`: `MODEL=48gx` or `MODEL=49g` runs both sides as that model
-(default `48sx`; the script uses the model's TUI letter map; the 38G, 39G
-and 40G have no oracle and are tested by golden screens instead),
-`ORACLE_CARDS=1` keeps the oracle's default cards (128 KB in port 1, plus
-4 MB in port 2 on the 48GX), and `SATURNUS_CARD1=1` or `SATURNUS_CARD2=1`
-gives saturnus a fresh zeroed card in that port, 128 KB unless
-`SATURNUS_CARD1_KB` or `SATURNUS_CARD2_KB` says otherwise.
+to `keys.txt`:
+
+- `MODEL=48gx` or `MODEL=49g` runs both sides as that model (default
+  `48sx`; the script uses the model's TUI letter map). The 38G, 39G and
+  40G have no oracle and are tested by golden screens instead.
+- `ORACLE_CARDS=1` keeps the oracle's default cards (128 KB in port 1,
+  plus 4 MB in port 2 on the 48GX).
+- `SATURNUS_CARD1=1` or `SATURNUS_CARD2=1` gives saturnus a fresh zeroed
+  card in that port, 128 KB unless `SATURNUS_CARD1_KB` or
+  `SATURNUS_CARD2_KB` says otherwise.
+
 The script translates the key script into saturnng TUI keys and waits
 between keys until the oracle's LCD stops changing. `down` and `up` cannot
 be replayed there.
@@ -968,13 +994,13 @@ every differing run is kept. The exit status is 0 when everything matches,
 |----------|------|--------|
 | `boot` | NO at "Try To Recover Memory?" | match |
 | `arith` | `6 ENTER 7 * ENTER` | match |
-| `menu` | MTH, NXT, softkey A | match |
+| `menu` | MTH, NXT, menu key A | match |
 | `alpha` | ALPHA | match |
 | `offon` | `6 ENTER`, OFF, 2 s, ON | match |
 | `card` | 128 KB RAM card, `2 PVARS` | match |
 | `gx-boot` | 48GX: NO at "Try To Recover Memory?" | match |
 | `gx-arith` | 48GX: `6 ENTER 7 * ENTER` | match |
-| `gx-menu` | 48GX: MTH, NXT, softkey A | match |
+| `gx-menu` | 48GX: MTH, NXT, menu key A | match |
 | `gx-alpha` | 48GX: ALPHA | match |
 | `gx-offon` | 48GX: `6 ENTER`, OFF, 2 s, ON | match |
 | `gx-card` | 48GX, 128 KB and 4 MB cards: `1 PVARS` | match |
@@ -991,14 +1017,14 @@ with Mastracci's port numbers. The 48SX ROM tests the card flagged by bits
 1 and 3 in the CE2 window at #C0000 and calls it port 2, which is why the
 oracle's card file named `port1` shows up as port 2.
 
-The calculator's OFF state is not compared. saturnng keeps drawing a
+The calculator's OFF state is not compared: saturnng keeps drawing a
 display bitmap while the ROM has switched the display off.
 
 ## Tests
 
 ```sh
 cargo test --workspace --exclude saturnus-tauri -q   # just test
-node --test web/test/*.test.mjs    # the page's object and flag functions (just web-test)
+just web-test                      # the web tests but the long e2e ones (builds the wasm package first)
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-core --test e2e   # needs the ROM
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus-kermit --test e2e   # Kermit: 48SX, 48GX, 49G, 38G, 39G ROMs
 SATURNUS_ROM_DIR=$PWD/roms cargo test -p saturnus --test e2e    # control API: 48SX, 42S
@@ -1024,29 +1050,30 @@ summation benchmark of "Speed" and `ram_reads_match_kermit`: on the 48SX,
 checks that the RAM reads equal `G D` in every directory, the path, the
 typed stack and `RCLF`, and that the change counter moves with a `STO`.
 
-Without `SATURNUS_ROM_DIR` the e2e test is skipped. The bring-up example
+Without `SATURNUS_ROM_DIR` the e2e tests are skipped. The bring-up example
 `cargo run --release -p saturnus-core --example boot -- roms/sxrom-j --screen`
-also still works; `--model 39g` picks the model when the ROM size is
+still works; `--model 39g` picks the model when the ROM size is
 ambiguous, and `--io-trace N` prints the first N CONFIG, UNCNFG, C=ID,
 OUT and IN events and I/O register accesses with their values.
 
 ## Legal
 
 saturnus is an independent, clean-room project. It shares no code with
-Emu48, Emu42, jsEmu48, x48, x48ng, x50ng, ui4x, saturnng or HP EMU. It does not include HP's ROM files;
-you download them yourself from hpcalc.org, where HP has allowed them to be
-downloaded since 2000. Not affiliated with HP. HP, HP48 and HP49 are
-trademarks of HP Inc.
+Emu48, Emu42, jsEmu48, x48, x48ng, x50ng, ui4x, saturnng or HP EMU. It
+does not include HP's ROM files; you download them yourself from
+hpcalc.org, where HP has allowed them to be downloaded since 2000. Not
+affiliated with HP. HP, HP48 and HP49 are trademarks of HP Inc.
 
-saturnus was written from documentation and the ROMs' observed behaviour.
-The other emulators' source code is off limits to anyone implementing
-saturnus; facts about them come from their documentation and change logs
-and from black-box runs (saturnng, GPL, served as an oracle: same ROM,
-same keys, the screens compared), written down with citations in the
-project's hardware wiki, and the code was written from the wiki. The complete list of sources (manuals, HP Journal articles,
-datasheets, forum threads, emulator notes, with authors, years and what
-each was used for), the skin references and the tools is in the web
-page's and the app's About panel, generated from the wiki into
+saturnus was written from documentation and the ROMs' observed
+behaviour. The other emulators' source code is off limits to anyone
+implementing saturnus. Facts about them come from their documentation
+and change logs and from black-box runs (saturnng, GPL, run as an
+oracle: same ROM, same keys, the screens compared). These facts are
+written down with citations in the project's hardware wiki, and the code
+was written from the wiki. The complete list of sources (manuals, HP
+Journal articles, datasheets, forum threads, emulator notes, with
+authors, years and what each was used for), the skin references and the
+tools is in the app's About panel, generated from the wiki into
 `web/about.json` by `scripts/about-json.py`.
 
 License: MIT, see `LICENSE` and `AI_NOTICE`.
