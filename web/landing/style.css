@@ -263,7 +263,7 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
   .hero-calc img { width: 150px; }
 }
 
-/* The models: a row of cards, which scrolls sideways on a narrow screen. */
+/* The models: rows of cards. */
 .model-row {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -425,20 +425,12 @@ section > h2 + p { max-width: 60ch; color: var(--muted); margin-bottom: var(--s5
 .model-dlg.instant,
 .model-dlg.instant::backdrop { transition: none; }
 
+/* Six cards a row on a wide screen, three on a tablet, two on a phone. */
 @media (max-width: 1099px) {
-  .model-row {
-    display: flex;
-    gap: var(--s5);
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    padding-bottom: var(--s3);
-    /* Let the row run to the screen's edges, with the gutter inside. */
-    margin: 0 calc(-1 * var(--gutter));
-    padding-left: var(--gutter);
-    padding-right: var(--gutter);
-    scrollbar-width: thin;
-  }
-  .model { flex: 0 0 160px; scroll-snap-align: start; }
+  .model-row { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--s6); }
+}
+@media (max-width: 599px) {
+  .model-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5) var(--s4); }
 }
 
 /* What you can do: six short items. */
