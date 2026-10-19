@@ -19,6 +19,7 @@
 
 import { comboLabel, numberDigit } from "../bindings.js";
 import { EditSession, FORMAT_KEY, History, afterSave, editorKey, format, fromDigraphs, indentAfter, pullEdit, saveSession, sentence, targetTitle, unclosed } from "../editor.js";
+import { KEY_COMMANDS } from "../keys28.js";
 import { PaletteModel, stop } from "../palette.js";
 import { menuCommands } from "../reference.js";
 import { el } from "../shared/dom.js";
@@ -664,7 +665,14 @@ export class SatPalette extends HTMLElement {
     const verb = m.verbFor(row);
     const other = m.verbFor(row, true);
     const what = row.kind === "send" ? "the text" : row.kind === "variable" ? "its name" : row.name;
-    const explain = (v) => (v === "run"
+    // The 28S's line cannot be read: its keys type the name, as a person would.
+    const on28 = this.store.state.booted === "28s";
+    const key28 = row.kind === "command" && KEY_COMMANDS[row.name];
+    const explain = (v) => (on28
+      ? (v === "run"
+        ? (key28 ? `presses the ${row.name} key` : `types ${what} on the keys and presses ENTER, which also runs an open command line`)
+        : `types ${what} on the keys, into the open command line if there is one`)
+      : v === "run"
       ? (m.commandLine?.active ? `types ${what} after the open command line and presses ENTER` : `types ${what} and presses ENTER`)
       : (m.commandLine?.active ? `inserts ${what} at the cursor` : `starts a command line with ${what}`));
     return el("p", { class: "entry-enter" },

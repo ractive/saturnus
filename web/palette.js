@@ -2,9 +2,12 @@
 // rows, the selection, the command line's state (read from the host when
 // the palette opens and after every send) and what choosing a row does:
 // `insert` or `run` through the protocol's typing verbs (web/protocol.md,
-// "Typing"), an app action, or a menu to browse. `<sat-palette>` renders
+// "Typing"), an app action, or a menu to browse. On the 28S, whose
+// command line cannot be read, the text is typed on its keys
+// (keys28.js). `<sat-palette>` renders
 // it; `web/test/` drives it with a fake backend.
 
+import { send28 } from "./keys28.js";
 import { buildIndex, enterPlan, enterVerb, exampleText, search } from "./reference.js";
 
 const message = (err) => String(err?.message ?? err);
@@ -144,6 +147,8 @@ export class PaletteModel {
     this.notice = null;
     /** A send is on its way. */
     this.sending = false;
+    /** How long the 28S's keys are waited for (tests set 0); `keys28.js` `settle`. */
+    this.pace28 = undefined;
     this.onChange = () => {};
   }
 
@@ -207,6 +212,13 @@ export class PaletteModel {
     if (!this.store.state.booted) {
       this.commandLine = null;
       this.noTyping = "no calculator is running";
+      return;
+    }
+    // The 28S's line cannot be read: its commands are typed on its keys
+    // (keys28.js), into the open line if there is one.
+    if (this.store.state.booted === "28s") {
+      this.commandLine = null;
+      this.noTyping = null;
       return;
     }
     try {
@@ -330,7 +342,9 @@ export class PaletteModel {
     this.changed();
     let result;
     try {
-      result = await this.backend[verb](text);
+      result = this.store.state.booted === "28s"
+        ? await send28(this.backend, this.store, verb, text, this.pace28)
+        : await this.backend[verb](text);
     } catch (err) {
       this.sending = false;
       this.notice = { text: sendFailure(err), error: true };
