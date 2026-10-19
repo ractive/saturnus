@@ -43,3 +43,11 @@ Owner's decisions, 2026-10-19 (discussion in [[research/ai-assistant-options]]):
 
 Open for the plan: which calculators the tools address (the one shown in
 Calculator by default, others by id), and the tool set per model family.
+
+**Owner, 2026-10-19:** build tab-mcp into saturnus's web app as soon as its
+browser library (`@ractive-ch/tab-mcp-client`, tab-mcp iteration 2) is ready:
+the "Connect your AI tool" dialog (address plus pairing code), the tools on
+the calculators, the pacing exception while connected, the lazily loaded
+client in the offline cache list. During development against a local relay
+(`docker run ractive/tab-mcp`); for visitors once the hosted relay on
+ractive.ch is up (tab-mcp iteration 6).
