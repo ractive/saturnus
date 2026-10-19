@@ -59,8 +59,10 @@ your browser and nothing is uploaded.
 
 **Desktop app**: installers are on the
 [releases page](https://github.com/ractive/saturnus/releases): `.dmg`
-(macOS, Apple silicon), `.msi` or setup `.exe` (Windows x86_64), `.deb`,
-`.rpm` or `.AppImage` (Linux x86_64). On a Mac also with Homebrew:
+(macOS, Apple silicon), `.msi` or setup `.exe` (Windows, x86_64 as
+`x64`, ARM as `arm64`), `.deb`, `.rpm` or `.AppImage` (Linux, x86_64 as
+`amd64` or `x86_64`, ARM as `arm64` or `aarch64`). On a Mac also with
+Homebrew:
 
 ```sh
 brew trust --cask ractive/tap/saturnus-app   # once: Homebrew 5.1.15+ refuses untrusted taps
@@ -973,8 +975,8 @@ Linux the app needs the system webview's development packages
 (Debian/Ubuntu: `libwebkit2gtk-4.1-dev libxdo-dev libssl-dev`, and
 `librsvg2-dev patchelf` for `cargo tauri build`). Plain `cargo build`
 and `cargo test` leave the app out (it is not a default workspace
-member); `just tauri` runs its clippy and tests. Installers for macOS,
-Windows and Linux are built by `.github/workflows/desktop.yml` (run by a
+member); `just tauri` runs its clippy and tests. Installers for macOS
+(Apple silicon), Windows and Linux (x86_64 and ARM each) are built by `.github/workflows/desktop.yml` (run by a
 release or by hand; the macOS app is signed and notarised, the Windows
 installers are not; see `kb/docs/releasing.md`). The app icon is drawn
 from `web/logo.svg`; no HP mark appears.
