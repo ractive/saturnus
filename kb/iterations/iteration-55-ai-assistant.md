@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 55: the app's calculators for AI apps through tab-mcp"
 date: 2026-10-19
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
