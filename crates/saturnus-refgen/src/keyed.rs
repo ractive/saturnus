@@ -38,6 +38,7 @@
 //!     "name": "→POL",                // as the manual's index names it
 //!     "long": "To polar",            // optional: what the name stands for
 //!     "description": "...",          // ours, plain and short
+//!     "note": "...",                 // optional: shown after the description (a ROM bug)
 //!     "stack": "x y → r θ",          // optional: the stack effect
 //!     "param": "register or variable", // optional: what it asks for after the keys
 //!     "keys": [steps],               // the keys from the normal state, or
@@ -209,6 +210,9 @@ pub struct Command {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub long: Option<String>,
     pub description: String,
+    /// A remark shown after the description, such as a ROM bug.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stack: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -51,6 +51,10 @@ pub struct Entry {
     /// last, e.g. `x y → x+y`; derived from the runs and checked against
     /// the manuals' stack diagrams.
     pub stack: String,
+    /// A remark shown on its own line after the description, such as a
+    /// ROM bug.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
     /// The category where the ROM's menus give none (the catalog's own
     /// category always wins).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -62,7 +66,7 @@ pub struct Entry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skip: Option<String>,
     /// The text of a model on which the command differs from what
-    /// `description` and `stack` say (the 28S's RND takes one argument),
+    /// `description`, `stack` and `note` say (the 28S's RND takes one argument),
     /// by model.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub per_model: BTreeMap<String, ModelText>,
@@ -75,10 +79,15 @@ pub struct ModelText {
     /// What the mnemonic stands for on that model, where it differs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    /// One or two sentences, ours.
-    pub description: String,
-    /// The stack effect on that model.
-    pub stack: String,
+    /// One or two sentences, ours; the shared one when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// The stack effect on that model; the shared one when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stack: Option<String>,
+    /// That model's note (a ROM bug, say), shown after the description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 /// The whole curated file.
@@ -102,5 +111,18 @@ mod tests {
             ..ExampleSpec::default()
         };
         assert!(!gx.on("48sx") && gx.on("49g"));
+    }
+
+    #[test]
+    fn the_file_round_trips() {
+        // Field for field (the file's key order is its own): nothing is
+        // dropped, nothing absent is filled in.
+        let text = include_str!("../../saturnus-cli/data/commands/reference.json");
+        let parsed: Reference = serde_json::from_str(text).unwrap();
+        let raw: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert_eq!(serde_json::to_value(&parsed).unwrap(), raw);
+        // A model's own note alone: description and stack are the shared ones.
+        let own = &parsed.commands["HMS+"].per_model["48sx"];
+        assert!(own.description.is_none() && own.stack.is_none() && own.note.is_some());
     }
 }

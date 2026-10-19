@@ -579,7 +579,8 @@ spellings (`->LIST`, `SIGMA+`) find the name, and a spelling several
 commands share lists them all (`INT` on the 49G: INT, then ∫). Each
 command row shows its stack effect and description; the selected row's
 full entry is beside the list: stack
-effect, description, the models that have it, the ROM's menu and the
+effect, description, a "Note:" line where the reference has one (a ROM
+bug), the models that have it, the ROM's menu and the
 manual's key for it, the examples run in saturnus (the stack before, the command,
 the stack after, as the calculator displays them) with **Try it**, and links into the manuals' pages.
 

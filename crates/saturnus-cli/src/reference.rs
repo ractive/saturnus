@@ -101,6 +101,9 @@ struct Entry {
     name: Option<String>,
     description: String,
     stack: String,
+    /// A remark shown after the description, such as a ROM bug.
+    #[serde(default)]
+    note: Option<String>,
     #[serde(default)]
     category: Option<String>,
     /// A model's own text where the command differs there.
@@ -108,13 +111,18 @@ struct Entry {
     per_model: BTreeMap<String, ModelText>,
 }
 
-/// A model's own long name, description and stack.
+/// A model's own long name, description, stack and note; the shared
+/// ones where absent.
 #[derive(Debug, Deserialize)]
 struct ModelText {
     #[serde(default)]
     name: Option<String>,
-    description: String,
-    stack: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    stack: Option<String>,
+    #[serde(default)]
+    note: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -398,7 +406,12 @@ pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
                 let t = own(m)?;
                 Some((
                     (*m).to_string(),
-                    json!({"long_name": t.name, "description": t.description, "stack": t.stack}),
+                    json!({
+                        "long_name": t.name,
+                        "description": t.description,
+                        "stack": t.stack,
+                        "note": t.note,
+                    }),
                 ))
             })
             .collect()
@@ -410,8 +423,9 @@ pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
         "category_source": first,
         "categories": categories,
         "long_name": one.and_then(|t| t.name.as_deref()).or(entry.and_then(|e| e.name.as_deref())),
-        "description": one.map(|t| t.description.as_str()).or(entry.map(|e| e.description.as_str())),
-        "stack": one.map(|t| t.stack.as_str()).or(entry.map(|e| e.stack.as_str())),
+        "description": one.and_then(|t| t.description.as_deref()).or(entry.map(|e| e.description.as_str())),
+        "stack": one.and_then(|t| t.stack.as_deref()).or(entry.map(|e| e.stack.as_str())),
+        "note": one.and_then(|t| t.note.as_deref()).or(entry.and_then(|e| e.note.as_deref())),
         "stack_verified": ran(d, name, &models),
         "manuals": links(d, name, &models),
         "examples": examples,
@@ -662,14 +676,23 @@ pub fn text(entry: &Value) -> String {
     };
     out.push_str(&format!("stack:  {}{unverified}\n", s(&entry["stack"])));
     out.push_str(&format!("\n{}\n", s(&entry["description"])));
+    if let Some(note) = entry["note"].as_str() {
+        out.push_str(&format!("note:   {note}\n"));
+    }
     if let Some(own) = entry["per_model"].as_object() {
         // Where a model differs: its own text after the shared one.
         for (model, t) in own {
-            out.push_str(&format!(
-                "\non the {model}: {}\n  stack:  {}\n",
-                s(&t["description"]),
-                s(&t["stack"])
-            ));
+            out.push_str(&format!("\non the {model}:"));
+            if let Some(d) = t["description"].as_str() {
+                out.push_str(&format!(" {d}"));
+            }
+            out.push('\n');
+            if let Some(st) = t["stack"].as_str() {
+                out.push_str(&format!("  stack:  {st}\n"));
+            }
+            if let Some(note) = t["note"].as_str() {
+                out.push_str(&format!("  note:   {note}\n"));
+            }
         }
     }
     if let Some(examples) = entry["examples"].as_object() {

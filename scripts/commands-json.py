@@ -14,6 +14,7 @@ page's lookup rules (`web/reference.js`) are those of `saturnus ref`
 What the page gets per command: `name`, the long name that says what
 the mnemonic stands for ("Residual" for RSD; only where it says more than
 the mnemonic, so absent for most plain words), `description`, `stack`,
+`note` (a remark shown after the description, such as a ROM bug; rare),
 our `group`
 (only where no ROM menu and no manual places it), `pages` (manual id to
 PDF page) and `models`, one entry per model that has the command, with
@@ -21,8 +22,9 @@ the ROM's `menus`, the manual's `key` (`category`, `manual`, `page`,
 `other` when it is another model's manual), the `examples` (`setup`,
 `input`, `run`, `before`, `display`, `effect`, `error`) and the `skip`
 reason where none was generated, and the model's own `description`,
-`stack` and `name` where the command differs there (reference.json's
-`per_model`: the 28S's RND takes one argument). `before` and `display` are the stack
+`stack`, `name` and `note` where the command differs there (reference.json's
+`per_model`: the 28S's RND takes one argument, the 48SX's HMS+ has a
+ROM bug). `before` and `display` are the stack
 before and after the command as the calculator displays it, level 1
 first. The typed stacks of the examples stay out: the page shows the
 calculator's own display text. The key legends that place a
@@ -35,7 +37,7 @@ model the manual, the keys under the menu boxes (`menuKeys`), how to
 leave a menu (`leave`: its keys and the dots that show a menu is open;
 without the dots, keys back to the top menu, pressed once), the keys
 that type each character (`alpha`, only with `xeq`) and run a name (`xeq`), the
-booted screen, and per function `long`, `description`, `stack`,
+booted screen, and per function `long`, `description`, `note`, `stack`,
 `param`, `keys` (steps `{key, label}` from the normal state) or `xeq`
 (the name XEQ runs it by), `menu`, `inserts` (38G, 39G, 40G: what the
 keys put on HOME's edit line), `page` (the manual's PDF page) and
@@ -100,7 +102,7 @@ def build():
             # The model's own text where the command differs there.
             own = reference.get(name, {}).get("per_model", {}).get(m)
             if own:
-                for k in ("name", "description", "stack"):
+                for k in ("name", "description", "stack", "note"):
                     if own.get(k):
                         per[k] = own[k]
             entry["models"][m] = per
@@ -113,6 +115,8 @@ def build():
             entry["name"] = ref["name"]
         entry["description"] = ref["description"]
         entry["stack"] = ref["stack"]
+        if ref.get("note"):
+            entry["note"] = ref["note"]
         if ref.get("category"):
             entry["group"] = ref["category"]
         pages = manuals["pages"].get(name)
@@ -148,7 +152,7 @@ def key_models():
         ex = load(ex_path.name) if ex_path.exists() else {"examples": {}, "booted": []}
         commands = {}
         for c in src["commands"]:
-            entry = {k: c[k] for k in ("long", "description", "stack", "param", "keys", "xeq", "menu", "inserts", "page") if k in c}
+            entry = {k: c[k] for k in ("long", "description", "note", "stack", "param", "keys", "xeq", "menu", "inserts", "page") if k in c}
             runs = ex["examples"].get(c["name"])
             if runs:
                 entry["examples"] = [{k: x[k] for k in ("input", "labels", "then", "before", "after") if k in x} for x in runs]

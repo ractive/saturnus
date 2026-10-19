@@ -1273,8 +1273,8 @@ body.resizing * { cursor: col-resize !important; }
   overflow-wrap: anywhere;
 }
 :where(#calculator-view) .entry-stack-wrap { display: flex; flex-direction: column; gap: var(--s1); }
-:where(#calculator-view) .entry-note, :where(#calculator-view) .entry-skip { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; }
-:where(#calculator-view) .entry-desc { line-height: 1.5; max-width: 60ch; }
+:where(#calculator-view) .entry-stack-note, :where(#calculator-view) .entry-skip { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; }
+:where(#calculator-view) .entry-desc, :where(#calculator-view) .entry-note { line-height: 1.5; max-width: 60ch; }
 :where(#calculator-view) .entry-where { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: var(--fs-sm); }
 :where(#calculator-view) .entry-where dt { color: var(--muted); }
 :where(#calculator-view) .entry-where dd { margin: 0; }

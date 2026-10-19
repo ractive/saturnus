@@ -1,5 +1,5 @@
 // One command's reference entry as DOM: name (and long name), the models that have it,
-// Run and Type for the command itself, stack effect, our description,
+// Run and Type for the command itself, stack effect, our description (and note),
 // where the ROM and the manuals put it, the examples generated on the
 // emulator (each with "Try it"), the deep links into the manuals. Shared by the palette's detail pane and the
 // explorer's Commands tab; it renders what web/reference.js reads.
@@ -15,12 +15,17 @@ function link(url, text) {
   return el("a", { href: url, target: "_blank", rel: "noopener noreferrer", text });
 }
 
+/** The command's note (a ROM bug, say) as its own line, or null. */
+function noteLine(command) {
+  return command.note ? el("p", { class: "entry-note", text: `Note: ${command.note}` }) : null;
+}
+
 /** The command's stack effect, with the calculator's arrow spaced as the data writes it. */
 function stackBox(command) {
   const verified = stackVerified(command);
   return el("div", { class: "entry-stack-wrap" },
     el("pre", { class: "entry-stack", text: command.stack || "—" }),
-    verified ? null : el("p", { class: "entry-note", text: "From the manuals; not checked by an example here." }));
+    verified ? null : el("p", { class: "entry-stack-note", text: "From the manuals; not checked by an example here." }));
 }
 
 /**
@@ -84,6 +89,7 @@ export function entryView(index, command, ctx = {}) {
     sendRow(command, ctx),
     stackBox(command),
     el("p", { class: "entry-desc", text: command.description }),
+    noteLine(command),
     whereRows.length ? el("dl", { class: "entry-where" }, ...whereRows) : null,
     el("h4", {}, "Examples", el("span", { class: "muted", text: examples.length ? `, run on the emulated ${MODEL_TITLES[model]}` : "" })),
     exList,
@@ -197,6 +203,7 @@ function keyedEntryView(index, command, ctx) {
     head,
     command.stack ? el("div", { class: "entry-stack-wrap" }, el("pre", { class: "entry-stack", text: command.stack })) : null,
     el("p", { class: "entry-desc", text: command.description }),
+    noteLine(command),
     el("dl", { class: "entry-where" }, ...where),
     el("h4", {}, "Examples", el("span", { class: "muted", text: examples.length ? `, run on the emulated ${MODEL_TITLES[model]}` : "" })),
     examples.length

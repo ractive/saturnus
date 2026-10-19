@@ -110,3 +110,34 @@ fn the_39g_answers_with_the_keys_and_what_they_put_on_the_edit_line() {
     let err = String::from_utf8(out.stderr).unwrap();
     assert!(err.contains("38g, 39g, 40g"), "{err}");
 }
+
+#[test]
+fn a_note_is_its_own_line_after_the_description() {
+    let text = |args: &[&str]| {
+        let out = saturnus_ref(args);
+        assert!(out.status.success(), "{out:?}");
+        String::from_utf8(out.stdout).unwrap()
+    };
+    // The 48SX's HMS+ bug: a note on the 48SX only, the description shared.
+    let sx = text(&["--model", "48sx", "HMS+"]);
+    assert!(
+        sx.contains("\nAdds two values given in HH.MMSS form and returns the sum in the same form.\nnote:   The 48SX's ROM gets some sums"),
+        "{sx}"
+    );
+    let gx = text(&["--model", "48gx", "HMS+"]);
+    assert!(!gx.contains("note:") && !gx.contains("ROM gets"), "{gx}");
+    // No model: the shared text, the 48SX's note after it.
+    let all = text(&["HMS+"]);
+    assert!(
+        all.contains("\non the 48sx:\n  note:   The 48SX's ROM gets some sums"),
+        "{all}"
+    );
+    // The 38G's ACOT answers in radians in DEG mode.
+    let acot = text(&["--model", "38g", "ACOT"]);
+    assert!(
+        acot.contains(
+            "\nThe angle whose cotangent is the value.\nnote:   The 38G's ROM gives it in radians"
+        ),
+        "{acot}"
+    );
+}

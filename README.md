@@ -776,7 +776,7 @@ ran the command (interactive, plotting and I/O commands).
 | File | What | Made by |
 |---|---|---|
 | `48sx.json`, `48gx.json`, `49g.json` | The ROM's command names, with library and command numbers; the menus that offer each (`menus`) and which key opens which root menu (`menu_keys`) | `saturnus-refgen catalog`, then `saturnus-refgen menus` |
-| `reference.json` | Our long name (what the mnemonic stands for, where it says more: `RSD` "Residual"), description, stack effect and example inputs per command, and our group where neither the ROM's menus nor a manual places it | written by hand |
+| `reference.json` | Our long name (what the mnemonic stands for, where it says more: `RSD` "Residual"), description, stack effect and example inputs per command, an optional `note` shown after the description (a ROM bug), a model's own text under `per_model` (any of `name`, `description`, `stack`, `note`; the shared ones where absent), and our group where neither the ROM's menus nor a manual places it | written by hand |
 | `examples-48sx.json`, ... | Each example input run on that model: the typed input stack and result, the display text, or the calculator's error | `saturnus-refgen examples` |
 | `manuals.json` | The public URLs of HP's manuals and the PDF page of each command in them | `scripts/manual-pages.py` |
 | `categories.json` | Per command and model, the key or menu a manual names for it (`MTH`, `PLOT`, `Keyboard`, the 49G CAS's `Arithmetic`), with the manual and page, and the ROM's menus (`menus`, as in the catalogs) | `scripts/manual-categories.py` and `saturnus-refgen menus` |
@@ -856,6 +856,7 @@ owner's manual's operation index or menu maps (every function;
 descriptions ours): per function the keys from the normal state, each
 with what it shows (`⇧ CONVERT →POL`, `FIN TVM PMT`), or the name XEQ
 runs it by, spelt through the ALPHA menu with the file's `alpha` keys.
+A function may carry a `note` (a ROM bug), shown after its description.
 The normal state is the booted calculator with no message and no entry
 in progress: no menu on the 42S and 27S, the MAIN menu on the 17BII, 17B
 and 19BII, which always show one. There `leave` has no `menu_box`: its

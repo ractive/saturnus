@@ -58,9 +58,10 @@ const ASCII = /^[\x00-\x7f]*$/;
  * menus as a tree. A key-driven model (`data.keyModels`: the 42S, 27S,
  * 17BII, 17B, 19BII, 38G, 39G and 40G) gets its functions instead
  * (`buildKeyIndex`). `model` may have no reference: the index is then
- * empty and says so. A model's own description, stack and long name
- * (`per`) replace the shared ones where the command differs there (the
- * 28S's RND).
+ * empty and says so. A model's own description, stack, long name and
+ * note (`per`) replace the shared ones where the command differs there
+ * (the 28S's RND, the 48SX's HMS+). `note` is a remark shown after the
+ * description (a ROM bug), or null.
  */
 export function buildIndex(data, model) {
   if (data.keyModels?.[model]) return buildKeyIndex(data, model);
@@ -93,6 +94,7 @@ export function buildIndex(data, model) {
       description,
       descUpper: description.toUpperCase(),
       descWords: description.toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
+      note: per.note ?? entry.note ?? null,
       exampleText: examples.map((x) => [x.setup, x.input, x.run].filter(Boolean).join(" ")).join("\n").toUpperCase(),
       stack: per.stack ?? entry.stack,
       entry,
@@ -239,6 +241,7 @@ export function buildKeyIndex(data, model) {
       description: entry.description,
       descUpper: entry.description.toUpperCase(),
       descWords: entry.description.toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
+      note: entry.note ?? null,
       exampleText: "",
       stack: entry.stack ?? "",
       steps,

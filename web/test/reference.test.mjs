@@ -241,6 +241,18 @@ test("an example's stack before the command is the calculator's display, level 1
   assert.deepEqual(exampleBefore({}), []);
 });
 
+test("a note (a ROM bug) is its own field, per model, never in the description", () => {
+  const own = sx.byName.get("HMS+");
+  assert.match(own.note, /^The 48SX's ROM gets some sums/);
+  assert.doesNotMatch(own.description, /ROM/);
+  assert.equal(buildIndex(data, "48gx").byName.get("HMS+").note, null);
+  assert.equal(own.description, buildIndex(data, "48gx").byName.get("HMS+").description);
+  const acot = buildIndex(data, "38g").byName.get("ACOT");
+  assert.equal(acot.description, "The angle whose cotangent is the value.");
+  assert.match(acot.note, /in radians even in DEG or GRAD mode/);
+  assert.equal(buildIndex(data, "39g").byName.get("ACOT")?.note ?? null, null);
+});
+
 test("examples, placement and manual links read the data as saturnus ref prints them", () => {
   const sin = sx.byName.get("SIN");
   assert.equal(exampleText(sin.per.examples[0]), "DEG 30. SIN");

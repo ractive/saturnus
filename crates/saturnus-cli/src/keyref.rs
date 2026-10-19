@@ -45,6 +45,8 @@ struct Command {
     long: Option<String>,
     description: String,
     #[serde(default)]
+    note: Option<String>,
+    #[serde(default)]
     stack: Option<String>,
     #[serde(default)]
     param: Option<String>,
@@ -221,6 +223,7 @@ pub fn lookup(model: &str, query: &str) -> Result<Found> {
         "models": [model],
         "long_name": c.long,
         "description": c.description,
+        "note": c.note,
         "stack": c.stack,
         "param": c.param,
         "keys": keys,
@@ -308,6 +311,9 @@ pub fn text(entry: &Value) -> String {
         out.push_str(&format!("stack:  {st}\n"));
     }
     out.push_str(&format!("\n{}\n", s(&entry["description"])));
+    if let Some(note) = entry["note"].as_str() {
+        out.push_str(&format!("note:   {note}\n"));
+    }
     if let Some(list) = entry["examples"].as_array().filter(|a| !a.is_empty()) {
         out.push_str(&format!(
             "\nexamples ({model}, the display before and after):\n"
