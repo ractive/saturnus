@@ -608,22 +608,26 @@ key (see Paste above for how typing works and when the screen freezes).
 When a run leaves the command line open with an error
 the palette stays open and shows the calculator's message.
 
-On the 42S (a key-driven model: any model with a
-`keys-<model>.json` in the reference data) there is nothing to type:
-the rows are its functions, each showing the keys that run it
-(`⇧ CONVERT →POL`; `XEQ "SINH"` for one run by name), and its entry the
-keys, what it asks for after them (a register, a flag), the examples
-run on the emulator as the display showed them before and after, and the
-manual's page. Enter presses the keys on the running calculator through
-the key queue (`typeKeys`), as clicking them would; while the display
-shows a menu it first presses EXIT until none shows, since the top row
-is then that menu's keys. Try it presses EXIT once more (ending a number
-being typed), then the example's keys and the function's.
+On the 42S, 27S, 17BII, 17B and 19BII (the key-driven models: any model
+with a `keys-<model>.json` in the reference data) there is nothing to
+type: the rows are its functions, each showing the keys that run it
+(`⇧ CONVERT →POL`, `FIN TVM PMT`; `XEQ "SINH"` for one run by name), and
+its entry the keys, what it asks for after them (a register, a flag),
+the examples run on the emulator as the display showed them before and
+after, and the manual's page. Enter presses the keys on the running
+calculator through the key queue (`typeKeys`), as clicking them would.
+First it leaves the menu the display shows, since the top row is then
+that menu's keys: on the 42S it presses EXIT until none shows; on the
+27S, 17BII, 17B and 19BII it presses ⇧ MAIN once (the 17BII, 17B and
+19BII always show a menu, MAIN at the top). Try it does that too (on
+the 42S EXIT once more, ending a number being typed), then the
+example's keys and the function's. The Solver's functions (`USPV(i%:n)`)
+are typed into an equation: their rows show no keys and Enter presses
+nothing.
 
 Where it cannot do everything it says so under the input: no ROM running
 (the shown model's reference can be read, nothing sent), a model
-without a reference or a command line (38G, 39G, 40G, 27S, 17BII, 17B,
-19BII: app actions only), and the 49G in algebraic mode, where the RPN text of the examples
+without a reference or a command line (38G, 39G, 40G: app actions only), and the 49G in algebraic mode, where the RPN text of the examples
 and command names does not parse (the action "Switch the HP 49G to RPN
 mode" runs `CF(-95)`). The editor does not show that notice: saving
 there sets the mode itself.

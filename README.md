@@ -743,6 +743,7 @@ saturnus ref STO --model 48sx     # description, stack effect, menu, examples, m
 saturnus ref '->LIST' --json      # the same as JSON, every model (menus per model)
 saturnus ref '\.S'                # ∫ by the calculator's ASCII code (\-> \GS \v/ \pi ...)
 saturnus ref '->POL' --model 42s  # a 42S function: its keys (⇧ CONVERT →POL), examples, manual page
+saturnus ref PMT --model 17bii    # a 17BII function: its menu keys (FIN TVM PMT); also 27s, 17b, 19bii
 ```
 
 An exact name wins. Otherwise the query may differ in case, use the
@@ -843,13 +844,19 @@ link is `<url>#page=<n>`:
 
 ### Key-driven models
 
-The 42S has no command line: a function is a key, a shifted key, a menu
-key under a menu, or XEQ and its name. Its reference is
-`keys-42s.json`, written by hand from the owner's manual's operation
-index (every function; descriptions ours): per function the keys from
-the normal state (menus closed, no message, no entry in progress), each
-with what it shows (`⇧ CONVERT →POL`), or the name XEQ runs it by,
-spelt through the ALPHA menu with the file's `alpha` keys. The format
+The 42S, 27S, 17BII, 17B and 19BII have no command line: a function is a
+key, a shifted key, a menu key under a menu, or (42S) XEQ and its name.
+Each has its reference in `keys-<model>.json`, written by hand from the
+owner's manual's operation index or menu maps (every function;
+descriptions ours): per function the keys from the normal state, each
+with what it shows (`⇧ CONVERT →POL`, `FIN TVM PMT`), or the name XEQ
+runs it by, spelt through the ALPHA menu with the file's `alpha` keys.
+The normal state is the booted calculator with no message and no entry
+in progress: no menu on the 42S and 27S, the MAIN menu on the 17BII, 17B
+and 19BII, which always show one. There `leave` has no `menu_box`: its
+keys (⇧ MAIN) are pressed once before every function. The Solver's
+functions (`USPV(i%:n)`) are typed into an equation, not pressed: they
+have neither keys nor a name to run, only their menu (SOLVE). The format
 is documented in `crates/saturnus-refgen/src/keyed.rs`; another model
 needs only its `keys-<model>.json` (Search, `saturnus ref` and
 `commands-json.py` take every such file).
@@ -857,11 +864,13 @@ needs only its `keys-<model>.json` (Search, `saturnus ref` and
 `saturnus-refgen keys` checks the file on the emulator: from the booted
 state it presses every function's keys, compares each label with the
 key's legend on the skin or with the menu box the display shows, and
-runs the examples into `examples-42s.json` (the display before and
-after, as text). The display is read with fonts learned at run time from
-the characters the calculator is made to type, so no font is stored.
-`saturnus-refgen screen` prints the display after some keys, for writing
-the file:
+runs the examples into `examples-<model>.json` (the display before and
+after, as text, and what each input key showed when the input goes
+through menus). The display (131 × 16 dots on the Pioneers, 137 × 32 on
+the 19BII) is read with fonts learned at run time from the characters
+the calculator is made to type and the screens the file's `learn` lists,
+so no font is stored. `saturnus-refgen screen` prints the display after
+some keys, for writing the file:
 
 ```sh
 saturnus-refgen keys --model 42s --rom $R/hp42s.rom --data crates/saturnus-cli/data/commands/keys-42s.json \
@@ -870,8 +879,10 @@ saturnus-refgen screen --model 42s --rom $R/hp42s.rom --data crates/saturnus-cli
     --press "shift 5 down"     # x:0.0000 / [IP][FP][RND][ABS][SIGN][MOD]
 ```
 
-It takes a second; the ROM-gated test `keyed_references_regenerate_byte_for_byte`
-(`saturnus-refgen`) runs it and compares the file.
+It takes seconds per model; the ROM-gated test
+`keyed_references_regenerate_byte_for_byte` (`saturnus-refgen`) runs it
+for every model whose ROM (`hp<model>.rom`) is in `SATURNUS_ROM_DIR` and
+compares the files.
 
 ## Building the app
 

@@ -647,3 +647,42 @@ test("the palette model presses a 42S function, leaving the menu the display sho
   assert.deepEqual(b2.calls, []);
   assert.match(m2.notice.text, /Start the calculator/);
 });
+
+// ------------------------------------------------- the menu-driven models (17BII, 27S, 17B, 19BII)
+
+test("the 17BII, 27S, 17B and 19BII have references: menu keys, Solver functions typed in equations", () => {
+  for (const m of ["27s", "17bii", "17b", "19bii"]) {
+    const ix = buildIndex(data, m);
+    assert.equal(ix.keyed, true, m);
+    assert.ok(ix.commands.length >= 240, `${m}: ${ix.commands.length} functions`);
+    // Pressable, or a function typed into an equation (no keys, a menu that says where).
+    for (const c of ix.commands) assert.ok(c.steps?.length || (!c.entry.keys && c.entry.menu), `${m} ${c.name}`);
+  }
+  const k17 = buildIndex(data, "17bii");
+  const pmt = search(k17, "PMT")[0];
+  assert.equal(pmt.name, "PMT");
+  assert.equal(pmt.keys, "FIN TVM PMT");
+  assert.deepEqual(keyNames(pmt.command.steps), ["a", "a", "d"]);
+  const uspv = k17.byName.get("USPV(i%:n)");
+  assert.equal(uspv.steps, null);
+  assert.equal(uspv.keysText, "");
+  assert.equal(enterPlan(search(k17, "USPV")[0], null, true), null, "nothing to press");
+  const all = flattenMenus(k17.menus);
+  assert.ok(all.find((n) => n.path === "FIN TVM OTHER AMRT").commands.some((c) => c.name === "#P"));
+  assert.equal(buildIndex(data, "27s").byName.get("PMT").keysText, "⇧ TVM PMT");
+  assert.equal(data.keyModels["17bii"].leave.menuBox, undefined, "MAIN always shows: no menu test");
+  assert.equal(data.keyModels["17bii"].alpha, undefined, "no names to spell");
+});
+
+test("the palette model goes back to the 17BII's MAIN once, then presses the menu keys", async () => {
+  const k17 = buildIndex(data, "17bii");
+  const state = { model: "17bii", booted: "17bii", frame: frame(), keysDown: [] };
+  const backend = fakeKeys(state);
+  const m = new PaletteModel(backend, { state });
+  m.pace = { first: 0, poll: 0, limit: 1000 };
+  m.setIndex(k17);
+  await m.open();
+  m.setQuery("PMT");
+  await m.choose(m.rows[0]);
+  assert.deepEqual(backend.calls, [["shift", "exit"], ["a", "a", "d"]]);
+});
