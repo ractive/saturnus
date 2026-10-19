@@ -33,9 +33,11 @@ leave a menu (`leave`: its keys and the dots that show a menu is open),
 the keys that type each character (`alpha`) and run a name (`xeq`), the
 booted screen, and per function `long`, `description`, `stack`,
 `param`, `keys` (steps `{key, label}` from the normal state) or `xeq`
-(the name XEQ runs it by), `menu`, `page` (the manual's PDF page) and
-the `examples` run on the emulator (`input` keys, the `before` and
-`after` screens, upper line first). The format and its checks are
+(the name XEQ runs it by), `menu`, `inserts` (38G, 39G, 40G: what the
+keys put on HOME's edit line), `page` (the manual's PDF page) and
+the `examples` run on the emulator (`input` keys, the `then` keys after
+the function's, the `before` and `after` screens, upper line first).
+`home` (38G, 39G, 40G) are the keys pressed before every function. The format and its checks are
 `saturnus-refgen keys` (crates/saturnus-refgen/src/keyed.rs); adding a
 `keys-<model>.json` (and its examples) is all a model needs here.
 
@@ -136,10 +138,10 @@ def key_models():
         ex = load(ex_path.name) if ex_path.exists() else {"examples": {}, "booted": []}
         commands = {}
         for c in src["commands"]:
-            entry = {k: c[k] for k in ("long", "description", "stack", "param", "keys", "xeq", "menu", "page") if k in c}
+            entry = {k: c[k] for k in ("long", "description", "stack", "param", "keys", "xeq", "menu", "inserts", "page") if k in c}
             runs = ex["examples"].get(c["name"])
             if runs:
-                entry["examples"] = [{k: x[k] for k in ("input", "before", "after")} for x in runs]
+                entry["examples"] = [{k: x[k] for k in ("input", "then", "before", "after") if k in x} for x in runs]
             if c["name"] in commands:
                 raise SystemExit(f"{path.name}: {c['name']} is listed twice")
             commands[c["name"]] = entry
@@ -154,6 +156,8 @@ def key_models():
             km["leave"] = {"keys": src["leave"]["keys"], "menuBox": {"x": box["x"], "width": box["width"], "rows": box["rows"]}}
         if "alpha" in src:
             km["alpha"] = src["alpha"]
+        if "home" in src:
+            km["home"] = src["home"]
         if "xeq" in src:
             km["xeq"] = {"start": src["xeq"]["start"], "end": src["xeq"]["end"]}
         out[model] = km

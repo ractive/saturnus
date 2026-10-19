@@ -279,7 +279,7 @@ test("the menu tree follows the ROM's menu paths, roots in key order", () => {
   // Every command of the model is somewhere in the tree.
   const placed = new Set(all.flatMap((m) => m.commands.map((c) => c.name)));
   assert.equal(placed.size, sx.commands.length);
-  assert.equal(buildIndex(data, "38g").supported, false);
+  assert.equal(buildIndex(data, "nosuch").supported, false);
 });
 
 test("one tree: numbered menus named from the manuals, the manuals' placements under their own heading", () => {
@@ -646,4 +646,71 @@ test("the palette model presses a 42S function, leaving the menu the display sho
   assert.equal(r2.close, false);
   assert.deepEqual(b2.calls, []);
   assert.match(m2.notice.text, /Start the calculator/);
+});
+
+// ------------------------------------------------------------ the 38G, 39G and 40G (HOME)
+
+const k39 = buildIndex(data, "39g");
+
+/** A 131 x 64 frame, with the dots of `dark` (`[x, y]`) on. */
+function bigFrame(dark = []) {
+  const row = Math.ceil(131 / 8);
+  const bytes = new Uint8Array(row * 64);
+  for (const [x, y] of dark) bytes[y * row + (x >> 3)] |= 0x80 >> (x & 7);
+  return { width: 131, height: 64, pixels: Buffer.from(bytes).toString("base64") };
+}
+/** A 39G frame with a choose box open (its top border on row 4). */
+const chooseFrame = () => bigFrame(Array.from({ length: 116 }, (_, i) => [7 + i, 4]));
+
+test("the 38G, 39G and 40G: their functions with the keys that put them on HOME's edit line", () => {
+  for (const model of ["38g", "39g", "40g"]) {
+    const ix = buildIndex(data, model);
+    assert.equal(ix.keyed, true, model);
+    assert.ok(ix.commands.length >= 200, `${model}: ${ix.commands.length} functions`);
+    for (const c of ix.commands) assert.ok(c.steps?.length && c.entry.inserts, `${model} ${c.name}`);
+  }
+  const comb = search(k39, "comb")[0];
+  assert.equal(comb.name, "COMB");
+  assert.equal(comb.keys, "MATH P P ▶ ENTER");
+  assert.equal(comb.command.entry.inserts, "COMB(");
+  assert.equal(search(k39, "->hms")[0].name, "→HMS");
+  assert.equal(search(k39, "SIN")[0].keys, "SIN");
+  // An example types its arguments and ENTER after the keys.
+  const x = comb.command.per.examples[0];
+  assert.deepEqual(keyNames(exampleSteps(comb.command, x)), ["math", "7", "7", "right", "enter", "5", "comma", "2", "rparen", "enter"]);
+  const legends = [{ name: "vars", label: "VARS", left: "CHARS", alpha: "A" }, { name: "alpha", label: "ALPHA", left: "alpha" }];
+  assert.equal(legendText(["alpha", "vars", "vars"], legends), "ALPHA A VARS");
+  assert.equal(menuShown(data.keyModels["39g"], chooseFrame()), true);
+  assert.equal(menuShown(data.keyModels["39g"], bigFrame()), false);
+});
+
+test("the palette model goes to HOME, closing a choose box, before pressing a 39G function", async () => {
+  const state = { model: "39g", booted: "39g", frame: chooseFrame(), keysDown: [] };
+  const calls = [];
+  const backend = {
+    async commandLine() { throw new Error("the 39g has no RPL command line to type into (48SX, 48GX and 49G only)"); },
+    async flags() { return { system: [], user: [], set: [] }; },
+    typeKeys(keys) {
+      calls.push(keys);
+      if (keys.join(" ") === "on") state.frame = bigFrame();
+    },
+    async stats() { return { loop: "sleep" }; },
+  };
+  const m = new PaletteModel(backend, { state });
+  m.pace = { first: 0, poll: 0, limit: 1000 };
+  m.setIndex(k39);
+  await m.open();
+  m.setQuery("COMB");
+  await m.choose(m.rows[0]);
+  assert.deepEqual(calls, [["on"], ["home"], ["math", "7", "7", "right", "enter"]]);
+  // No box: HOME, then the keys; what is on the edit line stays.
+  calls.length = 0;
+  await m.choose(m.rows[0]);
+  assert.deepEqual(calls, [["home"], ["math", "7", "7", "right", "enter"]]);
+  // An example clears the edit line (CANCEL) after HOME.
+  calls.length = 0;
+  const comb = k39.byName.get("COMB");
+  await m.tryExample(comb.per.examples[0], comb);
+  assert.deepEqual(calls, [["home"], ["on"], ["math", "7", "7", "right", "enter", "5", "comma", "2", "rparen", "enter"]]);
+  assert.match(m.notice.text, /^Pressed the example with MATH P P ▶ ENTER\.$/);
 });

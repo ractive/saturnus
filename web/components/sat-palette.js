@@ -499,6 +499,7 @@ export class SatPalette extends HTMLElement {
     else if (!s.booted && m.index.supported) text = `No calculator is running. You can read the ${MODEL_TITLES[model]} reference but not send anything. Choose a ROM to start.`;
     else if (!s.booted) text = `No calculator is running, and the ${MODEL_TITLES[model]} has no command reference (${covered} only). Actions are listed.`;
     // A key-driven model: a function is pressed, there is nothing to type.
+    else if (m.keyed && m.index.km?.home) text = `Choosing a function goes to HOME and presses its keys, which put it on the edit line for you to finish.`;
     else if (m.keyed) text = `The ${MODEL_TITLES[s.booted]} has no command line: choosing a function presses its keys.`;
     else if (!m.index.supported && m.noTyping) {
       // The models without a command line say it plainly; any other reason the host gave is kept.
@@ -677,6 +678,11 @@ export class SatPalette extends HTMLElement {
     if (m.keyed && row.kind === "command") {
       if (!m.canPress) return el("p", { class: "entry-enter muted", text: "Start the calculator to press this." });
       const leaves = menuShown(m.index.km, this.store.state.frame);
+      const puts = row.command.entry?.inserts;
+      // The 38G, 39G and 40G: the keys put the function on HOME's edit line.
+      if (m.index.km?.home && puts) {
+        return el("p", { class: "entry-enter" }, key("Enter"), ` goes to HOME${leaves ? ", leaving the menu it shows," : ""} and presses ${row.command.keysText}: ${puts.trimEnd()} goes on the edit line. Add what it needs and press ENTER on the calculator.`);
+      }
       return el("p", { class: "entry-enter" }, key("Enter"), ` presses ${row.command.keysText} on the calculator${leaves ? ", after leaving the menu it shows" : ""}. It works on what the calculator holds, as the keys would.`);
     }
     if (!m.canType) return el("p", { class: "entry-enter muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start the calculator to send this." });
