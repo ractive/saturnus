@@ -68,7 +68,7 @@ test("the palette model sends a 28S command as keys, reading the state first", a
   };
   const store = { state: { model: "28s", booted: "28s", keysDown: [], frame: { width: 137, height: 32, pixels: "", annunciators: { alpha: false, leftshift: true } } } };
   const m = new PaletteModel(backend, store);
-  m.pace28 = { first: 0, poll: 0, limit: 100 };
+  m.pace = { first: 0, poll: 0, limit: 100 };
   m.setIndex(buildIndex(data, "28s"));
   await m.open();
   assert.equal(m.canType, true);

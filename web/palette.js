@@ -10,8 +10,8 @@
 // typed on its keys (keys28.js). `<sat-palette>` renders it; `web/test/`
 // drives it with a fake backend.
 
-import { send28 } from "./keys28.js";
-import { buildIndex, enterPlan, enterVerb, exampleSteps, exampleText, keyNames, keysText, menuShown, search } from "./reference.js";
+import { send28, settle } from "./keys28.js";
+import { buildIndex, cancelKeys, enterPlan, enterVerb, exampleSteps, exampleText, keyNames, keysText, menuShown, search } from "./reference.js";
 
 const message = (err) => String(err?.message ?? err);
 
@@ -150,10 +150,8 @@ export class PaletteModel {
     this.notice = null;
     /** A send is on its way. */
     this.sending = false;
-    /** How long `settle` waits before and between its looks, in ms (tests set 0). */
+    /** How long `settle` (keys28.js) waits before and between its looks, in ms (tests set 0); also for the 28S's typing. */
     this.pace = { first: 40, poll: 40, limit: 10_000 };
-    /** How long the 28S's keys are waited for (tests set 0); `keys28.js` `settle`. */
-    this.pace28 = undefined;
     this.onChange = () => {};
   }
 
@@ -369,6 +367,9 @@ export class PaletteModel {
       // The 38G, 39G and 40G go to HOME first (`home`), and an example
       // then clears the edit line with the leave keys (CANCEL).
       const home = this.index.km?.home;
+      // A shift or ALPHA pending would change the first key: on the 42S
+      // a shifted EXIT is OFF, on the 38G-40G a shifted ON too.
+      await this.cancelPending();
       await this.leaveMenus(fresh && !home);
       if (home?.length) {
         this.backend.typeKeys(keyNames(home));
@@ -413,23 +414,26 @@ export class PaletteModel {
     }
   }
 
-  /** Wait until the calculator has played the queued keys and sleeps (two looks in a row), at most `pace.limit` ms. */
-  async settle() {
-    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-    const until = Date.now() + this.pace.limit;
-    let calm = 0;
-    await wait(this.pace.first);
-    while (Date.now() < until) {
-      const s = await this.backend.stats();
-      if (s.loop === "sleep" && !this.store.state.keysDown?.length) {
-        if (++calm >= 2) break;
-      } else {
-        calm = 0;
-      }
-      await wait(this.pace.poll);
+  /**
+   * Cancel a pending shift or ALPHA (their annunciators on the display)
+   * by pressing that key again, reading the annunciators after each
+   * press; an error if one stays, so no key runs shifted.
+   */
+  async cancelPending() {
+    for (let i = 0; i < 3; i++) {
+      const keys = cancelKeys(this.store.state.frame?.annunciators);
+      if (!keys.length) return;
+      this.backend.typeKeys(keys);
+      await this.settle();
     }
-    // The last frame after the calculator went to sleep.
-    await wait(this.pace.poll);
+    if (cancelKeys(this.store.state.frame?.annunciators).length) {
+      throw new Error("A shift or ALPHA stays on. Press the shift key on the calculator to turn it off, then try again.");
+    }
+  }
+
+  /** Wait until the calculator has played the queued keys and sleeps (`settle` in keys28.js, at `pace`). */
+  settle() {
+    return settle(this.backend, this.store, this.pace);
   }
 
   async send(verb, text, { closeAfter }) {
@@ -445,7 +449,7 @@ export class PaletteModel {
     let result;
     try {
       result = this.store.state.booted === "28s"
-        ? await send28(this.backend, this.store, verb, text, this.pace28)
+        ? await send28(this.backend, this.store, verb, text, this.pace)
         : await this.backend[verb](text);
     } catch (err) {
       this.sending = false;

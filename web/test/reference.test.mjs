@@ -10,7 +10,7 @@ import {
   NOT_IN_MENU, OTHER_MENUS, buildIndex, enterPlan, enterVerb, exampleBefore, exampleResult, exampleText, findCommands, findMenu,
   flattenMenus, fromCodes, friendly, menuLabel,
   isSingleToken, keyLegend, manualLinks, menuCommands, placement, search, spaced, stackVerified, toCodes,
-  exampleSteps, keyNames, keySteps, keysText, legendText, menuShown, referenceModels, spell,
+  exampleSteps, keyNames, keySteps, keysText, legendText, menuShown, referenceModels, spell, cancelKeys, commandsCoverage,
 } from "../reference.js";
 import { IndexWatch, NOT_READY, PaletteModel, sendFailure } from "../palette.js";
 
@@ -781,4 +781,101 @@ test("the palette model goes to HOME, closing a choose box, before pressing a 39
   await m.tryExample(comb.per.examples[0], comb);
   assert.deepEqual(calls, [["home"], ["on"], ["math", "7", "7", "right", "enter", "5", "comma", "2", "rparen", "enter"]]);
   assert.match(m.notice.text, /^Pressed the example with MATH P P ▶ ENTER\.$/);
+});
+
+// ------------------------------------------------------------ pending shift and ALPHA (review of PR 201)
+
+/**
+ * A backend for a key-driven model whose display has `annunciators`:
+ * a press of shift or ALPHA turns its annunciator off (a stuck one when
+ * `stuck`), EXIT (`on`) takes the 42S's menu off.
+ */
+function pendingKeys(state, { stuck = false } = {}) {
+  const calls = [];
+  return {
+    calls,
+    async commandLine() { throw new Error("no RPL command line"); },
+    async flags() { return { system: [], user: [], set: [] }; },
+    typeKeys(keys) {
+      calls.push(keys);
+      const a = { ...(state.frame.annunciators ?? {}) };
+      if (!stuck) {
+        if (keys.includes("shift")) a.leftshift = false;
+        if (keys.includes("alpha")) a.alpha = false;
+      }
+      if (keys.join(" ") === "on") state.frame = { ...frame(), annunciators: a };
+      else state.frame = { ...state.frame, annunciators: a };
+    },
+    async stats() { return { loop: "sleep" }; },
+  };
+}
+
+async function pressFirst(model, query, frameNow, opts) {
+  const state = { model, booted: model, frame: frameNow, keysDown: [] };
+  const backend = pendingKeys(state, opts);
+  const m = new PaletteModel(backend, { state });
+  m.pace = { first: 0, poll: 0, limit: 1000 };
+  m.setIndex(buildIndex(data, model));
+  await m.open();
+  m.setQuery(query);
+  const row = m.rows.find((r) => r.kind === "command");
+  const r = await m.choose(row);
+  return { calls: backend.calls, r, m, row };
+}
+
+test("the keys that cancel what the annunciators show pending", () => {
+  assert.deepEqual(cancelKeys(null), []);
+  assert.deepEqual(cancelKeys({ leftshift: true }), ["shift"]);
+  assert.deepEqual(cancelKeys({ alpha: true }), ["alpha"]);
+  assert.deepEqual(cancelKeys({ leftshift: true, alpha: true, busy: true }), ["shift", "alpha"]);
+});
+
+test("a pending shift is cancelled before the 42S's EXIT, which shifted is OFF", async () => {
+  const { calls, r } = await pressFirst("42s", "SQRT", { ...menuFrame(), annunciators: { leftshift: true } });
+  assert.deepEqual(calls, [["shift"], ["on"], ["sqrt"]]);
+  assert.equal(r.close, true);
+  // No menu: the shift is cancelled, then only the function's keys.
+  const plain = await pressFirst("42s", "SQRT", { ...frame(), annunciators: { leftshift: true } });
+  assert.deepEqual(plain.calls, [["shift"], ["sqrt"]]);
+  // A shift that stays on: nothing else is pressed, and the palette says why.
+  const stuck = await pressFirst("42s", "SQRT", { ...menuFrame(), annunciators: { leftshift: true } }, { stuck: true });
+  assert.ok(stuck.calls.every((k) => k.join(" ") === "shift"), JSON.stringify(stuck.calls));
+  assert.equal(stuck.r.close, false);
+  assert.match(stuck.m.notice.text, /shift or ALPHA stays on/);
+});
+
+test("a pending shift is cancelled before the 17BII's ⇧ EXIT, which it would turn into EXIT", async () => {
+  const k17 = buildIndex(data, "17bii");
+  const leave = keyNames(data.keyModels["17bii"].leave.keys);
+  assert.deepEqual(leave, ["shift", "exit"]);
+  const { calls, row } = await pressFirst("17bii", k17.commands[0].name, { ...frame(), annunciators: { leftshift: true } });
+  assert.deepEqual(calls[0], ["shift"]);
+  assert.deepEqual(calls[1], leave);
+  assert.deepEqual(calls.at(-1), keyNames(row.command.steps));
+  // Without a pending shift, no extra press.
+  const clean = await pressFirst("17bii", k17.commands[0].name, frame());
+  assert.deepEqual(clean.calls[0], leave);
+});
+
+test("a pending ALPHA (and shift ALPHA) is cancelled before the 38G's HOME, which would type A", async () => {
+  const sqrt38 = buildIndex(data, "38g").commands.find((c) => c.steps?.length);
+  const { calls, row } = await pressFirst("38g", sqrt38.name, { ...frame(), annunciators: { alpha: true } });
+  assert.deepEqual(calls[0], ["alpha"]);
+  assert.ok(calls.findIndex((k) => k.join(" ") === "home") > 0, JSON.stringify(calls));
+  assert.deepEqual(calls.at(-1), keyNames(row.command.steps));
+  const both = await pressFirst("38g", sqrt38.name, { ...frame(), annunciators: { leftshift: true, alpha: true } });
+  assert.deepEqual(both.calls[0], ["shift", "alpha"]);
+});
+
+test("a key-driven model's menus are no rows: their names find their functions; the Commands tab names its state from the data", () => {
+  const rows = search(k42, "CONVERT");
+  assert.ok(rows.every((r) => r.kind !== "menu"), "no menu row to open in the Reference tab");
+  assert.ok(rows.some((r) => r.name === "→POL"), "CONVERT finds its functions");
+  assert.ok(search(sx, "MTH").some((r) => r.kind === "menu"), "the 48SX keeps its menu rows");
+  assert.equal(commandsCoverage(null, "HP 42S"), null, "loading");
+  assert.equal(commandsCoverage(sx, "HP 48SX"), null);
+  assert.match(commandsCoverage(k42, "HP 42S").title, /reference is in Search/);
+  const none = commandsCoverage(buildIndex(data, "20s"), "HP 20S", { "42s": "HP 42S" });
+  assert.match(none.title, /No command reference for the HP 20S/);
+  assert.match(none.text, /42S/);
 });

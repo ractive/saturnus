@@ -616,7 +616,11 @@ its entry the keys, what it asks for after them (a register, a flag),
 the examples run on the emulator as the display showed them before and
 after, and the manual's page. Enter presses the keys on the running
 calculator through the key queue (`typeKeys`), as clicking them would.
-First it leaves the menu the display shows, since the top row is then
+First it cancels a shift or ALPHA the annunciators show pending by
+pressing that key again (on every key-driven model, the 38G-40G too:
+a shifted EXIT or CANCEL is OFF), and stops with a message if one stays
+on. A key-driven model has no menu rows: a menu's name finds its
+functions. Then it leaves the menu the display shows, since the top row is then
 that menu's keys: on the 42S it presses EXIT until none shows; on the
 27S, 17BII, 17B and 19BII it presses ⇧ MAIN once (the 17BII, 17B and
 19BII always show a menu, MAIN at the top). Try it does that too (on

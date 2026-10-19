@@ -3,7 +3,7 @@
 // chosen file, a function chosen in Search pressed on it: 9, then √x from
 // Search, shows what 9 √x pressed on the drawn keys shows; with a menu
 // open, Search leaves it first; →POL (⇧ CONVERT →POL) shows what its
-// keys show. Skipped without Chrome or web/pkg (just web).
+// keys show; a pending shift is cancelled first. Skipped without Chrome or web/pkg (just web).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
@@ -109,4 +109,15 @@ test("a 42S function chosen in Search is pressed on the running calculator", { t
   // Back and again by the keys: →REC, then ⇧ CONVERT →POL pressed, the same screen.
   for (const k of ["shift", "5", "ln", "shift", "5", "xeq"]) await ev(`window.__press(${JSON.stringify(k)})`);
   assert.equal(await ev(SCREEN), polar, "→POL from Search shows what its keys show");
+
+  // A shift pending with a menu open: Search cancels the shift before
+  // EXIT (a shifted EXIT is OFF), so the calculator stays on and √x runs.
+  for (const k of ["backspace", "shift", "5", "9", "shift"]) await ev(`window.__press(${JSON.stringify(k)})`);
+  assert.equal(await ev("Boolean(window.saturnus.store.state.frame.annunciators?.leftshift)"), true, "the shift is pending");
+  await choose("SQRT", "√x");
+  const shifted = await ev(SCREEN);
+  assert.match(shifted, /#/, "the calculator stays on");
+  assert.equal(await ev("Boolean(window.saturnus.store.state.frame.annunciators?.leftshift)"), false, "no shift left");
+  for (const k of ["backspace", "9", "sqrt"]) await ev(`window.__press(${JSON.stringify(k)})`);
+  assert.equal(await ev(SCREEN), shifted, "the same screen as 9 √x by hand");
 });

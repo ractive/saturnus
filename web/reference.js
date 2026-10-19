@@ -120,6 +120,20 @@ export function buildIndex(data, model) {
 // from HOME, putting it on the edit line). Each step is `{key, label?}`: the key's script
 // name and what it shows (its legend, or the menu box above a menu key).
 
+/**
+ * The keys that cancel what the annunciators show pending (`frame.annunciators`):
+ * a shift is pressed again, so is ALPHA (the 38G, 39G and 40G; the 42S and
+ * the Pioneers light no alpha annunciator). Shift first: the 39G's shift
+ * ALPHA is a lowercase ALPHA, which ALPHA alone then ends.
+ */
+export function cancelKeys(annunciators) {
+  const a = annunciators ?? {};
+  const out = [];
+  if (a.leftshift) out.push("shift");
+  if (a.alpha) out.push("alpha");
+  return out;
+}
+
 /** Whether `key` is a shift key. */
 export function isShift(key) {
   return key === "shift" || key === "leftshift" || key === "rightshift";
@@ -170,6 +184,24 @@ export function menuShown(km, frame) {
     for (let x = box.x; x < box.x + box.width; x++) if (!dark(x, y)) return false;
   }
   return true;
+}
+
+/**
+ * What the memory view's Commands tab says for `index` (the shown
+ * model's, null while it loads) instead of its panes, from the data: a
+ * model with no reference names those that have one; a key-driven
+ * model's functions are pressed from Search. Null when the tab shows
+ * the reference. `title` names the model, `titles` all of them.
+ */
+export function commandsCoverage(index, title, titles = {}) {
+  if (!index) return null;
+  if (!index.supported) {
+    return { title: `No command reference for the ${title}`, text: `The reference covers the ${referenceModels(index.data, titles)}.` };
+  }
+  if (index.keyed) {
+    return { title: `The ${title} reference is in Search`, text: "Its functions are pressed, not typed: open Search to find one and press its keys." };
+  }
+  return null;
 }
 
 /** "48SX, 48GX, 49G and 42S": the models `data` has a reference for. */
@@ -482,6 +514,9 @@ export function search(index, query, { variables = [], actions = [], typing = tr
     else if (single && c.descWords.some((w) => w.startsWith(upper))) score = T.word;
     else if (words.every((w) => c.descUpper.includes(w))) score = T.description;
     else if (c.exampleText.includes(upper)) score = T.example;
+    // A key-driven model has no menu rows (no Reference tab to open
+    // them in): a menu's name finds its functions instead.
+    if (index.keyed && score < T.menu && (c.per.menus ?? []).some((p) => p.toUpperCase().split(" ").some((w) => w.startsWith(upper)))) score = T.menu;
     if (score) rows.push({ kind: "command", name: c.name, command: c, longName: c.longName, stack: c.stack, keys: c.keysText ?? null, description: c.description, score });
   }
   if (typing) {
@@ -494,7 +529,7 @@ export function search(index, query, { variables = [], actions = [], typing = tr
       if (score) rows.push({ kind: "variable", name: v.name, path: v.path, type: v.type, score });
     }
   }
-  for (const m of flattenMenus(index.menus)) {
+  for (const m of index.keyed ? [] : flattenMenus(index.menus)) {
     if (m.kind !== "menu") continue;
     const last = m.name.toUpperCase();
     if (last.startsWith(upper) && !last.startsWith("MENU ")) {

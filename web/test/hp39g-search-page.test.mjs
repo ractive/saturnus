@@ -115,4 +115,14 @@ test("a 39G function chosen in Search goes on HOME's edit line", { timeout: 240_
   const [, sin] = await ev(ENTRIES);
   await press(["sin", "0", "rparen", "enter"]);
   assert.equal((await ev(ENTRIES))[1], sin, "SIN from Search makes the entry the SIN key makes");
+
+  // Shift and ALPHA pending: Search cancels both first, so CANCEL is not
+  // shifted (OFF) and HOME does not type a letter; the calculator stays on.
+  await press(["shift", "alpha"]);
+  assert.deepEqual(await ev("(({ leftshift, alpha }) => [Boolean(leftshift), Boolean(alpha)])(window.saturnus.store.state.frame.annunciators ?? {})"), [true, true], "shift and ALPHA pending");
+  await choose("SIN", "SIN");
+  assert.deepEqual(await ev("(({ leftshift, alpha }) => [Boolean(leftshift), Boolean(alpha)])(window.saturnus.store.state.frame.annunciators ?? {})"), [false, false], "none left");
+  await press(["0", "rparen", "enter"]);
+  assert.match(await ev(SCREEN), /#/, "the calculator stays on");
+  assert.equal((await ev(ENTRIES))[1], sin, "the same entry as the SIN key makes");
 });
