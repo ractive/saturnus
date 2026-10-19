@@ -364,20 +364,7 @@ export class PaletteModel {
     this.notice = { text: `Pressing ${text}…`, error: false };
     this.changed();
     try {
-      // The 38G, 39G and 40G go to HOME first (`home`), and an example
-      // then clears the edit line with the leave keys (CANCEL).
-      const home = this.index.km?.home;
-      // A shift or ALPHA pending would change the first key: on the 42S
-      // a shifted EXIT is OFF, on the 38G-40G a shifted ON too.
-      await this.cancelPending();
-      await this.leaveMenus(fresh && !home);
-      if (home?.length) {
-        this.backend.typeKeys(keyNames(home));
-        await this.settle();
-        if (fresh) await this.leaveMenus(true);
-      }
-      this.backend.typeKeys(keyNames(steps));
-      await this.settle();
+      await pressFunction(this.backend, this.store, this.index.km, steps, { fresh, pace: this.pace });
     } catch (err) {
       this.sending = false;
       this.notice = { text: message(err), error: true };
@@ -388,47 +375,6 @@ export class PaletteModel {
     this.notice = closeAfter ? null : { text: `Pressed ${text}.`, error: false };
     this.changed();
     return { close: closeAfter };
-  }
-
-  /**
-   * Leave the menus the screen shows (at most six levels); with `always`, press the leave keys once even with none.
-   * A model without `leave.menuBox` always shows a menu (the 17BII's MAIN): its leave keys go back there from anywhere, once.
-   */
-  async leaveMenus(always = false) {
-    const leave = this.index.km?.leave;
-    if (!leave) return;
-    if (!leave.menuBox) {
-      this.backend.typeKeys(keyNames(leave.keys));
-      await this.settle();
-      return;
-    }
-    let pressed = 0;
-    while (pressed < 6 && menuShown(this.index.km, this.store.state.frame)) {
-      this.backend.typeKeys(keyNames(leave.keys));
-      pressed++;
-      await this.settle();
-    }
-    if (always && !pressed) {
-      this.backend.typeKeys(keyNames(leave.keys));
-      await this.settle();
-    }
-  }
-
-  /**
-   * Cancel a pending shift or ALPHA (their annunciators on the display)
-   * by pressing that key again, reading the annunciators after each
-   * press; an error if one stays, so no key runs shifted.
-   */
-  async cancelPending() {
-    for (let i = 0; i < 3; i++) {
-      const keys = cancelKeys(this.store.state.frame?.annunciators);
-      if (!keys.length) return;
-      this.backend.typeKeys(keys);
-      await this.settle();
-    }
-    if (cancelKeys(this.store.state.frame?.annunciators).length) {
-      throw new Error("A shift or ALPHA stays on. Press the shift key on the calculator to turn it off, then try again.");
-    }
   }
 
   /** Wait until the calculator has played the queued keys and sleeps (`settle` in keys28.js, at `pace`). */
@@ -475,6 +421,75 @@ export class PaletteModel {
     this.notice = closeAfter ? null : { text: verb === "run" ? `Ran ${text.trim()}.` : `Inserted ${text.trim()}.`, error: false };
     this.changed();
     return { close: closeAfter };
+  }
+}
+
+/**
+ * Press `steps` on the running key-driven calculator (`km`, its key
+ * model from the reference): first a pending shift or ALPHA cancelled,
+ * out of the menu the screen shows (its `leave` keys, again while one
+ * shows), on the 38G-40G to HOME (`home`), then the steps through the key
+ * queue, waiting until the calculator has played them. `fresh` (an
+ * example) also ends the entry in progress, so its numbers start new
+ * ones. Search's Enter and Try it, and an AI app's `run_function`
+ * (web/ai-tools.js).
+ */
+export async function pressFunction(backend, store, km, steps, { fresh = false, pace = undefined } = {}) {
+  const wait = () => settle(backend, store, pace);
+  // The 38G, 39G and 40G go to HOME first (`home`), and an example
+  // then clears the edit line with the leave keys (CANCEL).
+  const home = km?.home;
+  // A shift or ALPHA pending would change the first key: on the 42S
+  // a shifted EXIT is OFF, on the 38G-40G a shifted ON too.
+  await cancelPending(backend, store, wait);
+  await leaveMenus(backend, store, km, wait, fresh && !home);
+  if (home?.length) {
+    backend.typeKeys(keyNames(home));
+    await wait();
+    if (fresh) await leaveMenus(backend, store, km, wait, true);
+  }
+  backend.typeKeys(keyNames(steps));
+  await wait();
+}
+
+/**
+ * Leave the menus the screen shows (at most six levels); with `always`, press the leave keys once even with none.
+ * A model without `leave.menuBox` always shows a menu (the 17BII's MAIN): its leave keys go back there from anywhere, once.
+ */
+async function leaveMenus(backend, store, km, wait, always = false) {
+  const leave = km?.leave;
+  if (!leave) return;
+  if (!leave.menuBox) {
+    backend.typeKeys(keyNames(leave.keys));
+    await wait();
+    return;
+  }
+  let pressed = 0;
+  while (pressed < 6 && menuShown(km, store.state.frame)) {
+    backend.typeKeys(keyNames(leave.keys));
+    pressed++;
+    await wait();
+  }
+  if (always && !pressed) {
+    backend.typeKeys(keyNames(leave.keys));
+    await wait();
+  }
+}
+
+/**
+ * Cancel a pending shift or ALPHA (their annunciators on the display)
+ * by pressing that key again, reading the annunciators after each
+ * press; an error if one stays, so no key runs shifted.
+ */
+async function cancelPending(backend, store, wait) {
+  for (let i = 0; i < 3; i++) {
+    const keys = cancelKeys(store.state.frame?.annunciators);
+    if (!keys.length) return;
+    backend.typeKeys(keys);
+    await wait();
+  }
+  if (cancelKeys(store.state.frame?.annunciators).length) {
+    throw new Error("A shift or ALPHA stays on. Press the shift key on the calculator to turn it off, then try again.");
   }
 }
 

@@ -10,7 +10,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  DATABASES, FOLDER_PICKER_ID, FOLDER_STORE, KEYS, LOCAL_STORAGE_KEYS, ROM_DB, STATE_DB, TRANSFER_DB, TRANSFER_KEYS,
+  aiSecretKey, DATABASES, FOLDER_PICKER_ID, FOLDER_STORE, KEYS, LOCAL_STORAGE_KEYS, ROM_DB, STATE_DB, TRANSFER_DB, TRANSFER_KEYS,
   TRANSFER_OPFS_DIR, cachePrefix,
 } from "../shared/storage-names.js";
 
@@ -63,7 +63,10 @@ test("the names keep the values the two pages had: the kept ROMs, states, settin
     panelWidth: "saturnus.panelWidth", layerWidth: "saturnus.layerWidth", treeWidth: "saturnus.treeWidth", keys: "saturnus.keys",
     storageAsk: "saturnus.storageAsk", screenLook: "saturnus.screenLook", theme: "saturnus.theme", clockOnStart: "saturnus.clockOnStart",
     sent: "saturnus.sent", tour: "saturnus.tour", view: "saturnus.view",
+    aiKeepOn: "saturnus.aiKeepOn", aiRelay: "saturnus.aiRelay",
   });
+  // AI access's address secret, one per relay (tab-mcp DEC-052).
+  assert.equal(aiSecretKey("https://relay.ractive.ch"), "saturnus.aiSecret:https://relay.ractive.ch");
   assert.deepEqual(TRANSFER_KEYS, { link: "saturnus.transfer.link", model: "saturnus.transfer.model", port: "saturnus.transfer.port" });
 });
 

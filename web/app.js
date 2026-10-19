@@ -233,7 +233,7 @@ function screenToStack(store) {
  * do, by name. Built when the palette opens, so the titles follow the
  * state (Pause or Run, the speed that is on).
  */
-function appActions(backend, store, memory, bindings) {
+function appActions(backend, store, memory, bindings, ai = null) {
   const s = store.state;
   const layerTab = (tab) => async () => {
     await (s.layer || setLayerOpen(memory, true));
@@ -301,6 +301,8 @@ function appActions(backend, store, memory, bindings) {
     { id: "panel", title: root.classList.contains("panel-hidden") ? "Show the controls panel" : "Hide the controls panel", description: "The panel with the calculator, Reset, saved states and the speed.", keywords: "panel controls sidebar toggle", run: () => setPanelHidden(!root.classList.contains("panel-hidden")) },
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
     // Files, on this calculator when it can reach it (its route, web/router.js).
+    // AI access (web/ai.js), where there is a relay; after the palette has closed.
+    ...(ai ? [{ id: "ai", title: "Connect your AI app…", description: "Let your AI app (Claude, ChatGPT, Claude Code, Cursor) use the calculators in this tab.", keywords: "ai assistant mcp claude chatgpt codex cursor agent connect llm tool", run: () => setTimeout(() => openAi(ai), 0) }] : []),
     { id: "open-tx", title: "Open Files", description: "Move files between calculators, emulated or on a cable, and this computer.", keywords: "files tx transfer send receive kermit serial cable backup computer", run: () => { location.hash = filesHref(store); } },
     // The tour, and each chapter alone (found by a search).
     { id: "tour", title: "Show me around", description: "A short tour of the app. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },
@@ -360,6 +362,46 @@ function watchTxLink(store) {
   };
   store.watch(["booted", "roms"], set);
   set();
+}
+
+/** Open "Connect your AI app" (web/ai-dialog.js) for AI access `ai` (a promise of web/ai.js's `AiAccess`). */
+function openAi(ai) {
+  Promise.all([ai, import("./ai-dialog.js")]).then(([a, d]) => d.openAiDialog(a), (err) => console.error("saturnus: AI access did not load", err));
+}
+
+/**
+ * The panel's "Connect your AI app…" and, while AI access is on, its
+ * status line ("AI access on · 1 app · Show"); and while an AI app is
+ * connected the calculator keeps running in a hidden tab (`keepRunning`,
+ * web/ai.js `keepsRunning`). The client is loaded as soon as the entry
+ * shows, so the click's activation is not spent on loading it.
+ */
+function watchAi(ai) {
+  const button = $("ai-connect");
+  const chip = $("ai-chip");
+  button.hidden = false;
+  button.addEventListener("click", () => openAi(ai));
+  ai.then((a) => {
+    a.load().catch(() => {});
+    const render = () => {
+      const on = a.state === "connected";
+      if (keepRunning !== a.keepsRunning) {
+        keepRunning = a.keepsRunning;
+        visibility?.(document.hidden);
+      }
+      chip.hidden = a.state === "disconnected";
+      if (chip.hidden) return;
+      const n = on ? a.mcp.grants.length : 0;
+      const show = document.createElement("button");
+      show.type = "button";
+      show.className = "link";
+      show.textContent = "Show";
+      show.addEventListener("click", () => openAi(ai));
+      chip.replaceChildren(on ? `AI access on · ${n === 1 ? "1 app" : `${n} apps`} · ` : "AI access: connecting… · ", show);
+    };
+    a.addEventListener("change", render);
+    render();
+  }, () => { button.hidden = true; });
 }
 
 /**
@@ -669,7 +711,7 @@ async function onFullscreenChange(bindings) {
   } catch { /* not granted */ }
 }
 
-async function main({ model = null, pwa: installed = null, onModel = null } = {}) {
+async function main({ model = null, pwa: installed = null, onModel = null, ai = null } = {}) {
   applySiteLinks(root);
   // The icon sprite (shared/icons.svg), fetched once.
   loadIcons();
@@ -723,7 +765,7 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
   ui.palette.attach(backend, store, {
     reference,
     bindings,
-    actions: () => appActions(backend, store, memory, bindings),
+    actions: () => appActions(backend, store, memory, bindings, ai),
     onMenu: async (menu) => {
       await (store.state.layer || setLayerOpen(memory, true));
       ui.layer.showMenu(menu.path);
@@ -880,7 +922,9 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
   // this may be the last moment before the system ends the page. About
   // the document, not the view: a hidden view keeps its calculator running
   // unless its host says otherwise (`setShown(false, {visibility: true})`).
-  visibility = (hidden) => backend.visibility(hidden || viewHidden);
+  // While an AI app's session is connected (web/ai.js), a hidden page
+  // keeps its calculator running (owner, option 1, iteration 55).
+  visibility = (hidden) => backend.visibility((hidden && !keepRunning) || viewHidden);
   document.addEventListener("visibilitychange", () => visibility(document.hidden));
   window.addEventListener("pagehide", () => backend.visibility(true));
   window.addEventListener("pageshow", () => visibility(document.hidden));
@@ -897,6 +941,7 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
   if (onModel) store.watch(["booted"], (s) => onModel(s.booted));
   watchTxLink(store);
   watchTxPeer(backend, store);
+  if (ai) watchAi(ai);
 
   // The tour offered once, after the first start, until taken or dismissed;
   // put away for this visit at the first key pressed on the calculator.
@@ -909,6 +954,8 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
   const pwa = (installed ?? installServiceWorker(backend.host, store)).catch(() => null);
   pwa.then((r) => r?.build && store.set({ build: r.build }));
   const screenOn = keepScreenOnWhileComputing(store);
+
+  aiParts = { backend, store, reference };
 
   // Handle for debugging and automated checks.
   window.saturnus = {
@@ -951,6 +998,10 @@ async function main({ model = null, pwa: installed = null, onModel = null } = {}
 
 /** Whether the host has said the view's calculator counts as hidden (`setShown`). */
 let viewHidden = false;
+/** Whether an AI app's session keeps the calculator running in a hidden page (`watchAi`). */
+let keepRunning = false;
+/** What an AI app's tools use of the view: `{backend, store, reference}` (set in `main`). */
+let aiParts = null;
 /** `backend.visibility` with the view's part (set in `main`). */
 let visibility = null;
 /** The kept widths clamped to the window (set in `main`). */
@@ -979,12 +1030,12 @@ let refreshRoms = null;
  * hidden view counts as a hidden page for the calculator (web/protocol.md
  * `visibility`: a computing machine in the browser stops).
  */
-export function mountCalculator(el, { shown: isShown = () => true, model = null, pwa = null, onModel = null } = {}) {
+export function mountCalculator(el, { shown: isShown = () => true, model = null, pwa = null, onModel = null, ai = null } = {}) {
   if (root) throw new Error("the calculator view is already mounted");
   root = el;
   setView(el, isShown);
   ui = findParts();
-  const ready = main({ model, pwa, onModel }).catch((err) => {
+  const ready = main({ model, pwa, onModel, ai }).catch((err) => {
     let status = $("status");
     if (!status) {
       status = document.createElement("p");
@@ -1000,6 +1051,8 @@ export function mountCalculator(el, { shown: isShown = () => true, model = null,
     show(m) {
       if (m) ready.then(() => showModel?.(m));
     },
+    /** The view's calculator for an AI app's tools (web/ai.js): `{backend, store, reference}`, once set up. */
+    ai: () => ready.then(() => aiParts),
     setShown(on, { visibility: counts = false } = {}) {
       const hidden = counts && !on;
       if (hidden !== viewHidden) {

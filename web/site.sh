@@ -20,6 +20,8 @@
 #                       the components, Files' modules and stylesheets
 #                       (web/tx/), the shared code (web/shared/: its
 #                       modules, components, stylesheets and icon sprite),
+#                       tab-mcp's vendored client (web/vendor/tab-mcp-client/,
+#                       loaded only for AI access),
 #                       the wasm package built by web/build.sh, and the
 #                       installable page's files from web/pwa/: the
 #                       manifest, the icons and the service worker, with
@@ -48,7 +50,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 page_files() {
   (
     cd "$here"
-    for f in ./*.html ./*.css ./*.js ./*.json ./*.svg components/*.js tx/*.js tx/*.css shared/*.js shared/*.css shared/*.svg shared/components/*.js; do
+    for f in ./*.html ./*.css ./*.js ./*.json ./*.svg components/*.js tx/*.js tx/*.css shared/*.js shared/*.css shared/*.svg shared/components/*.js vendor/tab-mcp-client/*.js; do
       [ -f "$f" ] && printf '%s\n' "${f#./}"
     done
   ) | LC_ALL=C sort

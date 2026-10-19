@@ -300,6 +300,23 @@ test("a fresh start of a running calculator tells saturnus tx it is gone", async
   assert.notEqual(tx.conn.machine, engineOf(hub, "48gx"));
 });
 
+test("an AI app's connection (who: ai): attached like Files, never hidden, not Files for peers, gone on a fresh start", async () => {
+  const { hub, page } = setup();
+  const emu = await page("emulator");
+  await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  const ai = await page("ai");
+  assert.equal(ai.conn.who, "ai");
+  await ai.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  assert.equal(emu.events("peers").length, 0, "an AI app is not Files");
+  assert.deepEqual(hub.engines().find((e) => e.model === "48gx").views, ["ai", "emulator"]);
+  const e = engineOf(hub, "48gx");
+  await emu.send("visibility", { hidden: true });
+  assert.notEqual(cmds(e, "visibility").at(-1)?.hidden, true, "the AI app's connection keeps it running");
+  await hub.bootKept(emu.conn, "48gx", ROM, "gx", true);
+  assert.equal(ai.events("gone").length, 1);
+  assert.notEqual(ai.conn.machine, engineOf(hub, "48gx"));
+});
+
 test("engines: the running calculators and their views, for the home page, which gets no engine of its own", async () => {
   const { hub, page } = setup();
   const home = await page("home");

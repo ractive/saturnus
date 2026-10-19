@@ -51,3 +51,7 @@ the calculators, the pacing exception while connected, the lazily loaded
 client in the offline cache list. During development against a local relay
 (`docker run ractive/tab-mcp`); for visitors once the hosted relay on
 ractive.ch is up (tab-mcp iteration 6).
+
+**Iteration 55** ([[iterations/iteration-55-ai-assistant]]) builds the web
+app's part against tab-mcp's client as it is (no pairing code yet); still
+open here: the desktop app's MCP server, the `.mcpb`, the skill and the plugin.

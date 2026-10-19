@@ -3,7 +3,9 @@
 //! document, `index.html`, with the home page, Calculator and Files): every
 //! page file at the top of `web/` (HTML, CSS, JS, JSON, SVG),
 //! `components/*.js`, `tx/*.js` and `tx/*.css`, and the shared code
-//! (`shared/*.js`, `shared/*.css`, `shared/*.svg`, `shared/components/*.js`).
+//! (`shared/*.js`, `shared/*.css`, `shared/*.svg`, `shared/components/*.js`)
+//! and the vendored `vendor/tab-mcp-client/*.js` (the web app's AI access,
+//! unused in the desktop app).
 //! Not the installable page's files (`web/pwa/`: the app has no network
 //! and registers no service worker), the tests, the docs or the build
 //! scripts.
@@ -59,6 +61,7 @@ fn page_files(web: &Path) -> std::io::Result<Vec<PathBuf>> {
     files_in(web, "tx", &[".js", ".css"], &mut files)?;
     files_in(web, "shared", &[".js", ".css", ".svg"], &mut files)?;
     files_in(web, "shared/components", &[".js"], &mut files)?;
+    files_in(web, "vendor/tab-mcp-client", &[".js"], &mut files)?;
     files.sort();
     Ok(files)
 }
@@ -75,7 +78,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     if site.exists() {
         std::fs::remove_dir_all(&site)?;
     }
-    for dir in ["components", "tx", "pkg", "shared/components"] {
+    for dir in [
+        "components",
+        "tx",
+        "pkg",
+        "shared/components",
+        "vendor/tab-mcp-client",
+    ] {
         std::fs::create_dir_all(site.join(dir))?;
     }
     for file in page_files(&web)? {

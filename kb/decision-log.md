@@ -4369,3 +4369,33 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
 - saturnng's 49G gives the same 61.877009 for `1.012030 →DATE DATE` sent
   over its Kermit server, so the clock wrap described above is the ROM's,
   not saturnus's. Wiki: hardware/clocks.
+
+## 2026-10-19 (AI access in the web app through tab-mcp, iteration 55)
+
+- **Which calculators.** The tools take an optional `calculator` id (the
+  model); without it, the one Calculator shows. The others are the kept
+  calculators the hub runs for Files, reached through a hub connection of
+  the AI access's own (`join {who: "ai"}`, attached with the kept ROM's
+  bytes), which never says hidden and lets go when the session ends. No
+  tool starts or stops a calculator.
+- **Confirmed in the page:** `store_variable` and `purge_variable` only
+  (tab-mcp's confirmation, `consequentialHint`). Key presses, `run_rpl`
+  and `run_function` are not: they are what a person does at the keyboard
+  while watching, `press_keys` can type anything `run_rpl` can, and a
+  question per run would break the write, run, read, fix loop. Reads are
+  `readOnlyHint`; results with calculator text are `untrustedContentHint`.
+- **The client is vendored**, the library's self-contained browser build
+  (`dist/cdn`) in `web/vendor/tab-mcp-client/` with `vendor.json`
+  (source, version, SHA-256s), loaded with `import()` only when AI access
+  is used, precached by the service worker like any page file. From the
+  published npm package, version and integrity pinned in the justfile
+  (0.1.0-alpha.0 since 2026-10-20); a local tab-mcp build only for
+  development. No new script origin; `connect-src`
+  gains `wss://relay.ractive.ch`.
+- **Off on the published site until the hosted relay runs**
+  (`HOSTED_RELAY` null in `web/ai-relay.js`); a page on localhost takes a
+  development relay from localStorage `saturnus.aiRelay`. Never in the
+  desktop app, which gets its own MCP server.
+- **Pacing:** while an AI app is connected (a relay session with at least
+  one app), Calculator does not send `visibility` hidden (owner, option 1);
+  no SharedWorker.

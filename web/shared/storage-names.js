@@ -36,7 +36,18 @@ export const KEYS = {
   tour: "saturnus.tour",
   /** The old view setting, removed on load (web/app.js). */
   view: "saturnus.view",
+  /** "Keep AI access on": connect to the relay again when the app opens (web/ai.js). */
+  aiKeepOn: "saturnus.aiKeepOn",
+  /** A development relay for AI access, honoured on a localhost page only (web/ai.js). */
+  aiRelay: "saturnus.aiRelay",
 };
+
+/**
+ * The key of the AI access's address secret for the relay at `origin`
+ * (tab-mcp's `storageKey`, web/ai.js): one secret per relay, so one
+ * relay never sees another's (tab-mcp DEC-052). "New address" replaces it.
+ */
+export const aiSecretKey = (origin) => `saturnus.aiSecret:${origin}`;
 
 /**
  * Files' localStorage keys, all under `saturnus.transfer.`. Besides its

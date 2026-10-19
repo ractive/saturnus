@@ -58,6 +58,7 @@ READMEs, crate docs on docs.rs and the changelog's unreleased section.
 | model | variant, machine | "HP 48GX" on first mention, then "48GX" |
 | speed: 1×, 2×, 4×, Max | real time, turbo | |
 | memory view | explorer, memory browser | the app's view of the calculator's variables |
+| AI app | AI tool, AI assistant, agent, LLM | the user's Claude, ChatGPT, Claude Code, Cursor, … that uses the calculators over MCP; "Connect your AI app…" opens its dialog |
 
 When a text needs a term not listed here, keep the one the app already
 uses most; when two compete, pick one and note it in the PR body.

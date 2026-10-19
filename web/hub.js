@@ -77,7 +77,7 @@ class Conn {
   constructor(port, id) {
     this.port = port;
     this.id = id;
-    /** "emulator" (the Calculator view, the default), "tx" (Files) or "home" (the home page: `engines` and the ROM commands, its `chooseRom` booting nothing). */
+    /** "emulator" (the Calculator view, the default), "tx" (Files), "home" (the home page: `engines` and the ROM commands, its `chooseRom` booting nothing) or "ai" (an AI app's calculator other than Calculator's, web/ai.js: attached like Files, never hidden, not Files for `peers`). */
     this.who = "emulator";
     /** Its own engine (made once the wasm is ready), and the engine it shows (its home, or a kept model's). */
     this.home = null;
@@ -195,9 +195,9 @@ export class Hub {
     return p;
   }
 
-  /** `join`: who the view is ("emulator", "tx" or "home"). */
+  /** `join`: who the view is ("emulator", "tx", "home" or "ai"). */
   join(conn, m) {
-    conn.who = ["tx", "home"].includes(m.who) ? m.who : "emulator";
+    conn.who = ["tx", "home", "ai"].includes(m.who) ? m.who : "emulator";
     return null;
   }
 
@@ -518,7 +518,7 @@ export class Hub {
     for (const c of pages) {
       if (c.home === e) c.home = null;
       if (c.machine === e) this.toHome(c);
-      if (c.who === "tx") {
+      if (attachedView(c)) {
         c.post({ type: "gone", message: CALC_STOPPED });
       } else {
         c.post({ type: "status", model: null, romName: "", running: false, halted: null, speed: "1", loop: "stopped", busy: false });
@@ -527,10 +527,10 @@ export class Hub {
     }
   }
 
-  /** Tell `e`'s Files pages but `except` that it is gone, and send them home. */
+  /** Tell `e`'s Files and AI pages but `except` that it is gone, and send them home. */
   dropTx(e, message, except = null) {
     for (const c of [...e.conns]) {
-      if (c === except || c.who !== "tx") continue;
+      if (c === except || !attachedView(c)) continue;
       c.post({ type: "gone", message });
       e.conns.delete(c);
       this.toHome(c);
@@ -883,4 +883,9 @@ export class Hub {
     this.tellPeers(conn, this.txOn(e), true);
     return r.result;
   }
+}
+
+/** A view that shows a kept calculator it attached to, and hears `gone` when it goes: Files, or an AI app's connection. */
+function attachedView(c) {
+  return c.who === "tx" || c.who === "ai";
 }

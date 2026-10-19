@@ -100,6 +100,12 @@ protocol runs in its own Worker and the page holds the link, Web Serial
 or the emulated calculator's serial port), the rest the emulator's
 ([[docs/saturnus-tx]]).
 
+In the browser the app also offers its calculators to the user's AI app
+through a tab-mcp relay (iteration 55, [[iterations/iteration-55-ai-assistant]]):
+`web/ai.js` loads tab-mcp's vendored browser client (`web/vendor/tab-mcp-client/`)
+on demand and registers the tools of `web/ai-tools.js`, which use the
+protocol's existing commands; nothing new in Rust.
+
 Public API sketch:
 
 ```text
