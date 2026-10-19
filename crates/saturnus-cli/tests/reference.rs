@@ -87,3 +87,17 @@ fn a_key_driven_model_answers_with_the_keys() {
     let text = String::from_utf8(saturnus_ref(&["SINH"]).stdout).unwrap();
     assert!(text.contains("saturnus ref --model 42s SINH"), "{text}");
 }
+
+#[test]
+fn the_39g_answers_with_the_keys_and_what_they_put_on_the_edit_line() {
+    let out = saturnus_ref(&["makelist", "--model", "39g"]);
+    assert!(out.status.success(), "{out:?}");
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("puts:   MAKELIST("), "{text}");
+    assert!(text.contains("MAKELIST(A^2,A,1,4,1)"), "{text}");
+    // Not an RPL command, and a function of three models: which ones.
+    let out = saturnus_ref(&["MAKELIST"]);
+    assert!(!out.status.success());
+    let err = String::from_utf8(out.stderr).unwrap();
+    assert!(err.contains("38g, 39g, 40g"), "{err}");
+}
