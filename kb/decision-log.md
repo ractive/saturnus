@@ -4307,3 +4307,20 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   their holds are fixed in emulated time. Tests: `protocol/tests.rs`
   `a_held_key_runs_at_1x_at_every_speed`, `web/test/speedhold-page.test.mjs`
   (42S ROM, 250 ms taps at Max; fails without the fix).
+
+## 2026-10-19 (28S: 0.00042 is stored unnormalised, ROM behaviour)
+
+- **"0.00042 ENTER MANT gives .0042 on the 28S" is the ROM, not the
+  CPU.** Traced with registers: the 28S parser's leading-zero loop
+  (#10938) leaves at the point of `0.`, and the point handler's GOTO
+  (#109C1, `68DF`, to #1099A) enters the digit loop, so the zeros after
+  the point become mantissa digits (B = 0004200000000, exponent 999 =
+  -1) and nothing normalises them. `.00042` goes through the zero loop
+  with the point seen and gives 4.2E-4. Every branch on the path matches
+  the instruction semantics; the 28C ROM has the same nibbles. The core
+  stays unchanged; the fact is in the wiki (`wiki: hardware/hp28s`
+  "Number entry"), unconfirmed on a real 28S (the owner has none).
+- **Not the cause of `0.5959 0.0001 HMS+` = .6 on the 48SX**: the 48SX
+  and 48GX parse 0.0001 normalised (MANT 1, XPON -4). The .6 comes from
+  the 48SX's own HMS+ code (the 48GX gives 1); not yet checked against
+  the saturnng oracle, so the example stays as generated.
