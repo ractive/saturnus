@@ -75,10 +75,14 @@ export function aiTools(deps) {
   const pace = deps.pace ?? { first: 40, poll: 40, limit: SETTLE_MS };
   /** One call at a time per calculator: two AI calls would mix their keys. */
   const queues = new Map();
-  const onCalculator = async (input, fn) => {
+  const onCalculator = async (input, fn, signal = null) => {
     const t = await targetOf(optionalString(input.calculator));
     const prev = queues.get(t.id) ?? Promise.resolve();
-    const run = prev.then(() => fn(t));
+    // A call the AI app gave up on while it waited presses nothing.
+    const run = prev.then(() => {
+      if (signal?.aborted) throw new Error("Cancelled");
+      return fn(t);
+    });
     const tail = run.catch(() => {});
     queues.set(t.id, tail);
     tail.then(() => {
@@ -109,7 +113,7 @@ export function aiTools(deps) {
       description: "The calculator's keys as press_keys names them, each with its legend, the functions its shifts give and its ALPHA letter.",
       inputSchema: { type: "object", properties: { calculator: CALCULATOR } },
       annotations: { readOnlyHint: true },
-      execute: (input) => onCalculator(input, async (t) => {
+      execute: (input, options) => onCalculator(input, async (t) => {
         const keys = await skinKeys(t);
         return {
           calculator: t.id,
@@ -117,7 +121,7 @@ export function aiTools(deps) {
           keys: keys.map((k) => strip({ name: k.name, label: k.label || null, left: k.left || null, right: k.right || null, alpha: k.alpha || null })),
           shifts: keys.filter((k) => /shift/.test(k.name)).map((k) => k.name),
         };
-      }),
+      }, options?.signal),
     },
     {
       name: "read_display",
@@ -132,7 +136,7 @@ export function aiTools(deps) {
         },
       },
       annotations: { readOnlyHint: true, untrustedContentHint: true },
-      execute: (input) => onCalculator(input, async (t) => display(t, String(input.format ?? "both"), { pixels: input.pixels === true, png })),
+      execute: (input, options) => onCalculator(input, async (t) => display(t, String(input.format ?? "both"), { pixels: input.pixels === true, png }), options?.signal),
     },
     {
       name: "press_keys",
@@ -147,7 +151,8 @@ export function aiTools(deps) {
         },
         required: ["keys"],
       },
-      execute: (input) => onCalculator(input, async (t) => {
+      annotations: { untrustedContentHint: true },
+      execute: (input, options) => onCalculator(input, async (t) => {
         ready(t);
         const keys = input.keys.map(String);
         const names = new Set((await skinKeys(t)).map((k) => k.name));
@@ -156,12 +161,12 @@ export function aiTools(deps) {
         t.backend.typeKeys(keys);
         await wait(t);
         return display(t, String(input.display ?? "both"), { png, extra: { pressed: keys.length, ...(await stillRunning(t)) } });
-      }),
+      }, options?.signal),
     },
     {
       name: "run_rpl",
       title: "Run RPL",
-      description: "48SX, 48GX, 49G and 28S: types the text on the command line and presses ENTER, as a person would, then waits until the calculator has finished. Returns the calculator's error message (null if none), the stack (48SX, 48GX, 49G) and the display as asked. A program's text is « … »; \\<< \\>> work too.",
+      description: "48SX, 48GX, 49G and 28S: types the text on a new command line and presses ENTER, as a person would, then waits until the calculator has finished. Refused while a command line is open on the 48SX, 48GX and 49G (finish or cancel it first); on the 28S, which cannot be read, check the display for an open line first. Returns the calculator's error message (null if none), the stack (48SX, 48GX, 49G) and the display as asked. A program's text is « … »; \\<< \\>> work too.",
       inputSchema: {
         type: "object",
         properties: {
@@ -171,7 +176,8 @@ export function aiTools(deps) {
         },
         required: ["text"],
       },
-      execute: (input) => onCalculator(input, async (t) => {
+      annotations: { untrustedContentHint: true },
+      execute: (input, options) => onCalculator(input, async (t) => {
         ready(t);
         const text = String(input.text);
         if (KEYED_RPL_MODELS.includes(t.model)) {
@@ -179,13 +185,18 @@ export function aiTools(deps) {
           return display(t, String(input.display ?? "both"), { png, extra: { ran: text, ...(await stillRunning(t)) } });
         }
         if (!RPL_MODELS.includes(t.model)) throw new Error(`The ${titleOf(t.model)} has no RPL command line. Use run_function or press_keys.`);
+        // The user's own line would be run together with the text: never typed into.
+        const open = await t.backend.commandLine();
+        if (open?.active) {
+          throw new Error(`The calculator has a command line open (${JSON.stringify(open.text)}). Read the display, then finish it (press_keys ["enter"]) or cancel it (press_keys ["on"], ATTN) before run_rpl.`);
+        }
         const r = await t.backend.run(text);
         const mode = t.model === "49g" ? await modeOf(t) : null;
         return display(t, String(input.display ?? "text"), {
           png,
           extra: strip({ ran: text, error: r.error ?? null, running: Boolean(r.running), commandLineOpen: !r.closed, mode }),
         });
-      }),
+      }, options?.signal),
     },
     {
       name: "read_stack",
@@ -196,12 +207,12 @@ export function aiTools(deps) {
         properties: { calculator: CALCULATOR, levels: { type: "integer", minimum: 1, maximum: 200, description: "At most this many levels. Default: 50." } },
       },
       annotations: { readOnlyHint: true, untrustedContentHint: true },
-      execute: (input) => onCalculator(input, async (t) => {
+      execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
         const stack = await t.backend.stack();
         const max = Number(input.levels ?? 50);
         return { calculator: t.id, depth: stack.length, levels: stack.slice(0, max).map((o, i) => levelText(o, i + 1)) };
-      }),
+      }, options?.signal),
     },
     {
       name: "list_variables",
@@ -209,11 +220,11 @@ export function aiTools(deps) {
       description: "48SX, 48GX, 49G: the current directory and the variables of HOME's tree (name, type, size in bytes; a directory with its own), read from memory (no key pressed).",
       inputSchema: { type: "object", properties: { calculator: CALCULATOR } },
       annotations: { readOnlyHint: true, untrustedContentHint: true },
-      execute: (input) => onCalculator(input, async (t) => {
+      execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
         const tree = await t.backend.memoryTree();
         return { calculator: t.id, current: tree.path, home: tree.variables.map(variableRow) };
-      }),
+      }, options?.signal),
     },
     {
       name: "read_variable",
@@ -225,12 +236,12 @@ export function aiTools(deps) {
         required: ["name"],
       },
       annotations: { readOnlyHint: true, untrustedContentHint: true },
-      execute: (input) => onCalculator(input, async (t) => {
+      execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
         const dir = dirOf(input.dir) ?? (await t.backend.memoryTree()).path;
         const r = await t.backend.editText({ dir, name: String(input.name) });
         return { calculator: t.id, dir, name: String(input.name), text: r.text };
-      }),
+      }, options?.signal),
     },
     {
       name: "store_variable",
@@ -247,14 +258,14 @@ export function aiTools(deps) {
         required: ["name", "text"],
       },
       annotations: { consequentialHint: true },
-      execute: (input) => onCalculator(input, async (t) => {
+      execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
         ready(t);
         const dir = dirOf(input.dir) ?? (await t.backend.memoryTree()).path;
         const r = await t.backend.storeText({ dir, name: String(input.name), text: String(input.text) });
         if (r.error) return { calculator: t.id, stored: false, error: r.error };
         return { calculator: t.id, stored: true, dir, name: String(input.name) };
-      }),
+      }, options?.signal),
     },
     {
       name: "purge_variable",
@@ -266,13 +277,13 @@ export function aiTools(deps) {
         required: ["name"],
       },
       annotations: { consequentialHint: true, destructiveHint: true },
-      execute: (input) => onCalculator(input, async (t) => {
+      execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
         ready(t);
         const dir = dirOf(input.dir) ?? (await t.backend.memoryTree()).path;
         await t.backend.purge(dir, String(input.name));
         return { calculator: t.id, purged: true, dir, name: String(input.name) };
-      }),
+      }, options?.signal),
     },
     {
       name: "run_function",
@@ -287,7 +298,8 @@ export function aiTools(deps) {
         },
         required: ["name"],
       },
-      execute: (input) => onCalculator(input, async (t) => {
+      annotations: { untrustedContentHint: true },
+      execute: (input, options) => onCalculator(input, async (t) => {
         ready(t);
         if (!FUNCTION_MODELS.includes(t.model)) throw new Error(`On the ${titleOf(t.model)} commands are typed: use run_rpl.`);
         const index = await reference.index(t.model);
@@ -296,7 +308,7 @@ export function aiTools(deps) {
         if (!command.steps) throw new Error(`${command.name} has no keys to press: it is typed into an equation in the Solver.`);
         await pressFunction(t.backend, t.store, index.km, command.steps, { pace });
         return display(t, String(input.display ?? "both"), { png, extra: { ran: command.name, keys: command.keysText, ...(await stillRunning(t)) } });
-      }),
+      }, options?.signal),
     },
     {
       name: "lookup_command",

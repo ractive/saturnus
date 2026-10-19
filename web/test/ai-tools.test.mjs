@@ -210,3 +210,31 @@ test("calls on one calculator run one after the other", async () => {
   await Promise.all([a, b]);
   assert.deepEqual(order, ["start A", "end A", "start B", "end B"]);
 });
+
+test("run_rpl refuses while the user's command line is open, and types nothing", async () => {
+  const c = fake("48gx", { commandLine: { active: true, text: "12", cursor: 2 }, run: { closed: true } });
+  await assert.rejects(call(tools({ "48gx": c }).run_rpl, { text: "1" }), /command line open \("12"\).*"enter".*"on"/s);
+  assert.ok(!c.calls.some(([cmd]) => cmd === "run"), "nothing typed");
+});
+
+test("the tools whose results carry calculator text say it is untrusted", () => {
+  const t = tools({ "48gx": fake("48gx") });
+  for (const name of ["read_display", "read_stack", "list_variables", "read_variable", "press_keys", "run_rpl", "run_function"]) {
+    assert.equal(t[name].annotations?.untrustedContentHint, true, name);
+  }
+});
+
+test("a queued call cancelled before its turn presses nothing", async () => {
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const c = fake("48gx", { run: async () => { await gate; return { closed: true }; }, commandLine: { active: false }, stack: [] });
+  const t = tools({ "48gx": c });
+  const first = call(t.run_rpl, { text: "A", display: "none" });
+  const abort = new AbortController();
+  const second = t.press_keys.execute({ keys: ["1"] }, { signal: abort.signal, client: { grantId: "g", id: "x", host: "x" } });
+  abort.abort();
+  release();
+  await first;
+  await assert.rejects(second, /Cancelled/);
+  assert.ok(!c.calls.some(([cmd]) => cmd === "typeKeys"), "no key pressed");
+});
