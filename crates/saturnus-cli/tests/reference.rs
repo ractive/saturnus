@@ -71,3 +71,19 @@ fn help_texts_belong_to_their_subcommands() {
     assert!(line("rom").contains("Download ROM files"), "{help}");
     assert!(!line("ref").contains("Download ROM"), "{help}");
 }
+
+#[test]
+fn a_key_driven_model_answers_with_the_keys() {
+    let out = saturnus_ref(&["->pol", "--model", "42s", "--json"]);
+    assert!(out.status.success(), "{out:?}");
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["name"], "\u{2192}POL");
+    assert_eq!(v["keys"], "⇧ CONVERT →POL");
+    assert!(v["examples"].as_array().is_some_and(|a| !a.is_empty()));
+    let out = saturnus_ref(&["acosh", "--model", "42s"]);
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("keys:   XEQ \"ACOSH\""), "{text}");
+    // An RPL command that is a 42S function too points there.
+    let text = String::from_utf8(saturnus_ref(&["SINH"]).stdout).unwrap();
+    assert!(text.contains("saturnus ref --model 42s SINH"), "{text}");
+}

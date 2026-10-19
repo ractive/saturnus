@@ -742,6 +742,7 @@ files by `scripts/commands-json.py`. `saturnus ref` looks a command up
 saturnus ref STO --model 48sx     # description, stack effect, menu, examples, manual pages
 saturnus ref '->LIST' --json      # the same as JSON, every model (menus per model)
 saturnus ref '\.S'                # ∫ by the calculator's ASCII code (\-> \GS \v/ \pi ...)
+saturnus ref '->POL' --model 42s  # a 42S function: its keys (⇧ CONVERT →POL), examples, manual page
 ```
 
 An exact name wins. Otherwise the query may differ in case, use the
@@ -838,6 +839,39 @@ link is `<url>#page=<n>`:
 | HP 48G Series User's Guide | https://literature.hpcalc.org/community/hp48g-ug-en.pdf |
 | HP 48G Series Advanced User's Reference Manual | https://literature.hpcalc.org/community/hp48g-aur-en.pdf |
 | HP 49G Advanced User's Guide | https://literature.hpcalc.org/official/hp49g-aug-en.pdf |
+| HP-42S Owner's Manual | https://literature.hpcalc.org/community/hp42s-om-en.pdf |
+
+### Key-driven models
+
+The 42S has no command line: a function is a key, a shifted key, a menu
+key under a menu, or XEQ and its name. Its reference is
+`keys-42s.json`, written by hand from the owner's manual's operation
+index (every function; descriptions ours): per function the keys from
+the normal state (menus closed, no message, no entry in progress), each
+with what it shows (`⇧ CONVERT →POL`), or the name XEQ runs it by,
+spelt through the ALPHA menu with the file's `alpha` keys. The format
+is documented in `crates/saturnus-refgen/src/keyed.rs`; another model
+needs only its `keys-<model>.json` (Search, `saturnus ref` and
+`commands-json.py` take every such file).
+
+`saturnus-refgen keys` checks the file on the emulator: from the booted
+state it presses every function's keys, compares each label with the
+key's legend on the skin or with the menu box the display shows, and
+runs the examples into `examples-42s.json` (the display before and
+after, as text). The display is read with fonts learned at run time from
+the characters the calculator is made to type, so no font is stored.
+`saturnus-refgen screen` prints the display after some keys, for writing
+the file:
+
+```sh
+saturnus-refgen keys --model 42s --rom $R/hp42s.rom --data crates/saturnus-cli/data/commands/keys-42s.json \
+    --out crates/saturnus-cli/data/commands/examples-42s.json
+saturnus-refgen screen --model 42s --rom $R/hp42s.rom --data crates/saturnus-cli/data/commands/keys-42s.json \
+    --press "shift 5 down"     # x:0.0000 / [IP][FP][RND][ABS][SIGN][MOD]
+```
+
+It takes a second; the ROM-gated test `keyed_references_regenerate_byte_for_byte`
+(`saturnus-refgen`) runs it and compares the file.
 
 ## Building the app
 

@@ -2,7 +2,7 @@
 //! `saturnus-refgen`): the ROM's command list per model with its menu
 //! categories, our descriptions and stack effects, the examples generated
 //! on the emulator, and deep links into HP's manuals. Embedded at build
-//! time; read only.
+//! time; read only. The key-driven models (the 42S) are [`crate::keyref`]'s.
 
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -33,6 +33,11 @@ const EXAMPLES: [&[u8]; 3] = [
 const REFERENCE: &[u8] = packed!("reference.json");
 const MANUALS: &[u8] = packed!("manuals.json");
 const CATEGORIES: &[u8] = packed!("categories.json");
+
+/// `manuals.json`, parsed as `T`.
+pub(crate) fn manuals_file<T: serde::de::DeserializeOwned>() -> Result<T> {
+    unpack(MANUALS).context("manuals")
+}
 
 /// An embedded file parsed as `T`.
 fn unpack<T: serde::de::DeserializeOwned>(packed: &[u8]) -> Result<T> {
@@ -306,12 +311,30 @@ pub enum Found {
 /// it names several.
 pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
     let d = data()?;
-    if let Some(m) = model
-        && !MODELS.contains(&m)
-    {
-        bail!("no command reference for {m:?}: it covers 48sx, 48gx and 49g");
+    let keyed = crate::keyref::models();
+    if let Some(m) = model {
+        if keyed.contains(&m) {
+            return crate::keyref::lookup(m, query);
+        }
+        if !MODELS.contains(&m) {
+            bail!(
+                "no command reference for {m:?}: it covers {} and {}",
+                MODELS.join(", "),
+                keyed.join(", ")
+            );
+        }
     }
-    let name = match resolve(d, query)? {
+    let resolved = match resolve(d, query) {
+        Ok(r) => r,
+        // Not an RPL command: a key-driven model's function, when one
+        // model has it.
+        Err(e) if model.is_none() => match crate::keyref::models_with(query).as_slice() {
+            [m] => return crate::keyref::lookup(m, query),
+            _ => return Err(e),
+        },
+        Err(e) => return Err(e),
+    };
+    let name = match resolved {
         Resolved::One(n) => n,
         Resolved::Many(v) => return Ok(Found::Many(v.into_iter().map(String::from).collect())),
     };
@@ -359,6 +382,15 @@ pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
         && let Some(o) = out.as_object_mut()
     {
         o.insert("no_examples".into(), Value::Object(skipped));
+    }
+    if model.is_none() {
+        // The key-driven models with a function of this name.
+        let also = crate::keyref::models_with(name);
+        if !also.is_empty()
+            && let Some(o) = out.as_object_mut()
+        {
+            o.insert("key_models".into(), json!(also));
+        }
     }
     Ok(Found::One(out))
 }
@@ -441,7 +473,7 @@ const CODES: [(char, &str); 18] = [
 ];
 
 /// `name` with its HP characters as translation codes.
-fn to_codes(name: &str) -> String {
+pub(crate) fn to_codes(name: &str) -> String {
     name.chars()
         .map(|c| {
             CODES
@@ -454,7 +486,7 @@ fn to_codes(name: &str) -> String {
 
 /// `query` with translation codes turned into HP characters, `None` when
 /// it holds none.
-fn from_codes(query: &str) -> Option<String> {
+pub(crate) fn from_codes(query: &str) -> Option<String> {
     if !query.contains('\\') {
         return None;
     }
@@ -466,7 +498,7 @@ fn from_codes(query: &str) -> Option<String> {
 }
 
 /// A friendly ASCII spelling of `name`, uppercase: `->LIST`, `SIGMA+`.
-fn friendly(name: &str) -> String {
+pub(crate) fn friendly(name: &str) -> String {
     name.chars()
         .map(|c| match c {
             '\u{2192}' => "->".to_string(),
@@ -536,6 +568,9 @@ fn placement_texts(c: &Value) -> [Option<String>; 3] {
 
 /// `help`'s entry as text for the terminal.
 pub fn text(entry: &Value) -> String {
+    if entry["keyed"] == true {
+        return crate::keyref::text(entry);
+    }
     let s = |v: &Value| v.as_str().unwrap_or("").to_string();
     let mut out = s(&entry["name"]);
     if let Some(c) = entry["category_source"].as_object() {
@@ -612,6 +647,14 @@ pub fn text(entry: &Value) -> String {
     if let Some(why) = entry["no_examples"].as_object() {
         for (model, reason) in why {
             out.push_str(&format!("\nno example ({model}): {}\n", s(reason)));
+        }
+    }
+    if let Some(also) = entry["key_models"].as_array() {
+        for m in also.iter().filter_map(Value::as_str) {
+            out.push_str(&format!(
+                "\nalso a {m} function: saturnus ref --model {m} {}\n",
+                s(&entry["name"])
+            ));
         }
     }
     if let Some(links) = entry["manuals"].as_array().filter(|a| !a.is_empty()) {
