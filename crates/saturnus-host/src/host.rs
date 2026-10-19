@@ -228,6 +228,13 @@ impl KeyQueue {
         !self.active.is_empty() || !self.pending.is_empty()
     }
 
+    /// A key the user pressed is down and not yet released: its hold
+    /// must run at 1x, or a tap at a higher speed reads as a long hold
+    /// (the 42S shows NULL after about a second).
+    pub fn held(&self) -> bool {
+        self.active.iter().any(|p| !p.up)
+    }
+
     /// Queue a press of `name` (held until [`KeyQueue::release`]); false
     /// if the model has no such key.
     pub fn press(&mut self, name: &str) -> bool {
@@ -749,6 +756,11 @@ impl Emulator {
     /// Keys are down or queued: run in short slices.
     pub fn keys_busy(&self) -> bool {
         self.queue.busy()
+    }
+
+    /// A key the user pressed is still down ([`KeyQueue::held`]).
+    pub fn keys_held(&self) -> bool {
+        self.queue.held()
     }
 
     /// Errors from refused key presses since the last call.

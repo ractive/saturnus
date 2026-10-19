@@ -59,6 +59,7 @@ struct Fake {
     now: f64,
     busy_until: f64,
     keys: bool,
+    held: bool,
     cost: f64,
     wall: Manual,
     memory: u64,
@@ -72,6 +73,7 @@ impl Fake {
             now: 0.0,
             busy_until: 0.0,
             keys: false,
+            held: false,
             cost: 0.0,
             wall: wall.clone(),
             memory: 0,
@@ -104,6 +106,9 @@ impl Core for Fake {
     }
     fn keys_busy(&self) -> bool {
         self.keys
+    }
+    fn keys_held(&self) -> bool {
+        self.held
     }
     fn cycles(&self) -> u64 {
         (self.now * 1000.0) as u64
@@ -208,6 +213,32 @@ fn computing_runs_at_the_speed() {
             let r = emulated / wall;
             assert!((r - want).abs() < want * 0.05, "{speed:?}: rate {r}");
             assert_eq!(lp.state(), LoopState::Frame);
+        }
+    }
+}
+
+#[test]
+fn a_held_key_runs_at_1x_at_every_speed() {
+    for pacing in [Pacing::WORKER, Pacing::NATIVE] {
+        for speed in [Speed::Two, Speed::Four, Speed::Max] {
+            let (mut lp, mut core, clock) = started(pacing);
+            lp.speed = speed;
+            core.busy_until = f64::INFINITY;
+            core.cost = 0.01;
+            core.keys = true;
+            core.held = true;
+            lp.schedule(&core, clock.now_ms());
+            rate(&mut lp, &mut core, &clock, 100.0);
+            let (emulated, wall) = rate(&mut lp, &mut core, &clock, 1000.0);
+            let r = emulated / wall;
+            assert!((r - 1.0).abs() < 0.05, "{pacing:?} {speed:?}: rate {r}");
+            // Released, the queued rest runs at the speed again.
+            core.held = false;
+            let (emulated, wall) = rate(&mut lp, &mut core, &clock, 1000.0);
+            assert!(
+                emulated / wall > 1.5,
+                "{pacing:?} {speed:?}: {emulated} over {wall}"
+            );
         }
     }
 }

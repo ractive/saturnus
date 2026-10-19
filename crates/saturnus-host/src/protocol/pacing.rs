@@ -168,6 +168,8 @@ pub(crate) trait Core {
     fn idle_ms(&self) -> Option<f64>;
     /// Keys are down or queued.
     fn keys_busy(&self) -> bool;
+    /// A key the user pressed is still down.
+    fn keys_held(&self) -> bool;
     /// CPU cycles since power-on.
     fn cycles(&self) -> u64;
     /// The user memory's change counter.
@@ -183,6 +185,9 @@ impl Core for Emulator {
     }
     fn keys_busy(&self) -> bool {
         Emulator::keys_busy(self)
+    }
+    fn keys_held(&self) -> bool {
+        Emulator::keys_held(self)
     }
     fn cycles(&self) -> u64 {
         self.machine().cycles()
@@ -408,7 +413,14 @@ impl Loop {
             return Ok(());
         }
         self.ticks += 1;
-        let max = self.speed == Speed::Max;
+        // A key held by the user runs at 1x whatever the speed, so a tap
+        // is as short as on the calculator.
+        let speed = if core.keys_held() {
+            Speed::One
+        } else {
+            self.speed
+        };
+        let max = speed == Speed::Max;
         let budget = if max {
             self.pacing.max_budget_ms
         } else {
@@ -416,7 +428,7 @@ impl Loop {
         };
         self.behind_ms = self.run_slices(core, clock, self.behind_ms, budget, true, false)?;
         if self.behind_ms == 0.0 {
-            let factor = self.speed.factor();
+            let factor = speed.factor();
             let own = if max {
                 self.pacing.max_emulated_ms
             } else {

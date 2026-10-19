@@ -4294,3 +4294,16 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   ROM revision (fragile, and ROM digging against the clean-room rule),
   hiding time from it (breaks the clock), or pressing ON for the user
   when the ROM switches off (a workaround). No setting for it.
+
+## 2026-10-19 (fix: a held key runs at 1x)
+
+- **Root cause of "1 ENTER 2 ENTER + shows NULL on the 42S" (owner, at a
+  speed above 1x).** While keys were down, the passes ran at the chosen
+  speed: at Max up to 1000 emulated ms per pass, so a 250 ms click lasted
+  seconds of emulated time. The 42S cancels a key held about a second
+  (NULL); the 48 and 49 auto-repeat a held key; every model was affected.
+- **Fix**: while a key the user pressed is down (`KeyQueue::held`), a pass
+  runs at 1x whatever the speed. Queued and typed presses keep the speed:
+  their holds are fixed in emulated time. Tests: `protocol/tests.rs`
+  `a_held_key_runs_at_1x_at_every_speed`, `web/test/speedhold-page.test.mjs`
+  (42S ROM, 250 ms taps at Max; fails without the fix).
