@@ -163,13 +163,54 @@ Files for `peers`.
 - [x] `web/app.js`: no `visibility` hidden while a session is connected
 - [x] Unit tests: `web/test/ai-tools.test.mjs` (fake backends), `hub.test.mjs` (`ai`)
 - [x] Page test `web/test/ai-page.test.mjs`: a local tab-mcp relay, the page connected by a click, the MCP SDK client calling the tools on a booted 48GX and 42S (ROM-gated; skipped without tab-mcp, Bun or Chrome)
-- [ ] Measure the hidden-tab freeze with a session connected (10-15 minutes hidden, periodic tool calls; normal and Energy Saver), method and result below
+- [x] Measure the hidden-tab freeze with a session connected (10-15 minutes hidden, periodic tool calls; normal and Energy Saver), method and result below
 - [x] README (web/README.md "AI tools"), protocol.md (`who: "ai"`), storage names
 - [ ] Gates, PR
 
 ## Hidden-tab measurement
 
-Method and result: to be filled in.
+Owner, 2026-10-19: does Chrome freeze a hidden saturnus tab (Page
+Lifecycle freeze: the hub's Worker and the relay's WebSocket would stop
+together) while an AI session is connected?
+
+**Method** (a script, not committed; run on the owner's Mac, Chrome
+155.0.8059.82, macOS on AC power, 2026-10-19): a static server for
+`web/`, a local tab-mcp relay (`bun packages/tab-mcp/src/main.ts`, sqlite
+store), a **headed** Chrome with a fresh profile and the DevTools port.
+The page boots the 48GX, connects by a real click on "Connect your AI
+tool", and logs `freeze`, `resume`, `visibilitychange`, `pagehide` and
+`pageshow` with their times. A second tab is opened and brought to the
+front, so the saturnus tab is hidden (`document.visibilityState`
+"hidden"). The MCP SDK client then calls a tool once a minute: `run_rpl`
+with `« 1 150 START NEXT » EVAL 1 +` (a few seconds of emulated
+computation and a counter, so a stopped calculator or a frozen tab would
+show as a timeout or a counter that does not move) for 15 minutes; the
+same with Energy Saver on (profile preference
+`performance_tuning.battery_saver_mode.state = 3`, "always", not checked in
+the settings page); and `press_keys` (`1`, `plus`) for 10 minutes. Then the
+tab is shown again and the log read.
+
+**Result**: no freeze in any run. The only lifecycle events were
+`visibilitychange` hidden and, at the end, visible; the session stayed
+connected; every call answered with the counter one higher.
+
+| Run | Calls | Answered | Time per call |
+|---|---|---|---|
+| `run_rpl`, 15 min | 15 | 15 | 0.1 s (1.3-11.5 s for four calls while `cargo` builds ran beside it) |
+| `run_rpl`, Energy Saver, 15 min | 15 | 15 | 0.1 s (one 2.1 s) |
+| `press_keys`, 10 min | 10 | 10 | 3.0 s every time |
+
+`press_keys` takes 3 s in a hidden tab because it waits for the keys with
+the page's timers (`settle`, web/keys28.js), which Chrome runs at most
+once a second in a background page; `run_rpl` waits in the Worker and is
+not slowed. That is the browser's normal background throttling, not a
+freeze, and acceptable. So the dialog only says that the calculators keep
+running in the background; no "keep the tab visible" sentence is needed
+for Chrome today. Not measured: a tab hidden for hours (Chrome's
+discarding under memory pressure), Safari and Firefox, a phone (where a
+background tab is suspended outright, so AI access there is for a visible
+tab), and Energy Saver as set in the settings page (if a later Chrome
+freezes such tabs, add the sentence then).
 
 ## Waits for tab-mcp
 

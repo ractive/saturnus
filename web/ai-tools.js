@@ -52,7 +52,7 @@ The models fall into three families:
 - 28S: RPL too, but run_rpl types through its keys and nothing reads its memory: check results with read_display.
 - 42S, 27S, 17BII, 17B, 19BII, 38G, 39G, 40G (key-driven): run_function presses a function's keys by its name, from lookup_command's reference (on the 42S also XEQ "NAME"). On the 38G, 39G and 40G it puts the function on HOME's edit line, which is algebraic (SIN(45)); type the arguments and ENTER with press_keys.
 
-Work in small steps: press or run, then read the display (read_display) or the stack to check what happened before the next step. press_keys and run_function return the display afterwards. Key names come from list_keys (shifted functions are the shift key, then the key: "leftshift", "sin"). A shift or ALPHA stays pending until the next key: look at the annunciators. Long presses are not possible; every press is a normal tap.
+Work in small steps: press or run, then read the display (read_display) or the stack to check what happened before the next step. press_keys and run_function return the display afterwards. Key names come from list_keys: digits are "0" to "9", operators "plus", "minus", "multiply", "divide", and a shifted function is the shift key, then the key ("leftshift", "sin"). A shift or ALPHA stays pending until the next key: look at the annunciators. Long presses are not possible; every press is a normal tap.
 
 RPL basics: numbers and objects go on the stack, commands take their arguments from it (1 2 + gives 3). Programs are « … », names 'X', strings "…", lists { … }. Store with 'NAME' STO or store_variable; run a program by its name. Character codes such as \\<< \\>> \\-> work in place of « » →. On the 49G, flag -95 set means algebraic mode, where RPN text does not parse: run_rpl says "mode": "algebraic"; type algebraic syntax there, or run CF(-95) to switch to RPN mode.
 
@@ -142,7 +142,7 @@ export function aiTools(deps) {
         type: "object",
         properties: {
           calculator: CALCULATOR,
-          keys: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 200, description: "Key names, pressed in order: [\"1\", \"enter\", \"2\", \"+\"]." },
+          keys: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 200, description: "Key names, pressed in order: [\"1\", \"enter\", \"2\", \"plus\"]." },
           display: DISPLAY,
         },
         required: ["keys"],

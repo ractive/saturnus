@@ -21,7 +21,7 @@ function fake(model, answers = {}) {
     get(_, cmd) {
       return (...args) => {
         calls.push([cmd, ...args]);
-        if (cmd === "skin") return Promise.resolve({ keys: [{ name: "1", label: "1" }, { name: "enter", label: "ENTER" }, { name: "+", label: "+" }, { name: "leftshift", label: "" }, { name: "sin", label: "SIN", left: "ASIN" }, { name: "on", label: "EXIT" }] });
+        if (cmd === "skin") return Promise.resolve({ keys: [{ name: "1", label: "1" }, { name: "enter", label: "ENTER" }, { name: "plus", label: "+" }, { name: "leftshift", label: "" }, { name: "sin", label: "SIN", left: "ASIN" }, { name: "on", label: "EXIT" }] });
         if (cmd === "stats") return Promise.resolve({ loop: "sleep" });
         if (cmd === "typeKeys") return undefined;
         const a = answers[cmd];

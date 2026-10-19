@@ -1109,6 +1109,9 @@ through the relay while the tab is open. Nothing is installed.
 - **Pacing**: while a session is connected, Calculator sends no
   `visibility` hidden, so a computation goes on in a background tab
   (owner's option 1); the AI app's own hub connections never say hidden.
+  Measured in Chrome 155 (iteration 55): a hidden tab with a session is
+  not frozen, also with Energy Saver on; `press_keys` takes about 3 s
+  there, as Chrome runs a background page's timers once a second.
 - Tests: `test/ai-tools.test.mjs` (the tools on fake calculators),
   `test/hub.test.mjs` (`who: "ai"`), `test/ai-page.test.mjs` (a local
   relay, the page connected by a click, the MCP SDK client on a booted

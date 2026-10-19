@@ -78,7 +78,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     if site.exists() {
         std::fs::remove_dir_all(&site)?;
     }
-    for dir in ["components", "tx", "pkg", "shared/components", "vendor/tab-mcp-client"] {
+    for dir in [
+        "components",
+        "tx",
+        "pkg",
+        "shared/components",
+        "vendor/tab-mcp-client",
+    ] {
         std::fs::create_dir_all(site.join(dir))?;
     }
     for file in page_files(&web)? {
