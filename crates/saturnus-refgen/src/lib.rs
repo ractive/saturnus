@@ -6,10 +6,12 @@
 //! - [`menus`]: each command's menus, from the ROM's menu definitions.
 //! - [`reference`]: our descriptions and the inputs to run.
 //! - [`examples`]: those inputs run on each model.
+//! - [`hp28`]: the 28S, driven by keys and read off its display.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod catalog;
 pub mod examples;
+pub mod hp28;
 pub mod menus;
 pub mod names;
 pub mod reference;

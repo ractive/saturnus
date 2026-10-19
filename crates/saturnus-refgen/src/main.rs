@@ -19,7 +19,10 @@ catalog   the ROM's command names (crates/saturnus-cli/data/commands/<model>.jso
 examples  runs the reference's inputs (crates/saturnus-cli/data/commands/examples-<model>.json)
 menus     each command's menus from the ROM's menu definitions, into the catalog
           (written to --out) and into categories.json (updated in place)
-M is 48sx, 48gx or 49g.";
+M is 48sx, 48gx, 49g or 28s. The 28S has no Kermit server: its catalog is the
+ROM's CATALOG read off the display (menus and menu keys kept from --out, which
+come from its Reference Manual), its examples are typed by keys and read off
+the display, and it has no menus run.";
 
 #[derive(Debug, Default)]
 struct Args {
@@ -93,6 +96,19 @@ fn main() -> Result<()> {
     let rom = a.rom.context("--rom is required")?;
     let out = a.out.context("--out is required")?;
     let text = match cmd.as_str() {
+        "catalog" if model == saturnus_core::Model::Hp28s => {
+            let old: Option<Catalog> = if out.exists() {
+                Some(read_json(&out)?)
+            } else {
+                None
+            };
+            let cat = catalog::generate_28s(&rom, old.as_ref())?;
+            eprintln!("{} commands", cat.commands.len());
+            catalog::to_file_text(&cat)?
+        }
+        "menus" if model == saturnus_core::Model::Hp28s => {
+            bail!("the 28S's menus come from its Reference Manual, not from the ROM")
+        }
         "catalog" => {
             let cat = catalog::generate(model, &rom)?;
             eprintln!("{} commands", cat.commands.len());
