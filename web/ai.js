@@ -85,15 +85,27 @@ class HubTarget {
  * Events: `change` whenever the state, the apps or the setting changed.
  */
 export class AiAccess extends EventTarget {
-  constructor({ calculatorView, relay = relayUrl(), storage = globalThis.localStorage } = {}) {
+  constructor({
+    calculatorView,
+    relay = relayUrl(),
+    storage = globalThis.localStorage,
+    hub = { running: hubRunning, client: (who) => new HubClient({ who }) },
+    roms = { kept: (models) => keptRoms(undefined, models), bytes: (sha256) => keptRomBytes(sha256) },
+  } = {}) {
     super();
     this.calculatorView = calculatorView;
+    /** The calculators' hub (tests give a fake): whether it runs, a new connection. */
+    this.hub = hub;
+    /** The kept ROMs (web/tx/kept-roms.js): `kept(models)`, `bytes(sha256)`. */
+    this.roms = roms;
+    /** Counts the sessions' ends: an attach that outlived its session lets go. */
+    this.session = 0;
     this.relay = relay;
     this.storage = storage;
     /** The `TabMcp`, once loaded. */
     this.mcp = null;
     this.loading = null;
-    /** The hub connections to calculators other than Calculator's, by model. */
+    /** The hub connections to calculators other than Calculator's, by model: a promise of each, shared by parallel calls. */
     this.attached = new Map();
     this.lobby = null;
     this.error = null;
@@ -200,7 +212,8 @@ export class AiAccess extends EventTarget {
 
   /** The other calculators' connections let go: the session ended. */
   release() {
-    for (const t of this.attached.values()) t.client.close();
+    this.session++;
+    for (const p of this.attached.values()) p.then((t) => t.client.close(), () => {});
     this.attached.clear();
     this.lobby?.close();
     this.lobby = null;
@@ -226,8 +239,8 @@ export class AiAccess extends EventTarget {
     const shown = v?.store.state.booted ?? null;
     const out = [];
     if (shown) out.push({ id: shown, model: shown, title: titleOf(shown), rom: v.store.state.romName || null, shown: true });
-    if (hubRunning()) {
-      this.lobby ??= new HubClient({ who: "ai" });
+    if (this.hub.running()) {
+      this.lobby ??= this.hub.client("ai");
       const engines = await this.lobby.request("engines");
       for (const e of engines) {
         if (e.model === shown || out.some((c) => c.id === e.model)) continue;
@@ -247,18 +260,44 @@ export class AiAccess extends EventTarget {
     }
     const have = this.attached.get(id);
     if (have) return have;
+    // One attach per calculator, whoever asks meanwhile; forgotten when it fails.
+    const attach = this.attach(id, this.session, () => this.attached.get(id) === attach && this.attached.delete(id));
+    this.attached.set(id, attach);
+    attach.catch(() => {
+      if (this.attached.get(id) === attach) this.attached.delete(id);
+    });
+    return attach;
+  }
+
+  /**
+   * A hub connection attached to the running calculator `id` (session
+   * `session`): closed again when the attach fails, when the calculator
+   * goes (`forget` drops it from `attached`), or when the session ended
+   * while it waited.
+   */
+  async attach(id, session, forget) {
     const running = (await this.calculators()).find((c) => c.id === id);
     if (!running) throw new Error(`No calculator ${id} is running. list_calculators names them.`);
-    const kept = (await keptRoms(undefined, [...globalThis.SATURNUS_MODEL_ORDER])).find((r) => r.model === id);
-    const rom = kept ? await keptRomBytes(kept.sha256) : null;
+    const kept = (await this.roms.kept([...globalThis.SATURNUS_MODEL_ORDER])).find((r) => r.model === id);
+    const rom = kept ? await this.roms.bytes(kept.sha256) : null;
     if (!rom) throw new Error(`The ${titleOf(id)} cannot be reached: its ROM is not kept in this browser.`);
-    const client = new HubClient({ who: "ai" });
+    if (session !== this.session) throw new Error("AI access was turned off.");
+    const client = this.hub.client("ai");
     const t = new HubTarget(id, client);
     client.addEventListener("gone", () => {
-      if (this.attached.get(id) === t) this.attached.delete(id);
+      forget();
+      client.close();
     });
-    await client.request("attach", { model: id, rom, romName: kept.name });
-    this.attached.set(id, t);
+    try {
+      await client.request("attach", { model: id, rom, romName: kept.name });
+    } catch (err) {
+      client.close();
+      throw err;
+    }
+    if (session !== this.session) {
+      client.close();
+      throw new Error("AI access was turned off.");
+    }
     return t;
   }
 }
