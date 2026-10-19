@@ -131,9 +131,9 @@ Clean room: never open `~/devel/hp-emulator-refs/`.
   the 42S
 - [x] 42S reference: every function of the manual's operation index
 - [x] 27S, 17BII, 17B, 19BII references
-- [ ] 28S reference (RPL pipeline, Reference Manual)
+- [x] 28S reference (RPL pipeline, Reference Manual)
 - [x] 38G, 39G, 40G references and running
-- [ ] Search texts and tour/README mention the new models
+- [x] Search texts and tour/README mention the new models
 - [x] Page test: a 42S function chosen in Search runs (ROM-gated)
 - [ ] Gates, review, merge, deploy
 
