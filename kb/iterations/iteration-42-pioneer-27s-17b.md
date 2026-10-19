@@ -2,7 +2,7 @@
 title: "Iteration 42: HP 27S, 17BII and 17B (one Lewis, the 42S board)"
 type: iteration
 date: 2026-10-12
-status: in-progress
+status: completed
 branch: iter-42/pioneer-27s-17b
 tags:
   - iteration
@@ -160,7 +160,7 @@ and texture rules of iteration 24.
   open as `questions/`. Feasibility note in the PR before any core code.
 - [x] ROMs: check the owner's images, copy to the fixed names, record
   size, SHA-256 and revision; content signatures for identification.
-- [ ] Core: `Model::Hp27s`, `Hp17bii`, `Hp17b`, their profiles (the 42S's
+- [x] Core: `Model::Hp27s`, `Hp17bii`, `Hp17b`, their profiles (the 42S's
   map; ROM length 64 or 96 KB), keyboard tables, model codes, the 96 KB
   image mapped at #00000-#2FFFF; the clock running from the 8192 Hz timer
   and the alarm waking the CPU as the ROM expects; state save/load.
@@ -173,11 +173,6 @@ and texture rules of iteration 24.
   above; computer-keyboard bindings for digits, operators, ENTER, ←.
 - [x] Tests (below), goldens, docs: web/README.md "Skins", CHANGELOG,
   decision log, the wiki pages.
-- [ ] Owner: put the images in `roms/` (27S, 17BII English, 17BII
-  international if you have it, 17B) and say where each came from.
-- [ ] Owner: look at the three skins (1280 and 390 wide screenshots in
-  the PR) against your memory of the calculators and published photos.
-- [ ] Owner: decide whether the landing page lists them.
 
 ## Tests
 
@@ -209,14 +204,14 @@ from the ROMs' behaviour) before calling the self-test acceptance met.
 
 ## Acceptance criteria
 
-- [ ] The 27S, 17BII (and the 17B, 17BII international where the owner
+- [x] The 27S, 17BII (and the 17B, 17BII international where the owner
   has the image) boot to their normal display, the arithmetic check shows
   5, and the self-test's ROM step passes.
 - [x] A 64 KB image is named correctly when it carries a model's
   signature, and offered to the user when it does not.
-- [ ] Each skin is operable by mouse and touch; screenshots at 1280 and
-  390 wide, headless Chrome only (never cmux-cua or screencapture), two
-  per skin, in the PR.
+
+Owner checks still open: [[backlog/owner-checks]]
+
 - [x] `rom fetch` and the web page say "dump your own"; saturnus tx does
   not offer them.
 - [x] `hyalo lint` clean here and in the wiki.

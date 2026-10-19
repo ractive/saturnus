@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 33: Copy to… and Move to…"
 date: 2026-10-09
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -70,4 +70,5 @@ are the reply's.
 - [x] Web: menu items, the picker, the replace question, the message and the selection after a move; tests in `web/test/actions.test.mjs` and `web/test/explorer.test.mjs`
 - [x] `web/protocol.md`, README, CHANGELOG
 - [x] Owner (2026-10-09): a double-click on a variable or a stack level opens the editor, as Edit does (a textless one is only selected; one still being read is edited once it arrives)
-- [ ] Owner: Copy to… and Move to… on a real calculator's ROM in the desktop app and a browser, the picker on the phone, and the double-click to edit
+
+Owner checks still open: [[backlog/owner-checks]]

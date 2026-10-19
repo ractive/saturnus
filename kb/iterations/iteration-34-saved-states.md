@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 34: Saved states, the same on both hosts"
 date: 2026-10-09
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -81,18 +81,18 @@ with "Load state from a file…".
 
 ## Tasks
 
-- [ ] `web/savedstates.js` (pure): dates, file name, header check,
+- [x] `web/savedstates.js` (pure): dates, file name, header check,
   questions and messages; `web/test/savedstates.test.mjs`
-- [ ] Backends: `stateSlot`, `saveStateSlot`, `loadStateSlot`,
+- [x] Backends: `stateSlot`, `saveStateSlot`, `loadStateSlot`,
   `saveStateFile`, `openStateFile`, `loadStateBytes` on both
-- [ ] Panel: the confirm on Load, the replace message, the ⋯ menu with
+- [x] Panel: the confirm on Load, the replace message, the ⋯ menu with
   the file commands, the file input; palette entries
-- [ ] App: `StateDir::saved_file`, slot and name in `need`, `stateSlot`,
+- [x] App: `StateDir::saved_file`, slot and name in `need`, `stateSlot`,
   `openState`, the runner's model check; Rust tests; `selftest.js`
-- [ ] Page tests in Chrome: confirm and Cancel leaves the machine, the
+- [x] Page tests in Chrome: confirm and Cancel leaves the machine, the
   replace message, the disabled reason, wrong model, broken file
-- [ ] ROM-gated round trip: a file the page saves loads in the CLI, and
+- [x] ROM-gated round trip: a file the page saves loads in the CLI, and
   one the CLI saves loads in the page
-- [ ] `web/README.md`, `web/protocol.md`, README, CHANGELOG, decision log
-- [ ] Owner: the four commands in a browser and in the desktop app, on
-  a phone too
+- [x] `web/README.md`, `web/protocol.md`, README, CHANGELOG, decision log
+
+Owner checks still open: [[backlog/owner-checks]]

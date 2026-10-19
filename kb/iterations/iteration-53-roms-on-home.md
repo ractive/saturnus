@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 53: models and ROMs on the home page"
 date: 2026-10-17
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
@@ -59,5 +59,4 @@ Calculator view shows one calculator and links back home.
 
 ## Owner checks
 
-- [ ] On the web: New calculator → Choose… a ROM → the calculator starts; ⋯ Change ROM… and Remove work on the home page; the Calculator panel has no ROM section
-- [ ] On the desktop app: the same
+Owner checks still open: [[backlog/owner-checks]]

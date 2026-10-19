@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 35: A restartable tour of the page"
 date: 2026-10-09
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -74,4 +74,5 @@ change that breaks a step fails CI.
 - [x] Screenshots of each chapter (light/dark, desktop/phone)
 - [x] CHANGELOG, decision log, web/README.md
 - [x] Gates: `just gates`, `hyalo lint`
-- [ ] Owner acceptance: the tour reads well and does not overwhelm
+
+Owner checks still open: [[backlog/owner-checks]]

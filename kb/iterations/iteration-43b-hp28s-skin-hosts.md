@@ -2,7 +2,7 @@
 title: "Iteration 43b: HP 28S clamshell skin and hosts"
 type: iteration
 date: 2026-10-12
-status: in-progress
+status: completed
 branch: iter-43b/hp28s-skin-hosts
 tags:
   - iteration
@@ -117,10 +117,6 @@ and what is inferred.
 - [x] Desktop app and MCP gating as above; saturnus tx refuses it.
 - [x] Docs: web/README.md "Skins" (the clamshell and its two layouts),
   decision log (the clamshell choice), CHANGELOG.
-- [ ] Owner: the clamshell layout on the desktop and on the phone (the
-  PR's screenshots, then the deployed preview on your phone).
-- [ ] Owner: the skin's look against your memory and published photos.
-- [ ] Owner: landing page card yes or no.
 
 ## Tests
 
@@ -134,8 +130,8 @@ and what is inferred.
 
 ## Acceptance criteria
 
-- [ ] The 28S runs in the web emulator and the desktop app from a chosen
-  ROM file, operable by mouse, touch and computer keyboard.
+Owner checks still open: [[backlog/owner-checks]]
+
 - [x] The clamshell shows side by side at 1280 px and stacked at 390 px,
   no horizontal scroll, keys at least the size of the 42S's at 390 px.
 - [x] No HP logo or wordmark anywhere; saturnus tx does not offer the

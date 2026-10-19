@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 51: one desktop app"
 date: 2026-10-17
-status: in-progress
+status: completed
 tags:
   - iteration
   - tauri
@@ -63,7 +63,8 @@ migration (owner, 2026-10-17).
 - [x] Move serial, files, places and their commands; delete `crates/saturnus-tx-tauri`
 - [x] `just`, `ci.yml`, `desktop.yml`, `release.yml`: one app, one cask; the tap's `saturnus-tx` cask removed
 - [x] `just tauri` green; the app builds on macOS; `desktop.yml` dry run green
-- [ ] Owner: on macOS, Files on the running 48GX lists and copies; a cable calculator connects; a minimised calculator keeps time
+
+Owner checks still open: [[backlog/owner-checks]]
 
 ## Acceptance
 

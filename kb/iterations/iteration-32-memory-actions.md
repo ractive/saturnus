@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 32: The memory view's actions"
 date: 2026-10-09
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus
@@ -123,4 +123,5 @@ tree keeps its default width.
 - [x] The divider between the tree and the list (`web/resize.js` shared with the page's edges)
 - [x] Headless-Chrome tests in `web/test/explorer.test.mjs`; the menu open in `web/test/overflow.test.mjs`
 - [x] `web/README.md`
-- [ ] Owner: the menu, context menu and divider in the desktop app and a desktop browser, and the menu on the phone
+
+Owner checks still open: [[backlog/owner-checks]]

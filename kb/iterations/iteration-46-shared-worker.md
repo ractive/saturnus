@@ -2,7 +2,7 @@
 title: "Iteration 46: one live calculator per model in a SharedWorker, used by the emulator and saturnus tx at once"
 type: iteration
 date: 2026-10-13
-status: in-progress
+status: completed
 branch: iter-46/shared-worker
 tags:
   - iteration
@@ -89,11 +89,8 @@ saturnus tx does, and saturnus tx sees what was typed in the emulator.
 - [x] Remove calc-lock.js and the holder records; tests and docs that named them
 - [x] Tests: unit tests of the hub's bookkeeping with a fake engine (join, leave by message and by lock, routing, serial holder, speed, visibility, last page saves and stops); the two-page test rewritten (emulator tab and tx tab on the 48GX at once: a variable typed in the emulator is listed in tx, tx's copy shows in the emulator's memory, closing either tab leaves the other running); existing worker tests on the hub
 - [x] Docs: web/README.md, web/protocol.md, [[docs/saturnus-tx]], CHANGELOG (Unreleased), decision log; the time until tx is ready on a running calculator measured
-- [ ] Owner: the emulator and saturnus tx side by side on the 48SX and the 49G as on the 48GX (a variable typed in one shows in the other at once)
-- [ ] Owner: on the phone (Chrome on Android): both installed pages, a copy from tx while the emulator shows the calculator; Samsung Internet shows the plain message in tx
-- [ ] Owner: Safari (16 or later): the same side by side
-- [ ] Owner: the emulator tab in the background for a minute while tx copies: the copy runs, the emulator shows the result when brought back
-- [ ] Owner: after a deploy with an emulator tab still open on the old build, a newly opened tx tab says "Reload the page" (and works once both are reloaded)
+
+Owner checks still open: [[backlog/owner-checks]]
 
 ## Acceptance
 

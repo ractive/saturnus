@@ -2,7 +2,7 @@
 title: "Iteration 44: HP 19BII (two Lewis chips, after the 28S)"
 type: iteration
 date: 2026-10-12
-status: in-progress
+status: completed
 branch: iter-44/hp19bii
 tags:
   - iteration
@@ -80,9 +80,8 @@ schema's `models` pattern if not yet extended).
   MCP boot, web model list and ROM by file, desktop slot, saturnus tx
   refuses (no serial port, no Kermit; IR printer only).
 - [x] Docs: decision log, CHANGELOG, web/README.md "Skins".
-- [ ] Owner: decide whether saturnus runs a class-b 19BII image at all;
-  if yes, put it in `roms/`.
-- [ ] Owner: the skin's look (screenshots at 1280 and 390 in the PR).
+
+Owner checks still open: [[backlog/owner-checks]]
 
 ## Tests
 

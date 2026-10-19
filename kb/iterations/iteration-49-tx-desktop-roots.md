@@ -2,7 +2,7 @@
 title: "Iteration 49: a Rust-side safety net for the desktop tx app's files, and the emulator app's ROMs in tx"
 type: iteration
 date: 2026-10-14
-status: in-progress
+status: completed
 branch: iter-49/tx-desktop-roots
 tags:
   - iteration
@@ -149,7 +149,8 @@ with "Clear recent folders" under them.
 - [x] Check what PR 173 changed in `files.rs`, `lib.rs` and `serve.js` once it is merged and build on it (rebase this branch after it)
 - [x] `just tauri` (clippy in both profiles, tests) green; `just tx-app` builds
 - [x] Docs: [[docs/saturnus-tx]] (the desktop app: roots, what is refused and why, the emulator's ROMs), `web/protocol.md` unchanged (no protocol command), CHANGELOG (Unreleased), decision log (picked folders remembered, list and stat left open, volumes picked once, recent folders, the `x-serve` header's limits)
-- [ ] Owner: in the desktop app on macOS, a file outside home is listed but not changed until its folder is opened with "Open a folder…", and after a restart that folder is still writable and in Recent folders; a USB stick picked once stays writable; deleting `~/Documents` recursively is refused; the emulator app's 48GX ROM shows under "Add an emulated calculator" and boots — superseded by the one app (iterations 50d and 51); the owner checks iteration 50d/51 instead
+
+Owner checks still open: [[backlog/owner-checks]]
 
 ## Acceptance
 

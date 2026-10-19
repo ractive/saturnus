@@ -2,7 +2,7 @@
 title: "Iteration 45: saturnus tx, see what's happening (progress where you clicked, the cable console)"
 type: iteration
 date: 2026-10-13
-status: in-progress
+status: completed
 branch: iter-45/tx-progress-console
 tags:
   - iteration
@@ -116,9 +116,8 @@ an event.
 - [x] Tests: decoder and ring buffer over the recorded page trace (`web/test/tx-cable.test.mjs`); the page test: the console lists the packets, the preview's progress, the new wording, the button; the emulator's `take` parameter
 - [x] Docs: [[docs/saturnus-tx]], `web/README.md`, CHANGELOG
 - [x] Two screenshots (1280 and 390 wide, light): the progress preview and the console
-- [ ] Owner: on a real 48SX over the cable, click a picture: the preview says what it reads with the bar and the time; the console shows the packets, a NAK in red when the cable hiccups
-- [ ] Owner: "Open in the emulator" on the left pane's emulated 48GX takes it over in the emulator tab; saturnus tx says "In use by the emulator"
-- [ ] Owner: in Firefox, the right pane says "Files in this browser" and how to save a file
+
+Owner checks still open: [[backlog/owner-checks]]
 
 ## Acceptance
 

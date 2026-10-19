@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 37: saturnus-tx skeleton: Web Serial, connect, list, get and put"
 date: 2026-10-10
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus-tx
@@ -63,7 +63,8 @@ second pane and the local folder are [[iterations/iteration-38-tx-two-panes]].
 - [x] Tests: `node --test web/test/tx-*.test.mjs` (pure modules, fake links); the page in headless Chrome with `FakeLink` (connect, list, put with replace, overflow at the five widths); `just tx-e2e DIR` against the emulated 48SX, 48GX and 49G
 - [x] Site and deploy: `web/site.sh` builds the `transfer/` subsite (`tx.html` as `index.html`, `tx/`, `shared/`, both wasm packages, its own marker, manifest, icons, `sw.js` and BUILD hash, the import check; `--list transfer`); its storage names in the storage-names module and test; a CI job (`wasm-tx`: both wasm builds, the transfer tests); the one `pages.yml` deploy carries it
 - [x] Docs: `web/README.md` (shared folder, the transfer page), [[docs/ci]], [[docs/releasing]] (the web page section), [[docs/architecture]] (the new crates), CHANGELOG
-- [ ] Owner: on the 48SX and the 49G in Chrome or Edge with a USB serial cable: connect without typing settings, the model shown right, list, get a program and a GROB, put them back under new names, the preview of both; then the same against the emulated 48GX in Firefox or Safari
+
+Owner checks still open: [[backlog/owner-checks]]
 
 ## Acceptance
 

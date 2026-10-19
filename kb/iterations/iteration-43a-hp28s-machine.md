@@ -2,7 +2,7 @@
 title: "Iteration 43a: HP 28S machine (two Lewis chips)"
 type: iteration
 date: 2026-10-12
-status: in-progress
+status: completed
 branch: iter-43a/hp28s-machine
 tags:
   - iteration
@@ -127,10 +127,8 @@ not guess a map to make the screen appear.
   tests.
 - [x] Docs: decision log (the map, the `Lcd` width change, the core API
   change for satx), CHANGELOG, the wiki pages.
-- [ ] Owner: put the 28S image in `roms/` and say where it came from
-  (own dump over IR to the 48SX, or a circulating image).
-- [ ] Owner: read the feasibility verdict and the map decision before the
-  core work goes on (a comment on the PR is enough).
+
+Owner checks still open: [[backlog/owner-checks]]
 
 ## Tests
 
