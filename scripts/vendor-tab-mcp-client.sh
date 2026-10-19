@@ -7,6 +7,9 @@
 # its own origin. Writes vendor.json: where the files came from, the
 # version, and each file's SHA-256.
 #
+# `just vendor-tab-mcp` takes the npm package at the version and integrity
+# pinned in the justfile; `just vendor-tab-mcp-local` a local build.
+#
 #   scripts/vendor-tab-mcp-client.sh --from-local ~/devel/tab-mcp
 #       builds packages/tab-mcp-client there (`bun run build`) and copies
 #       dist/cdn/*.min.js; records the commit (and whether the package's
@@ -15,8 +18,7 @@
 #       `npm pack @ractive-ch/tab-mcp-client@0.1.0` into a new temporary
 #       directory, checks the tarball's SHA-512 against the registry's
 #       `dist.integrity` and, when given, against --integrity (pin it in
-#       the justfile), then copies package/cdn/*.min.js. For when the
-#       package is published (tab-mcp iteration 5).
+#       the justfile), then copies package/cdn/*.min.js.
 #   --dry-run: check and list, copy nothing.
 set -euo pipefail
 here=$(cd "$(dirname "$0")/.." && pwd)

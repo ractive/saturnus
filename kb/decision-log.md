@@ -4387,9 +4387,10 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
 - **The client is vendored**, the library's self-contained browser build
   (`dist/cdn`) in `web/vendor/tab-mcp-client/` with `vendor.json`
   (source, version, SHA-256s), loaded with `import()` only when AI access
-  is used, precached by the service worker like any page file. From a
-  local tab-mcp build until the npm package exists; then `--from-npm` with
-  the version and integrity pinned. No new script origin; `connect-src`
+  is used, precached by the service worker like any page file. From the
+  published npm package, version and integrity pinned in the justfile
+  (0.1.0-alpha.0 since 2026-10-20); a local tab-mcp build only for
+  development. No new script origin; `connect-src`
   gains `wss://relay.ractive.ch`.
 - **Off on the published site until the hosted relay runs**
   (`HOSTED_RELAY` null in `web/ai-relay.js`); a page on localhost takes a

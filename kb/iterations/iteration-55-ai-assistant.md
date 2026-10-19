@@ -75,14 +75,25 @@ the two chunks it imports, `@cfworker/json-schema` inlined) into
 `web/vendor/tab-mcp-client/` and writes `vendor.json` (source, version,
 commit or integrity, each file's SHA-256). Two sources:
 
-- (a) **local build** (now): `--from-local ~/devel/tab-mcp`, which runs
-  `bun run build` in `packages/tab-mcp-client` and records the commit.
-- (b) **npm** (once published, tab-mcp iteration 5): `--from-npm
-  <exact version>`: `npm pack @ractive-ch/tab-mcp-client@<version>`,
-  checks the tarball's SHA-512 against `npm view … dist.integrity` and,
-  when given, against `--integrity sha512-…` pinned in the justfile, then
-  copies `package/cdn/*.min.js`. Written and dry-checked now; switched on
-  by changing the recipe's argument.
+- (a) **local build** (development, `just vendor-tab-mcp-local`):
+  `--from-local ~/devel/tab-mcp`, which runs `bun run build` in
+  `packages/tab-mcp-client` and records the commit.
+- (b) **npm** (the default, `just vendor-tab-mcp`): `--from-npm <exact
+  version>`: `npm pack @ractive-ch/tab-mcp-client@<version>`, checks the
+  tarball's SHA-512 against `npm view … dist.integrity` and against
+  `--integrity sha512-…` pinned in the justfile, then copies
+  `package/cdn/*.min.js`.
+
+Since 2026-10-20 the vendored files are the published
+`@ractive-ch/tab-mcp-client@0.1.0-alpha.0` (integrity
+`sha512-F3Su289P…WmQapw==`, provenance attestations on npm), taken
+through (b): the tarball matched the registry and the pin, a wrong pin is
+refused before anything is copied, and running the recipe again changes
+nothing. The package's `cdn/` holds the core and the two chunks its
+`import()`s name (`connection-cfq1n4kh.min.js`, `ui-aac2cw9f.min.js`),
+the files the page loads; the chunks are the same bytes as the local
+build's, the core differs only in its version string and the build ids derived
+from it.
 
 The files are committed (CI has no tab-mcp checkout). `site.sh` and the
 desktop app's `build.rs` take `vendor/tab-mcp-client/*.js` with the page
@@ -154,7 +165,7 @@ Files for `peers`.
 ## Tasks
 
 - [x] Plan (this file)
-- [x] `scripts/vendor-tab-mcp-client.sh` and `just vendor-tab-mcp`: (a) local build implemented, (b) npm with integrity written
+- [x] `scripts/vendor-tab-mcp-client.sh` and `just vendor-tab-mcp`: (a) local build implemented, (b) npm with integrity implemented and used for 0.1.0-alpha.0
 - [x] `web/vendor/tab-mcp-client/` committed with `vendor.json`; `site.sh` and `build.rs` take it; CSP `connect-src` with the relay
 - [x] `web/ai-tools.js`: the tools and the server instructions
 - [x] `web/ai.js`: the session, relay address, "Keep AI access on" (resume on load), calculators by id through the hub
@@ -219,5 +230,6 @@ freezes such tabs, add the sentence then).
   `TokenStore` as tab-mcp's own tests do.
 - The hosted relay (tab-mcp iteration 6): then `HOSTED_RELAY` is set and
   the entry appears on the published site.
-- The npm package (tab-mcp iteration 5): then the vendoring recipe
-  switches to `--from-npm` with a pinned version and integrity.
+- The npm package: done, 0.1.0-alpha.0 is published and vendored from
+  npm (above); a later version is a change of the two values in the
+  justfile.

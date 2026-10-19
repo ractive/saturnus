@@ -1086,8 +1086,9 @@ through the relay while the tab is open. Nothing is installed.
 - **The client** is tab-mcp's browser library, vendored in
   `vendor/tab-mcp-client/` (its self-contained build, with
   `vendor.json`: source, version, SHA-256s) by `just vendor-tab-mcp`
-  (`scripts/vendor-tab-mcp-client.sh`: a local tab-mcp build now, the npm
-  package with its integrity once published) and loaded with `import()`
+  (`scripts/vendor-tab-mcp-client.sh`: the npm package, its version and
+  integrity pinned in the justfile; `just vendor-tab-mcp-local` for a
+  local tab-mcp build) and loaded with `import()`
   only when AI access is used; the service worker precaches it with the
   page. The address secret is kept per relay (`saturnus.aiSecret:<relay
   origin>`).
