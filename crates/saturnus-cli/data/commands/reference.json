@@ -9,7 +9,8 @@
           "input": "5."
         },
         {
-          "input": "0.5"
+          "input": "0.5",
+          "comment": "A non-integer gives the gamma function's value Γ(1.5)"
         },
         {
           "input": "20."
@@ -46,7 +47,8 @@
       "stack": "x y → 100·(y-x)/x; 'symb' y → '%CH(symb,y)'",
       "examples": [
         {
-          "input": "50. 60."
+          "input": "50. 60.",
+          "comment": "From 50 to 60 is a rise of 20 percent"
         },
         {
           "input": "80. 60."
@@ -1020,7 +1022,8 @@
       "stack": "#n → n",
       "examples": [
         {
-          "input": "#FFh"
+          "input": "#FFh",
+          "comment": "Hexadecimal FF is 255"
         },
         {
           "input": "#101b"
@@ -1798,10 +1801,12 @@
       "stack": "date x → date'",
       "examples": [
         {
-          "input": "7.151991 120."
+          "input": "7.151991 120.",
+          "comment": "120 days after 15 July 1991 is 12 November 1991"
         },
         {
-          "input": "3.012024 -1."
+          "input": "3.012024 -1.",
+          "comment": "One day before 1 March 2024 is 29 February, a leap year"
         }
       ]
     },
@@ -1820,7 +1825,8 @@
           "input": "1.011991 7.151991"
         },
         {
-          "input": "12.252026 1.012026"
+          "input": "12.252026 1.012026",
+          "comment": "The second date is earlier, so the count is negative"
         }
       ]
     },
@@ -3325,7 +3331,8 @@
           "input": "{ 10. 20. 30. } 2."
         },
         {
-          "input": "[[ 1. 2. ][ 3. 4. ]] { 2. 1. }"
+          "input": "[[ 1. 2. ][ 3. 4. ]] { 2. 1. }",
+          "comment": "Row 2, column 1 of the matrix"
         }
       ]
     },
@@ -3587,7 +3594,8 @@
       "stack": "hms1 hms2 → hms",
       "examples": [
         {
-          "input": "1.3 2.45"
+          "input": "1.3 2.45",
+          "comment": "1h30m plus 2h45m gives 4h15m"
         },
         {
           "input": "0.5959 0.0001",
@@ -5564,7 +5572,8 @@
       "stack": "objn … obj1 n → objn … obj1 objn",
       "examples": [
         {
-          "input": "10. 20. 30. 3."
+          "input": "10. 20. 30. 3.",
+          "comment": "Copies level 3, the 10, to level 1"
         }
       ]
     },
@@ -6769,7 +6778,8 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "A negative count rounds to 3 significant digits"
         },
         {
           "input": "[ 1.234 5.678 ] 1.",
@@ -6821,7 +6831,8 @@
       "stack": "objn … obj1 n → objn-1 … obj1 objn",
       "examples": [
         {
-          "input": "1. 2. 3. 4. 4."
+          "input": "1. 2. 3. 4. 4.",
+          "comment": "Rolls the 4 levels: the 1 from level 4 comes down to level 1"
         }
       ]
     },
@@ -7409,7 +7420,8 @@
       "examples": [
         {
           "input": "",
-          "run": "3. SF 3. FS?"
+          "run": "3. SF 3. FS?",
+          "comment": "Sets flag 3, then tests it: 1 means set"
         },
         {
           "input": "",
@@ -8190,7 +8202,8 @@
       "stack": "\"str\" n1 n2 → \"sub\"; {list} n1 n2 → {sub}; grob c1 c2 → grob'",
       "examples": [
         {
-          "input": "\"HELLO\" 2. 4."
+          "input": "\"HELLO\" 2. 4.",
+          "comment": "The 2nd to 4th character"
         },
         {
           "input": "{ 1. 2. 3. 4. 5. } 2. 3."
@@ -10170,7 +10183,8 @@
           "input": "1. \"A\" 'X' 3."
         },
         {
-          "input": "0."
+          "input": "0.",
+          "comment": "A count of 0 gives the empty list"
         }
       ]
     },

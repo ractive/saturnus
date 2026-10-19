@@ -26,6 +26,12 @@ pub struct ExampleSpec {
     /// absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub models: Option<Vec<String>>,
+    /// What the example shows, where the input and result do not say it
+    /// (`kb/docs/example-comments.md`), shown under it. Never run and never
+    /// in `examples-<model>.json`: `scripts/commands-json.py` and `saturnus
+    /// ref` join it to the generated example.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
 }
 
 impl ExampleSpec {
@@ -124,5 +130,10 @@ mod tests {
         // A model's own note alone: description and stack are the shared ones.
         let own = &parsed.commands["HMS+"].per_model["48sx"];
         assert!(own.description.is_none() && own.stack.is_none() && own.note.is_some());
+        // An example's comment is kept with its spec.
+        assert_eq!(
+            parsed.commands["HMS+"].examples[0].comment.as_deref(),
+            Some("1h30m plus 2h45m gives 4h15m")
+        );
     }
 }

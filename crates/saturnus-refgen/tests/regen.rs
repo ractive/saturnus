@@ -56,6 +56,18 @@ fn read<T: serde::de::DeserializeOwned>(file: &str) -> T {
     serde_json::from_str(&std::fs::read_to_string(data(file)).unwrap()).unwrap()
 }
 
+/// `reference.json` with a comment on every example: comments are never
+/// run and never generated, so the examples must come out the same.
+fn reference_with_comments() -> Reference {
+    let mut r: Reference = read("reference.json");
+    for e in r.commands.values_mut() {
+        for x in &mut e.examples {
+            x.comment = Some("a comment".into());
+        }
+    }
+    r
+}
+
 #[test]
 fn menus_match_the_catalogs() {
     for (model, file) in MODELS {
@@ -108,7 +120,7 @@ fn names_match_the_catalog() {
 fn sample_examples_match() {
     let Some(rom) = rom("sxrom-j") else { return };
     let cat: Catalog = read("48sx.json");
-    let reference: Reference = read("reference.json");
+    let reference = reference_with_comments();
     let file: Examples = read("examples-48sx.json");
     let only: Vec<String> = ["+", "ABS", "STO", "→LIST", "SIN", "SWAP", "IF", "DOERR"]
         .iter()
@@ -127,7 +139,7 @@ fn the_28s_catalog_and_sample_examples_match() {
     let file: Catalog = read("28s.json");
     let cat = catalog::generate_28s(&rom, Some(&file)).unwrap();
     assert_eq!(cat, file);
-    let reference: Reference = read("reference.json");
+    let reference = reference_with_comments();
     let examples: Examples = read("examples-28s.json");
     let only: Vec<String> = ["+", "SIN", "→LIST", "STO+", "RND", "DUP", "IF", "CHR"]
         .iter()
@@ -208,7 +220,13 @@ fn keyed_references_regenerate_byte_for_byte() {
             eprintln!("{} missing: skipping {file}", rom.display());
             continue;
         }
-        let keys: KeyFile = read(&file);
+        let mut keys: KeyFile = read(&file);
+        // Comments are never run nor generated.
+        for c in &mut keys.commands {
+            for x in &mut c.examples {
+                x.comment = Some("a comment".into());
+            }
+        }
         let ex = keyed::generate(model, &rom, &keys, None).unwrap();
         assert_eq!(
             keyed::to_file_text(&ex).unwrap(),

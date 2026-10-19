@@ -10,6 +10,7 @@ page's lookup rules (`web/reference.js`) are those of `saturnus ref`
 
     scripts/commands-json.py                # write web/commands.json
     scripts/commands-json.py --check [FILE] # the committed file is current
+    scripts/commands-json.py --out FILE     # write FILE instead
 
 What the page gets per command: `name`, the long name that says what
 the mnemonic stands for ("Residual" for RSD; only where it says more than
@@ -20,7 +21,9 @@ our `group`
 PDF page) and `models`, one entry per model that has the command, with
 the ROM's `menus`, the manual's `key` (`category`, `manual`, `page`,
 `other` when it is another model's manual), the `examples` (`setup`,
-`input`, `run`, `before`, `display`, `effect`, `error`) and the `skip`
+`input`, `run`, `before`, `display`, `effect`, `error`, and the
+`comment` of the spec it ran, joined here: scripts/example_comments.py
+says how) and the `skip`
 reason where none was generated, and the model's own `description`,
 `stack`, `name` and `note` where the command differs there (reference.json's
 `per_model`: the 28S's RND takes one argument, the 48SX's HMS+ has a
@@ -42,7 +45,8 @@ booted screen, and per function `long`, `description`, `note`, `stack`,
 (the name XEQ runs it by), `menu`, `inserts` (38G, 39G, 40G: what the
 keys put on HOME's edit line), `page` (the manual's PDF page) and
 the `examples` run on the emulator (`input` keys, the `then` keys after
-the function's, the `before` and `after` screens, upper line first).
+the function's, the `before` and `after` screens, upper line first, and
+the spec's `comment`).
 `home` (38G, 39G, 40G) are the keys pressed before every function. The format and its checks are
 `saturnus-refgen keys` (crates/saturnus-refgen/src/keyed.rs); adding a
 `keys-<model>.json` (and its examples) is all a model needs here.
@@ -55,8 +59,9 @@ import json
 import sys
 from pathlib import Path
 
+from example_comments import DATA, match_keyed, match_rpl, spec_on
+
 REPO = Path(__file__).resolve().parent.parent
-DATA = REPO / "crates" / "saturnus-cli" / "data" / "commands"
 OUT = REPO / "web" / "commands.json"
 MODELS = ["48sx", "48gx", "49g", "28s"]
 EXAMPLE_FIELDS = ["setup", "input", "run", "before", "display", "effect", "error"]
@@ -75,6 +80,7 @@ def build():
     categories = load("categories.json")["commands"]
 
     commands = {}
+    joined = set()
     for m in MODELS:
         for c in catalogs[m]["commands"]:
             name = c["name"]
@@ -94,8 +100,10 @@ def build():
                 per["key"] = key
             ex = examples[m]["examples"].get(name)
             if ex:
+                specs = reference.get(name, {}).get("examples", [])
                 per["examples"] = [
-                    {k: x[k] for k in EXAMPLE_FIELDS if k in x} for x in ex
+                    with_comment({k: x[k] for k in EXAMPLE_FIELDS if k in x}, specs, i, joined, name)
+                    for x, i in zip(ex, match_rpl(name, specs, ex, m))
                 ]
             elif name in examples[m]["skipped"]:
                 per["skip"] = examples[m]["skipped"][name]
@@ -106,6 +114,13 @@ def build():
                     if own.get(k):
                         per[k] = own[k]
             entry["models"][m] = per
+
+    lost(
+        "reference.json",
+        ((name, i) for name, e in reference.items() for i, x in enumerate(e.get("examples", []))
+         if x.get("comment") and name in commands and any(spec_on(x, m) for m in commands[name]["models"])),
+        joined,
+    )
 
     for name, entry in commands.items():
         ref = reference.get(name)
@@ -142,6 +157,23 @@ def build():
     }
 
 
+def with_comment(example, specs, i, joined, name):
+    """`example` with the comment of spec `i` (None: no spec matched)."""
+    if i is not None and specs[i].get("comment"):
+        example["comment"] = specs[i]["comment"]
+        joined.add((name, i))
+    return example
+
+
+def lost(where, commented, joined):
+    """Fail when a comment matched no generated example: the examples are
+    older than the specs (regenerate them with saturnus-refgen)."""
+    missing = sorted(set(commented) - joined)
+    if missing:
+        names = ", ".join(f"{n} [{i}]" for n, i in missing)
+        raise SystemExit(f"{where}: comments on examples that were never generated (regenerate the examples): {names}")
+
+
 def key_models():
     """The key-driven models' references, from every keys-<model>.json."""
     out = {}
@@ -151,14 +183,20 @@ def key_models():
         ex_path = DATA / f"examples-{model}.json"
         ex = load(ex_path.name) if ex_path.exists() else {"examples": {}, "booted": []}
         commands = {}
+        joined = set()
         for c in src["commands"]:
             entry = {k: c[k] for k in ("long", "description", "note", "stack", "param", "keys", "xeq", "menu", "inserts", "page") if k in c}
             runs = ex["examples"].get(c["name"])
             if runs:
-                entry["examples"] = [{k: x[k] for k in ("input", "labels", "then", "before", "after") if k in x} for x in runs]
+                specs = c.get("examples", [])
+                entry["examples"] = [
+                    with_comment({k: x[k] for k in ("input", "labels", "then", "before", "after") if k in x}, specs, i, joined, c["name"])
+                    for x, i in zip(runs, match_keyed(specs, runs))
+                ]
             if c["name"] in commands:
                 raise SystemExit(f"{path.name}: {c['name']} is listed twice")
             commands[c["name"]] = entry
+        lost(path.name, ((c["name"], i) for c in src["commands"] for i, x in enumerate(c.get("examples", [])) if x.get("comment")), joined)
         km = {
             "manual": src["manual"],
             "menuKeys": src["menu_keys"],
@@ -187,7 +225,10 @@ def dump(data):
 
 def main():
     text = dump(build())
-    if len(sys.argv) > 1 and sys.argv[1] == "--check":
+    out = OUT
+    if len(sys.argv) > 2 and sys.argv[1] == "--out":
+        out = Path(sys.argv[2])
+    elif len(sys.argv) > 1 and sys.argv[1] == "--check":
         path = Path(sys.argv[2]) if len(sys.argv) > 2 else OUT
         current = path.read_text(encoding="utf-8") if path.exists() else ""
         if current != text:
@@ -196,11 +237,11 @@ def main():
         n = len(json.loads(text)["commands"])
         print(f"{path}: current ({n} commands)")
         return
-    OUT.write_text(text, encoding="utf-8")
+    out.write_text(text, encoding="utf-8")
     data = json.loads(text)
     n = len(data["commands"])
     keyed = ", ".join(f"{len(km['commands'])} {m} functions" for m, km in data["keyModels"].items())
-    print(f"wrote {OUT} ({n} commands, {keyed}, {len(text.encode()) // 1024} KB)")
+    print(f"wrote {out} ({n} commands, {keyed}, {len(text.encode()) // 1024} KB)")
 
 
 if __name__ == "__main__":

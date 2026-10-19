@@ -776,10 +776,23 @@ ran the command (interactive, plotting and I/O commands).
 | File | What | Made by |
 |---|---|---|
 | `48sx.json`, `48gx.json`, `49g.json` | The ROM's command names, with library and command numbers; the menus that offer each (`menus`) and which key opens which root menu (`menu_keys`) | `saturnus-refgen catalog`, then `saturnus-refgen menus` |
-| `reference.json` | Our long name (what the mnemonic stands for, where it says more: `RSD` "Residual"), description, stack effect and example inputs per command, an optional `note` shown after the description (a ROM bug), a model's own text under `per_model` (any of `name`, `description`, `stack`, `note`; the shared ones where absent), and our group where neither the ROM's menus nor a manual places it | written by hand |
+| `reference.json` | Our long name (what the mnemonic stands for, where it says more: `RSD` "Residual"), description, stack effect and example inputs per command (each with an optional `comment`, shown under the example), an optional `note` shown after the description (a ROM bug), a model's own text under `per_model` (any of `name`, `description`, `stack`, `note`; the shared ones where absent), and our group where neither the ROM's menus nor a manual places it | written by hand |
+| `comments/*.json` | Sidecars of example comments, one group each (`rpl` or a key-driven model's id): `{"group": "rpl", "comments": {"HMS+": [{"i": 0, "comment": "..."}]}}`; `seed.json` and `seed-17bii.json` hold the worked examples of `kb/docs/example-comments.md` | written by hand, applied by `scripts/apply-comments.py` |
 | `examples-48sx.json`, ... | Each example input run on that model: the typed input stack and result, the display text, or the calculator's error | `saturnus-refgen examples` |
 | `manuals.json` | The public URLs of HP's manuals and the PDF page of each command in them | `scripts/manual-pages.py` |
 | `categories.json` | Per command and model, the key or menu a manual names for it (`MTH`, `PLOT`, `Keyboard`, the 49G CAS's `Arithmetic`), with the manual and page, and the ROM's menus (`menus`, as in the catalogs) | `scripts/manual-categories.py` and `saturnus-refgen menus` |
+
+Comments on examples follow `kb/docs/example-comments.md`. They live in
+the specs (`reference.json`, `keys-<model>.json`), never in the generated
+`examples-<model>.json`; `scripts/commands-json.py` and `saturnus ref`
+join each to the example generated from its spec. To write some:
+
+```sh
+scripts/list-examples.py rpl --from HMS+ --count 20  # the examples as text (also 42s, 27s, 17bii, 17b, 19bii, 38g, 39g)
+scripts/check-comments.py crates/saturnus-cli/data/commands/comments/mine.json  # rules: fails on length, full stop, banned words; lists unfound numbers
+scripts/apply-comments.py crates/saturnus-cli/data/commands/comments/mine.json  # into reference.json or keys-<model>.json (39g also 40g)
+scripts/check-comments.py && scripts/commands-json.py
+```
 
 The names come from the ROM: every library number (0-7FF) is probed with
 lists of XLIB names sent over Kermit and fetched back as text, so the

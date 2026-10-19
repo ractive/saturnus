@@ -91,3 +91,12 @@ Each example object gets an optional `comment` field: in
 40G's file must stay equal to the 39G's). `scripts/check-comments.py`
 fails on length and banned words, and lists the numbers it cannot find in
 the generated `examples-<model>.json`, for review.
+
+Writers work in sidecar files in
+`crates/saturnus-cli/data/commands/comments/`, one group each:
+`{"group": "rpl" | "<model>", "comments": {"<command>": [{"i": 0, "comment": "..."}]}}`.
+`scripts/list-examples.py GROUP [--from NAME] [--count N]` lists the
+examples with their indexes and results; `scripts/check-comments.py FILE`
+checks a sidecar; `scripts/apply-comments.py FILE` writes it into the
+data (39g also into 40g); then `scripts/commands-json.py`. The README's
+"Command reference" section has the commands.

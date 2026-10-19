@@ -430,3 +430,6 @@ jobs:
       # scripts/commands-json.py; the committed file must be current.
       - name: Command palette data is current
         run: python3 scripts/commands-json.py --check
+      # The examples' comments follow kb/docs/example-comments.md.
+      - name: Example comments follow the rules
+        run: python3 scripts/check-comments.py

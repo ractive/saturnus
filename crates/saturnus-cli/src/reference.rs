@@ -109,6 +109,66 @@ struct Entry {
     /// A model's own text where the command differs there.
     #[serde(default)]
     per_model: BTreeMap<String, ModelText>,
+    /// The example specs, for their comments.
+    #[serde(default)]
+    examples: Vec<Spec>,
+}
+
+/// An example spec of `reference.json`: what the generated example ran,
+/// and its comment.
+#[derive(Debug, Deserialize)]
+struct Spec {
+    #[serde(default)]
+    setup: Option<String>,
+    #[serde(default)]
+    input: String,
+    #[serde(default)]
+    run: Option<String>,
+    #[serde(default)]
+    models: Option<Vec<String>>,
+    #[serde(default)]
+    comment: Option<String>,
+}
+
+/// The examples `name` generated on `model`, each with the comment of the
+/// spec it ran (the first unused spec on `model` with the same setup,
+/// input and run, as `scripts/commands-json.py` joins them).
+fn with_comments(name: &str, specs: &[Spec], model: &str, list: &[Value]) -> Vec<Value> {
+    let mut free: Vec<usize> = specs
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| {
+            s.models
+                .as_ref()
+                .is_none_or(|m| m.iter().any(|x| x == model))
+        })
+        .map(|(i, _)| i)
+        .collect();
+    list.iter()
+        .map(|x| {
+            let key = (
+                x["setup"].as_str(),
+                x["input"].as_str().unwrap_or(""),
+                x["run"].as_str(),
+            );
+            let hit = free.iter().position(|&i| {
+                let s = &specs[i];
+                (
+                    s.setup.as_deref(),
+                    s.input.as_str(),
+                    Some(s.run.as_deref().unwrap_or(name)),
+                ) == key
+            });
+            let mut out = x.clone();
+            if let Some(p) = hit {
+                let i = free.remove(p);
+                if let (Some(c), Some(o)) = (&specs[i].comment, out.as_object_mut()) {
+                    o.insert("comment".into(), Value::String(c.clone()));
+                }
+            }
+            out
+        })
+        .collect()
 }
 
 /// A model's own long name, description, stack and note; the shared
@@ -383,7 +443,11 @@ pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
             continue;
         }
         if let Some(list) = file.examples.get(name) {
-            examples.insert((*m).to_string(), Value::Array(list.clone()));
+            let specs = entry.map_or(&[][..], |e| e.examples.as_slice());
+            examples.insert(
+                (*m).to_string(),
+                Value::Array(with_comments(name, specs, m, list)),
+            );
         } else if let Some(why) = file.skipped.get(name) {
             skipped.insert((*m).to_string(), Value::String(why.clone()));
         }
@@ -715,6 +779,9 @@ pub fn text(entry: &Value) -> String {
                     }
                 };
                 out.push_str(&format!("  {source}  =>  {result}\n"));
+                if let Some(c) = x["comment"].as_str() {
+                    out.push_str(&format!("  # {c}\n"));
+                }
             }
         }
     }
@@ -822,6 +889,38 @@ mod tests {
                 .contains("no command")
         );
         assert!(matches!(lookup("Qr", None).unwrap(), Found::Many(_)));
+    }
+
+    #[test]
+    fn an_example_shows_its_comment_under_it() {
+        // HMS+'s first example on every model, its second (no comment) not.
+        let h = one("HMS+", None);
+        for m in MODELS {
+            assert_eq!(
+                h["examples"][m][0]["comment"], "1h30m plus 2h45m gives 4h15m",
+                "{m}"
+            );
+        }
+        assert!(h["examples"]["48gx"][1].get("comment").is_none());
+        let t = text(&h);
+        assert!(
+            t.contains("  1.3 2.45 HMS+  =>  4.15\n  # 1h30m plus 2h45m gives 4h15m\n"),
+            "{t}"
+        );
+        // RND's specs are per model: the comment of spec 1 (48SX, 48GX,
+        // 49G) is on their second example, none on the 28S's.
+        let rnd = one("RND", None);
+        assert_eq!(
+            rnd["examples"]["49g"][1]["comment"],
+            "A negative count rounds to 3 significant digits"
+        );
+        assert!(
+            rnd["examples"]["28s"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|x| x.get("comment").is_none())
+        );
     }
 
     #[test]

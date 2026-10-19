@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Flag reference descriptions that share long word runs with HP's manuals.
 
-Our descriptions and notes in crates/saturnus-cli/data/commands/reference.json
-(a model's own ones under `per_model` included) and keys-<model>.json are
+Our descriptions, notes and example comments in
+crates/saturnus-cli/data/commands/reference.json (a model's own ones under
+`per_model` included) and keys-<model>.json are
 written from scratch;
 this check makes sure none repeats a run of N or more consecutive words
 (default 6) from the manuals' text layers. Words are compared lowercased,
@@ -87,6 +88,10 @@ def main(argv):
         for k in ("description", "note"):
             if k in entry:
                 texts[label if k == "description" else f"{label} (note)"] = entry[k]
+        # The examples' comments (scripts/check-comments.py).
+        for i, x in enumerate(entry.get("examples", [])):
+            if x.get("comment"):
+                texts[f"{label} (example {i})"] = x["comment"]
 
     for name, entry in reference.items():
         add(name, entry)
@@ -108,7 +113,7 @@ def main(argv):
             flagged += 1
             print(f"{name}: {' | '.join(sorted(hits))}")
     print(
-        f"{len(texts)} descriptions and notes checked against {len(shingles)} {n}-word runs: "
+        f"{len(texts)} descriptions, notes and comments checked against {len(shingles)} {n}-word runs: "
         f"{flagged} flagged",
         file=sys.stderr,
     )

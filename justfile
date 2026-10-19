@@ -15,6 +15,7 @@ lint:
     scripts/about-json.py --check
     scripts/flags-json.py --check
     scripts/commands-json.py --check
+    scripts/check-comments.py
 
 # Unit and integration tests; the ROM-gated ones skip without SATURNUS_ROM_DIR.
 test:

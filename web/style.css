@@ -1323,6 +1323,8 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .ex-run { font: 600 var(--fs-md)/1.4 var(--mono); color: var(--accent-text); text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; }
 :where(#calculator-view) .ex-arrow { color: var(--accent); font-size: var(--fs-lg); line-height: 1; }
 :where(#calculator-view) .ex-try { font-size: var(--fs-sm); white-space: nowrap; }
+/* The example's comment: a short muted line under it. */
+:where(#calculator-view) .ex-comment { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
 :where(#calculator-view) .ex-tried { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--accent-text); }
 :where(#calculator-view) .ex-tried.error { color: var(--error); }
 /* A narrow pane (a phone, the palette's detail): before, command, after

@@ -1,7 +1,7 @@
 // One command's reference entry as DOM: name (and long name), the models that have it,
 // Run and Type for the command itself, stack effect, our description (and note),
 // where the ROM and the manuals put it, the examples generated on the
-// emulator (each with "Try it"), the deep links into the manuals. Shared by the palette's detail pane and the
+// emulator (each with "Try it" and its comment, if any), the deep links into the manuals. Shared by the palette's detail pane and the
 // explorer's Commands tab; it renders what web/reference.js reads.
 
 import { exampleBefore, exampleResult, exampleText, legendText, manualLinks, placement, stackVerified } from "../reference.js";
@@ -166,7 +166,13 @@ function exampleRow(x, i, ctx) {
       el("span", { class: "ex-arrow", "aria-hidden": "true", text: "→" })),
     after,
     tryBtn,
+    commentLine(x),
     tried ? el("p", { class: `ex-tried${tried.error ? " error" : ""}`, text: tried.text }) : null);
+}
+
+/** The example's comment (what it shows, where the input and result do not say it) as a muted line, or null. */
+function commentLine(x) {
+  return x.comment ? el("p", { class: "ex-comment", text: x.comment }) : null;
 }
 
 /**
@@ -252,5 +258,6 @@ function keyedExampleRow(command, x, i, ctx, home = false) {
       el("span", { class: "ex-arrow", "aria-hidden": "true", text: "→" })),
     screenLines(x.after, "ex-after", "Display after"),
     tryBtn,
+    commentLine(x),
     tried ? el("p", { class: `ex-tried${tried.error ? " error" : ""}`, text: tried.text }) : null);
 }

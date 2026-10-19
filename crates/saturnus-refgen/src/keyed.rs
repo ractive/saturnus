@@ -47,8 +47,11 @@
 //!     "menu": "CONVERT",             // optional: the menu path as the manual names it
 //!     "inserts": "COMB(",            // optional: what the keys put on the edit line
 //!     "page": 91,                    // the manual's PDF page
-//!     "examples": [{"input": ["4", "enter", "3"], "then": ["enter"]}]
-//!                                     // optional; `then`: keys after the function's
+//!     "examples": [{"input": ["4", "enter", "3"], "then": ["enter"], "comment": "..."}]
+//!                                     // optional; `then`: keys after the function's;
+//!                                     // `comment` (optional): what the example shows,
+//!                                     // never run nor generated, joined to the
+//!                                     // generated example by scripts/commands-json.py
 //!   }]
 //! }
 //! ```
@@ -200,6 +203,11 @@ pub struct ExampleSpec {
     /// arguments and ENTER).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub then: Vec<String>,
+    /// What the example shows, where the keys and screens do not say it
+    /// (`kb/docs/example-comments.md`); not run, not in the generated
+    /// examples.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
 }
 
 /// One function.
@@ -903,6 +911,30 @@ mod tests {
         let mut f = file();
         f.commands.push(f.commands[0].clone());
         assert!(lint(&f).unwrap_err().to_string().contains("twice"));
+    }
+
+    #[test]
+    fn every_key_file_parses_with_its_comments() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../saturnus-cli/data/commands");
+        let mut n = 0;
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().to_string();
+            if !(name.starts_with("keys-") && name.ends_with(".json")) {
+                continue;
+            }
+            let f: KeyFile = serde_json::from_str(&std::fs::read_to_string(&path).unwrap())
+                .unwrap_or_else(|e| panic!("{name}: {e}"));
+            if f.model == "17bii" {
+                let ch = f.commands.iter().find(|c| c.name == "%CH").unwrap();
+                assert_eq!(
+                    ch.examples[0].comment.as_deref(),
+                    Some("From 100 to 125 is a rise of 25 percent")
+                );
+            }
+            n += 1;
+        }
+        assert!(n >= 8, "{n} key files");
     }
 
     #[test]

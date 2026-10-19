@@ -59,6 +59,56 @@ struct Command {
     #[serde(default)]
     inserts: Option<String>,
     page: u32,
+    /// The example specs, for their comments.
+    #[serde(default)]
+    examples: Vec<Spec>,
+}
+
+/// An example spec: the keys it pressed, and its comment.
+#[derive(Debug, Deserialize)]
+struct Spec {
+    #[serde(default)]
+    input: Vec<String>,
+    #[serde(default)]
+    then: Vec<String>,
+    #[serde(default)]
+    comment: Option<String>,
+}
+
+/// The generated examples of a function, each with the comment of its
+/// spec: the one at the same index when it pressed the same keys, else the
+/// first unused one that did (as `scripts/commands-json.py` joins them).
+fn with_comments(specs: &[Spec], list: &[Value]) -> Vec<Value> {
+    let keys = |v: &Value| -> Vec<String> {
+        v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|k| k.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let mut free: Vec<usize> = (0..specs.len()).collect();
+    list.iter()
+        .enumerate()
+        .map(|(j, x)| {
+            let (input, then) = (keys(&x["input"]), keys(&x["then"]));
+            let same = |i: usize| specs[i].input == input && specs[i].then == then;
+            let hit = if free.contains(&j) && same(j) {
+                Some(j)
+            } else {
+                free.iter().copied().find(|&i| same(i))
+            };
+            let mut out = x.clone();
+            if let Some(i) = hit {
+                free.retain(|&k| k != i);
+                if let (Some(c), Some(o)) = (&specs[i].comment, out.as_object_mut()) {
+                    o.insert("comment".into(), Value::String(c.clone()));
+                }
+            }
+            out
+        })
+        .collect()
 }
 
 #[derive(Debug, Deserialize)]
@@ -236,7 +286,7 @@ pub fn lookup(model: &str, query: &str) -> Result<Found> {
             "page": c.page,
             "url": format!("{}#page={}", x.url, c.page),
         })]).unwrap_or_default(),
-        "examples": m.examples.examples.get(&c.name).cloned().unwrap_or_default(),
+        "examples": m.examples.examples.get(&c.name).map(|l| with_comments(&c.examples, l)).unwrap_or_default(),
         "keyed": true,
     })))
 }
@@ -361,6 +411,9 @@ pub fn text(entry: &Value) -> String {
                 s(&entry["keys"]),
                 lines(&x["after"])
             ));
+            if let Some(c) = x["comment"].as_str() {
+                out.push_str(&format!("  # {c}\n"));
+            }
         }
     }
     if let Some(links) = entry["manuals"].as_array().filter(|a| !a.is_empty()) {
@@ -430,6 +483,21 @@ mod tests {
         assert!(!text(&uspv).contains("keys:"));
         // The same name on several key-driven models.
         assert_eq!(models_with("I%YR"), vec!["17b", "17bii", "19bii", "27s"]);
+    }
+
+    #[test]
+    fn an_example_shows_its_comment_under_it() {
+        let ch = one("17bii", "%CH");
+        assert_eq!(
+            ch["examples"][0]["comment"],
+            "From 100 to 125 is a rise of 25 percent"
+        );
+        let t = text(&ch);
+        assert!(
+            t.contains("=>  [%CHANGE=25.00 / [OLD][NEW][%CH][][][]]\n  # From 100 to 125 is a rise of 25 percent\n"),
+            "{t}"
+        );
+        assert!(one("17bii", "%T")["examples"][0].get("comment").is_none());
     }
 
     #[test]

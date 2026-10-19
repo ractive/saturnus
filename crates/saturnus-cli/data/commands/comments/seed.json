@@ -1,0 +1,21 @@
+{
+  "group": "rpl",
+  "comments": {
+    "HMS+": [{"i": 0, "comment": "1h30m plus 2h45m gives 4h15m"}],
+    "DATE+": [
+      {"i": 0, "comment": "120 days after 15 July 1991 is 12 November 1991"},
+      {"i": 1, "comment": "One day before 1 March 2024 is 29 February, a leap year"}
+    ],
+    "DDAYS": [{"i": 1, "comment": "The second date is earlier, so the count is negative"}],
+    "ROLL": [{"i": 0, "comment": "Rolls the 4 levels: the 1 from level 4 comes down to level 1"}],
+    "PICK": [{"i": 0, "comment": "Copies level 3, the 10, to level 1"}],
+    "B→R": [{"i": 0, "comment": "Hexadecimal FF is 255"}],
+    "SUB": [{"i": 0, "comment": "The 2nd to 4th character"}],
+    "GET": [{"i": 1, "comment": "Row 2, column 1 of the matrix"}],
+    "%CH": [{"i": 0, "comment": "From 50 to 60 is a rise of 20 percent"}],
+    "RND": [{"i": 1, "comment": "A negative count rounds to 3 significant digits"}],
+    "!": [{"i": 1, "comment": "A non-integer gives the gamma function's value Γ(1.5)"}],
+    "→LIST": [{"i": 1, "comment": "A count of 0 gives the empty list"}],
+    "SF": [{"i": 0, "comment": "Sets flag 3, then tests it: 1 means set"}]
+  }
+}
