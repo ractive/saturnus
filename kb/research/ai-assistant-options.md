@@ -67,7 +67,9 @@ server, and WebMCP until it leaves origin trial.
   machine thread with the CLI (`saturnus_drive::runner`), but only
   `saturnus run` listens on 4840. An agent today drives a separate
   headless calculator, not the one on screen.
-- **The web app** runs the calculator in a SharedWorker; its CSP has
+- **The web app** runs the calculator in a dedicated Web Worker
+  (`web/shared/calc-hub.js`; the SharedWorker of iteration 46 is gone
+  since the one-app page of 0.6.0); its CSP has
   `connect-src 'self'` (`web/site.htaccess`), so it can call no AI
   provider without a CSP change, and the control API's Origin check keeps
   pages away from 127.0.0.1 by design.
