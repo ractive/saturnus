@@ -2,7 +2,8 @@
 //! `saturnus-refgen`): the ROM's command list per model with its menu
 //! categories, our descriptions and stack effects, the examples generated
 //! on the emulator, and deep links into HP's manuals. Embedded at build
-//! time; read only. The key-driven models (the 42S) are [`crate::keyref`]'s.
+//! time; read only. The key-driven models (the 42S, 27S, 17BII, 17B, 19BII)
+//! are [`crate::keyref`]'s.
 
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -329,8 +330,12 @@ pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
         // Not an RPL command: a key-driven model's function, when one
         // model has it.
         Err(e) if model.is_none() => match crate::keyref::models_with(query).as_slice() {
+            [] => return Err(e),
             [m] => return crate::keyref::lookup(m, query),
-            _ => return Err(e),
+            several => bail!(
+                "{query:?} is a function of the {}: choose one with --model",
+                several.join(", ")
+            ),
         },
         Err(e) => return Err(e),
     };

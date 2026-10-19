@@ -86,4 +86,13 @@ fn a_key_driven_model_answers_with_the_keys() {
     // An RPL command that is a 42S function too points there.
     let text = String::from_utf8(saturnus_ref(&["SINH"]).stdout).unwrap();
     assert!(text.contains("saturnus ref --model 42s SINH"), "{text}");
+    // The menu-driven models answer with their menu keys.
+    let out = saturnus_ref(&["pmt", "--model", "27s"]);
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("keys:   ⇧ TVM PMT"), "{text}");
+    // A function several key-driven models have asks for one.
+    let out = saturnus_ref(&["I%YR"]);
+    assert!(!out.status.success());
+    let err = String::from_utf8(out.stderr).unwrap();
+    assert!(err.contains("choose one with --model"), "{err}");
 }

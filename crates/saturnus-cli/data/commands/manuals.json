@@ -42,6 +42,42 @@
         "42s"
       ]
     }
+ ,
+    {
+      "id": "hp27s-om",
+      "title": "HP-27S Owner's Manual",
+      "url": "https://literature.hpcalc.org/community/hp27s-om-en.pdf",
+      "models": [
+        "27s"
+      ]
+    }
+ ,
+    {
+      "id": "hp17bii-om",
+      "title": "HP 17BII Financial Calculator Owner's Manual",
+      "url": "https://literature.hpcalc.org/community/hp17bii-om-en.pdf",
+      "models": [
+        "17bii"
+      ]
+    }
+ ,
+    {
+      "id": "hp17b-om",
+      "title": "HP-17B Owner's Manual",
+      "url": "https://literature.hpcalc.org/community/hp17b-om-en.pdf",
+      "models": [
+        "17b"
+      ]
+    }
+ ,
+    {
+      "id": "hp19bii-om",
+      "title": "HP 19BII Business Consultant II Owner's Manual",
+      "url": "https://literature.hpcalc.org/community/hp19bii-om-en.pdf",
+      "models": [
+        "19bii"
+      ]
+    }
   ],
   "pages": {
     "!": {

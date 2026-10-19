@@ -1,4 +1,5 @@
-//! `saturnus ref` for the key-driven models (the 42S, and any model with a
+//! `saturnus ref` for the key-driven models (the 42S, 27S, 17BII, 17B,
+//! 19BII, and any model with a
 //! `data/commands/keys-<model>.json`): no command line to type into, so a
 //! function is looked up with the keys that run it, what it asks for, its
 //! menu, the examples run on the emulator (the screen before and after)
@@ -307,9 +308,17 @@ pub fn text(entry: &Value) -> String {
                     .map(|a| a.iter().map(s).collect::<Vec<_>>().join(" / "))
                     .unwrap_or_default()
             };
+            let labels: Vec<String> = x["labels"]
+                .as_array()
+                .map(|a| a.iter().map(s).collect())
+                .unwrap_or_default();
             out.push_str(&format!(
                 "  {}  [{}]  {}  =>  [{}]\n",
-                legend_text(model, &names),
+                if labels.is_empty() {
+                    legend_text(model, &names)
+                } else {
+                    labels.join(" ")
+                },
                 lines(&x["before"]),
                 s(&entry["keys"]),
                 lines(&x["after"])
@@ -342,20 +351,47 @@ mod tests {
     }
 
     #[test]
-    fn every_function_has_keys_to_run_it() {
+    fn every_function_has_keys_to_run_it_or_a_menu_to_type_it_in() {
         for m in parsed().unwrap() {
             assert!(!m.file.commands.is_empty(), "{}", m.file.model);
             for c in &m.file.commands {
+                // A function only typed into an equation (the Solver's)
+                // has no keys but says where it is typed.
+                let typed = c.keys.is_none() && c.xeq.is_none() && c.menu.is_some();
                 let s = steps(&m.file, c);
                 assert!(
-                    s.is_some_and(|s| !s.is_empty()),
+                    typed || s.is_some_and(|s| !s.is_empty()),
                     "{} {}",
                     m.file.model,
                     c.name
                 );
             }
         }
-        assert!(models().contains(&"42s"));
+        for m in ["42s", "27s", "17bii", "17b", "19bii"] {
+            assert!(models().contains(&m), "{m}");
+        }
+    }
+
+    #[test]
+    fn the_17bii_by_menu_keys_and_its_solver_functions() {
+        let n = one("17bii", "n");
+        assert_eq!(n["keys"], "FIN TVM N");
+        assert_eq!(n["key_names"], json!(["a", "a", "a"]));
+        assert_eq!(n["menu"], "FIN TVM");
+        let t = text(&n);
+        assert!(
+            t.starts_with(
+                "N  (FIN TVM)\nname:   Number of periods\nmodels: 17bii\nkeys:   FIN TVM N\n"
+            ),
+            "{t}"
+        );
+        // A Solver function: no keys, typed into an equation.
+        let uspv = one("17bii", "USPV(i%:n)");
+        assert_eq!(uspv["keys"], Value::Null);
+        assert_eq!(uspv["menu"], "SOLVE");
+        assert!(!text(&uspv).contains("keys:"));
+        // The same name on several key-driven models.
+        assert_eq!(models_with("I%YR"), vec!["17b", "17bii", "19bii", "27s"]);
     }
 
     #[test]
@@ -397,7 +433,7 @@ mod tests {
                 .contains("no function")
         );
         assert!(lookup("27x", "SIN").is_err());
-        assert_eq!(models_with("SINH"), vec!["42s"]);
+        assert_eq!(models_with("SINH"), vec!["19bii", "27s", "42s"]);
         let names = ["2", "enter", "1", "sigmaplus", "shift", "sto"].map(String::from);
         assert_eq!(legend_text("42s", &names), "2 ENTER 1 Σ+ ⇧ COMPLEX");
     }
