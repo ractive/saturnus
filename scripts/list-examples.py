@@ -97,7 +97,10 @@ def keyed(model, names):
             labels = x.get("labels") if x else None
             typed = ec.keyed_input_text(labels or s.get("input", []))
             then = f" | then: {ec.keyed_input_text(s['then'])}" if s.get("then") else ""
-            lines.append(f"  [{i}] input: {typed or '(none)'}{then}")
+            # In the function's menu already: only its last key is pressed.
+            last = c.get("keys", [])[-1:]
+            menu = f" | in the menu: {steps_text(last)}" if s.get("in_menu") and last else ""
+            lines.append(f"  [{i}] input: {typed or '(none)'}{menu}{then}")
             if x:
                 lines.append(f"      before: {screen(x.get('before', []))}")
                 lines.append(f"      after:  {screen(x.get('after', []))}")

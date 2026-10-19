@@ -4,7 +4,7 @@
 // emulator (each with "Try it" and its comment, if any), the deep links into the manuals. Shared by the palette's detail pane and the
 // explorer's Commands tab; it renders what web/reference.js reads.
 
-import { exampleBefore, exampleResult, exampleText, legendText, manualLinks, placement, stackVerified } from "../reference.js";
+import { exampleBefore, exampleResult, exampleRun, exampleText, keysText, legendText, manualLinks, placement, stackVerified } from "../reference.js";
 import { MODEL_TITLES } from "../norom.js";
 import { el } from "../shared/dom.js";
 
@@ -236,10 +236,12 @@ function keyedExampleRow(command, x, i, ctx, home = false) {
   // A menu key in the input reads as the label its box showed (the generator kept them).
   const input = x.labels?.length ? x.labels.join(" ") : legendText(x.input, ctx.legends ?? null);
   const then = x.then?.length ? ` ${legendText(x.then, ctx.legends ?? null)}` : "";
+  // In the function's menu already: only its last key.
+  const run = x.in_menu ? keysText(exampleRun(command, x)) : command.keysText;
   const tried = ctx.tried?.example === x ? ctx.tried : null;
   let tryBtn = null;
   if (ctx.onTry) {
-    tryBtn = el("button", { type: "button", class: "ex-try", title: `Press ${input ? `${input} ` : ""}${command.keysText}${then}`, text: "Try it" });
+    tryBtn = el("button", { type: "button", class: "ex-try", title: `Press ${input ? `${input} ` : ""}${run}${then}`, text: "Try it" });
     tryBtn.addEventListener("click", (e) => {
       if (e.detail > 0) tryBtn.blur();
       ctx.onTry(x);
@@ -254,7 +256,7 @@ function keyedExampleRow(command, x, i, ctx, home = false) {
     // HOME with nothing on it has nothing to show before.
     home && x.before.every((l) => !l.trim()) ? null : screenLines(x.before, "ex-before", "Display before"),
     el("div", { class: "ex-cmd" },
-      el("code", { class: "ex-run", text: command.keysText + then }),
+      el("code", { class: "ex-run", text: run + then }),
       el("span", { class: "ex-arrow", "aria-hidden": "true", text: "→" })),
     screenLines(x.after, "ex-after", "Display after"),
     tryBtn,

@@ -289,9 +289,21 @@ export function legendText(names, legends = null) {
   return out.join(" ");
 }
 
+/**
+ * The function's keys an example presses: all of them, or, when its input
+ * ends in the function's menu (`in_menu`: a menu that clears its variables
+ * when left, the 19BII's %CHG), the last key with the shift before it.
+ */
+export function exampleRun(command, example) {
+  const steps = command.steps ?? [];
+  if (!example.in_menu || steps.length === 0) return steps;
+  const last = steps.length - 1;
+  return steps.slice(last > 0 && isShift(steps[last - 1].key) ? last - 1 : last);
+}
+
 /** The keys an example presses: its input, the function's, then its `then` keys (the arguments and ENTER on the 38G, 39G and 40G). */
 export function exampleSteps(command, example) {
-  return [...example.input.map((key) => ({ key })), ...(command.steps ?? []), ...(example.then ?? []).map((key) => ({ key }))];
+  return [...example.input.map((key) => ({ key })), ...exampleRun(command, example), ...(example.then ?? []).map((key) => ({ key }))];
 }
 
 /** The headings of the menu tree that are not menus of the ROM. */

@@ -10,7 +10,7 @@ import {
   NOT_IN_MENU, OTHER_MENUS, buildIndex, enterPlan, enterVerb, exampleBefore, exampleResult, exampleText, findCommands, findMenu,
   flattenMenus, fromCodes, friendly, menuLabel,
   isSingleToken, keyLegend, manualLinks, menuCommands, placement, search, spaced, stackVerified, toCodes,
-  exampleSteps, keyNames, keySteps, keysText, legendText, menuShown, referenceModels, spell, cancelKeys, commandsCoverage,
+  exampleRun, exampleSteps, keyNames, keySteps, keysText, legendText, menuShown, referenceModels, spell, cancelKeys, commandsCoverage,
 } from "../reference.js";
 import { IndexWatch, NOT_READY, PaletteModel, sendFailure } from "../palette.js";
 
@@ -589,6 +589,12 @@ test("key steps: labels in order, a shift as ⇧, names spelt through the ALPHA 
   assert.equal(legendText(["point"]), "POINT");
   const sqrt = k42.byName.get("SQRT");
   assert.deepEqual(keyNames(exampleSteps(sqrt, sqrt.per.examples[0])), ["9", "sqrt"]);
+  // In the function's menu already (in_menu): only its last key.
+  const ch = { steps: [{ key: "b", label: "BUS" }, { key: "a", label: "%CHG" }, { key: "c", label: "%CH" }] };
+  assert.deepEqual(keyNames(exampleSteps(ch, { input: ["1", "b"], in_menu: true })), ["1", "b", "c"]);
+  assert.deepEqual(keyNames(exampleSteps(ch, { input: ["1"] })), ["1", "b", "a", "c"]);
+  const shifted = { steps: [{ key: "shift" }, { key: "5", label: "CONVERT" }] };
+  assert.equal(keysText(exampleRun(shifted, { input: [], in_menu: true })), "⇧ CONVERT");
 });
 
 test("the 42S's menu is seen on its display: the boxes' border rows dark", () => {

@@ -45,7 +45,8 @@ booted screen, and per function `long`, `description`, `note`, `stack`,
 (the name XEQ runs it by), `menu`, `inserts` (38G, 39G, 40G: what the
 keys put on HOME's edit line), `page` (the manual's PDF page) and
 the `examples` run on the emulator (`input` keys, the `then` keys after
-the function's, the `before` and `after` screens, upper line first, and
+the function's, `in_menu` when only the function's last key was pressed
+in its menu, the `before` and `after` screens, upper line first, and
 the spec's `comment`).
 `home` (38G, 39G, 40G) are the keys pressed before every function. The format and its checks are
 `saturnus-refgen keys` (crates/saturnus-refgen/src/keyed.rs); adding a
@@ -190,7 +191,7 @@ def key_models():
             if runs:
                 specs = c.get("examples", [])
                 entry["examples"] = [
-                    with_comment({k: x[k] for k in ("input", "labels", "then", "before", "after") if k in x}, specs, i, joined, c["name"])
+                    with_comment({k: x[k] for k in ("input", "labels", "then", "in_menu", "before", "after") if k in x}, specs, i, joined, c["name"])
                     for x, i in zip(runs, match_keyed(specs, runs))
                 ]
             if c["name"] in commands:

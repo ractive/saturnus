@@ -51,7 +51,13 @@
 //!                                     // optional; `then`: keys after the function's;
 //!                                     // `comment` (optional): what the example shows,
 //!                                     // never run nor generated, joined to the
-//!                                     // generated example by scripts/commands-json.py
+//!                                     // generated example by scripts/commands-json.py;
+//!                                     // `in_menu` (optional, true): the input ends in
+//!                                     // the function's menu and only its last key is
+//!                                     // pressed (a menu that clears its variables when
+//!                                     // left or entered, the 19BII's %CHG or ICONV);
+//!                                     // `shows_error` (optional, true): the example
+//!                                     // ends in an error message on purpose
 //!   }]
 //! }
 //! ```
@@ -81,9 +87,12 @@
 //! menu, the example also keeps what each input key showed (`labels`),
 //! so it reads as `BUS %CHG 100 OLD` rather than as key names. A function run by name must not leave
 //! `xeq.unknown` on the screen, and `leave.menu_box` must see a menu
-//! exactly when one shows. The fonts are learned first from the
+//! exactly when one shows, and the screen after an example must not hold
+//! an error message ([`ERROR_TEXTS`]) unless it is marked `shows_error`
+//! (nor be marked without one). The fonts are learned first from the
 //! `learn` screens and the characters of `alpha.chars`, typed one by one
-//! (each shows in the first cell of the upper line).
+//! (each shows in the first cell of the upper line); a cell learned as
+//! two characters is refused (a learn line that does not line up).
 //!
 //! On the 38G, 39G and 40G ([`crate::apletext`]) the screen is HOME: its
 //! four history lines and the edit line (`learn` lines are those five, a
@@ -203,6 +212,16 @@ pub struct ExampleSpec {
     /// arguments and ENTER).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub then: Vec<String>,
+    /// `input` ends in the function's menu, and only the function's last
+    /// key (its menu key) is pressed: for menus whose variables are
+    /// cleared when the menu is left or entered (the 19BII's business
+    /// percentages, ICONV and date arithmetic).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub in_menu: bool,
+    /// The example shows an error message on purpose; otherwise one of
+    /// [`ERROR_TEXTS`] on the screen after fails the example.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shows_error: bool,
     /// What the example shows, where the keys and screens do not say it
     /// (`kb/docs/example-comments.md`); not run, not in the generated
     /// examples.
@@ -538,7 +557,16 @@ impl Driver {
             }
             for (line, text) in l.lines.iter().enumerate() {
                 for (i, c) in text.chars().enumerate().filter(|(_, c)| *c != ' ') {
-                    self.glyphs.learn_cell(lcdtext::cell(&lcd, line, i), c);
+                    self.glyphs
+                        .learn_cell_checked(lcdtext::cell(&lcd, line, i), c)
+                        .map_err(|old| {
+                            anyhow::anyhow!(
+                                "learn {}: line {} cell {} shows {old:?} (learned before), not {c:?}",
+                                keys_text(&l.keys),
+                                line + 1,
+                                i + 1
+                            )
+                        })?;
                 }
             }
         }
@@ -553,7 +581,11 @@ impl Driver {
                     .context("alpha.start")
                     .and_then(|()| self.press_all(steps))
                     .with_context(|| format!("typing {c:?}"))?;
-                self.glyphs.learn_cell(lcdtext::cell(&self.lcd(), 0, 0), ch);
+                self.glyphs
+                    .learn_cell_checked(lcdtext::cell(&self.lcd(), 0, 0), ch)
+                    .map_err(|old| {
+                        anyhow::anyhow!("typing {c:?} shows {old:?} (learned before)")
+                    })?;
             }
         }
         // The menus last: their letters are mostly known by then.
@@ -617,6 +649,10 @@ pub struct Example {
     /// The keys pressed after the function's.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub then: Vec<String>,
+    /// Only the function's last key was pressed, in its menu (the spec's
+    /// `in_menu`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub in_menu: bool,
     /// The screen after them, upper line first.
     pub before: Vec<String>,
     /// The screen after the function's keys.
@@ -691,7 +727,15 @@ pub fn generate(
                     .with_context(|| format!("{}: example input", cmd.name))?;
             }
             let before = d.lcd();
-            d.press_all(&steps).with_context(|| cmd.name.clone())?;
+            let run = if ex.in_menu {
+                last_key(&steps)
+            } else {
+                &steps[..]
+            };
+            if run.is_empty() {
+                bail!("{}: in_menu needs keys to press", cmd.name);
+            }
+            d.press_all(run).with_context(|| cmd.name.clone())?;
             for (i, k) in ex.then.iter().enumerate() {
                 let last_enter = i + 1 == ex.then.len() && k == "enter";
                 let typed = d.aplet.read_edit(&d.lcd());
@@ -728,6 +772,7 @@ pub fn generate(
         booted: read(&booted),
         examples: BTreeMap::new(),
     };
+    let mut failed = Vec::new();
     for shot in shots {
         let name = shot.name;
         let (before, after) = shot
@@ -737,9 +782,22 @@ pub fn generate(
             input: shot.spec.input,
             labels: shot.labels,
             then: shot.spec.then,
+            in_menu: shot.spec.in_menu,
             before,
             after,
         };
+        let i = out.examples.get(&name).map_or(0, Vec::len);
+        match (error_shown(&x.after), shot.spec.shows_error) {
+            (Some(e), false) => failed.push(format!(
+                "{name} [{i}]: ends in the error {e:?} (fix its input, or mark it \"shows_error\"): {:?}",
+                x.after
+            )),
+            (None, true) => failed.push(format!(
+                "{name} [{i}]: marked \"shows_error\" but shows no known error: {:?}",
+                x.after
+            )),
+            _ => {}
+        }
         if apletext::fits(&shot.after)
             && x.before
                 .iter()
@@ -753,7 +811,98 @@ pub fn generate(
         }
         out.examples.entry(name).or_default().push(x);
     }
+    if !failed.is_empty() {
+        bail!("{} examples fail:\n{}", failed.len(), failed.join("\n"));
+    }
     Ok(out)
+}
+
+/// The function's last key, with the shift before it: what an `in_menu`
+/// example presses.
+fn last_key(steps: &[Step]) -> &[Step] {
+    let Some(last) = steps.len().checked_sub(1) else {
+        return steps;
+    };
+    let from = if last > 0 && is_shift(&steps[last - 1].key) {
+        last - 1
+    } else {
+        last
+    };
+    &steps[from..]
+}
+
+/// The error messages of the key-driven models, from their manuals'
+/// message lists and what their screens show: an example's screen after
+/// holding one has failed, unless it is marked `shows_error`. Matched as
+/// parts of a screen line, case and all.
+pub const ERROR_TEXTS: &[&str] = &[
+    // 17B, 17BII, 27S, 19BII (Error Messages appendix); "ERROR:" starts
+    // every calculator-line math error (÷0, 0÷0, LOG(0), SQRT(NEG), ...).
+    "ERROR:",
+    "INPUTS CAUSED",
+    "INSUFFICIENT DATA",
+    "INSUFFICIENT MEMORY",
+    "INTEREST <=",
+    "INVALID DATE",
+    "INVALID EQUATION",
+    "INVALID INPUT",
+    "INVALID N",
+    "MANY OR NO SOLUTIONS",
+    "NO SOLUTION",
+    "SOLUTION NOT FOUND",
+    "BAD GUESSES",
+    "EMPTY LIST",
+    "UNEQUAL LIST LENGTHS",
+    "CURRENT LIST UNNAMED",
+    "NAME ALREADY USED",
+    "OVERFLOW",
+    "UNDERFLOW",
+    "TOO BIG",
+    "INTERRUPTED",
+    // 42S (Messages appendix).
+    "Divide by 0",
+    "Out of Range",
+    "Invalid Type",
+    "Invalid Data",
+    "Invalid Forecast",
+    "Alpha Data Is Invalid",
+    "Dimension Error",
+    "Size Error",
+    "Stat Math Error",
+    "Restricted",
+    "Nonexistent",
+    "Label Not Found",
+    "No Real Variables",
+    "No Complex Variables",
+    "No Matrix Variables",
+    "No Menu Variables",
+    "No Variables",
+    "Insufficient Memory",
+    "Interrupted",
+    // 38G, 39G, 40G (Error messages table). Their error box is not read
+    // as text: it fails an example as characters never learned.
+    "Bad Argument",
+    "Infinite Result",
+    "Undefined Result",
+    "Undefined Name",
+    "Invalid Syntax",
+    "Invalid Dimension",
+    "Invalid Statistics",
+    "Insufficient Statistics",
+    "Too Few Arguments",
+    "Name Conflict",
+    "No Equations Checked",
+    "Receive Error",
+    "Out of Memory",
+];
+
+/// The first of [`ERROR_TEXTS`] that `screen` shows, if any. Runs of
+/// spaces count as one (the Pioneers space a message out to the line).
+pub fn error_shown(screen: &[String]) -> Option<&'static str> {
+    screen.iter().find_map(|line| {
+        let squeezed = line.split_whitespace().collect::<Vec<_>>().join(" ");
+        ERROR_TEXTS.iter().copied().find(|e| squeezed.contains(e))
+    })
 }
 
 /// An example run, its screens read later.
@@ -935,6 +1084,30 @@ mod tests {
             n += 1;
         }
         assert!(n >= 8, "{n} key files");
+    }
+
+    #[test]
+    fn an_error_on_the_screen_is_found() {
+        let screen = |l: &[&str]| l.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            error_shown(&screen(&["INPUTS  CAUSED ÷0", "125.00"])),
+            Some("INPUTS CAUSED")
+        );
+        assert_eq!(
+            error_shown(&screen(&["x:Divide by 0"])),
+            Some("Divide by 0")
+        );
+        assert_eq!(error_shown(&screen(&["%CHANGE=25.00", "[OLD][NEW]"])), None);
+    }
+
+    #[test]
+    fn in_menu_presses_the_last_key() {
+        let f = file();
+        let s = f.sequence(&f.commands[0]).unwrap();
+        assert_eq!(keys_text(last_key(&s)), "→POL");
+        let shifted = [step("shift", None), step("5", Some("CONVERT"))];
+        assert_eq!(keys_text(last_key(&shifted)), "⇧ CONVERT");
+        assert!(last_key(&[]).is_empty());
     }
 
     #[test]

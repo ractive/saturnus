@@ -195,6 +195,19 @@ impl Glyphs {
         }
     }
 
+    /// Learn that `cell` shows `c`, refusing a cell already learned as
+    /// another character (a learn screen whose text does not line up with
+    /// the display): `Err` holds that character.
+    pub fn learn_cell_checked(&mut self, cell: Cell, c: char) -> Result<(), char> {
+        match self.cells.get(&cell) {
+            Some(&old) if old != c => Err(old),
+            _ => {
+                self.learn_cell(cell, c);
+                Ok(())
+            }
+        }
+    }
+
     /// Learn that a box holding the single letter `c` shows `cols`.
     pub fn learn_letter(&mut self, c: char, cols: &[u8]) {
         let cols = trim(cols);

@@ -888,8 +888,15 @@ after, as text, and what each input key showed when the input goes
 through menus). The display (131 × 16 dots on the Pioneers, 137 × 32 on
 the 19BII) is read with fonts learned at run time from the characters
 the calculator is made to type and the screens the file's `learn` lists,
-so no font is stored. `saturnus-refgen screen` prints the display after
-some keys, for writing the file:
+so no font is stored (a cell a `learn` line names as two characters
+fails). An example whose display after shows an error message (`INVALID
+DATE`, `INPUTS CAUSED ÷0`, `Invalid Type`, ...; the list is `ERROR_TEXTS`
+in `keyed.rs`) fails too, unless it is marked `"shows_error": true`. Some
+menus clear their variables when they are left or entered (the 19BII's
+%CHG, %TOTL, MU%C, MU%P, ICONV and TIME CALC): an example marked
+`"in_menu": true` ends its input in the function's menu, and only the
+function's last key is pressed. `saturnus-refgen screen` prints the
+display after some keys, for writing the file:
 
 ```sh
 saturnus-refgen keys --model 42s --rom $R/hp42s.rom --data crates/saturnus-cli/data/commands/keys-42s.json \

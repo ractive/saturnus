@@ -43,9 +43,7 @@
           "1",
           "2",
           "5",
-          "b",
-          "shift",
-          "exit"
+          "b"
         ],
         "labels": [
           "BUS",
@@ -57,20 +55,19 @@
           "1",
           "2",
           "5",
-          "NEW",
-          "⇧",
-          "MAIN"
+          "NEW"
         ],
+        "in_menu": true,
         "before": [
           "",
-          "",
-          "125.00",
-          "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
+          "OLD=100.00",
+          "NEW=125.00",
+          "[OLD][NEW][%CH][][][]"
         ],
         "after": [
-          "INPUTS CAUSED ÷0",
-          "",
-          "125.00",
+          "OLD=100.00",
+          "NEW=125.00",
+          "%CHANGE=25.00",
           "[OLD][NEW][%CH][][][]"
         ]
       }
@@ -86,9 +83,7 @@
           "a",
           "5",
           "0",
-          "b",
-          "shift",
-          "exit"
+          "b"
         ],
         "labels": [
           "BUS",
@@ -99,20 +94,19 @@
           "TOTAL",
           "5",
           "0",
-          "PART",
-          "⇧",
-          "MAIN"
+          "PART"
         ],
+        "in_menu": true,
         "before": [
           "",
-          "",
-          "50.00",
-          "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
+          "TOTAL=200.00",
+          "PART=50.00",
+          "[TOTAL][PART][%T][][][]"
         ],
         "after": [
-          "INPUTS CAUSED ÷0",
-          "",
-          "50.00",
+          "TOTAL=200.00",
+          "PART=50.00",
+          "%TOTAL=25.00",
           "[TOTAL][PART][%T][][][]"
         ]
       }
@@ -197,9 +191,7 @@
           "9",
           "9",
           "1",
-          "b",
-          "shift",
-          "exit"
+          "b"
         ],
         "labels": [
           "TIME",
@@ -222,20 +214,19 @@
           "9",
           "9",
           "1",
-          "DATE2",
-          "⇧",
-          "MAIN"
+          "DATE2"
         ],
+        "in_menu": true,
         "before": [
           "",
-          "",
-          "12.25",
-          "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
+          "DATE1=4.03",
+          "DATE2=12/25/1991    WED",
+          "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
         ],
         "after": [
-          "INVALID DATE",
-          "",
-          "12.25",
+          "DATE1=4.03",
+          "DATE2=12.25",
+          "360 DAYS=262.00",
           "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
         ]
       }
@@ -263,9 +254,7 @@
           "9",
           "9",
           "1",
-          "b",
-          "shift",
-          "exit"
+          "b"
         ],
         "labels": [
           "TIME",
@@ -288,20 +277,19 @@
           "9",
           "9",
           "1",
-          "DATE2",
-          "⇧",
-          "MAIN"
+          "DATE2"
         ],
+        "in_menu": true,
         "before": [
           "",
-          "",
-          "12.25",
-          "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
+          "DATE1=4.03",
+          "DATE2=12/25/1991    WED",
+          "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
         ],
         "after": [
-          "INVALID DATE",
-          "",
-          "12.25",
+          "DATE1=4.03",
+          "DATE2=12.25",
+          "365 DAYS=266.00",
           "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
         ]
       }
@@ -1068,7 +1056,7 @@
         "after": [
           "",
           "",
-          "DATE1=0410311991    WED",
+          "DATE1=04/03/1991    WED",
           "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
         ]
       }
@@ -1095,7 +1083,7 @@
         "after": [
           "",
           "",
-          "DATE2=1212511991    WED",
+          "DATE2=12/25/1991    WED",
           "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
         ]
       }
@@ -1123,9 +1111,7 @@
           "9",
           "9",
           "1",
-          "b",
-          "shift",
-          "exit"
+          "b"
         ],
         "labels": [
           "TIME",
@@ -1148,20 +1134,19 @@
           "9",
           "9",
           "1",
-          "DATE2",
-          "⇧",
-          "MAIN"
+          "DATE2"
         ],
+        "in_menu": true,
         "before": [
           "",
-          "",
-          "12.25",
-          "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
+          "DATE1=4.03",
+          "DATE2=12/25/1991    WED",
+          "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
         ],
         "after": [
-          "INVALID DATE",
-          "",
-          "12.25",
+          "DATE1=4.03",
+          "DATE2=12.25",
+          "ACTUAL DAYS=266.00",
           "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
         ]
       }
@@ -1278,9 +1263,7 @@
           "b",
           "1",
           "0",
-          "a",
-          "shift",
-          "exit"
+          "a"
         ],
         "labels": [
           "FIN",
@@ -1288,20 +1271,19 @@
           "CONT",
           "1",
           "0",
-          "NOM%",
-          "⇧",
-          "MAIN"
+          "NOM%"
         ],
+        "in_menu": true,
         "before": [
           "",
           "",
-          "10.00",
-          "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
+          "NOM%=10.00",
+          "[NOM%][EFF%][][][][]"
         ],
         "after": [
           "",
-          "",
-          "EFF%=0.00",
+          "NOM%=10.00",
+          "EFF%=10.52",
           "[NOM%][EFF%][][][][]"
         ]
       }
@@ -1317,9 +1299,7 @@
           "c",
           "1",
           "0",
-          "a",
-          "shift",
-          "exit"
+          "a"
         ],
         "labels": [
           "FIN",
@@ -1330,20 +1310,19 @@
           "P",
           "1",
           "0",
-          "NOM%",
-          "⇧",
-          "MAIN"
+          "NOM%"
         ],
+        "in_menu": true,
         "before": [
           "",
-          "",
-          "10.00",
-          "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
+          "P=12.00",
+          "NOM%=10.00",
+          "[NOM%][EFF%][P][][][]"
         ],
         "after": [
-          "INPUTS CAUSED ÷0",
-          "",
-          "10.00",
+          "P=12.00",
+          "NOM%=10.00",
+          "EFF%=10.47",
           "[NOM%][EFF%][P][][][]"
         ]
       }
@@ -1856,9 +1835,7 @@
           "4",
           "point",
           "6",
-          "b",
-          "shift",
-          "exit"
+          "b"
         ],
         "labels": [
           "BUS",
@@ -1870,20 +1847,19 @@
           "4",
           "·",
           "6",
-          "PRICE",
-          "⇧",
-          "MAIN"
+          "PRICE"
         ],
+        "in_menu": true,
         "before": [
           "",
-          "",
-          "4.60",
-          "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
+          "COST=4.10",
+          "PRICE=4.60",
+          "[COST][PRICE][M%C][][][]"
         ],
         "after": [
-          "INPUTS CAUSED ÷0",
-          "",
-          "4.60",
+          "COST=4.10",
+          "PRICE=4.60",
+          "MARKUP%C=12.20",
           "[COST][PRICE][M%C][][][]"
         ]
       }
@@ -1900,9 +1876,7 @@
           "4",
           "point",
           "6",
-          "b",
-          "shift",
-          "exit"
+          "b"
         ],
         "labels": [
           "BUS",
@@ -1914,20 +1888,19 @@
           "4",
           "·",
           "6",
-          "PRICE",
-          "⇧",
-          "MAIN"
+          "PRICE"
         ],
+        "in_menu": true,
         "before": [
           "",
-          "",
-          "4.60",
-          "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
+          "COST=4.10",
+          "PRICE=4.60",
+          "[COST][PRICE][M%P][][][]"
         ],
         "after": [
-          "INPUTS CAUSED ÷0",
-          "",
-          "4.60",
+          "COST=4.10",
+          "PRICE=4.60",
+          "MARKUP%P=10.87",
           "[COST][PRICE][M%P][][][]"
         ]
       }
@@ -1953,7 +1926,7 @@
         "after": [
           "",
           "",
-          "MAT=0110312001      WED",
+          "MAT=01/03/2001      WED",
           "[TYPE][SETT][MAT][CPN%][CALL][MORE]"
         ]
       }
@@ -2123,10 +2096,12 @@
           "1",
           "2",
           "c",
-          "shift",
-          "exit",
           "1",
-          "0"
+          "0",
+          "point",
+          "4",
+          "7",
+          "b"
         ],
         "labels": [
           "FIN",
@@ -2135,20 +2110,23 @@
           "1",
           "2",
           "P",
-          "⇧",
-          "MAIN",
           "1",
-          "0"
+          "0",
+          "·",
+          "4",
+          "7",
+          "EFF%"
         ],
+        "in_menu": true,
         "before": [
           "",
-          "",
-          "10█",
-          "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
+          "P=12.00",
+          "EFF%=10.47",
+          "[NOM%][EFF%][P][][][]"
         ],
         "after": [
-          "",
-          "",
+          "P=12.00",
+          "EFF%=10.47",
           "NOM%=10.00",
           "[NOM%][EFF%][P][][][]"
         ]
@@ -2246,9 +2224,9 @@
           "[FIN][BUS][SUM][TIME][SOLVE][TEXT]"
         ],
         "after": [
-          "12 PMTS1YR:   END MODE",
+          "12 PMTS/YR:   END MODE",
           "",
-          "P1YR=12.00",
+          "P/YR=12.00",
           "[P/YR][BEG][END][AMRT][][]"
         ]
       }
@@ -2637,7 +2615,7 @@
         "after": [
           "",
           "",
-          "SETT=0110311991     THU",
+          "SETT=01/03/1991     THU",
           "[TYPE][SETT][MAT][CPN%][CALL][MORE]"
         ]
       }
