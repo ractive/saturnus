@@ -62,7 +62,7 @@ export class ContextClicks {
 /**
  * The shift key `mod` stands for on a model with keys `keyNames`: Ctrl the
  * left shift, Alt the right one; a model with one shift (38G, 39G, 40G,
- * 42S: `shift`) uses it for both. Null without a modifier or a shift.
+ * 42S, 28S, 27S, 19BII, 17BII, 17B: `shift`) uses it for both. Null without a modifier or a shift.
  */
 export function shiftKeyFor(mod, keyNames) {
   if (!mod) return null;

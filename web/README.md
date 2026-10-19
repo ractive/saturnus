@@ -371,7 +371,7 @@ forms").
    (below). With a mouse, Ctrl+click presses left-shift, then the key;
    Alt+click (Option+click on a Mac) presses right-shift, then the key.
    The shift is skipped if it is already on. A model with one shift (38G,
-   39G, 40G, 42S, 27S, 17BII, 17B) takes either. While Ctrl or Alt alone is held and the
+   39G, 40G, 42S, 28S, 27S, 19BII, 17BII, 17B) takes either. While Ctrl or Alt alone is held and the
    calculator has the keys, the labels it reaches light up on the
    calculator. (`shiftclick.js`; the host's key queue decides about the
    shift, `keyDown` with `shift`.)
@@ -1168,8 +1168,8 @@ with a switch above them.
   of a shared calculator is refused to every page ("This calculator is
   shared with another view, …"); a view alone on its engine opens it.
   No restore, graphics screen or fast transfer on it (owner,
-  2026-10-14): Calculator's Load state and the "+" above its display
-  cover them; the backup checks the room itself (there is no free
+  2026-10-14): Calculator's Load state and Save screen take the
+  place of the first two; the backup checks the room itself (there is no free
   figure). The speed is Calculator's (Files' with no Calculator on
   it); a machine stops computing when every view that shows it is
   hidden (a hidden view is not a hidden page: the calculator runs on). A
