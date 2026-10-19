@@ -1,4 +1,4 @@
-// "Connect your AI tool" (iteration 55): the dialog of AI access
+// "Connect your AI app" (iteration 55): the dialog of AI access
 // (web/ai.js) in the page's own look (shared/components.css, `dialog.ai`):
 // the MCP address with Copy, the state, the pairing code once the relay
 // sends one (tab-mcp's OAuth, its iteration 3), the AI apps connected with
@@ -32,7 +32,7 @@ export async function openAiDialog(ai, doc = document) {
   const fresh = el("button", { type: "button", class: "link", text: "New address" });
   const done = el("button", { type: "button", text: "Done" });
   dialog.append(el("div", { class: "ai-box" },
-    el("h2", { id: "ai-title", text: "Connect your AI tool" }),
+    el("h2", { id: "ai-title", text: "Connect your AI app" }),
     el("p", { text: "Your AI app (Claude, ChatGPT, Claude Code, Cursor, …) can use the calculators in this tab: read the display, press keys, run programs and look up commands. Add this address to it as an MCP server, or custom connector." }),
     addressRow,
     code,
@@ -40,7 +40,7 @@ export async function openAiDialog(ai, doc = document) {
     el("h3", { text: "Connected apps" }),
     apps,
     appsNote,
-    el("p", { class: "ai-note", text: "While an AI app is connected, the calculators keep running when this tab is in the background. Storing or purging a variable asks you here first." }),
+    el("p", { class: "ai-note", text: "The AI app can press any key and run any command, as you can. Storing or purging a variable through its store and purge tools asks you here first. While an AI app is connected, the calculators keep running when this tab is in the background." }),
     keepRow,
     el("div", { class: "ai-actions" }, fresh, el("span", { class: "ai-gap" }), off, connect, done),
   ));

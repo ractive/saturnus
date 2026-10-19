@@ -1,7 +1,7 @@
 // AI access in the real page (iteration 55): a local tab-mcp relay
 // (`bun packages/tab-mcp/src/main.ts` from the tab-mcp checkout, sqlite
 // store), the page pointed at it (localStorage `saturnus.aiRelay` on
-// 127.0.0.1), connected by a click on the panel's "Connect your AI tool",
+// 127.0.0.1), connected by a click on the panel's "Connect your AI app…",
 // and the MCP SDK client (tab-mcp's own test dependency) calling the tools
 // with a token put into the relay's store as tab-mcp's tests do (its OAuth
 // with the pairing code comes in its iteration 3). On a booted 48GX:
@@ -184,8 +184,9 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   // Settled: its memory set up (the boot's question answered) and asleep, waiting for keys.
   await until(ev, "window.saturnus.backend.stack().then(() => window.saturnus.backend.stats()).then((s) => s.loop === 'sleep' && s.emulatedMs > 4000, () => false)", 30_000, "the 48GX settled");
 
-  // Before a click, nothing of the client is loaded.
-  assert.equal(await ev("performance.getEntriesByType('resource').some((e) => e.name.includes('/vendor/tab-mcp-client/'))"), false);
+  // Before a click only the client's core is loaded (with the entry, so the click's activation is not spent on it), not its connection.
+  await until(ev, "performance.getEntriesByType('resource').some((e) => e.name.endsWith('/vendor/tab-mcp-client/tab-mcp-client.min.js'))", 5_000, "the core loaded with the entry");
+  assert.equal(await ev("performance.getEntriesByType('resource').some((e) => e.name.includes('/vendor/tab-mcp-client/connection-'))"), false);
   assert.equal(await ev("document.getElementById('ai-connect').hidden"), false, "the panel offers it");
   // A real click on the panel's link: the dialog opens and connects.
   const box = await ev("(() => { const r = document.getElementById('ai-connect').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()");
@@ -197,7 +198,14 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   await ev("document.querySelector('dialog.ai').close(), true");
   await until(ev, "!document.getElementById('ai-chip').hidden", 5_000, "the panel says AI access is on");
 
-  const client = await mcpClient(address, tokenFor(relay.db, address));
+  const token = tokenFor(relay.db, address);
+  // The relay names the apps of an address when the tab connects: the
+  // token's grant (as OAuth will make it) is seen after connecting again.
+  assert.equal(await ev("window.saturnusApp.ai.then((a) => a.keepsRunning)"), false, "no AI app yet: a hidden tab would pause");
+  assert.equal(await ev("window.saturnusApp.ai.then(async (a) => { a.disconnect(); await a.connect({ resume: true }); return a.mcp.grants.length; })"), 1);
+  assert.equal(await ev("window.saturnusApp.ai.then((a) => a.keepsRunning)"), true);
+  await until(ev, "document.getElementById('ai-chip').textContent.includes('1 app')", 5_000, "the panel counts the app");
+  const client = await mcpClient(address, token);
   t.after(() => client.close());
   const names = (await client.listTools()).tools.map((x) => x.name);
   assert.deepEqual(names.sort(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "purge_variable", "read_display", "read_stack", "read_variable", "run_function", "run_rpl", "store_variable"].concat("list_variables").sort());

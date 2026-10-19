@@ -48,7 +48,7 @@ export const INSTRUCTIONS = `saturnus runs emulated HP calculators in the user's
 Calculators: list_calculators names the running ones. Every other tool takes an optional "calculator" (an id from list_calculators); without it, the tool works on the one shown in the app's Calculator view. Nothing here starts or stops a calculator: ask the user to open one in the app.
 
 The models fall into three families:
-- 48SX, 48GX, 49G (RPL): run_rpl types RPL text and presses ENTER, then gives the calculator's error (if any) and the stack. read_stack, list_variables and read_variable read memory directly (no keys pressed). store_variable compiles RPL text on the calculator and stores it; purge_variable deletes. The user approves store_variable and purge_variable in the app.
+- 48SX, 48GX, 49G (RPL): run_rpl types RPL text and presses ENTER, then gives the calculator's error (if any) and the stack. read_stack, list_variables and read_variable read memory directly (no keys pressed). store_variable compiles RPL text on the calculator and stores it; purge_variable deletes. The user approves each store_variable and purge_variable in the app; press_keys and run_rpl are not confirmed, so take the same care as at the user's keyboard (they can store and purge too).
 - 28S: RPL too, but run_rpl types through its keys and nothing reads its memory: check results with read_display.
 - 42S, 27S, 17BII, 17B, 19BII, 38G, 39G, 40G (key-driven): run_function presses a function's keys by its name, from lookup_command's reference (on the 42S also XEQ "NAME"). On the 38G, 39G and 40G it puts the function on HOME's edit line, which is algebraic (SIN(45)); type the arguments and ENTER with press_keys.
 

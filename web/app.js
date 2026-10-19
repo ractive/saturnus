@@ -302,7 +302,7 @@ function appActions(backend, store, memory, bindings, ai = null) {
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
     // Files, on this calculator when it can reach it (its route, web/router.js).
     // AI access (web/ai.js), where there is a relay; after the palette has closed.
-    ...(ai ? [{ id: "ai", title: "Connect your AI tool…", description: "Let your AI app (Claude, ChatGPT, Claude Code, Cursor) use the calculators in this tab.", keywords: "ai assistant mcp claude chatgpt codex cursor agent connect llm tool", run: () => setTimeout(() => openAi(ai), 0) }] : []),
+    ...(ai ? [{ id: "ai", title: "Connect your AI app…", description: "Let your AI app (Claude, ChatGPT, Claude Code, Cursor) use the calculators in this tab.", keywords: "ai assistant mcp claude chatgpt codex cursor agent connect llm tool", run: () => setTimeout(() => openAi(ai), 0) }] : []),
     { id: "open-tx", title: "Open Files", description: "Move files between calculators, emulated or on a cable, and this computer.", keywords: "files tx transfer send receive kermit serial cable backup computer", run: () => { location.hash = filesHref(store); } },
     // The tour, and each chapter alone (found by a search).
     { id: "tour", title: "Show me around", description: "A short tour of the app. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },
@@ -364,15 +364,17 @@ function watchTxLink(store) {
   set();
 }
 
-/** Open "Connect your AI tool" (web/ai-dialog.js) for AI access `ai` (a promise of web/ai.js's `AiAccess`). */
+/** Open "Connect your AI app" (web/ai-dialog.js) for AI access `ai` (a promise of web/ai.js's `AiAccess`). */
 function openAi(ai) {
   Promise.all([ai, import("./ai-dialog.js")]).then(([a, d]) => d.openAiDialog(a), (err) => console.error("saturnus: AI access did not load", err));
 }
 
 /**
- * The panel's "Connect your AI tool" and, while AI access is on, its
- * status line ("AI access on · 1 app · Show"); and while a session is
- * connected the calculator keeps running in a hidden tab (`keepRunning`).
+ * The panel's "Connect your AI app…" and, while AI access is on, its
+ * status line ("AI access on · 1 app · Show"); and while an AI app is
+ * connected the calculator keeps running in a hidden tab (`keepRunning`,
+ * web/ai.js `keepsRunning`). The client is loaded as soon as the entry
+ * shows, so the click's activation is not spent on loading it.
  */
 function watchAi(ai) {
   const button = $("ai-connect");
@@ -380,10 +382,11 @@ function watchAi(ai) {
   button.hidden = false;
   button.addEventListener("click", () => openAi(ai));
   ai.then((a) => {
+    a.load().catch(() => {});
     const render = () => {
       const on = a.state === "connected";
-      if (keepRunning !== on) {
-        keepRunning = on;
+      if (keepRunning !== a.keepsRunning) {
+        keepRunning = a.keepsRunning;
         visibility?.(document.hidden);
       }
       chip.hidden = a.state === "disconnected";

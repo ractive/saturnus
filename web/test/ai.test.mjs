@@ -4,7 +4,7 @@
 // hidden, so one left open keeps its calculator computing).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AiAccess } from "../ai.js";
+import { AiAccess, keepsRunning } from "../ai.js";
 
 /** A fake hub: `engines` lists `models`, `attach` waits for `release()` (or fails with `fail`). */
 function fakeHub(models = ["48gx"]) {
@@ -92,4 +92,24 @@ test("release closes the attached connections and the lobby", { timeout: 2000 },
   ai.release();
   await turn();
   assert.ok(f.clients.every((c) => c.closed > 0));
+});
+
+test("the calculators keep running in a hidden tab only while an AI app is connected, not for the relay session alone", () => {
+  const ai = (state, grants) => ({ state, mcp: { grants } });
+  assert.equal(keepsRunning(ai("connected", [])), false);
+  assert.equal(keepsRunning(ai("connected", [{ grantId: "g" }])), true);
+  assert.equal(keepsRunning(ai("connecting", [{ grantId: "g" }])), false);
+  assert.equal(keepsRunning({ state: "disconnected", mcp: null }), false);
+});
+
+test("a connect the browser refused for lack of a click says to press Connect, not the raw error", { timeout: 2000 }, async () => {
+  class FakeTabMcp extends EventTarget {
+    constructor() { super(); this.state = "disconnected"; this.grants = []; }
+    registerTool() { return Promise.resolve(); }
+    connect() { return Promise.reject(new DOMException("connect() must be called from a user action, such as a click", "NotAllowedError")); }
+  }
+  const f = fakeHub();
+  const ai = new AiAccess({ calculatorView: () => null, relay: "http://127.0.0.1:1", storage: null, hub: f.hub, roms: f.roms, client: async () => ({ TabMcp: FakeTabMcp }) });
+  await assert.rejects(ai.connect());
+  assert.equal(ai.error, "Press Connect to turn on AI access.");
 });

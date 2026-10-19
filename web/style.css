@@ -153,7 +153,7 @@
 }
 :where(#calculator-view) .site-link .ic { width: 20px; height: 20px; }
 :where(#calculator-view) .site-link:hover { color: var(--ink); text-decoration: underline; }
-/* "Connect your AI tool" (web/ai-dialog.js) is a button that looks like the links above it. */
+/* "Connect your AI app…" (web/ai-dialog.js) is a button that looks like the links above it. */
 :where(#calculator-view) button.site-link { padding: 0; background: none; border: 0; box-shadow: none; font-family: inherit; cursor: pointer; }
 :where(#calculator-view) button.site-link:hover:not(:disabled) { background: none; }
 /* This tab's calculators are its own (app.js watchUnshared): said for as long as it lasts. */

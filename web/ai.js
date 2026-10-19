@@ -91,12 +91,15 @@ export class AiAccess extends EventTarget {
     storage = globalThis.localStorage,
     hub = { running: hubRunning, client: (who) => new HubClient({ who }) },
     roms = { kept: (models) => keptRoms(undefined, models), bytes: (sha256) => keptRomBytes(sha256) },
+    client = () => import("./vendor/tab-mcp-client/tab-mcp-client.min.js"),
   } = {}) {
     super();
     this.calculatorView = calculatorView;
     /** The calculators' hub (tests give a fake): whether it runs, a new connection. */
     this.hub = hub;
     /** The kept ROMs (web/tx/kept-roms.js): `kept(models)`, `bytes(sha256)`. */
+    /** Loads tab-mcp's client (the vendored module; tests give a fake). */
+    this.client = client;
     this.roms = roms;
     /** Counts the sessions' ends: an attach that outlived its session lets go. */
     this.session = 0;
@@ -118,6 +121,11 @@ export class AiAccess extends EventTarget {
 
   get state() {
     return this.mcp?.state ?? "disconnected";
+  }
+
+  /** Whether the calculators keep running in a hidden tab now (`keepsRunning`). */
+  get keepsRunning() {
+    return keepsRunning(this);
   }
 
   get keepOn() {
@@ -145,7 +153,7 @@ export class AiAccess extends EventTarget {
   /** The client loaded and the tools registered (once). */
   load() {
     this.loading ??= (async () => {
-      const { TabMcp } = await import("./vendor/tab-mcp-client/tab-mcp-client.min.js");
+      const { TabMcp } = await this.client();
       const origin = new URL(this.relay.replace(/^ws/, "http")).origin;
       const mcp = new TabMcp({
         relay: this.relay,
@@ -183,7 +191,8 @@ export class AiAccess extends EventTarget {
       const mcp = await this.load();
       return await mcp.connect({ resume });
     } catch (err) {
-      this.error = `Could not connect to the relay: ${err?.message ?? err}`;
+      // Refused without a click (the click's activation ran out while the client loaded): say what to do.
+      this.error = err?.name === "NotAllowedError" ? "Press Connect to turn on AI access." : `Could not connect to the relay: ${err?.message ?? err}`;
       this.changed();
       throw err;
     }
@@ -300,6 +309,14 @@ export class AiAccess extends EventTarget {
     }
     return t;
   }
+}
+
+/**
+ * Whether the calculators keep running in a hidden tab (owner, option 1):
+ * while an AI app is connected, not for the relay's session alone.
+ */
+export function keepsRunning(ai) {
+  return ai.state === "connected" && (ai.mcp?.grants?.length ?? 0) > 0;
 }
 
 /** Why a session ended, in the dialog's words. */

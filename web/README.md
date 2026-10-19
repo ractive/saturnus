@@ -1058,7 +1058,7 @@ wiki pages that cite each source. The dialog folds that list
 (Literature) and shows the ROM text as short paragraphs. Rerun the
 script after the wiki gains a source; the JSON is committed.
 
-## AI access ("Connect your AI tool")
+## AI access ("Connect your AI app")
 
 The calculators in a tab can be used by the user's AI app (Claude,
 ChatGPT, Claude Code, Cursor, …) through a [tab-mcp](https://github.com/ractive/tab-mcp)
@@ -1066,7 +1066,7 @@ relay (iteration 55): the tab connects to the relay and gets an MCP
 address, which the user adds to the AI app; the AI app calls the tools
 through the relay while the tab is open. Nothing is installed.
 
-- **Where**: Search's action "Connect your AI tool…" and the link of that
+- **Where**: Search's action "Connect your AI app…" and the link of that
   name in Calculator's panel open its dialog (`ai-dialog.js`): the
   address with Copy, the state, the pairing code once the relay sends one
   (tab-mcp's OAuth, still to come), the connected apps each with
@@ -1107,13 +1107,20 @@ through the relay while the tab is open. Nothing is installed.
   time per calculator. `store_variable` and `purge_variable` ask in the
   page first (tab-mcp's confirmation, "Allow" off for its first 750 ms);
   key presses and runs do not (decision log, 2026-10-19).
-- **Pacing**: while a session is connected, Calculator sends no
+- **Pacing**: while an AI app is connected (the relay's session alone
+  is not enough: `keepsRunning` in `ai.js`), Calculator sends no
   `visibility` hidden, so a computation goes on in a background tab
   (owner's option 1); the AI app's own hub connections never say hidden.
   Measured in Chrome 155 (iteration 55): a hidden tab with a session is
   not frozen, also with Energy Saver on; `press_keys` takes about 3 s
   there, as Chrome runs a background page's timers once a second.
-- Tests: `test/ai-tools.test.mjs` (the tools on fake calculators),
+- **Before the first click** the client is loaded as soon as the entry
+  shows, so the click's user activation still holds when `connect()`
+  runs; a connect refused for lack of one says "Press Connect to turn on
+  AI access."
+- Tests: `test/ai.test.mjs` (the session on a fake hub: one attach per
+  calculator, every connection closed again, when the calculators keep
+  running), `test/ai-tools.test.mjs` (the tools on fake calculators),
   `test/hub.test.mjs` (`who: "ai"`), `test/ai-page.test.mjs` (a local
   relay, the page connected by a click, the MCP SDK client on a booted
   48GX and 42S; needs Bun and the tab-mcp checkout, `TAB_MCP_DIR`,

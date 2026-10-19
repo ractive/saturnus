@@ -4396,5 +4396,6 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   (`HOSTED_RELAY` null in `web/ai-relay.js`); a page on localhost takes a
   development relay from localStorage `saturnus.aiRelay`. Never in the
   desktop app, which gets its own MCP server.
-- **Pacing:** while a session is connected, Calculator does not send
-  `visibility` hidden (owner, option 1); no SharedWorker.
+- **Pacing:** while an AI app is connected (a relay session with at least
+  one app), Calculator does not send `visibility` hidden (owner, option 1);
+  no SharedWorker.

@@ -43,14 +43,14 @@ published site; on localhost a development relay switches it on.
   own MCP server, [[backlog/mcp-ai-assistant]]).
 - `web/ai-tools.js`: the tools as plain objects over injected parts (the
   calculators, the reference), unit-tested with fake backends in Node.
-- `web/ai-dialog.js`: the "Connect your AI tool" dialog in saturnus's own
+- `web/ai-dialog.js`: the "Connect your AI app" dialog in saturnus's own
   look (`components.css`): the MCP address with Copy, the state, the
   pairing code line (hidden until the relay sends one), the connected AI
   apps each with Disconnect, "Keep AI access on", Disconnect and New
   address. The client's default confirmation dialog stays (it keeps
   "Allow" off for 750 ms and shows the arguments in full; DEC-054 in
   tab-mcp), styled through its `--tab-mcp-*` properties.
-- Entry points: Search's action "Connect your AI tool…", and in
+- Entry points: Search's action "Connect your AI app…", and in
   Calculator's panel a link of that name under Files and Switch
   calculator, with a status line "AI access on · 1 app" while connected.
 
@@ -144,7 +144,8 @@ ROM bugs in `lookup_command`'s notes.
 
 While a session is connected, the calculator does not stop when the tab
 is hidden: Calculator sends `visibility` hidden only when no session is
-connected (`app.js` `watchAi`), and the AI app's own hub
+connected with at least one AI app (`app.js` `watchAi`, `ai.js`
+`keepsRunning`), and the AI app's own hub
 connections never say hidden. No SharedWorker (the 0.6.0 decision
 stands). When the session ends while the tab is hidden, the hidden state
 is sent again.
