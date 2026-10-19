@@ -139,6 +139,7 @@ commands! {
     Flags = "flags",
     ObjectAt = "objectAt",
     CommandLine = "commandLine",
+    EntryModes = "entryModes",
     StoreFile = "storeFile",
     FetchFile = "fetchFile",
     Purge = "purge",
@@ -199,6 +200,7 @@ impl CommandKind {
             | C::RomSettings
             | C::WatchMemory
             | C::CommandLine
+            | C::EntryModes
             | C::Join
             | C::Ping
             | C::Attach

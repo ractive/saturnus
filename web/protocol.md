@@ -520,6 +520,7 @@ what it reads from RAM: wiki `hardware/command-line`.
 | Command | Fields | Result | Does |
 | --- | --- | --- | --- |
 | `commandLine` | | `{active, text, cursor}` | The command line, read from RAM; no key is pressed. `active` is false when none is open (also while the 49G shows an error box); `text` is `""` then. `cursor` counts calculator characters from the start (`x̄` is one character and two UTF-16 units). |
+| `entryModes` | | `{lowercase, menuLock}` | The 28S only (an error on the others): whether its letters type in lower case (LC) and whether Menu Lock (shifted α) is on, read from RAM; neither has an annunciator. Search reads them before it types a command's name on the 28S. |
 | `insert` | `text` | `{typed, keys, emulatedMs, commandLine}` | Types `text` at the cursor, or starts a command line. |
 | `run` | `text` (may be `""`) | as `insert`, plus `closed`, `error`, `running` | Types `text`, then presses ENTER and waits until the calculator settles (at most 30 s of emulated time). `closed`: no command line is open afterwards; `error`: the message the calculator showed (`"Invalid Syntax"`, `"DROP Error: Too Few Arguments"`) or `null`; `running`: still busy when the wait ended. The 49G's error box is closed (ATTN), which returns to the line, as the 48 leaves it open. |
 | `replace` | `text` | as `insert` | Deletes every character of the command line being edited, staying in it (also inside `EDIT` and `VISIT`), then types `text`. An error if no line is open. |
@@ -571,7 +572,7 @@ what it reads from RAM: wiki `hardware/command-line`.
   `keyScript` and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
   the send (the send's reply is the error "cancelled", before
   `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
-  `commandLine`, `setSpeed`, `pause`, `watchMemory`, `romSlots`,
+  `commandLine`, `entryModes`, `setSpeed`, `pause`, `watchMemory`, `romSlots`,
   `screen`, `info`, `peek`, ...). In the Tauri app a `bootModel`,
   `chooseRom` or `downloadRom` reaches the machine as a `boot`, which is
   refused: after `chooseRom` or `downloadRom` the files are remembered

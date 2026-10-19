@@ -5,13 +5,15 @@
 
 use std::path::Path;
 
-const FILES: [&str; 9] = [
+const FILES: [&str; 11] = [
     "48sx.json",
     "48gx.json",
     "49g.json",
+    "28s.json",
     "examples-48sx.json",
     "examples-48gx.json",
     "examples-49g.json",
+    "examples-28s.json",
     "reference.json",
     "manuals.json",
     "categories.json",

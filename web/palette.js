@@ -4,9 +4,12 @@
 // `insert` or `run` through the protocol's typing verbs (web/protocol.md,
 // "Typing"), an app action, or a menu to browse. On a key-driven model
 // (the 42S) a function is pressed instead: its keys go to the key queue
-// (`typeKeys`), after leaving the menu the screen shows, if any.
-// `<sat-palette>` renders it; `web/test/` drives it with a fake backend.
+// (`typeKeys`), after leaving the menu the screen shows, if any. On the
+// 28S, whose command line cannot be read, the text is typed on its keys
+// (keys28.js). `<sat-palette>` renders it; `web/test/` drives it with a
+// fake backend.
 
+import { send28 } from "./keys28.js";
 import { buildIndex, enterPlan, enterVerb, exampleSteps, exampleText, keyNames, keysText, menuShown, search } from "./reference.js";
 
 const message = (err) => String(err?.message ?? err);
@@ -148,6 +151,8 @@ export class PaletteModel {
     this.sending = false;
     /** How long `settle` waits before and between its looks, in ms (tests set 0). */
     this.pace = { first: 40, poll: 40, limit: 10_000 };
+    /** How long the 28S's keys are waited for (tests set 0); `keys28.js` `settle`. */
+    this.pace28 = undefined;
     this.onChange = () => {};
   }
 
@@ -221,6 +226,13 @@ export class PaletteModel {
     if (!this.store.state.booted) {
       this.commandLine = null;
       this.noTyping = "no calculator is running";
+      return;
+    }
+    // The 28S's line cannot be read: its commands are typed on its keys
+    // (keys28.js), into the open line if there is one.
+    if (this.store.state.booted === "28s") {
+      this.commandLine = null;
+      this.noTyping = null;
       return;
     }
     try {
@@ -423,7 +435,9 @@ export class PaletteModel {
     this.changed();
     let result;
     try {
-      result = await this.backend[verb](text);
+      result = this.store.state.booted === "28s"
+        ? await send28(this.backend, this.store, verb, text, this.pace28)
+        : await this.backend[verb](text);
     } catch (err) {
       this.sending = false;
       this.notice = { text: sendFailure(err), error: true };

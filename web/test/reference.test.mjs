@@ -686,3 +686,32 @@ test("the palette model goes back to the 17BII's MAIN once, then presses the men
   await m.choose(m.rows[0]);
   assert.deepEqual(backend.calls, [["shift", "exit"], ["a", "a", "d"]]);
 });
+
+test("the 28S: its commands, menus in key order, the Reference Manual's pages and its own texts", () => {
+  const ix = buildIndex(data, "28s");
+  assert.equal(ix.supported, true);
+  assert.equal(ix.commands.length, 260);
+  const roots = ix.menus.filter((m) => m.fromRom).map((m) => m.name);
+  assert.deepEqual(roots.slice(0, 3), ["ARRAY", "BINARY", "COMPLX"]);
+  // Every command is somewhere in the tree; keys are placed by the manual's section.
+  const all = flattenMenus(ix.menus);
+  assert.equal(new Set(all.flatMap((m) => m.commands.map((c) => c.name))).size, ix.commands.length);
+  const drop = placement(ix, ix.byName.get("DROP"));
+  assert.deepEqual(drop.menus, []);
+  assert.equal(drop.key.category, "STACK");
+  assert.match(drop.key.url, /hp28s-rm-en\.pdf#page=\d+$/);
+  // A shared command keeps the shared text; RND has the 28S's own.
+  const sin = ix.byName.get("SIN");
+  assert.equal(sin.description, sx.byName.get("SIN").description);
+  assert.deepEqual(placement(ix, sin).menus, ["TRIG"]);
+  assert.ok(stackVerified(sin));
+  const rnd = ix.byName.get("RND");
+  assert.notEqual(rnd.description, sx.byName.get("RND").description);
+  assert.match(rnd.stack, /^x → y/);
+  assert.match(sx.byName.get("RND").stack, /^x n → y/);
+  assert.deepEqual(exampleResult(rnd.per.examples[0]), { lines: ["3.14"] });
+  // Only the 28S's manual is linked; the 28S-only CLUSR is not on the 48SX.
+  assert.ok(manualLinks(ix, sin, ["28s"]).every((l) => l.id === "hp28s-rm"));
+  assert.ok(ix.byName.has("CLUSR") && !sx.byName.has("CLUSR"));
+  assert.equal(search(ix, "clusr", { typing: false })[0].name, "CLUSR");
+});

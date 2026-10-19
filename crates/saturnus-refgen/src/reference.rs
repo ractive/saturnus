@@ -22,7 +22,8 @@ pub struct ExampleSpec {
     /// What runs on them; the command's name when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub run: Option<String>,
-    /// Only on these models (`48sx`, `48gx`, `49g`); all when absent.
+    /// Only on these models (`48sx`, `48gx`, `49g`, `28s`); all when
+    /// absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub models: Option<Vec<String>>,
 }
@@ -60,6 +61,24 @@ pub struct Entry {
     /// Why there is no example (interactive, plotting, I/O, ...).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skip: Option<String>,
+    /// The text of a model on which the command differs from what
+    /// `description` and `stack` say (the 28S's RND takes one argument),
+    /// by model.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub per_model: BTreeMap<String, ModelText>,
+}
+
+/// A model's own text for a command.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModelText {
+    /// What the mnemonic stands for on that model, where it differs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// One or two sentences, ours.
+    pub description: String,
+    /// The stack effect on that model.
+    pub stack: String,
 }
 
 /// The whole curated file.

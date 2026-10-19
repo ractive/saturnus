@@ -1,0 +1,6282 @@
+{
+  "model": "28s",
+  "examples": {
+    "%": [
+      {
+        "input": "200. 15.",
+        "run": "%",
+        "stack": [],
+        "before": [
+          "15",
+          "200"
+        ],
+        "result": [],
+        "display": [
+          "30"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "%CH": [
+      {
+        "input": "50. 60.",
+        "run": "%CH",
+        "stack": [],
+        "before": [
+          "60",
+          "50"
+        ],
+        "result": [],
+        "display": [
+          "20"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "80. 60.",
+        "run": "%CH",
+        "stack": [],
+        "before": [
+          "60",
+          "80"
+        ],
+        "result": [],
+        "display": [
+          "-25"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "%T": [
+      {
+        "input": "200. 50.",
+        "run": "%T",
+        "stack": [],
+        "before": [
+          "50",
+          "200"
+        ],
+        "result": [],
+        "display": [
+          "25"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "8. 2.",
+        "run": "%T",
+        "stack": [],
+        "before": [
+          "2",
+          "8"
+        ],
+        "result": [],
+        "display": [
+          "25"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "*": [
+      {
+        "input": "4. 2.5",
+        "run": "*",
+        "stack": [],
+        "before": [
+          "2.5",
+          "4"
+        ],
+        "result": [],
+        "display": [
+          "10"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "[[ 1. 2. ][ 3. 4. ]] [ 1. 1. ]",
+        "run": "*",
+        "stack": [],
+        "before": [
+          "[ 1 1 ]",
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "[ 3 7 ]"
+        ],
+        "effect": "array array → array"
+      }
+    ],
+    "*H": [
+      {
+        "input": "2.",
+        "run": "*H PPAR 1 2 SUB",
+        "stack": [],
+        "before": [
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "{ (-6.8,-3)  (6.8,3.2) }"
+        ],
+        "effect": "real → list"
+      }
+    ],
+    "*W": [
+      {
+        "input": "2.",
+        "run": "*W PPAR 1 2 SUB",
+        "stack": [],
+        "before": [
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "{ (-13.6,-1.5)  (13.6,1.6) }"
+        ],
+        "effect": "real → list"
+      }
+    ],
+    "+": [
+      {
+        "input": "2. 3.",
+        "run": "+",
+        "stack": [],
+        "before": [
+          "3",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "5"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "\"AB\" \"CD\"",
+        "run": "+",
+        "stack": [],
+        "before": [
+          "\"CD\"",
+          "\"AB\""
+        ],
+        "result": [],
+        "display": [
+          "\"ABCD\""
+        ],
+        "effect": "string string → string"
+      },
+      {
+        "input": "{ 1. 2. } 3.",
+        "run": "+",
+        "stack": [],
+        "before": [
+          "3",
+          "{ 1 2 }"
+        ],
+        "result": [],
+        "display": [
+          "{ 1 2 3 }"
+        ],
+        "effect": "list real → list"
+      }
+    ],
+    "-": [
+      {
+        "input": "5. 3.",
+        "run": "-",
+        "stack": [],
+        "before": [
+          "3",
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "2"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "(1.,2.) (3.,1.)",
+        "run": "-",
+        "stack": [],
+        "before": [
+          "(3,1)",
+          "(1,2)"
+        ],
+        "result": [],
+        "display": [
+          "(-2,1)"
+        ],
+        "effect": "complex complex → complex"
+      },
+      {
+        "input": "'A' 'B'",
+        "run": "-",
+        "stack": [],
+        "before": [
+          "'B'",
+          "'A'"
+        ],
+        "result": [],
+        "display": [
+          "'A-B'"
+        ],
+        "effect": "name name → algebraic"
+      }
+    ],
+    "/": [
+      {
+        "input": "7. 2.",
+        "run": "/",
+        "stack": [],
+        "before": [
+          "2",
+          "7"
+        ],
+        "result": [],
+        "display": [
+          "3.5"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "[ 5. 6. ] [[ 1. 0. ][ 0. 2. ]]",
+        "run": "/",
+        "stack": [],
+        "before": [
+          "[[ 1 0 ]  [ 0 2 ]]",
+          "[ 5 6 ]"
+        ],
+        "result": [],
+        "display": [
+          "[ 5 3 ]"
+        ],
+        "effect": "array array → array"
+      }
+    ],
+    "<": [
+      {
+        "input": "2. 3.",
+        "run": "<",
+        "stack": [],
+        "before": [
+          "3",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "\"B\" \"A\"",
+        "run": "<",
+        "stack": [],
+        "before": [
+          "\"A\"",
+          "\"B\""
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "string string → real"
+      }
+    ],
+    "=": [
+      {
+        "input": "'X^2' 4.",
+        "run": "=",
+        "stack": [],
+        "before": [
+          "4",
+          "'X^2'"
+        ],
+        "result": [],
+        "display": [
+          "'X^2=4'"
+        ],
+        "effect": "algebraic real → algebraic"
+      },
+      {
+        "input": "'A+B' 'C'",
+        "run": "=",
+        "stack": [],
+        "before": [
+          "'C'",
+          "'A+B'"
+        ],
+        "result": [],
+        "display": [
+          "'A+B=C'"
+        ],
+        "effect": "algebraic name → algebraic"
+      }
+    ],
+    "==": [
+      {
+        "input": "2. 2.",
+        "run": "==",
+        "stack": [],
+        "before": [
+          "2",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "\"A\" \"B\"",
+        "run": "==",
+        "stack": [],
+        "before": [
+          "\"B\"",
+          "\"A\""
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "string string → real"
+      },
+      {
+        "input": "'X' 1.",
+        "run": "==",
+        "stack": [],
+        "before": [
+          "1",
+          "'X'"
+        ],
+        "result": [],
+        "display": [
+          "'X==1'"
+        ],
+        "effect": "name real → algebraic"
+      }
+    ],
+    ">": [
+      {
+        "input": "5. 3.",
+        "run": ">",
+        "stack": [],
+        "before": [
+          "3",
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "#10h #20h",
+        "run": ">",
+        "stack": [],
+        "before": [
+          "# 32d",
+          "# 16d"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "binary binary → real"
+      }
+    ],
+    "ABORT": [
+      {
+        "input": "1.",
+        "run": "« 2. ABORT 3. » EVAL",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "2",
+          "1"
+        ],
+        "effect": "real → real real"
+      }
+    ],
+    "ABS": [
+      {
+        "input": "-3.5",
+        "run": "ABS",
+        "stack": [],
+        "before": [
+          "-3.5"
+        ],
+        "result": [],
+        "display": [
+          "3.5"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "(3.,4.)",
+        "run": "ABS",
+        "stack": [],
+        "before": [
+          "(3,4)"
+        ],
+        "result": [],
+        "display": [
+          "5"
+        ],
+        "effect": "complex → real"
+      },
+      {
+        "input": "[ 3. 4. ]",
+        "run": "ABS",
+        "stack": [],
+        "before": [
+          "[ 3 4 ]"
+        ],
+        "result": [],
+        "display": [
+          "5"
+        ],
+        "effect": "array → real"
+      }
+    ],
+    "ACOS": [
+      {
+        "setup": "DEG",
+        "input": "0.5",
+        "run": "ACOS",
+        "stack": [],
+        "before": [
+          ".5"
+        ],
+        "result": [],
+        "display": [
+          "60"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "setup": "RAD",
+        "input": "-1.",
+        "run": "ACOS",
+        "stack": [],
+        "before": [
+          "-1"
+        ],
+        "result": [],
+        "display": [
+          "3.14159265359"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "ACOSH": [
+      {
+        "input": "2.",
+        "run": "ACOSH",
+        "stack": [],
+        "before": [
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "1.31695789692"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "0.5",
+        "run": "ACOSH",
+        "stack": [],
+        "before": [
+          ".5"
+        ],
+        "result": [],
+        "display": [
+          "(0,1.0471975512)"
+        ],
+        "effect": "real → complex"
+      },
+      {
+        "input": "1.",
+        "run": "ACOSH",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "ALOG": [
+      {
+        "input": "3.",
+        "run": "ALOG",
+        "stack": [],
+        "before": [
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "1000"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "0.5",
+        "run": "ALOG",
+        "stack": [],
+        "before": [
+          ".5"
+        ],
+        "result": [],
+        "display": [
+          "3.16227766017"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "AND": [
+      {
+        "input": "#Ch #Ah",
+        "run": "AND",
+        "stack": [],
+        "before": [
+          "# 10d",
+          "# 12d"
+        ],
+        "result": [],
+        "display": [
+          "# 8d"
+        ],
+        "effect": "binary binary → binary"
+      },
+      {
+        "input": "1. 0.",
+        "run": "AND",
+        "stack": [],
+        "before": [
+          "0",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "5. -2.",
+        "run": "AND",
+        "stack": [],
+        "before": [
+          "-2",
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "ARG": [
+      {
+        "setup": "DEG",
+        "input": "(1.,1.)",
+        "run": "ARG",
+        "stack": [],
+        "before": [
+          "(1,1)"
+        ],
+        "result": [],
+        "display": [
+          "45"
+        ],
+        "effect": "complex → real"
+      },
+      {
+        "setup": "RAD",
+        "input": "(0.,2.)",
+        "run": "ARG",
+        "stack": [],
+        "before": [
+          "(0,2)"
+        ],
+        "result": [],
+        "display": [
+          "1.57079632679"
+        ],
+        "effect": "complex → real"
+      },
+      {
+        "setup": "DEG",
+        "input": "-4.",
+        "run": "ARG",
+        "stack": [],
+        "before": [
+          "-4"
+        ],
+        "result": [],
+        "display": [
+          "180"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "ARRY→": [
+      {
+        "input": "[ 1. 2. 3. ]",
+        "run": "ARRY→",
+        "stack": [],
+        "before": [
+          "[ 1 2 3 ]"
+        ],
+        "result": [],
+        "display": [
+          "{ 3 }",
+          "3",
+          "2",
+          "1"
+        ],
+        "effect": "array → real real real list"
+      }
+    ],
+    "ASIN": [
+      {
+        "setup": "DEG",
+        "input": "0.5",
+        "run": "ASIN",
+        "stack": [],
+        "before": [
+          ".5"
+        ],
+        "result": [],
+        "display": [
+          "30"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "setup": "RAD",
+        "input": "2.",
+        "run": "ASIN",
+        "stack": [],
+        "before": [
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "(1.57079632679,  -1.31695789692)"
+        ],
+        "effect": "real → complex"
+      }
+    ],
+    "ASINH": [
+      {
+        "input": "1.",
+        "run": "ASINH",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          ".88137358702"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "(1.,2.)",
+        "run": "ASINH",
+        "stack": [],
+        "before": [
+          "(1,2)"
+        ],
+        "result": [],
+        "display": [
+          "(1.46935174437,  1.06344002358)"
+        ],
+        "effect": "complex → complex"
+      }
+    ],
+    "ASR": [
+      {
+        "input": "#8h",
+        "run": "ASR",
+        "stack": [],
+        "before": [
+          "# 8d"
+        ],
+        "result": [],
+        "display": [
+          "# 4d"
+        ],
+        "effect": "binary → binary"
+      },
+      {
+        "setup": "HEX",
+        "input": "#FFFFFFFFFFFFFFF0h",
+        "run": "ASR",
+        "stack": [],
+        "before": [
+          "# FFFFFFFFFFFFFFF0h"
+        ],
+        "result": [],
+        "display": [
+          "# FFFFFFFFFFFFFFF8h"
+        ],
+        "effect": "binary → binary"
+      }
+    ],
+    "ATAN": [
+      {
+        "setup": "DEG",
+        "input": "1.",
+        "run": "ATAN",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "45"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "'X'",
+        "run": "ATAN",
+        "stack": [],
+        "before": [
+          "'X'"
+        ],
+        "result": [],
+        "display": [
+          "'ATAN(X)'"
+        ],
+        "effect": "name → algebraic"
+      }
+    ],
+    "ATANH": [
+      {
+        "input": "0.5",
+        "run": "ATANH",
+        "stack": [],
+        "before": [
+          ".5"
+        ],
+        "result": [],
+        "display": [
+          ".549306144334"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "2.",
+        "run": "ATANH",
+        "stack": [],
+        "before": [
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "(.549306144334,  -1.57079632679)"
+        ],
+        "effect": "real → complex"
+      }
+    ],
+    "AXES": [
+      {
+        "input": "(1.,2.)",
+        "run": "AXES PPAR",
+        "stack": [],
+        "before": [
+          "(1,2)"
+        ],
+        "result": [],
+        "display": [
+          "{ (-6.8,-1.5)  (6.8,1.6) constant 1  (1,2) }"
+        ],
+        "effect": "complex → list"
+      }
+    ],
+    "BIN": [
+      {
+        "input": "",
+        "run": "BIN #12d →STR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "\"# 1100b\""
+        ],
+        "effect": "→ string"
+      },
+      {
+        "input": "",
+        "run": "BIN #FFh →STR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "\"# 11111111b\""
+        ],
+        "effect": "→ string"
+      }
+    ],
+    "B→R": [
+      {
+        "input": "#FFh",
+        "run": "B→R",
+        "stack": [],
+        "before": [
+          "# 255d"
+        ],
+        "result": [],
+        "display": [
+          "255"
+        ],
+        "effect": "binary → real"
+      },
+      {
+        "input": "#101b",
+        "run": "B→R",
+        "stack": [],
+        "before": [
+          "# 5d"
+        ],
+        "result": [],
+        "display": [
+          "5"
+        ],
+        "effect": "binary → real"
+      }
+    ],
+    "CEIL": [
+      {
+        "input": "3.2",
+        "run": "CEIL",
+        "stack": [],
+        "before": [
+          "3.2"
+        ],
+        "result": [],
+        "display": [
+          "4"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "-3.7",
+        "run": "CEIL",
+        "stack": [],
+        "before": [
+          "-3.7"
+        ],
+        "result": [],
+        "display": [
+          "-3"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "CENTR": [
+      {
+        "input": "(1.,2.)",
+        "run": "CENTR PPAR",
+        "stack": [],
+        "before": [
+          "(1,2)"
+        ],
+        "result": [],
+        "display": [
+          "{ (-5.8,.5)  (7.8,3.6) constant 1  (0,0) }"
+        ],
+        "effect": "complex → list"
+      }
+    ],
+    "CF": [
+      {
+        "setup": "3. SF",
+        "input": "",
+        "run": "3. CF 3. FS?",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "CHR": [
+      {
+        "input": "65.",
+        "run": "CHR",
+        "stack": [],
+        "before": [
+          "65"
+        ],
+        "result": [],
+        "display": [
+          "\"A\""
+        ],
+        "effect": "real → string"
+      },
+      {
+        "input": "97.",
+        "run": "CHR",
+        "stack": [],
+        "before": [
+          "97"
+        ],
+        "result": [],
+        "display": [
+          "\"a\""
+        ],
+        "effect": "real → string"
+      }
+    ],
+    "CLEAR": [
+      {
+        "input": "1. 2. 3.",
+        "run": "CLEAR",
+        "stack": [],
+        "before": [
+          "3",
+          "2",
+          "1"
+        ],
+        "result": [],
+        "display": [],
+        "effect": "real real real →"
+      }
+    ],
+    "CLUSR": [
+      {
+        "setup": "1. 'A' STO 2. 'B' STO",
+        "input": "",
+        "run": "CLUSR VARS",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "{ }"
+        ],
+        "effect": "→ list"
+      }
+    ],
+    "CLΣ": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "",
+        "run": "CLΣ 7. Σ+ RCLΣ",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "[[ 7 ]]"
+        ],
+        "effect": "→ array"
+      }
+    ],
+    "CNRM": [
+      {
+        "input": "[[ 1. -2. ][ 3. 4. ]]",
+        "run": "CNRM",
+        "stack": [],
+        "before": [
+          "[[ 1 -2 ]  [ 3 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "6"
+        ],
+        "effect": "array → real"
+      },
+      {
+        "input": "[ 1. -5. 3. ]",
+        "run": "CNRM",
+        "stack": [],
+        "before": [
+          "[ 1 -5 3 ]"
+        ],
+        "result": [],
+        "display": [
+          "9"
+        ],
+        "effect": "array → real"
+      }
+    ],
+    "COLCT": [
+      {
+        "input": "'X+2*X+3-1'",
+        "run": "COLCT",
+        "stack": [],
+        "before": [
+          "'X+2*X+3-1'"
+        ],
+        "result": [],
+        "display": [
+          "'2+3*X'"
+        ],
+        "effect": "algebraic → algebraic"
+      },
+      {
+        "input": "'A*B+B*A'",
+        "run": "COLCT",
+        "stack": [],
+        "before": [
+          "'A*B+B*A'"
+        ],
+        "result": [],
+        "display": [
+          "'2*A*B'"
+        ],
+        "effect": "algebraic → algebraic"
+      }
+    ],
+    "COLΣ": [
+      {
+        "input": "2. 1.",
+        "run": "COLΣ ΣPAR",
+        "stack": [],
+        "before": [
+          "1",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "{ 2 1 0 0 }"
+        ],
+        "effect": "real real → list"
+      }
+    ],
+    "COMB": [
+      {
+        "input": "5. 2.",
+        "run": "COMB",
+        "stack": [],
+        "before": [
+          "2",
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "10"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "52. 5.",
+        "run": "COMB",
+        "stack": [],
+        "before": [
+          "5",
+          "52"
+        ],
+        "result": [],
+        "display": [
+          "2598960"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "CON": [
+      {
+        "input": "{ 2. 3. } 7.",
+        "run": "CON",
+        "stack": [],
+        "before": [
+          "7",
+          "{ 2 3 }"
+        ],
+        "result": [],
+        "display": [
+          "[[ 7 7 7 ]  [ 7 7 7 ]]"
+        ],
+        "effect": "list real → array"
+      },
+      {
+        "input": "{ 3. } 1.",
+        "run": "CON",
+        "stack": [],
+        "before": [
+          "1",
+          "{ 3 }"
+        ],
+        "result": [],
+        "display": [
+          "[ 1 1 1 ]"
+        ],
+        "effect": "list real → array"
+      },
+      {
+        "input": "[[ 1. 2. ][ 3. 4. ]] 0.",
+        "run": "CON",
+        "stack": [],
+        "before": [
+          "0",
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "[[ 0 0 ]  [ 0 0 ]]"
+        ],
+        "effect": "array real → array"
+      }
+    ],
+    "CONJ": [
+      {
+        "input": "(3.,4.)",
+        "run": "CONJ",
+        "stack": [],
+        "before": [
+          "(3,4)"
+        ],
+        "result": [],
+        "display": [
+          "(3,-4)"
+        ],
+        "effect": "complex → complex"
+      },
+      {
+        "input": "[ (1.,2.) (3.,-1.) ]",
+        "run": "CONJ",
+        "stack": [],
+        "before": [
+          "[ (1,2) (3,-1) ]"
+        ],
+        "result": [],
+        "display": [
+          "[ (1,-2) (3,1) ]"
+        ],
+        "effect": "array → array"
+      }
+    ],
+    "CONVERT": [
+      {
+        "input": "1. \"ft\" \"m\"",
+        "run": "CONVERT",
+        "stack": [],
+        "before": [
+          "\"m\"",
+          "\"ft\"",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "\"m\"",
+          ".3048"
+        ],
+        "effect": "real string string → real string"
+      },
+      {
+        "input": "100. \"km/h\" \"m/s\"",
+        "run": "CONVERT",
+        "stack": [],
+        "before": [
+          "\"m/s\"",
+          "\"km/h\"",
+          "100"
+        ],
+        "result": [],
+        "display": [
+          "\"m/s\"",
+          "27.7777777778"
+        ],
+        "effect": "real string string → real string"
+      },
+      {
+        "input": "0. \"°C\" \"°F\"",
+        "run": "CONVERT",
+        "stack": [],
+        "before": [
+          "\"°F\"",
+          "\"°C\"",
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "\"°F\"",
+          "32"
+        ],
+        "effect": "real string string → real string"
+      }
+    ],
+    "CORR": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "",
+        "run": "CORR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          ".999015263178"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "COS": [
+      {
+        "setup": "DEG",
+        "input": "60.",
+        "run": "COS",
+        "stack": [],
+        "before": [
+          "60"
+        ],
+        "result": [],
+        "display": [
+          ".5"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "setup": "RAD",
+        "input": "(1.,1.)",
+        "run": "COS",
+        "stack": [],
+        "before": [
+          "(1,1)"
+        ],
+        "result": [],
+        "display": [
+          "(.833730025131,  -.988897705763)"
+        ],
+        "effect": "complex → complex"
+      }
+    ],
+    "COSH": [
+      {
+        "input": "1.",
+        "run": "COSH",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "1.54308063482"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "0.",
+        "run": "COSH",
+        "stack": [],
+        "before": [
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "(1.,1.)",
+        "run": "COSH",
+        "stack": [],
+        "before": [
+          "(1,1)"
+        ],
+        "result": [],
+        "display": [
+          "(.833730025131,  .988897705763)"
+        ],
+        "effect": "complex → complex"
+      }
+    ],
+    "COV": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "",
+        "run": "COV",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "1.95"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "CRDIR": [
+      {
+        "input": "'DIR1'",
+        "run": "CRDIR VARS",
+        "stack": [],
+        "before": [
+          "'DIR1'"
+        ],
+        "result": [],
+        "display": [
+          "{ DIR1 }"
+        ],
+        "effect": "name → list"
+      }
+    ],
+    "CROSS": [
+      {
+        "input": "[ 1. 0. 0. ] [ 0. 1. 0. ]",
+        "run": "CROSS",
+        "stack": [],
+        "before": [
+          "[ 0 1 0 ]",
+          "[ 1 0 0 ]"
+        ],
+        "result": [],
+        "display": [
+          "[ 0 0 1 ]"
+        ],
+        "effect": "array array → array"
+      },
+      {
+        "input": "[ 1. 2. 3. ] [ 4. 5. 6. ]",
+        "run": "CROSS",
+        "stack": [],
+        "before": [
+          "[ 4 5 6 ]",
+          "[ 1 2 3 ]"
+        ],
+        "result": [],
+        "display": [
+          "[ -3 6 -3 ]"
+        ],
+        "effect": "array array → array"
+      }
+    ],
+    "C→R": [
+      {
+        "input": "(3.,4.)",
+        "run": "C→R",
+        "stack": [],
+        "before": [
+          "(3,4)"
+        ],
+        "result": [],
+        "display": [
+          "4",
+          "3"
+        ],
+        "effect": "complex → real real"
+      },
+      {
+        "input": "[ (1.,2.) (3.,4.) ]",
+        "run": "C→R",
+        "stack": [],
+        "before": [
+          "[ (1,2) (3,4) ]"
+        ],
+        "result": [],
+        "display": [
+          "[ 2 4 ]",
+          "[ 1 3 ]"
+        ],
+        "effect": "array → array array"
+      }
+    ],
+    "DEC": [
+      {
+        "input": "",
+        "run": "DEC #FFh →STR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "\"# 255d\""
+        ],
+        "effect": "→ string"
+      },
+      {
+        "input": "",
+        "run": "DEC #101b →STR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "\"# 5d\""
+        ],
+        "effect": "→ string"
+      }
+    ],
+    "DEG": [
+      {
+        "input": "",
+        "run": "DEG 90. SIN",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "→ real"
+      },
+      {
+        "input": "",
+        "run": "DEG 1. ASIN",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "90"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "DEPTH": [
+      {
+        "input": "\"A\" \"B\" \"C\"",
+        "run": "DEPTH",
+        "stack": [],
+        "before": [
+          "\"C\"",
+          "\"B\"",
+          "\"A\""
+        ],
+        "result": [],
+        "display": [
+          "3",
+          "\"C\"",
+          "\"B\"",
+          "\"A\""
+        ],
+        "effect": "string string string → string string string real"
+      },
+      {
+        "input": "",
+        "run": "DEPTH",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "DET": [
+      {
+        "input": "[[ 1. 2. ][ 3. 4. ]]",
+        "run": "DET",
+        "stack": [],
+        "before": [
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "-2"
+        ],
+        "effect": "array → real"
+      },
+      {
+        "input": "[[ 2. 0. 0. ][ 0. 3. 0. ][ 0. 0. 4. ]]",
+        "run": "DET",
+        "stack": [],
+        "before": [
+          "[[ 2 0 0 ]  [ 0 3 0 ]  [ 0 0 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "24"
+        ],
+        "effect": "array → real"
+      }
+    ],
+    "DO": [
+      {
+        "input": "1.",
+        "run": "« DO 3. * UNTIL DUP 50. > END » EVAL",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "81"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "DOT": [
+      {
+        "input": "[ 1. 2. 3. ] [ 4. 5. 6. ]",
+        "run": "DOT",
+        "stack": [],
+        "before": [
+          "[ 4 5 6 ]",
+          "[ 1 2 3 ]"
+        ],
+        "result": [],
+        "display": [
+          "32"
+        ],
+        "effect": "array array → real"
+      },
+      {
+        "input": "[ 1. 0. ] [ 0. 1. ]",
+        "run": "DOT",
+        "stack": [],
+        "before": [
+          "[ 0 1 ]",
+          "[ 1 0 ]"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "array array → real"
+      }
+    ],
+    "DROP": [
+      {
+        "input": "1. 2.",
+        "run": "DROP",
+        "stack": [],
+        "before": [
+          "2",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "DROP2": [
+      {
+        "input": "1. 2. 3.",
+        "run": "DROP2",
+        "stack": [],
+        "before": [
+          "3",
+          "2",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real real → real"
+      }
+    ],
+    "DROPN": [
+      {
+        "input": "1. 2. 3. 4. 2.",
+        "run": "DROPN",
+        "stack": [],
+        "before": [
+          "2",
+          "4",
+          "3",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "2",
+          "1"
+        ],
+        "effect": "real real real real → real real"
+      }
+    ],
+    "DUP": [
+      {
+        "input": "5.",
+        "run": "DUP",
+        "stack": [],
+        "before": [
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "5",
+          "5"
+        ],
+        "effect": "real → real real"
+      },
+      {
+        "input": "\"A\"",
+        "run": "DUP",
+        "stack": [],
+        "before": [
+          "\"A\""
+        ],
+        "result": [],
+        "display": [
+          "\"A\"",
+          "\"A\""
+        ],
+        "effect": "string → string string"
+      }
+    ],
+    "DUP2": [
+      {
+        "input": "1. 2.",
+        "run": "DUP2",
+        "stack": [],
+        "before": [
+          "2",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "2",
+          "1",
+          "2",
+          "1"
+        ],
+        "effect": "real real → real real real real"
+      }
+    ],
+    "DUPN": [
+      {
+        "input": "1. 2. 2.",
+        "run": "DUPN",
+        "stack": [],
+        "before": [
+          "2",
+          "2",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "2",
+          "1",
+          "2",
+          "1"
+        ],
+        "effect": "real real real → real real real real"
+      }
+    ],
+    "D→R": [
+      {
+        "input": "180.",
+        "run": "D→R",
+        "stack": [],
+        "before": [
+          "180"
+        ],
+        "result": [],
+        "display": [
+          "3.14159265359"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "45.",
+        "run": "D→R",
+        "stack": [],
+        "before": [
+          "45"
+        ],
+        "result": [],
+        "display": [
+          ".785398163397"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "ENG": [
+      {
+        "input": "2.",
+        "run": "ENG 12345. →STR",
+        "stack": [],
+        "before": [
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "\"12.3E3\""
+        ],
+        "effect": "real → string"
+      },
+      {
+        "input": "3.",
+        "run": "ENG .0012345 →STR",
+        "stack": [],
+        "before": [
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "\"1.235E-3\""
+        ],
+        "effect": "real → string"
+      }
+    ],
+    "ERRM": [
+      {
+        "input": "1. 0.",
+        "run": "« IFERR / THEN ERRM END » EVAL",
+        "stack": [],
+        "before": [
+          "0",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "\"Infinite Result\"",
+          "0",
+          "1"
+        ],
+        "effect": "real real → real real string"
+      }
+    ],
+    "ERRN": [
+      {
+        "input": "1. 0.",
+        "run": "« IFERR / THEN ERRN END » EVAL",
+        "stack": [],
+        "before": [
+          "0",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "# 773d",
+          "0",
+          "1"
+        ],
+        "effect": "real real → real real binary"
+      }
+    ],
+    "EVAL": [
+      {
+        "input": "« 2. 3. * »",
+        "run": "EVAL",
+        "stack": [],
+        "before": [
+          "« 2 3 * »"
+        ],
+        "result": [],
+        "display": [
+          "6"
+        ],
+        "effect": "program → real"
+      },
+      {
+        "setup": "3. 'X' STO",
+        "input": "'X^2+1'",
+        "run": "EVAL",
+        "stack": [],
+        "before": [
+          "'X^2+1'"
+        ],
+        "result": [],
+        "display": [
+          "10"
+        ],
+        "effect": "algebraic → real"
+      },
+      {
+        "input": "{ 4. 5. + }",
+        "run": "EVAL",
+        "stack": [],
+        "before": [
+          "{ 4 5 + }"
+        ],
+        "result": [],
+        "display": [
+          "{ 4 5 + }"
+        ],
+        "effect": "list → list"
+      }
+    ],
+    "EXGET": [
+      {
+        "input": "'(A+B)*C' 2.",
+        "run": "EXGET",
+        "stack": [],
+        "before": [
+          "2",
+          "'(A+B)*C'"
+        ],
+        "result": [],
+        "display": [
+          "'A+B'"
+        ],
+        "effect": "algebraic real → algebraic"
+      }
+    ],
+    "EXP": [
+      {
+        "input": "1.",
+        "run": "EXP",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "2.71828182846"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "(0.,1.)",
+        "run": "EXP",
+        "stack": [],
+        "before": [
+          "(0,1)"
+        ],
+        "result": [],
+        "display": [
+          "(.540302305868,  .841470984808)"
+        ],
+        "effect": "complex → complex"
+      }
+    ],
+    "EXPAN": [
+      {
+        "input": "'(X+1)*(X+2)'",
+        "run": "EXPAN",
+        "stack": [],
+        "before": [
+          "'(X+1)*(X+2)'"
+        ],
+        "result": [],
+        "display": [
+          "'(X+1)*X+(X+1)*2'"
+        ],
+        "effect": "algebraic → algebraic"
+      },
+      {
+        "input": "'A*(B+C)'",
+        "run": "EXPAN",
+        "stack": [],
+        "before": [
+          "'A*(B+C)'"
+        ],
+        "result": [],
+        "display": [
+          "'A*B+A*C'"
+        ],
+        "effect": "algebraic → algebraic"
+      }
+    ],
+    "EXPM": [
+      {
+        "input": "1.E-10",
+        "run": "EXPM",
+        "stack": [],
+        "before": [
+          ".0000000001"
+        ],
+        "result": [],
+        "display": [
+          "1.00000000005E-10"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "1.",
+        "run": "EXPM",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "1.71828182846"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "EXSUB": [
+      {
+        "input": "'(A+B)*C' 2. 'E^F'",
+        "run": "EXSUB",
+        "stack": [],
+        "before": [
+          "'E^F'",
+          "2",
+          "'(A+B)*C'"
+        ],
+        "result": [],
+        "display": [
+          "'E^F*C'"
+        ],
+        "effect": "algebraic real algebraic → algebraic"
+      }
+    ],
+    "FACT": [
+      {
+        "input": "5.",
+        "run": "FACT",
+        "stack": [],
+        "before": [
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "120"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "0.5",
+        "run": "FACT",
+        "stack": [],
+        "before": [
+          ".5"
+        ],
+        "result": [],
+        "display": [
+          ".886226925453"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "FC?": [
+      {
+        "input": "3.",
+        "run": "FC?",
+        "stack": [],
+        "before": [
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "setup": "3. SF",
+        "input": "3.",
+        "run": "FC?",
+        "stack": [],
+        "before": [
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "FC?C": [
+      {
+        "setup": "5. SF",
+        "input": "5.",
+        "run": "FC?C 5. FS?",
+        "stack": [],
+        "before": [
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "0",
+          "0"
+        ],
+        "effect": "real → real real"
+      },
+      {
+        "input": "5.",
+        "run": "FC?C",
+        "stack": [],
+        "before": [
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "FIX": [
+      {
+        "input": "2.",
+        "run": "FIX 1.23456 →STR",
+        "stack": [],
+        "before": [
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "\"1.23\""
+        ],
+        "effect": "real → string"
+      },
+      {
+        "input": "0.",
+        "run": "FIX 12.7 →STR",
+        "stack": [],
+        "before": [
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "\"13.\""
+        ],
+        "effect": "real → string"
+      }
+    ],
+    "FLOOR": [
+      {
+        "input": "3.7",
+        "run": "FLOOR",
+        "stack": [],
+        "before": [
+          "3.7"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "-3.2",
+        "run": "FLOOR",
+        "stack": [],
+        "before": [
+          "-3.2"
+        ],
+        "result": [],
+        "display": [
+          "-4"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "FOR": [
+      {
+        "input": "0. 1. 5.",
+        "run": "« FOR k k + NEXT » EVAL",
+        "stack": [],
+        "before": [
+          "5",
+          "1",
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "15"
+        ],
+        "effect": "real real real → real"
+      },
+      {
+        "input": "1. 10.",
+        "run": "« FOR k k 3. STEP » EVAL",
+        "stack": [],
+        "before": [
+          "10",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "10",
+          "7",
+          "4",
+          "1"
+        ],
+        "effect": "real real → real real real real"
+      }
+    ],
+    "FP": [
+      {
+        "input": "3.75",
+        "run": "FP",
+        "stack": [],
+        "before": [
+          "3.75"
+        ],
+        "result": [],
+        "display": [
+          ".75"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "-3.75",
+        "run": "FP",
+        "stack": [],
+        "before": [
+          "-3.75"
+        ],
+        "result": [],
+        "display": [
+          "-.75"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "FS?": [
+      {
+        "setup": "3. SF",
+        "input": "3.",
+        "run": "FS?",
+        "stack": [],
+        "before": [
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "4.",
+        "run": "FS?",
+        "stack": [],
+        "before": [
+          "4"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "FS?C": [
+      {
+        "setup": "5. SF",
+        "input": "5.",
+        "run": "FS?C 5. FS?",
+        "stack": [],
+        "before": [
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "0",
+          "1"
+        ],
+        "effect": "real → real real"
+      }
+    ],
+    "GET": [
+      {
+        "input": "{ 10. 20. 30. } 2.",
+        "run": "GET",
+        "stack": [],
+        "before": [
+          "2",
+          "{ 10 20 30 }"
+        ],
+        "result": [],
+        "display": [
+          "20"
+        ],
+        "effect": "list real → real"
+      },
+      {
+        "input": "[[ 1. 2. ][ 3. 4. ]] { 2. 1. }",
+        "run": "GET",
+        "stack": [],
+        "before": [
+          "{ 2 1 }",
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "array list → real"
+      }
+    ],
+    "GETI": [
+      {
+        "input": "{ 10. 20. 30. } 1.",
+        "run": "GETI",
+        "stack": [],
+        "before": [
+          "1",
+          "{ 10 20 30 }"
+        ],
+        "result": [],
+        "display": [
+          "10",
+          "2",
+          "{ 10 20 30 }"
+        ],
+        "effect": "list real → list real real"
+      },
+      {
+        "input": "{ 10. 20. 30. } 3.",
+        "run": "GETI",
+        "stack": [],
+        "before": [
+          "3",
+          "{ 10 20 30 }"
+        ],
+        "result": [],
+        "display": [
+          "30",
+          "1",
+          "{ 10 20 30 }"
+        ],
+        "effect": "list real → list real real"
+      },
+      {
+        "input": "{ 10. 20. 30. } 3.",
+        "run": "GETI 46 FS?",
+        "stack": [],
+        "before": [
+          "3",
+          "{ 10 20 30 }"
+        ],
+        "result": [],
+        "display": [
+          "1",
+          "30",
+          "1",
+          "{ 10 20 30 }"
+        ],
+        "effect": "list real → list real real real"
+      }
+    ],
+    "HEX": [
+      {
+        "input": "",
+        "run": "HEX #255d →STR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "\"# FFh\""
+        ],
+        "effect": "→ string"
+      },
+      {
+        "input": "",
+        "run": "HEX #11111111b →STR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "\"# FFh\""
+        ],
+        "effect": "→ string"
+      }
+    ],
+    "HMS+": [
+      {
+        "input": "1.3 2.45",
+        "run": "HMS+",
+        "stack": [],
+        "before": [
+          "2.45",
+          "1.3"
+        ],
+        "result": [],
+        "display": [
+          "4.15"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "0.5959 0.0001",
+        "run": "HMS+",
+        "stack": [],
+        "before": [
+          ".0001",
+          ".5959"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "HMS-": [
+      {
+        "input": "4.15 1.3",
+        "run": "HMS-",
+        "stack": [],
+        "before": [
+          "1.3",
+          "4.15"
+        ],
+        "result": [],
+        "display": [
+          "2.45"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "1. 0.0001",
+        "run": "HMS-",
+        "stack": [],
+        "before": [
+          ".0001",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          ".5959"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "HMS→": [
+      {
+        "input": "1.3",
+        "run": "HMS→",
+        "stack": [],
+        "before": [
+          "1.3"
+        ],
+        "result": [],
+        "display": [
+          "1.5"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "2.4509",
+        "run": "HMS→",
+        "stack": [],
+        "before": [
+          "2.4509"
+        ],
+        "result": [],
+        "display": [
+          "2.7525"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "HOME": [
+      {
+        "setup": "'D' CRDIR D",
+        "input": "",
+        "run": "HOME PATH",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "{ HOME }"
+        ],
+        "effect": "→ list"
+      }
+    ],
+    "IDN": [
+      {
+        "input": "3.",
+        "run": "IDN",
+        "stack": [],
+        "before": [
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "[[ 1 0 0 ]  [ 0 1 0 ]  [ 0 0 1 ]]"
+        ],
+        "effect": "real → array"
+      },
+      {
+        "input": "[[ 5. 6. ][ 7. 8. ]]",
+        "run": "IDN",
+        "stack": [],
+        "before": [
+          "[[ 5 6 ]  [ 7 8 ]]"
+        ],
+        "result": [],
+        "display": [
+          "[[ 1 0 ]  [ 0 1 ]]"
+        ],
+        "effect": "array → array"
+      }
+    ],
+    "IF": [
+      {
+        "input": "5.",
+        "run": "« IF DUP 3. > THEN \"big\" ELSE \"small\" END » EVAL",
+        "stack": [],
+        "before": [
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "\"big\"",
+          "5"
+        ],
+        "effect": "real → real string"
+      },
+      {
+        "input": "1.",
+        "run": "« IF DUP 3. > THEN \"big\" ELSE \"small\" END » EVAL",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "\"small\"",
+          "1"
+        ],
+        "effect": "real → real string"
+      }
+    ],
+    "IFERR": [
+      {
+        "input": "1. 0.",
+        "run": "« IFERR / THEN \"failed\" END » EVAL",
+        "stack": [],
+        "before": [
+          "0",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "\"failed\"",
+          "0",
+          "1"
+        ],
+        "effect": "real real → real real string"
+      },
+      {
+        "input": "6. 2.",
+        "run": "« IFERR / THEN \"failed\" END » EVAL",
+        "stack": [],
+        "before": [
+          "2",
+          "6"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "IFT": [
+      {
+        "input": "1. \"yes\"",
+        "run": "IFT",
+        "stack": [],
+        "before": [
+          "\"yes\"",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "\"yes\""
+        ],
+        "effect": "real string → string"
+      },
+      {
+        "input": "0. \"yes\"",
+        "run": "IFT",
+        "stack": [],
+        "before": [
+          "\"yes\"",
+          "0"
+        ],
+        "result": [],
+        "display": [],
+        "effect": "real string →"
+      },
+      {
+        "input": "2. 3. 1. « + »",
+        "run": "IFT",
+        "stack": [],
+        "before": [
+          "« + »",
+          "1",
+          "3",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "5"
+        ],
+        "effect": "real real real program → real"
+      }
+    ],
+    "IFTE": [
+      {
+        "input": "1. \"yes\" \"no\"",
+        "run": "IFTE",
+        "stack": [],
+        "before": [
+          "\"no\"",
+          "\"yes\"",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "\"yes\""
+        ],
+        "effect": "real string string → string"
+      },
+      {
+        "input": "0. \"yes\" \"no\"",
+        "run": "IFTE",
+        "stack": [],
+        "before": [
+          "\"no\"",
+          "\"yes\"",
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "\"no\""
+        ],
+        "effect": "real string string → string"
+      },
+      {
+        "input": "'X>0' 'X' '-X'",
+        "run": "IFTE",
+        "stack": [],
+        "before": [
+          "'-X'",
+          "'X'",
+          "'X>0'"
+        ],
+        "result": [],
+        "display": [
+          "'IFTE(X>0,X,-X)'"
+        ],
+        "effect": "algebraic name algebraic → algebraic"
+      }
+    ],
+    "IM": [
+      {
+        "input": "(3.,4.)",
+        "run": "IM",
+        "stack": [],
+        "before": [
+          "(3,4)"
+        ],
+        "result": [],
+        "display": [
+          "4"
+        ],
+        "effect": "complex → real"
+      },
+      {
+        "input": "[ (1.,2.) (3.,4.) ]",
+        "run": "IM",
+        "stack": [],
+        "before": [
+          "[ (1,2) (3,4) ]"
+        ],
+        "result": [],
+        "display": [
+          "[ 2 4 ]"
+        ],
+        "effect": "array → array"
+      }
+    ],
+    "INDEP": [
+      {
+        "input": "'T'",
+        "run": "INDEP PPAR",
+        "stack": [],
+        "before": [
+          "'T'"
+        ],
+        "result": [],
+        "display": [
+          "{ (-6.8,-1.5)  (6.8,1.6) T 1 (0,0)  }"
+        ],
+        "effect": "name → list"
+      }
+    ],
+    "INV": [
+      {
+        "input": "4.",
+        "run": "INV",
+        "stack": [],
+        "before": [
+          "4"
+        ],
+        "result": [],
+        "display": [
+          ".25"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "(3.,4.)",
+        "run": "INV",
+        "stack": [],
+        "before": [
+          "(3,4)"
+        ],
+        "result": [],
+        "display": [
+          "(.12,-.16)"
+        ],
+        "effect": "complex → complex"
+      },
+      {
+        "input": "[[ 2. 0. ][ 0. 4. ]]",
+        "run": "INV",
+        "stack": [],
+        "before": [
+          "[[ 2 0 ]  [ 0 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "[[ .5 0 ]  [ 0 .25 ]]"
+        ],
+        "effect": "array → array"
+      }
+    ],
+    "IP": [
+      {
+        "input": "3.75",
+        "run": "IP",
+        "stack": [],
+        "before": [
+          "3.75"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "-3.75",
+        "run": "IP",
+        "stack": [],
+        "before": [
+          "-3.75"
+        ],
+        "result": [],
+        "display": [
+          "-3"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "ISOL": [
+      {
+        "input": "'2*X+3=7' 'X'",
+        "run": "ISOL",
+        "stack": [],
+        "before": [
+          "'X'",
+          "'2*X+3=7'"
+        ],
+        "result": [],
+        "display": [
+          "2"
+        ],
+        "effect": "algebraic name → real"
+      },
+      {
+        "input": "'A*X^2=B' 'X'",
+        "run": "ISOL",
+        "stack": [],
+        "before": [
+          "'X'",
+          "'A*X^2=B'"
+        ],
+        "result": [],
+        "display": [
+          "'s1*√(B/A)'"
+        ],
+        "effect": "algebraic name → algebraic"
+      }
+    ],
+    "KEY": [
+      {
+        "input": "",
+        "run": "KEY",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "LAST": [
+      {
+        "input": "2. 3.",
+        "run": "+ LAST",
+        "stack": [],
+        "before": [
+          "3",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "3",
+          "2",
+          "5"
+        ],
+        "effect": "real real → real real real"
+      }
+    ],
+    "LCD→": [
+      {
+        "input": "",
+        "run": "LCD→ SIZE",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "548"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "LIST→": [
+      {
+        "input": "{ 1. \"A\" 'X' }",
+        "run": "LIST→",
+        "stack": [],
+        "before": [
+          "{ 1 \"A\" X }"
+        ],
+        "result": [],
+        "display": [
+          "3",
+          "'X'",
+          "\"A\"",
+          "1"
+        ],
+        "effect": "list → real string name real"
+      },
+      {
+        "input": "{ }",
+        "run": "LIST→",
+        "stack": [],
+        "before": [
+          "{ }"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "list → real"
+      }
+    ],
+    "LN": [
+      {
+        "input": "10.",
+        "run": "LN",
+        "stack": [],
+        "before": [
+          "10"
+        ],
+        "result": [],
+        "display": [
+          "2.30258509299"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "-1.",
+        "run": "LN",
+        "stack": [],
+        "before": [
+          "-1"
+        ],
+        "result": [],
+        "display": [
+          "(0,3.14159265359)"
+        ],
+        "effect": "real → complex"
+      }
+    ],
+    "LNP1": [
+      {
+        "input": "1.E-10",
+        "run": "LNP1",
+        "stack": [],
+        "before": [
+          ".0000000001"
+        ],
+        "result": [],
+        "display": [
+          "9.9999999995E-11"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "1.",
+        "run": "LNP1",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          ".69314718056"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "LOG": [
+      {
+        "input": "1000.",
+        "run": "LOG",
+        "stack": [],
+        "before": [
+          "1000"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "2.",
+        "run": "LOG",
+        "stack": [],
+        "before": [
+          "2"
+        ],
+        "result": [],
+        "display": [
+          ".301029995664"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "LR": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "",
+        "run": "LR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "1.95",
+          ".1"
+        ],
+        "effect": "→ real real"
+      }
+    ],
+    "MANT": [
+      {
+        "input": "12345.",
+        "run": "MANT",
+        "stack": [],
+        "before": [
+          "12345"
+        ],
+        "result": [],
+        "display": [
+          "1.2345"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": ".00042",
+        "run": "MANT",
+        "stack": [],
+        "before": [
+          ".00042"
+        ],
+        "result": [],
+        "display": [
+          "4.2"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "MAX": [
+      {
+        "input": "3. 7.",
+        "run": "MAX",
+        "stack": [],
+        "before": [
+          "7",
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "7"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "-2. -5.",
+        "run": "MAX",
+        "stack": [],
+        "before": [
+          "-5",
+          "-2"
+        ],
+        "result": [],
+        "display": [
+          "-2"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "MAXR": [
+      {
+        "input": "",
+        "run": "MAXR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "'MAXR'"
+        ],
+        "effect": "→ name"
+      },
+      {
+        "input": "",
+        "run": "MAXR →NUM",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "9.99999999999E499"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "MAXΣ": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "",
+        "run": "MAXΣ",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "[ 3 5.9 ]"
+        ],
+        "effect": "→ array"
+      }
+    ],
+    "MEAN": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "",
+        "run": "MEAN",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "[ 2 4 ]"
+        ],
+        "effect": "→ array"
+      }
+    ],
+    "MEM": [
+      {
+        "input": "",
+        "run": "MEM",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "32376.5"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "MIN": [
+      {
+        "input": "3. 7.",
+        "run": "MIN",
+        "stack": [],
+        "before": [
+          "7",
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "-2. -5.",
+        "run": "MIN",
+        "stack": [],
+        "before": [
+          "-5",
+          "-2"
+        ],
+        "result": [],
+        "display": [
+          "-5"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "MINR": [
+      {
+        "input": "",
+        "run": "MINR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "'MINR'"
+        ],
+        "effect": "→ name"
+      },
+      {
+        "input": "",
+        "run": "MINR →NUM",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "1.E-499"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "MINΣ": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "",
+        "run": "MINΣ",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "[ 1 2 ]"
+        ],
+        "effect": "→ array"
+      }
+    ],
+    "MOD": [
+      {
+        "input": "17. 5.",
+        "run": "MOD",
+        "stack": [],
+        "before": [
+          "5",
+          "17"
+        ],
+        "result": [],
+        "display": [
+          "2"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "-17. 5.",
+        "run": "MOD",
+        "stack": [],
+        "before": [
+          "5",
+          "-17"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "7.5 2.",
+        "run": "MOD",
+        "stack": [],
+        "before": [
+          "2",
+          "7.5"
+        ],
+        "result": [],
+        "display": [
+          "1.5"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "NEG": [
+      {
+        "input": "5.",
+        "run": "NEG",
+        "stack": [],
+        "before": [
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "-5"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "(1.,-2.)",
+        "run": "NEG",
+        "stack": [],
+        "before": [
+          "(1,-2)"
+        ],
+        "result": [],
+        "display": [
+          "(-1,2)"
+        ],
+        "effect": "complex → complex"
+      },
+      {
+        "input": "'A+B'",
+        "run": "NEG",
+        "stack": [],
+        "before": [
+          "'A+B'"
+        ],
+        "result": [],
+        "display": [
+          "'-(A+B)'"
+        ],
+        "effect": "algebraic → algebraic"
+      }
+    ],
+    "NOT": [
+      {
+        "setup": "8. STWS",
+        "input": "#Fh",
+        "run": "NOT",
+        "stack": [],
+        "before": [
+          "# 15d"
+        ],
+        "result": [],
+        "display": [
+          "# 240d"
+        ],
+        "effect": "binary → binary"
+      },
+      {
+        "input": "0.",
+        "run": "NOT",
+        "stack": [],
+        "before": [
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "setup": "8. STWS",
+        "input": "#0h",
+        "run": "NOT",
+        "stack": [],
+        "before": [
+          "# 0d"
+        ],
+        "result": [],
+        "display": [
+          "# 255d"
+        ],
+        "effect": "binary → binary"
+      }
+    ],
+    "NUM": [
+      {
+        "input": "\"A\"",
+        "run": "NUM",
+        "stack": [],
+        "before": [
+          "\"A\""
+        ],
+        "result": [],
+        "display": [
+          "65"
+        ],
+        "effect": "string → real"
+      },
+      {
+        "input": "\"abc\"",
+        "run": "NUM",
+        "stack": [],
+        "before": [
+          "\"abc\""
+        ],
+        "result": [],
+        "display": [
+          "97"
+        ],
+        "effect": "string → real"
+      }
+    ],
+    "NΣ": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "",
+        "run": "NΣ",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "OBGET": [
+      {
+        "input": "'(A+B)*C' 2.",
+        "run": "OBGET",
+        "stack": [],
+        "before": [
+          "2",
+          "'(A+B)*C'"
+        ],
+        "result": [],
+        "display": [
+          "{ + }"
+        ],
+        "effect": "algebraic real → list"
+      },
+      {
+        "input": "'A*B' 3.",
+        "run": "OBGET",
+        "stack": [],
+        "before": [
+          "3",
+          "'A*B'"
+        ],
+        "result": [],
+        "display": [
+          "{ B }"
+        ],
+        "effect": "algebraic real → list"
+      }
+    ],
+    "OBSUB": [
+      {
+        "input": "'A*B' 3. { C }",
+        "run": "OBSUB",
+        "stack": [],
+        "before": [
+          "{ C }",
+          "3",
+          "'A*B'"
+        ],
+        "result": [],
+        "display": [
+          "'A*C'"
+        ],
+        "effect": "algebraic real list → algebraic"
+      },
+      {
+        "input": "'A*B' 2. { + }",
+        "run": "OBSUB",
+        "stack": [],
+        "before": [
+          "{ + }",
+          "2",
+          "'A*B'"
+        ],
+        "result": [],
+        "display": [
+          "'A+B'"
+        ],
+        "effect": "algebraic real list → algebraic"
+      }
+    ],
+    "OCT": [
+      {
+        "input": "",
+        "run": "OCT #64d →STR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "\"# 100o\""
+        ],
+        "effect": "→ string"
+      },
+      {
+        "input": "",
+        "run": "OCT #FFh →STR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "\"# 377o\""
+        ],
+        "effect": "→ string"
+      }
+    ],
+    "OR": [
+      {
+        "input": "#Ch #Ah",
+        "run": "OR",
+        "stack": [],
+        "before": [
+          "# 10d",
+          "# 12d"
+        ],
+        "result": [],
+        "display": [
+          "# 14d"
+        ],
+        "effect": "binary binary → binary"
+      },
+      {
+        "input": "0. 0.",
+        "run": "OR",
+        "stack": [],
+        "before": [
+          "0",
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "0. 3.",
+        "run": "OR",
+        "stack": [],
+        "before": [
+          "3",
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "ORDER": [
+      {
+        "setup": "1. 'A' STO 2. 'B' STO",
+        "input": "{ B A }",
+        "run": "ORDER VARS",
+        "stack": [],
+        "before": [
+          "{ B A }"
+        ],
+        "result": [],
+        "display": [
+          "{ B A }"
+        ],
+        "effect": "list → list"
+      }
+    ],
+    "OVER": [
+      {
+        "input": "1. 2.",
+        "run": "OVER",
+        "stack": [],
+        "before": [
+          "2",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "1",
+          "2",
+          "1"
+        ],
+        "effect": "real real → real real real"
+      }
+    ],
+    "PATH": [
+      {
+        "input": "",
+        "run": "PATH",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "{ HOME }"
+        ],
+        "effect": "→ list"
+      },
+      {
+        "setup": "'D1' CRDIR D1",
+        "input": "",
+        "run": "PATH",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "{ HOME D1 }"
+        ],
+        "effect": "→ list"
+      }
+    ],
+    "PERM": [
+      {
+        "input": "5. 2.",
+        "run": "PERM",
+        "stack": [],
+        "before": [
+          "2",
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "20"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "10. 3.",
+        "run": "PERM",
+        "stack": [],
+        "before": [
+          "3",
+          "10"
+        ],
+        "result": [],
+        "display": [
+          "720"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "PICK": [
+      {
+        "input": "10. 20. 30. 3.",
+        "run": "PICK",
+        "stack": [],
+        "before": [
+          "3",
+          "30",
+          "20",
+          "10"
+        ],
+        "result": [],
+        "display": [
+          "10",
+          "30",
+          "20",
+          "10"
+        ],
+        "effect": "real real real real → real real real real"
+      }
+    ],
+    "PMAX": [
+      {
+        "input": "(4.,3.)",
+        "run": "PMAX PPAR",
+        "stack": [],
+        "before": [
+          "(4,3)"
+        ],
+        "result": [],
+        "display": [
+          "{ (-6.8,-1.5) (4,3)  constant 1 (0,0) }"
+        ],
+        "effect": "complex → list"
+      }
+    ],
+    "PMIN": [
+      {
+        "input": "(-2.,-1.)",
+        "run": "PMIN PPAR",
+        "stack": [],
+        "before": [
+          "(-2,-1)"
+        ],
+        "result": [],
+        "display": [
+          "{ (-2,-1) (6.8,1.6)  constant 1 (0,0) }"
+        ],
+        "effect": "complex → list"
+      }
+    ],
+    "POS": [
+      {
+        "input": "\"HELLO\" \"L\"",
+        "run": "POS",
+        "stack": [],
+        "before": [
+          "\"L\"",
+          "\"HELLO\""
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "string string → real"
+      },
+      {
+        "input": "{ 5. 6. 7. } 7.",
+        "run": "POS",
+        "stack": [],
+        "before": [
+          "7",
+          "{ 5 6 7 }"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "list real → real"
+      },
+      {
+        "input": "\"HELLO\" \"Z\"",
+        "run": "POS",
+        "stack": [],
+        "before": [
+          "\"Z\"",
+          "\"HELLO\""
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "string string → real"
+      }
+    ],
+    "PREDV": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4. ][ 3. 6. ]] STOΣ LR",
+        "input": "5.",
+        "run": "PREDV",
+        "stack": [],
+        "before": [
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "10"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "PURGE": [
+      {
+        "setup": "1. 'A' STO 2. 'B' STO",
+        "input": "'A'",
+        "run": "PURGE VARS",
+        "stack": [],
+        "before": [
+          "'A'"
+        ],
+        "result": [],
+        "display": [
+          "{ B }"
+        ],
+        "effect": "name → list"
+      }
+    ],
+    "PUT": [
+      {
+        "input": "[ 1. 2. 3. ] 2. 9.",
+        "run": "PUT",
+        "stack": [],
+        "before": [
+          "9",
+          "2",
+          "[ 1 2 3 ]"
+        ],
+        "result": [],
+        "display": [
+          "[ 1 9 3 ]"
+        ],
+        "effect": "array real real → array"
+      },
+      {
+        "input": "[[ 1. 2. ][ 3. 4. ]] { 2. 1. } 0.",
+        "run": "PUT",
+        "stack": [],
+        "before": [
+          "0",
+          "{ 2 1 }",
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "[[ 1 2 ]  [ 0 4 ]]"
+        ],
+        "effect": "array list real → array"
+      },
+      {
+        "setup": "{ 1. 2. } 'L' STO",
+        "input": "'L' 1. 5.",
+        "run": "PUT L",
+        "stack": [],
+        "before": [
+          "5",
+          "1",
+          "'L'"
+        ],
+        "result": [],
+        "display": [
+          "{ 5 2 }"
+        ],
+        "effect": "name real real → list"
+      }
+    ],
+    "PUTI": [
+      {
+        "input": "[ 1. 2. 3. ] 1. 9.",
+        "run": "PUTI",
+        "stack": [],
+        "before": [
+          "9",
+          "1",
+          "[ 1 2 3 ]"
+        ],
+        "result": [],
+        "display": [
+          "2",
+          "[ 9 2 3 ]"
+        ],
+        "effect": "array real real → array real"
+      },
+      {
+        "input": "{ 1. 2. } 2. \"A\"",
+        "run": "PUTI",
+        "stack": [],
+        "before": [
+          "\"A\"",
+          "2",
+          "{ 1 2 }"
+        ],
+        "result": [],
+        "display": [
+          "1",
+          "{ 1 \"A\" }"
+        ],
+        "effect": "list real string → list real"
+      },
+      {
+        "input": "[ 1. 2. 3. ] 3. 9.",
+        "run": "PUTI 46. FS?",
+        "stack": [],
+        "before": [
+          "9",
+          "3",
+          "[ 1 2 3 ]"
+        ],
+        "result": [],
+        "display": [
+          "1",
+          "1",
+          "[ 1 2 9 ]"
+        ],
+        "effect": "array real real → array real real"
+      }
+    ],
+    "P→R": [
+      {
+        "setup": "DEG",
+        "input": "(2.,90.)",
+        "run": "P→R",
+        "stack": [],
+        "before": [
+          "(2,90)"
+        ],
+        "result": [],
+        "display": [
+          "(0,2)"
+        ],
+        "effect": "complex → complex"
+      },
+      {
+        "setup": "DEG",
+        "input": "[ 1. 90. 5. ]",
+        "run": "P→R",
+        "stack": [],
+        "before": [
+          "[ 1 90 5 ]"
+        ],
+        "result": [],
+        "display": [
+          "[ 0 1 5 ]"
+        ],
+        "effect": "array → array"
+      }
+    ],
+    "QUAD": [
+      {
+        "input": "'X^2-3*X+2' 'X'",
+        "run": "QUAD",
+        "stack": [],
+        "before": [
+          "'X'",
+          "'X^2-3*X+2'"
+        ],
+        "result": [],
+        "display": [
+          "'(3+s1)/2'"
+        ],
+        "effect": "algebraic name → algebraic"
+      },
+      {
+        "input": "'X^2+1' 'X'",
+        "run": "QUAD",
+        "stack": [],
+        "before": [
+          "'X'",
+          "'X^2+1'"
+        ],
+        "result": [],
+        "display": [
+          "'s1*(0,2)/2'"
+        ],
+        "effect": "algebraic name → algebraic"
+      }
+    ],
+    "RAD": [
+      {
+        "input": "",
+        "run": "RAD 1. ASIN",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "1.57079632679"
+        ],
+        "effect": "→ real"
+      },
+      {
+        "input": "",
+        "run": "RAD 1. SIN",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          ".841470984808"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "RAND": [
+      {
+        "setup": "123. RDZ",
+        "input": "",
+        "run": "RAND",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          ".529385058782"
+        ],
+        "effect": "→ real"
+      },
+      {
+        "setup": "123. RDZ",
+        "input": "",
+        "run": "RAND RAND",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "4.10216000727E-2",
+          ".529385058782"
+        ],
+        "effect": "→ real real"
+      }
+    ],
+    "RCEQ": [
+      {
+        "setup": "'X^2-1' 'EQ' STO",
+        "input": "",
+        "run": "RCEQ",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "'X^2-1'"
+        ],
+        "effect": "→ algebraic"
+      }
+    ],
+    "RCL": [
+      {
+        "setup": "42. 'A' STO",
+        "input": "'A'",
+        "run": "RCL",
+        "stack": [],
+        "before": [
+          "'A'"
+        ],
+        "result": [],
+        "display": [
+          "42"
+        ],
+        "effect": "name → real"
+      },
+      {
+        "setup": "« 1. + » 'P' STO",
+        "input": "'P'",
+        "run": "RCL",
+        "stack": [],
+        "before": [
+          "'P'"
+        ],
+        "result": [],
+        "display": [
+          "« 1 + »"
+        ],
+        "effect": "name → program"
+      }
+    ],
+    "RCLF": [
+      {
+        "setup": "1. SF 2. CF 3. SF",
+        "input": "",
+        "run": "RCLF # 7d AND",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "# 5d"
+        ],
+        "effect": "→ binary"
+      }
+    ],
+    "RCLΣ": [
+      {
+        "setup": "[[ 1. 2. ][ 3. 4. ]] STOΣ",
+        "input": "",
+        "run": "RCLΣ",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "effect": "→ array"
+      }
+    ],
+    "RCWS": [
+      {
+        "input": "",
+        "run": "RCWS",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "64"
+        ],
+        "effect": "→ real"
+      },
+      {
+        "setup": "16. STWS",
+        "input": "",
+        "run": "RCWS",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "16"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "RDM": [
+      {
+        "input": "[ 1. 2. 3. 4. ] { 2. 2. }",
+        "run": "RDM",
+        "stack": [],
+        "before": [
+          "{ 2 2 }",
+          "[ 1 2 3 4 ]"
+        ],
+        "result": [],
+        "display": [
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "effect": "array list → array"
+      },
+      {
+        "input": "[[ 1. 2. ][ 3. 4. ]] { 3. }",
+        "run": "RDM",
+        "stack": [],
+        "before": [
+          "{ 3 }",
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "[ 1 2 3 ]"
+        ],
+        "effect": "array list → array"
+      }
+    ],
+    "RDZ": [
+      {
+        "input": "123.",
+        "run": "RDZ RAND",
+        "stack": [],
+        "before": [
+          "123"
+        ],
+        "result": [],
+        "display": [
+          ".529385058782"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "123.",
+        "run": "RDZ RAND 123. RDZ RAND",
+        "stack": [],
+        "before": [
+          "123"
+        ],
+        "result": [],
+        "display": [
+          ".529385058782",
+          ".529385058782"
+        ],
+        "effect": "real → real real"
+      }
+    ],
+    "RE": [
+      {
+        "input": "(3.,4.)",
+        "run": "RE",
+        "stack": [],
+        "before": [
+          "(3,4)"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "complex → real"
+      },
+      {
+        "input": "[ (1.,2.) (3.,4.) ]",
+        "run": "RE",
+        "stack": [],
+        "before": [
+          "[ (1,2) (3,4) ]"
+        ],
+        "result": [],
+        "display": [
+          "[ 1 3 ]"
+        ],
+        "effect": "array → array"
+      }
+    ],
+    "RES": [
+      {
+        "input": "2.",
+        "run": "RES PPAR",
+        "stack": [],
+        "before": [
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "{ (-6.8,-1.5)  (6.8,1.6) constant 2  (0,0) }"
+        ],
+        "effect": "real → list"
+      }
+    ],
+    "RL": [
+      {
+        "input": "#81h",
+        "run": "RL",
+        "stack": [],
+        "before": [
+          "# 129d"
+        ],
+        "result": [],
+        "display": [
+          "# 258d"
+        ],
+        "effect": "binary → binary"
+      },
+      {
+        "input": "#8000000000000001h",
+        "run": "RL",
+        "stack": [],
+        "before": [
+          "# 92233720368547758…"
+        ],
+        "result": [],
+        "display": [
+          "# 3d"
+        ],
+        "effect": "binary → binary"
+      }
+    ],
+    "RLB": [
+      {
+        "input": "#1234h",
+        "run": "RLB",
+        "stack": [],
+        "before": [
+          "# 4660d"
+        ],
+        "result": [],
+        "display": [
+          "# 1192960d"
+        ],
+        "effect": "binary → binary"
+      },
+      {
+        "input": "#AB00000000000000h",
+        "run": "RLB",
+        "stack": [],
+        "before": [
+          "# 12321848580485677…"
+        ],
+        "result": [],
+        "display": [
+          "# 171d"
+        ],
+        "effect": "binary → binary"
+      }
+    ],
+    "RND": [
+      {
+        "setup": "2. FIX",
+        "input": "3.14159",
+        "run": "RND STD",
+        "stack": [],
+        "before": [
+          "3.14"
+        ],
+        "result": [],
+        "display": [
+          "3.14"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "setup": "1. SCI",
+        "input": "12345.678",
+        "run": "RND STD",
+        "stack": [],
+        "before": [
+          "1.2E4"
+        ],
+        "result": [],
+        "display": [
+          "12000"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "RNRM": [
+      {
+        "input": "[[ 1. -2. ][ 3. 4. ]]",
+        "run": "RNRM",
+        "stack": [],
+        "before": [
+          "[[ 1 -2 ]  [ 3 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "7"
+        ],
+        "effect": "array → real"
+      },
+      {
+        "input": "[ 1. -5. 3. ]",
+        "run": "RNRM",
+        "stack": [],
+        "before": [
+          "[ 1 -5 3 ]"
+        ],
+        "result": [],
+        "display": [
+          "5"
+        ],
+        "effect": "array → real"
+      }
+    ],
+    "ROLL": [
+      {
+        "input": "1. 2. 3. 4. 4.",
+        "run": "ROLL",
+        "stack": [],
+        "before": [
+          "4",
+          "4",
+          "3",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "1",
+          "4",
+          "3",
+          "2"
+        ],
+        "effect": "real real real real → real real real real"
+      }
+    ],
+    "ROLLD": [
+      {
+        "input": "1. 2. 3. 4. 4.",
+        "run": "ROLLD",
+        "stack": [],
+        "before": [
+          "4",
+          "4",
+          "3",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "3",
+          "2",
+          "1",
+          "4"
+        ],
+        "effect": "real real real real → real real real real"
+      }
+    ],
+    "ROOT": [
+      {
+        "input": "'X^2-2' 'X' 1.",
+        "run": "ROOT",
+        "stack": [],
+        "before": [
+          "1",
+          "'X'",
+          "'X^2-2'"
+        ],
+        "result": [],
+        "display": [
+          "1.41421356237"
+        ],
+        "effect": "algebraic name real → real"
+      },
+      {
+        "setup": "RAD",
+        "input": "'COS(X)=X' 'X' 0.",
+        "run": "ROOT",
+        "stack": [],
+        "before": [
+          "0",
+          "'X'",
+          "'COS(X)=X'"
+        ],
+        "result": [],
+        "display": [
+          ".739085133215"
+        ],
+        "effect": "algebraic name real → real"
+      },
+      {
+        "input": "'X^3-X-1' 'X' { 1. 2. }",
+        "run": "ROOT",
+        "stack": [],
+        "before": [
+          "{ 1 2 }",
+          "'X'",
+          "'X^3-X-1'"
+        ],
+        "result": [],
+        "display": [
+          "1.32471795725"
+        ],
+        "effect": "algebraic name list → real"
+      }
+    ],
+    "ROT": [
+      {
+        "input": "1. 2. 3.",
+        "run": "ROT",
+        "stack": [],
+        "before": [
+          "3",
+          "2",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "1",
+          "3",
+          "2"
+        ],
+        "effect": "real real real → real real real"
+      }
+    ],
+    "RR": [
+      {
+        "input": "#2h",
+        "run": "RR",
+        "stack": [],
+        "before": [
+          "# 2d"
+        ],
+        "result": [],
+        "display": [
+          "# 1d"
+        ],
+        "effect": "binary → binary"
+      },
+      {
+        "setup": "8. STWS",
+        "input": "#1h",
+        "run": "RR",
+        "stack": [],
+        "before": [
+          "# 1d"
+        ],
+        "result": [],
+        "display": [
+          "# 128d"
+        ],
+        "effect": "binary → binary"
+      }
+    ],
+    "RRB": [
+      {
+        "setup": "16. STWS",
+        "input": "#1234h",
+        "run": "RRB HEX →STR",
+        "stack": [],
+        "before": [
+          "# 4660d"
+        ],
+        "result": [],
+        "display": [
+          "\"# 3412h\""
+        ],
+        "effect": "binary → string"
+      }
+    ],
+    "RSD": [
+      {
+        "input": "[ 3. 5. ] [[ 1. 1. ][ 1. 2. ]] [ 1. 1. ]",
+        "run": "RSD",
+        "stack": [],
+        "before": [
+          "[ 1 1 ]",
+          "[[ 1 1 ]  [ 1 2 ]]",
+          "[ 3 5 ]"
+        ],
+        "result": [],
+        "display": [
+          "[ 1 2 ]"
+        ],
+        "effect": "array array array → array"
+      },
+      {
+        "input": "[ 3. 5. ] [[ 1. 1. ][ 1. 2. ]] [ 1. 2. ]",
+        "run": "RSD",
+        "stack": [],
+        "before": [
+          "[ 1 2 ]",
+          "[[ 1 1 ]  [ 1 2 ]]",
+          "[ 3 5 ]"
+        ],
+        "result": [],
+        "display": [
+          "[ 0 0 ]"
+        ],
+        "effect": "array array array → array"
+      }
+    ],
+    "R→B": [
+      {
+        "input": "255.",
+        "run": "R→B",
+        "stack": [],
+        "before": [
+          "255"
+        ],
+        "result": [],
+        "display": [
+          "# 255d"
+        ],
+        "effect": "real → binary"
+      },
+      {
+        "input": "10.6",
+        "run": "R→B",
+        "stack": [],
+        "before": [
+          "10.6"
+        ],
+        "result": [],
+        "display": [
+          "# 11d"
+        ],
+        "effect": "real → binary"
+      }
+    ],
+    "R→C": [
+      {
+        "input": "3. 4.",
+        "run": "R→C",
+        "stack": [],
+        "before": [
+          "4",
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "(3,4)"
+        ],
+        "effect": "real real → complex"
+      },
+      {
+        "input": "[ 1. 2. ] [ 3. 4. ]",
+        "run": "R→C",
+        "stack": [],
+        "before": [
+          "[ 3 4 ]",
+          "[ 1 2 ]"
+        ],
+        "result": [],
+        "display": [
+          "[ (1,3) (2,4) ]"
+        ],
+        "effect": "array array → array"
+      }
+    ],
+    "R→D": [
+      {
+        "input": "1.",
+        "run": "R→D",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "57.2957795131"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "3.14159265359",
+        "run": "R→D",
+        "stack": [],
+        "before": [
+          "3.14159265359"
+        ],
+        "result": [],
+        "display": [
+          "180"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "R→P": [
+      {
+        "setup": "RAD",
+        "input": "(3.,4.)",
+        "run": "R→P",
+        "stack": [],
+        "before": [
+          "(3,4)"
+        ],
+        "result": [],
+        "display": [
+          "(5,.927295218002)"
+        ],
+        "effect": "complex → complex"
+      },
+      {
+        "setup": "DEG",
+        "input": "(0.,2.)",
+        "run": "R→P",
+        "stack": [],
+        "before": [
+          "(0,2)"
+        ],
+        "result": [],
+        "display": [
+          "(2,90)"
+        ],
+        "effect": "complex → complex"
+      }
+    ],
+    "SAME": [
+      {
+        "input": "\"AB\" \"AB\"",
+        "run": "SAME",
+        "stack": [],
+        "before": [
+          "\"AB\"",
+          "\"AB\""
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "string string → real"
+      },
+      {
+        "input": "'X' 'Y'",
+        "run": "SAME",
+        "stack": [],
+        "before": [
+          "'Y'",
+          "'X'"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "name name → real"
+      },
+      {
+        "input": "{ 1. } { 1. }",
+        "run": "SAME",
+        "stack": [],
+        "before": [
+          "{ 1 }",
+          "{ 1 }"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "list list → real"
+      }
+    ],
+    "SCI": [
+      {
+        "input": "2.",
+        "run": "SCI 1234.5 →STR",
+        "stack": [],
+        "before": [
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "\"1.23E3\""
+        ],
+        "effect": "real → string"
+      },
+      {
+        "input": "4.",
+        "run": "SCI .000123456 →STR",
+        "stack": [],
+        "before": [
+          "4"
+        ],
+        "result": [],
+        "display": [
+          "\"1.2346E-4\""
+        ],
+        "effect": "real → string"
+      }
+    ],
+    "SCLΣ": [
+      {
+        "setup": "[[ 1. 2. ][ 3. 8. ][ 5. 4. ]] STOΣ",
+        "input": "",
+        "run": "SCLΣ PPAR 1 2 SUB",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "{ (1,2) (5,8) }"
+        ],
+        "effect": "→ list"
+      }
+    ],
+    "SCONJ": [
+      {
+        "setup": "(3.,4.) 'Z' STO",
+        "input": "'Z'",
+        "run": "SCONJ Z",
+        "stack": [],
+        "before": [
+          "'Z'"
+        ],
+        "result": [],
+        "display": [
+          "(3,-4)"
+        ],
+        "effect": "name → complex"
+      }
+    ],
+    "SDEV": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "",
+        "run": "SDEV",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "[ 1 1.95192212959 ]"
+        ],
+        "effect": "→ array"
+      }
+    ],
+    "SF": [
+      {
+        "input": "",
+        "run": "3. SF 3. FS?",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "SHOW": [
+      {
+        "setup": "'X+1' 'B' STO",
+        "input": "'A*B' 'X'",
+        "run": "SHOW",
+        "stack": [],
+        "before": [
+          "'X'",
+          "'A*B'"
+        ],
+        "result": [],
+        "display": [
+          "'A*(X+1)'"
+        ],
+        "effect": "algebraic name → algebraic"
+      }
+    ],
+    "SIGN": [
+      {
+        "input": "-7.2",
+        "run": "SIGN",
+        "stack": [],
+        "before": [
+          "-7.2"
+        ],
+        "result": [],
+        "display": [
+          "-1"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "0.",
+        "run": "SIGN",
+        "stack": [],
+        "before": [
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "(3.,4.)",
+        "run": "SIGN",
+        "stack": [],
+        "before": [
+          "(3,4)"
+        ],
+        "result": [],
+        "display": [
+          "(.6,.8)"
+        ],
+        "effect": "complex → complex"
+      }
+    ],
+    "SIN": [
+      {
+        "setup": "DEG",
+        "input": "30.",
+        "run": "SIN",
+        "stack": [],
+        "before": [
+          "30"
+        ],
+        "result": [],
+        "display": [
+          ".5"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "setup": "RAD",
+        "input": "1.",
+        "run": "SIN",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          ".841470984808"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "'X'",
+        "run": "SIN",
+        "stack": [],
+        "before": [
+          "'X'"
+        ],
+        "result": [],
+        "display": [
+          "'SIN(X)'"
+        ],
+        "effect": "name → algebraic"
+      }
+    ],
+    "SINH": [
+      {
+        "input": "1.",
+        "run": "SINH",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "1.17520119364"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "(0.,1.)",
+        "run": "SINH",
+        "stack": [],
+        "before": [
+          "(0,1)"
+        ],
+        "result": [],
+        "display": [
+          "(0,.841470984808)"
+        ],
+        "effect": "complex → complex"
+      },
+      {
+        "input": "'X'",
+        "run": "SINH",
+        "stack": [],
+        "before": [
+          "'X'"
+        ],
+        "result": [],
+        "display": [
+          "'SINH(X)'"
+        ],
+        "effect": "name → algebraic"
+      }
+    ],
+    "SINV": [
+      {
+        "setup": "4. 'A' STO",
+        "input": "'A'",
+        "run": "SINV A",
+        "stack": [],
+        "before": [
+          "'A'"
+        ],
+        "result": [],
+        "display": [
+          ".25"
+        ],
+        "effect": "name → real"
+      }
+    ],
+    "SIZE": [
+      {
+        "input": "\"HELLO\"",
+        "run": "SIZE",
+        "stack": [],
+        "before": [
+          "\"HELLO\""
+        ],
+        "result": [],
+        "display": [
+          "5"
+        ],
+        "effect": "string → real"
+      },
+      {
+        "input": "{ 1. 2. 3. }",
+        "run": "SIZE",
+        "stack": [],
+        "before": [
+          "{ 1 2 3 }"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "list → real"
+      },
+      {
+        "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]]",
+        "run": "SIZE",
+        "stack": [],
+        "before": [
+          "[[ 1 2 3 ]  [ 4 5 6 ]]"
+        ],
+        "result": [],
+        "display": [
+          "{ 2 3 }"
+        ],
+        "effect": "array → list"
+      },
+      {
+        "input": "'A+B*C'",
+        "run": "SIZE",
+        "stack": [],
+        "before": [
+          "'A+B*C'"
+        ],
+        "result": [],
+        "display": [
+          "5"
+        ],
+        "effect": "algebraic → real"
+      }
+    ],
+    "SL": [
+      {
+        "input": "#5h",
+        "run": "SL",
+        "stack": [],
+        "before": [
+          "# 5d"
+        ],
+        "result": [],
+        "display": [
+          "# 10d"
+        ],
+        "effect": "binary → binary"
+      },
+      {
+        "input": "#8000000000000000h",
+        "run": "SL",
+        "stack": [],
+        "before": [
+          "# 92233720368547758…"
+        ],
+        "result": [],
+        "display": [
+          "# 0d"
+        ],
+        "effect": "binary → binary"
+      }
+    ],
+    "SLB": [
+      {
+        "input": "#12h",
+        "run": "SLB",
+        "stack": [],
+        "before": [
+          "# 18d"
+        ],
+        "result": [],
+        "display": [
+          "# 4608d"
+        ],
+        "effect": "binary → binary"
+      },
+      {
+        "input": "#ABCDh",
+        "run": "SLB",
+        "stack": [],
+        "before": [
+          "# 43981d"
+        ],
+        "result": [],
+        "display": [
+          "# 11259136d"
+        ],
+        "effect": "binary → binary"
+      }
+    ],
+    "SNEG": [
+      {
+        "setup": "4. 'A' STO",
+        "input": "'A'",
+        "run": "SNEG A",
+        "stack": [],
+        "before": [
+          "'A'"
+        ],
+        "result": [],
+        "display": [
+          "-4"
+        ],
+        "effect": "name → real"
+      },
+      {
+        "setup": "[ 1. -2. ] 'V' STO",
+        "input": "'V'",
+        "run": "SNEG V",
+        "stack": [],
+        "before": [
+          "'V'"
+        ],
+        "result": [],
+        "display": [
+          "[ -1 2 ]"
+        ],
+        "effect": "name → array"
+      }
+    ],
+    "SQ": [
+      {
+        "input": "3.",
+        "run": "SQ",
+        "stack": [],
+        "before": [
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "9"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "(1.,1.)",
+        "run": "SQ",
+        "stack": [],
+        "before": [
+          "(1,1)"
+        ],
+        "result": [],
+        "display": [
+          "(0,2)"
+        ],
+        "effect": "complex → complex"
+      },
+      {
+        "input": "[[ 1. 2. ][ 3. 4. ]]",
+        "run": "SQ",
+        "stack": [],
+        "before": [
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "[[ 7 10 ]  [ 15 22 ]]"
+        ],
+        "effect": "array → array"
+      }
+    ],
+    "SR": [
+      {
+        "input": "#Ah",
+        "run": "SR",
+        "stack": [],
+        "before": [
+          "# 10d"
+        ],
+        "result": [],
+        "display": [
+          "# 5d"
+        ],
+        "effect": "binary → binary"
+      },
+      {
+        "input": "#1h",
+        "run": "SR",
+        "stack": [],
+        "before": [
+          "# 1d"
+        ],
+        "result": [],
+        "display": [
+          "# 0d"
+        ],
+        "effect": "binary → binary"
+      }
+    ],
+    "SRB": [
+      {
+        "input": "#1234h",
+        "run": "SRB",
+        "stack": [],
+        "before": [
+          "# 4660d"
+        ],
+        "result": [],
+        "display": [
+          "# 18d"
+        ],
+        "effect": "binary → binary"
+      },
+      {
+        "input": "#FFh",
+        "run": "SRB",
+        "stack": [],
+        "before": [
+          "# 255d"
+        ],
+        "result": [],
+        "display": [
+          "# 0d"
+        ],
+        "effect": "binary → binary"
+      }
+    ],
+    "START": [
+      {
+        "input": "1.",
+        "run": "« 1. 5. START 2. * NEXT » EVAL",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "32"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "STD": [
+      {
+        "setup": "2. FIX",
+        "input": "",
+        "run": "STD 1.23456 →STR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "\"1.23456\""
+        ],
+        "effect": "→ string"
+      },
+      {
+        "input": "",
+        "run": "STD 1.E15 →STR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "\"1.E15\""
+        ],
+        "effect": "→ string"
+      }
+    ],
+    "STEQ": [
+      {
+        "input": "'X^2-4=0'",
+        "run": "STEQ 'EQ' RCL",
+        "stack": [],
+        "before": [
+          "'X^2-4=0'"
+        ],
+        "result": [],
+        "display": [
+          "'X^2-4=0'"
+        ],
+        "effect": "algebraic → algebraic"
+      },
+      {
+        "input": "{ 'A+B=C' 'A-B=1' }",
+        "run": "STEQ 'EQ' RCL",
+        "stack": [],
+        "before": [
+          "{ 'A+B=C' 'A-B=1' }"
+        ],
+        "result": [],
+        "display": [
+          "{ 'A+B=C' 'A-B=1' }"
+        ],
+        "effect": "list → list"
+      }
+    ],
+    "STO": [
+      {
+        "input": "42. 'A'",
+        "run": "STO A",
+        "stack": [],
+        "before": [
+          "'A'",
+          "42"
+        ],
+        "result": [],
+        "display": [
+          "42"
+        ],
+        "effect": "real name → real"
+      },
+      {
+        "input": "{ 1. 2. } 'L'",
+        "run": "STO L",
+        "stack": [],
+        "before": [
+          "'L'",
+          "{ 1 2 }"
+        ],
+        "result": [],
+        "display": [
+          "{ 1 2 }"
+        ],
+        "effect": "list name → list"
+      }
+    ],
+    "STO*": [
+      {
+        "setup": "4. 'A' STO",
+        "input": "3. 'A'",
+        "run": "STO* A",
+        "stack": [],
+        "before": [
+          "'A'",
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "12"
+        ],
+        "effect": "real name → real"
+      }
+    ],
+    "STO+": [
+      {
+        "setup": "4. 'A' STO",
+        "input": "5. 'A'",
+        "run": "STO+ A",
+        "stack": [],
+        "before": [
+          "'A'",
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "9"
+        ],
+        "effect": "real name → real"
+      },
+      {
+        "setup": "[ 1. 2. ] 'V' STO",
+        "input": "'V' [ 3. 4. ]",
+        "run": "STO+ V",
+        "stack": [],
+        "before": [
+          "[ 3 4 ]",
+          "'V'"
+        ],
+        "result": [],
+        "display": [
+          "[ 4 6 ]"
+        ],
+        "effect": "name array → array"
+      }
+    ],
+    "STO-": [
+      {
+        "setup": "4. 'A' STO",
+        "input": "'A' 1.",
+        "run": "STO- A",
+        "stack": [],
+        "before": [
+          "1",
+          "'A'"
+        ],
+        "result": [],
+        "display": [
+          "3"
+        ],
+        "effect": "name real → real"
+      },
+      {
+        "setup": "4. 'A' STO",
+        "input": "10. 'A'",
+        "run": "STO- A",
+        "stack": [],
+        "before": [
+          "'A'",
+          "10"
+        ],
+        "result": [],
+        "display": [
+          "6"
+        ],
+        "effect": "real name → real"
+      }
+    ],
+    "STO/": [
+      {
+        "setup": "8. 'A' STO",
+        "input": "'A' 2.",
+        "run": "STO/ A",
+        "stack": [],
+        "before": [
+          "2",
+          "'A'"
+        ],
+        "result": [],
+        "display": [
+          "4"
+        ],
+        "effect": "name real → real"
+      },
+      {
+        "setup": "8. 'A' STO",
+        "input": "2. 'A'",
+        "run": "STO/ A",
+        "stack": [],
+        "before": [
+          "'A'",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          ".25"
+        ],
+        "effect": "real name → real"
+      }
+    ],
+    "STOF": [
+      {
+        "input": "#5h",
+        "run": "STOF 1 FS? 2 FS? 3 FS?",
+        "stack": [],
+        "before": [
+          "# 5d"
+        ],
+        "result": [],
+        "display": [
+          "1",
+          "0",
+          "1"
+        ],
+        "effect": "binary → real real real"
+      }
+    ],
+    "STOΣ": [
+      {
+        "input": "[[ 1. 2. ][ 3. 4. ]]",
+        "run": "STOΣ RCLΣ",
+        "stack": [],
+        "before": [
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "result": [],
+        "display": [
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "effect": "array → array"
+      }
+    ],
+    "STR→": [
+      {
+        "input": "\"2. 3. +\"",
+        "run": "STR→",
+        "stack": [],
+        "before": [
+          "\"2. 3. +\""
+        ],
+        "result": [],
+        "display": [
+          "5"
+        ],
+        "effect": "string → real"
+      },
+      {
+        "input": "\"{ 1. 2. }\"",
+        "run": "STR→",
+        "stack": [],
+        "before": [
+          "\"{ 1. 2. }\""
+        ],
+        "result": [],
+        "display": [
+          "{ 1 2 }"
+        ],
+        "effect": "string → list"
+      }
+    ],
+    "STWS": [
+      {
+        "input": "16.",
+        "run": "STWS RCWS",
+        "stack": [],
+        "before": [
+          "16"
+        ],
+        "result": [],
+        "display": [
+          "16"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "8.",
+        "run": "STWS #1FFh",
+        "stack": [],
+        "before": [
+          "8"
+        ],
+        "result": [],
+        "display": [
+          "# 255d"
+        ],
+        "effect": "real → binary"
+      }
+    ],
+    "SUB": [
+      {
+        "input": "\"HELLO\" 2. 4.",
+        "run": "SUB",
+        "stack": [],
+        "before": [
+          "4",
+          "2",
+          "\"HELLO\""
+        ],
+        "result": [],
+        "display": [
+          "\"ELL\""
+        ],
+        "effect": "string real real → string"
+      },
+      {
+        "input": "{ 1. 2. 3. 4. 5. } 2. 3.",
+        "run": "SUB",
+        "stack": [],
+        "before": [
+          "3",
+          "2",
+          "{ 1 2 3 4 5 }"
+        ],
+        "result": [],
+        "display": [
+          "{ 2 3 }"
+        ],
+        "effect": "list real real → list"
+      }
+    ],
+    "SWAP": [
+      {
+        "input": "1. \"A\"",
+        "run": "SWAP",
+        "stack": [],
+        "before": [
+          "\"A\"",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "1",
+          "\"A\""
+        ],
+        "effect": "real string → string real"
+      }
+    ],
+    "TAN": [
+      {
+        "setup": "DEG",
+        "input": "45.",
+        "run": "TAN",
+        "stack": [],
+        "before": [
+          "45"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "setup": "RAD",
+        "input": "0.5",
+        "run": "TAN",
+        "stack": [],
+        "before": [
+          ".5"
+        ],
+        "result": [],
+        "display": [
+          ".546302489844"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "TANH": [
+      {
+        "input": "0.5",
+        "run": "TANH",
+        "stack": [],
+        "before": [
+          ".5"
+        ],
+        "result": [],
+        "display": [
+          ".46211715726"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "(1.,1.)",
+        "run": "TANH",
+        "stack": [],
+        "before": [
+          "(1,1)"
+        ],
+        "result": [],
+        "display": [
+          "(1.08392332734,  .27175258532)"
+        ],
+        "effect": "complex → complex"
+      }
+    ],
+    "TAYLR": [
+      {
+        "input": "'EXP(X)' 'X' 3.",
+        "run": "TAYLR",
+        "stack": [],
+        "before": [
+          "3",
+          "'X'",
+          "'EXP(X)'"
+        ],
+        "result": [],
+        "display": [
+          "'1+X+.5*X^2+  .166666666667*X^3'"
+        ],
+        "effect": "algebraic name real → algebraic"
+      },
+      {
+        "setup": "RAD",
+        "input": "'SIN(X)' 'X' 5.",
+        "run": "TAYLR",
+        "stack": [],
+        "before": [
+          "5",
+          "'X'",
+          "'SIN(X)'"
+        ],
+        "result": [],
+        "display": [
+          "'X-.166666666667*X^3  +8.33333333333E-3*X^  5'"
+        ],
+        "effect": "algebraic name real → algebraic"
+      }
+    ],
+    "TOT": [
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "",
+        "run": "TOT",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "[ 6 12 ]"
+        ],
+        "effect": "→ array"
+      }
+    ],
+    "TRN": [
+      {
+        "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]]",
+        "run": "TRN",
+        "stack": [],
+        "before": [
+          "[[ 1 2 3 ]  [ 4 5 6 ]]"
+        ],
+        "result": [],
+        "display": [
+          "[[ 1 4 ]  [ 2 5 ]  [ 3 6 ]]"
+        ],
+        "effect": "array → array"
+      },
+      {
+        "input": "[[ (1.,1.) 2. ][ 3. 4. ]]",
+        "run": "TRN",
+        "stack": [],
+        "before": [
+          "[[ (1,1) (2,0) ]  [ (3,0) (4,0) ]]"
+        ],
+        "result": [],
+        "display": [
+          "[[ (1,-1) (3,0) ]  [ (2,0) (4,0) ]]"
+        ],
+        "effect": "array → array"
+      }
+    ],
+    "TYPE": [
+      {
+        "input": "1.",
+        "run": "TYPE",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "\"A\"",
+        "run": "TYPE",
+        "stack": [],
+        "before": [
+          "\"A\""
+        ],
+        "result": [],
+        "display": [
+          "2"
+        ],
+        "effect": "string → real"
+      },
+      {
+        "input": "'X+1'",
+        "run": "TYPE",
+        "stack": [],
+        "before": [
+          "'X+1'"
+        ],
+        "result": [],
+        "display": [
+          "9"
+        ],
+        "effect": "algebraic → real"
+      }
+    ],
+    "UTPC": [
+      {
+        "input": "5. 11.07",
+        "run": "UTPC",
+        "stack": [],
+        "before": [
+          "11.07",
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "5.00096186224E-2"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "1. 3.84",
+        "run": "UTPC",
+        "stack": [],
+        "before": [
+          "3.84",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "5.00435212487E-2"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "UTPF": [
+      {
+        "input": "5. 10. 3.33",
+        "run": "UTPF",
+        "stack": [],
+        "before": [
+          "3.33",
+          "10",
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "4.98312757972E-2"
+        ],
+        "effect": "real real real → real"
+      },
+      {
+        "input": "2. 20. 1.",
+        "run": "UTPF",
+        "stack": [],
+        "before": [
+          "1",
+          "20",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          ".38554328943"
+        ],
+        "effect": "real real real → real"
+      }
+    ],
+    "UTPN": [
+      {
+        "input": "0. 1. 1.96",
+        "run": "UTPN",
+        "stack": [],
+        "before": [
+          "1.96",
+          "1",
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "2.49978951482E-2"
+        ],
+        "effect": "real real real → real"
+      },
+      {
+        "input": "100. 225. 115.",
+        "run": "UTPN",
+        "stack": [],
+        "before": [
+          "115",
+          "225",
+          "100"
+        ],
+        "result": [],
+        "display": [
+          ".158655253931"
+        ],
+        "effect": "real real real → real"
+      }
+    ],
+    "UTPT": [
+      {
+        "input": "10. 2.228",
+        "run": "UTPT",
+        "stack": [],
+        "before": [
+          "2.228",
+          "10"
+        ],
+        "result": [],
+        "display": [
+          "2.50058859086E-2"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "5. 0.",
+        "run": "UTPT",
+        "stack": [],
+        "before": [
+          "0",
+          "5"
+        ],
+        "result": [],
+        "display": [
+          ".5"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "VAR": [
+      {
+        "setup": "[[ 1. 2. ][ 3. 5. ][ 5. 9. ]] STOΣ",
+        "input": "",
+        "run": "VAR",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "[ 4 12.3333333333 ]"
+        ],
+        "effect": "→ array"
+      }
+    ],
+    "VARS": [
+      {
+        "setup": "1. 'A' STO 2. 'B' STO",
+        "input": "",
+        "run": "VARS",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "{ B A }"
+        ],
+        "effect": "→ list"
+      },
+      {
+        "input": "",
+        "run": "VARS",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "{ }"
+        ],
+        "effect": "→ list"
+      }
+    ],
+    "WAIT": [
+      {
+        "input": "0.1",
+        "run": "WAIT",
+        "stack": [],
+        "before": [
+          ".1"
+        ],
+        "result": [],
+        "display": [],
+        "effect": "real →"
+      }
+    ],
+    "WHILE": [
+      {
+        "input": "1.",
+        "run": "« WHILE DUP 100. < REPEAT 2. * END » EVAL",
+        "stack": [],
+        "before": [
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "128"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "XOR": [
+      {
+        "input": "#Ch #Ah",
+        "run": "XOR",
+        "stack": [],
+        "before": [
+          "# 10d",
+          "# 12d"
+        ],
+        "result": [],
+        "display": [
+          "# 6d"
+        ],
+        "effect": "binary binary → binary"
+      },
+      {
+        "input": "1. 1.",
+        "run": "XOR",
+        "stack": [],
+        "before": [
+          "1",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "1. 0.",
+        "run": "XOR",
+        "stack": [],
+        "before": [
+          "0",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "XPON": [
+      {
+        "input": "12345.",
+        "run": "XPON",
+        "stack": [],
+        "before": [
+          "12345"
+        ],
+        "result": [],
+        "display": [
+          "4"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "0.00042",
+        "run": "XPON",
+        "stack": [],
+        "before": [
+          ".00042"
+        ],
+        "result": [],
+        "display": [
+          "-4"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "^": [
+      {
+        "input": "2. 10.",
+        "run": "^",
+        "stack": [],
+        "before": [
+          "10",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "1024"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "-8. 0.5",
+        "run": "^",
+        "stack": [],
+        "before": [
+          ".5",
+          "-8"
+        ],
+        "result": [],
+        "display": [
+          "(0,2.82842712475)"
+        ],
+        "effect": "real real → complex"
+      },
+      {
+        "input": "'X' 3.",
+        "run": "^",
+        "stack": [],
+        "before": [
+          "3",
+          "'X'"
+        ],
+        "result": [],
+        "display": [
+          "'X^3'"
+        ],
+        "effect": "name real → algebraic"
+      }
+    ],
+    "e": [
+      {
+        "input": "",
+        "run": "e",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "'e'"
+        ],
+        "effect": "→ name"
+      },
+      {
+        "input": "",
+        "run": "e →NUM",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "2.71828182846"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "i": [
+      {
+        "input": "",
+        "run": "i",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "'i'"
+        ],
+        "effect": "→ name"
+      },
+      {
+        "input": "",
+        "run": "i →NUM",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "(0,1)"
+        ],
+        "effect": "→ complex"
+      }
+    ],
+    "Σ+": [
+      {
+        "input": "[ 1. 2. ]",
+        "run": "Σ+ RCLΣ",
+        "stack": [],
+        "before": [
+          "[ 1 2 ]"
+        ],
+        "result": [],
+        "display": [
+          "[[ 1 2 ]]"
+        ],
+        "effect": "array → array"
+      },
+      {
+        "input": "5.",
+        "run": "Σ+ 6. Σ+ RCLΣ",
+        "stack": [],
+        "before": [
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "[[ 5 ]  [ 6 ]]"
+        ],
+        "effect": "real → array"
+      },
+      {
+        "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+        "input": "[ 7. 8. ]",
+        "run": "Σ+ NΣ",
+        "stack": [],
+        "before": [
+          "[ 7 8 ]"
+        ],
+        "result": [],
+        "display": [
+          "4"
+        ],
+        "effect": "array → real"
+      }
+    ],
+    "Σ-": [
+      {
+        "setup": "[[ 1. 2. ][ 3. 4. ]] STOΣ",
+        "input": "",
+        "run": "Σ- RCLΣ",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "[[ 1 2 ]]",
+          "[ 3 4 ]"
+        ],
+        "effect": "→ array array"
+      }
+    ],
+    "π": [
+      {
+        "input": "",
+        "run": "π",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "'π'"
+        ],
+        "effect": "→ name"
+      },
+      {
+        "input": "",
+        "run": "π →NUM",
+        "stack": [],
+        "before": [],
+        "result": [],
+        "display": [
+          "3.14159265359"
+        ],
+        "effect": "→ real"
+      }
+    ],
+    "→": [
+      {
+        "input": "3. 4.",
+        "run": "→ a b 'a^2+b^2'",
+        "stack": [],
+        "before": [
+          "4",
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "25"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "5.",
+        "run": "→ x « x x * »",
+        "stack": [],
+        "before": [
+          "5"
+        ],
+        "result": [],
+        "display": [
+          "25"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "→ARRY": [
+      {
+        "input": "1. 2. 3. 3.",
+        "run": "→ARRY",
+        "stack": [],
+        "before": [
+          "3",
+          "3",
+          "2",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "[ 1 2 3 ]"
+        ],
+        "effect": "real real real real → array"
+      },
+      {
+        "input": "1. 2. 3. 4. { 2. 2. }",
+        "run": "→ARRY",
+        "stack": [],
+        "before": [
+          "{ 2 2 }",
+          "4",
+          "3",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "[[ 1 2 ]  [ 3 4 ]]"
+        ],
+        "effect": "real real real list → array"
+      }
+    ],
+    "→HMS": [
+      {
+        "input": "1.5",
+        "run": "→HMS",
+        "stack": [],
+        "before": [
+          "1.5"
+        ],
+        "result": [],
+        "display": [
+          "1.3"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "2.7525",
+        "run": "→HMS",
+        "stack": [],
+        "before": [
+          "2.7525"
+        ],
+        "result": [],
+        "display": [
+          "2.4509"
+        ],
+        "effect": "real → real"
+      }
+    ],
+    "→LIST": [
+      {
+        "input": "1. \"A\" 'X' 3.",
+        "run": "→LIST",
+        "stack": [],
+        "before": [
+          "3",
+          "'X'",
+          "\"A\"",
+          "1"
+        ],
+        "result": [],
+        "display": [
+          "{ 1 \"A\" X }"
+        ],
+        "effect": "real string name real → list"
+      },
+      {
+        "input": "0.",
+        "run": "→LIST",
+        "stack": [],
+        "before": [
+          "0"
+        ],
+        "result": [],
+        "display": [
+          "{ }"
+        ],
+        "effect": "real → list"
+      }
+    ],
+    "→NUM": [
+      {
+        "input": "'π/4'",
+        "run": "→NUM",
+        "stack": [],
+        "before": [
+          "'π/4'"
+        ],
+        "result": [],
+        "display": [
+          ".785398163398"
+        ],
+        "effect": "algebraic → real"
+      },
+      {
+        "setup": "3. 'X' STO",
+        "input": "'2*X+1'",
+        "run": "→NUM",
+        "stack": [],
+        "before": [
+          "'2*X+1'"
+        ],
+        "result": [],
+        "display": [
+          "7"
+        ],
+        "effect": "algebraic → real"
+      }
+    ],
+    "→STR": [
+      {
+        "setup": "STD",
+        "input": "12.5",
+        "run": "→STR",
+        "stack": [],
+        "before": [
+          "12.5"
+        ],
+        "result": [],
+        "display": [
+          "\"12.5\""
+        ],
+        "effect": "real → string"
+      },
+      {
+        "setup": "STD",
+        "input": "{ 1. 'X' }",
+        "run": "→STR",
+        "stack": [],
+        "before": [
+          "{ 1 X }"
+        ],
+        "result": [],
+        "display": [
+          "\"{ 1 X }\""
+        ],
+        "effect": "list → string"
+      }
+    ],
+    "∂": [
+      {
+        "input": "'X^2+SIN(X)' 'X'",
+        "run": "∂",
+        "stack": [],
+        "before": [
+          "'X'",
+          "'X^2+SIN(X)'"
+        ],
+        "result": [],
+        "display": [
+          "'2*X+COS(X)*(π/180)'"
+        ],
+        "effect": "algebraic name → algebraic"
+      },
+      {
+        "setup": "2. 'X' STO",
+        "input": "'X^3' 'X'",
+        "run": "∂",
+        "stack": [],
+        "before": [
+          "'X'",
+          "'X^3'"
+        ],
+        "result": [],
+        "display": [
+          "12"
+        ],
+        "effect": "algebraic name → real"
+      }
+    ],
+    "√": [
+      {
+        "input": "16.",
+        "run": "√",
+        "stack": [],
+        "before": [
+          "16"
+        ],
+        "result": [],
+        "display": [
+          "4"
+        ],
+        "effect": "real → real"
+      },
+      {
+        "input": "-4.",
+        "run": "√",
+        "stack": [],
+        "before": [
+          "-4"
+        ],
+        "result": [],
+        "display": [
+          "(0,2)"
+        ],
+        "effect": "real → complex"
+      }
+    ],
+    "∫": [
+      {
+        "setup": "STD",
+        "input": "'X^2' 'X' 3.",
+        "run": "∫",
+        "stack": [],
+        "before": [
+          "3",
+          "'X'",
+          "'X^2'"
+        ],
+        "result": [],
+        "display": [
+          "'.333333333333*X^3'"
+        ],
+        "effect": "algebraic name real → algebraic"
+      },
+      {
+        "setup": "STD",
+        "input": "'EXP(-X^2)' { X 0. 1. } .00001",
+        "run": "∫",
+        "stack": [],
+        "before": [
+          ".00001",
+          "{ X 0 1 }",
+          "'EXP(-X^2)'"
+        ],
+        "result": [],
+        "display": [
+          "7.46885708849E-6",
+          ".746824133278"
+        ],
+        "effect": "algebraic list real → real real"
+      }
+    ],
+    "≠": [
+      {
+        "input": "2. 3.",
+        "run": "≠",
+        "stack": [],
+        "before": [
+          "3",
+          "2"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "\"A\" \"A\"",
+        "run": "≠",
+        "stack": [],
+        "before": [
+          "\"A\"",
+          "\"A\""
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "string string → real"
+      }
+    ],
+    "≤": [
+      {
+        "input": "3. 3.",
+        "run": "≤",
+        "stack": [],
+        "before": [
+          "3",
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "4. 3.",
+        "run": "≤",
+        "stack": [],
+        "before": [
+          "3",
+          "4"
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "real real → real"
+      }
+    ],
+    "≥": [
+      {
+        "input": "3. 3.",
+        "run": "≥",
+        "stack": [],
+        "before": [
+          "3",
+          "3"
+        ],
+        "result": [],
+        "display": [
+          "1"
+        ],
+        "effect": "real real → real"
+      },
+      {
+        "input": "\"A\" \"B\"",
+        "run": "≥",
+        "stack": [],
+        "before": [
+          "\"B\"",
+          "\"A\""
+        ],
+        "result": [],
+        "display": [
+          "0"
+        ],
+        "effect": "string string → real"
+      }
+    ]
+  },
+  "skipped": {
+    "BEEP": "produces a sound and returns nothing to the stack",
+    "CLLCD": "clears the screen and returns nothing to the stack",
+    "CLMF": "changes only what the display shows after a program and returns nothing to the stack",
+    "CR": "prints to the infrared or serial printer",
+    "DGTIZ": "waits for the user to pick points on the plot",
+    "DISP": "writes to the screen and returns nothing to the stack",
+    "DRAW": "draws into the graphics picture and returns nothing to the stack",
+    "DRAX": "draws into the graphics picture and returns nothing to the stack",
+    "DRWΣ": "draws on the display and returns nothing to the stack",
+    "ELSE": "fragment of IF ... THEN ... ELSE ... END; see IF for a complete example",
+    "END": "closes a program structure and cannot run alone; see IF, CASE, DO, WHILE",
+    "FORM": "opens an interactive editor and waits for keys",
+    "HALT": "suspends the program and waits for the user to continue",
+    "KILL": "aborts the running program, and with it the server command that runs the example",
+    "MENU": "changes the soft-key menu on the screen and returns nothing to the stack",
+    "NEXT": "closes a START or FOR loop and cannot run alone; see START for an example",
+    "PIXEL": "draws into the display and returns nothing to the stack",
+    "PR1": "prints to the infrared or serial printer",
+    "PRLCD": "prints to the infrared or serial printer",
+    "PRMD": "prints to the infrared printer",
+    "PRST": "prints to the infrared or serial printer",
+    "PRSTC": "prints to the infrared or serial printer",
+    "PRUSR": "prints to the infrared printer",
+    "PRVAR": "prints to the infrared or serial printer",
+    "REPEAT": "part of the WHILE structure; see WHILE for an example",
+    "STEP": "fragment of FOR ... STEP or START ... STEP; see FOR for a complete example",
+    "SYSEVAL": "jumps into an arbitrary system address; results depend on the ROM version and a wrong address can crash or clear memory",
+    "THEN": "part of the IF / IFERR / CASE structures; see IF for an example",
+    "UNTIL": "part of the DO structure; see DO for an example",
+    "→LCD": "writes to the screen and returns nothing to the stack"
+  }
+}

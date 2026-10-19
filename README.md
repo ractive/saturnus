@@ -16,7 +16,7 @@ behaviour of the calculators' own ROMs.
   stack and flags, where you can edit, store, rename and delete them
   (48SX, 48GX, 49G).
 - Search (Cmd/Ctrl+K), a command palette with a reference of every
-  built-in command of the 48SX, 48GX and 49G and examples run in
+  built-in command of the 48SX, 48GX, 49G and 28S and examples run in
   saturnus.
 - Files: moves files between a calculator, emulated or on a serial
   cable, and your computer.

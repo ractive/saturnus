@@ -9,10 +9,12 @@
 //! - [`keyed`]: the key-driven models' reference (`keys-<model>.json`),
 //!   checked and its examples run on the emulator, reading the screen
 //!   with [`lcdtext`].
+//! - [`hp28`]: the 28S, driven by keys and read off its display.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod catalog;
 pub mod examples;
+pub mod hp28;
 pub mod keyed;
 pub mod lcdtext;
 pub mod menus;

@@ -10,9 +10,13 @@
 //!   from the ROM's definitions with the root menus the catalog records
 //!   equals the catalog's (no keys pressed; the keyboard is observed in
 //!   the ignored test).
+//! - `the_28s_catalog_and_sample_examples_match`: the 28S's CATALOG read
+//!   off the display gives the catalog's names in its order, and a sample
+//!   of its examples, typed by keys, gives the same JSON (seconds).
 //! - `catalogs_and_examples_regenerate_byte_for_byte` (ignored, minutes in
 //!   a release build): every catalog (names, then menus with the keyboard
-//!   observed) and examples file regenerated in full equals the file. Run with
+//!   observed; the 28S's names, its menus kept from the file) and examples
+//!   file regenerated in full equals the file. Run with
 //!   `cargo test --release -p saturnus-refgen -- --ignored`.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -118,6 +122,25 @@ fn sample_examples_match() {
 }
 
 #[test]
+fn the_28s_catalog_and_sample_examples_match() {
+    let Some(rom) = rom("hp28s.rom") else { return };
+    let file: Catalog = read("28s.json");
+    let cat = catalog::generate_28s(&rom, Some(&file)).unwrap();
+    assert_eq!(cat, file);
+    let reference: Reference = read("reference.json");
+    let examples: Examples = read("examples-28s.json");
+    let only: Vec<String> = ["+", "SIN", "→LIST", "STO+", "RND", "DUP", "IF", "CHR"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let ex = examples::generate(Model::Hp28s, &rom, &file, &reference, Some(&only)).unwrap();
+    assert_eq!(ex.examples.len() + ex.skipped.len(), only.len());
+    for (name, list) in &ex.examples {
+        assert_eq!(Some(list), examples.examples.get(name), "{name}");
+    }
+}
+
+#[test]
 #[ignore = "minutes in a release build; run with --release --ignored"]
 fn catalogs_and_examples_regenerate_byte_for_byte() {
     let reference: Reference = read("reference.json");
@@ -139,6 +162,20 @@ fn catalogs_and_examples_regenerate_byte_for_byte() {
             "examples-{m}.json"
         );
     }
+    let Some(rom) = rom("hp28s.rom") else { return };
+    let file: Catalog = read("28s.json");
+    let cat = catalog::generate_28s(&rom, Some(&file)).unwrap();
+    assert_eq!(
+        catalog::to_file_text(&cat).unwrap(),
+        std::fs::read_to_string(data("28s.json")).unwrap(),
+        "28s.json"
+    );
+    let ex = examples::generate(Model::Hp28s, &rom, &cat, &reference, None).unwrap();
+    assert_eq!(
+        examples::to_file_text(&ex).unwrap(),
+        std::fs::read_to_string(data("examples-28s.json")).unwrap(),
+        "examples-28s.json"
+    );
 }
 
 /// Every key-driven model's reference (`keys-<model>.json`) checked on the

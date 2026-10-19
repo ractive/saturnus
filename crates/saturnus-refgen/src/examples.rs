@@ -207,6 +207,13 @@ impl Runner {
     }
 }
 
+/// The runner of a model: over Kermit (the 48 and 49G), or by keys and
+/// the display (the 28S).
+enum Either {
+    Kermit(Runner),
+    Keys(crate::hp28::Runner),
+}
+
 /// Generate the examples of every command in `catalog` that `reference`
 /// has inputs for. `only` limits the run to those names (for checking a
 /// batch while writing it).
@@ -224,7 +231,11 @@ pub fn generate(
             catalog.model
         );
     }
-    let mut runner = Runner::new(model, rom)?;
+    let mut runner = if model == Model::Hp28s {
+        Either::Keys(crate::hp28::Runner::new(rom)?)
+    } else {
+        Either::Kermit(Runner::new(model, rom)?)
+    };
     let mut out = Examples {
         model: m.to_string(),
         examples: BTreeMap::new(),
@@ -250,11 +261,11 @@ pub fn generate(
         }
         let mut list = Vec::new();
         for spec in specs {
-            list.push(
-                runner
-                    .run(&cmd.name, spec)
-                    .with_context(|| format!("example of {} ({})", cmd.name, spec.input))?,
-            );
+            let ex = match &mut runner {
+                Either::Kermit(r) => r.run(&cmd.name, spec),
+                Either::Keys(r) => r.run(&cmd.name, spec),
+            };
+            list.push(ex.with_context(|| format!("example of {} ({})", cmd.name, spec.input))?);
         }
         out.examples.insert(cmd.name.clone(), list);
     }
