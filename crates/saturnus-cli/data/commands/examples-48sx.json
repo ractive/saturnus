@@ -7134,34 +7134,6 @@
           "4.15"
         ],
         "effect": "real real → real"
-      },
-      {
-        "input": "0.5959 0.0001",
-        "run": "HMS+",
-        "stack": [
-          {
-            "type": "real",
-            "value": 0.0001
-          },
-          {
-            "type": "real",
-            "value": 0.5959
-          }
-        ],
-        "before": [
-          ".0001",
-          ".5959"
-        ],
-        "result": [
-          {
-            "type": "real",
-            "value": 0.6
-          }
-        ],
-        "display": [
-          ".6"
-        ],
-        "effect": "real real → real"
       }
     ],
     "HMS-": [

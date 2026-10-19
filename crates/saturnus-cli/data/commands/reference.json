@@ -3590,9 +3590,20 @@
           "input": "1.3 2.45"
         },
         {
-          "input": "0.5959 0.0001"
+          "input": "0.5959 0.0001",
+          "models": [
+            "48gx",
+            "49g",
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "48sx": {
+          "description": "Adds two values given in HH.MMSS form and returns the sum in the same form. The 48SX's ROM gets some sums that carry into the next hour wrong: 0.5959 0.0001 HMS+ gives .6 instead of 1 (the 48GX gives 1). HMS→, + and →HMS give the right result.",
+          "stack": "hms1 hms2 → hms"
+        }
+      }
     },
     "HMS-": {
       "name": "Hours-minutes-seconds minus",
