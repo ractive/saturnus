@@ -95,7 +95,7 @@ Clean room: never open `~/devel/hp-emulator-refs/`.
   `reference.rs` and Search's running for key-driven models, built on
   the 42S
 - [x] 42S reference: every function of the manual's operation index
-- [ ] 27S, 17BII, 17B, 19BII references
+- [x] 27S, 17BII, 17B, 19BII references
 - [ ] 28S reference (RPL pipeline, Reference Manual)
 - [ ] Search texts and tour/README mention the new models
 - [x] Page test: a 42S function chosen in Search runs (ROM-gated)
