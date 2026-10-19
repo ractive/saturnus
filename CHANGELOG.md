@@ -5,6 +5,12 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **The desktop app for ARM**: installers for Windows on ARM (`.msi` and
+  setup `.exe`) and Linux aarch64 (`.deb`, `.rpm` and `.AppImage`), built
+  on GitHub's ARM runners beside the x86_64 ones.
+
 ## 0.8.0 (2026-10-19)
 
 - **A command reference for every model.** Search and `saturnus ref` now

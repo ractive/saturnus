@@ -302,10 +302,12 @@ first release `V=0.1.0`. Every step says what to check before the next.
    holds eight `satx-vV-<target>` archives (with `x86_64-apple-darwin`),
    `satx-vV-x86_64-linux.deb`, `.rpm` and `satx-SHA256SUMS`.
 6. **Desktop dry run**: `gh workflow run desktop.yml --ref main`, watch it
-   the same way (three build jobs, one per system);
-   `gh run download <id> -D /tmp/saturnus-app` holds the `.dmg`, `.msi`,
-   `-setup.exe`, `.deb`, `.rpm` and `.AppImage`, each named with `V`:
-   `saturnus_V_…` (`saturnus-app_V_…` on Linux).
+   the same way (five build jobs: macOS, and Windows and Linux on x86_64
+   and ARM);
+   `gh run download <id> -D /tmp/saturnus-app` holds the `.dmg`, the
+   `.msi` and `-setup.exe` twice, the `.deb`, `.rpm` and `.AppImage`
+   twice, each named with `V` and the architecture:
+   `saturnus_V_…` (`saturnus-app_V_…` on Linux; see "Desktop app").
 7. **Release** (this publishes: crate versions on crates.io are
    permanent):
    `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md`.
@@ -426,7 +428,28 @@ page is deployed only from CI.
 ## Desktop app
 
 `.github/workflows/desktop.yml` builds the Tauri app's installers with
-`tauri-apps/tauri-action` on macOS (Apple silicon), Windows and Linux. A
+`tauri-apps/tauri-action` on macOS (Apple silicon), Windows and Linux,
+the last two on x86_64 and on ARM. The ARM builds run natively on
+GitHub's ARM runners (`windows-11-arm`, `ubuntu-22.04-arm`; free for
+public repositories), with the same steps as x86_64. The architecture is
+in each name, as Tauri writes it, so no two collide:
+
+| Platform | Installers |
+|---|---|
+| macOS Apple silicon | `saturnus_V_aarch64.dmg` |
+| Windows x86_64 | `saturnus_V_x64_en-US.msi`, `saturnus_V_x64-setup.exe` |
+| Windows ARM | `saturnus_V_arm64_en-US.msi`, `saturnus_V_arm64-setup.exe` |
+| Linux x86_64 | `saturnus-app_V_amd64.deb`, `saturnus-app-V-1.x86_64.rpm`, `saturnus-app_V_amd64.AppImage` |
+| Linux ARM | `saturnus-app_V_arm64.deb`, `saturnus-app-V-1.aarch64.rpm`, `saturnus-app_V_aarch64.AppImage` |
+
+The ARM builds were first dry-run in run 39259881090 and needed no
+step of their own: Linux ARM took 10 min, Windows ARM 13 min (x86_64:
+12 and 17). Checked there: the .deb's control says `Architecture:
+arm64`, and the app binary in the .deb, the .rpm and the AppImage's
+squashfs is `ELF 64-bit ... ARM aarch64`; the .msi's template is
+`Arm64` (WiX 3.14) and the app in it and in the setup `.exe` is `PE32+
+... Aarch64`. The setup `.exe` itself is NSIS's 32-bit x86 stub on both
+Windows builds, which Windows on ARM runs emulated. A
 release starts it (`workflow_run`) once `release.yml`, run by the
 published release, has succeeded: the tag is that run's `head_branch`,
 and a failed release gets no installers and moves no cask; `release.yml`'s
