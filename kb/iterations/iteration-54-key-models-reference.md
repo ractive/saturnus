@@ -93,6 +93,36 @@ Clean room: never open `~/devel/hp-emulator-refs/`.
 - **Search texts**: the "no command reference" messages go for these
   models; the reference rows show the keys ("⇧ CONVERT → POL").
 - `saturnus ref --model 42s NAME` works the same way.
+- **38G, 39G, 40G** (HOME's edit line). The typing engine
+  (`saturnus-host/src/typing.rs`) knows the command line's RAM layout
+  of the 48SX, 48GX and 49G only; for the others `commandLine()` refuses
+  ("no RPL command line"), so Search cannot type text. Of the two ways
+  left, (a) pressing the function's keys from HOME and (b) typing its
+  name letter by letter through ALPHA, (a) is chosen: it is how the
+  guides tell a person to do it, it reads well (`MATH P P ▶ ENTER`), and
+  it needs no name parsing (∂, Σ, →HMS, ⁻¹ have no letters to type). A
+  function's keys are its key (SIN, ⇧ x⁻¹), or MATH (CMDS for a
+  programming command: ⇧ MATH on the 39G, MATH then the CMDS menu key on
+  the 38G), the category and the entry, then ENTER. MATH always opens on
+  Real and CMDS on Aplet (checked on the emulator), and a letter key
+  moves to the next entry starting with it (wrapping; leading signs are
+  skipped: %TOTAL by T), so the path is the same from any state; where
+  a letter cannot reach an entry (∂, ΔLIST, the 39G's ⁻¹ for INVERSE)
+  the path uses ▼. The keys put the function on the edit line
+  (`inserts`: `COMB(`, `Ans!` from an empty line); the person adds the
+  arguments and presses ENTER, as on the calculator. The format gains
+  `home` (keys before every function: HOME), `inserts`, and an
+  example's `then` (keys after the function's: the arguments and
+  ENTER). Search closes a choose box first (`leave`: CANCEL while the
+  box's top border shows on row 4), presses HOME, then the keys; "Try
+  it" also clears the edit line (CANCEL). Not in the references: the
+  aplets, the program constants (CONS), the 40G's CAS (its own manual),
+  the 39G's DISPXY (the guide does not describe it), and the menu
+  entries listed twice (one entry per name: END, EDITMAT, FREEZE,
+  REPLACE, SUB, SIZE, `=`). `saturnus-refgen keys` reads HOME
+  (`apletext.rs`): the four history lines and the edit line, fonts
+  learned from the `learn` screens, the `inserts` and the edit line
+  echoed into the history; the 40G's file is the 39G's.
 
 ## Tasks
 
@@ -102,7 +132,7 @@ Clean room: never open `~/devel/hp-emulator-refs/`.
 - [x] 42S reference: every function of the manual's operation index
 - [ ] 27S, 17BII, 17B, 19BII references
 - [ ] 28S reference (RPL pipeline, Reference Manual)
-- [ ] 38G, 39G, 40G references and running
+- [x] 38G, 39G, 40G references and running
 - [ ] Search texts and tour/README mention the new models
 - [x] Page test: a 42S function chosen in Search runs (ROM-gated)
 - [ ] Gates, review, merge, deploy

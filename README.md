@@ -743,6 +743,7 @@ saturnus ref STO --model 48sx     # description, stack effect, menu, examples, m
 saturnus ref '->LIST' --json      # the same as JSON, every model (menus per model)
 saturnus ref '\.S'                # ∫ by the calculator's ASCII code (\-> \GS \v/ \pi ...)
 saturnus ref '->POL' --model 42s  # a 42S function: its keys (⇧ CONVERT →POL), examples, manual page
+saturnus ref COMB --model 39g    # a 39G function: its keys (MATH P P ▶ ENTER), what they put on the edit line
 ```
 
 An exact name wins. Otherwise the query may differ in case, use the
@@ -840,6 +841,8 @@ link is `<url>#page=<n>`:
 | HP 48G Series Advanced User's Reference Manual | https://literature.hpcalc.org/community/hp48g-aur-en.pdf |
 | HP 49G Advanced User's Guide | https://literature.hpcalc.org/official/hp49g-aug-en.pdf |
 | HP-42S Owner's Manual | https://literature.hpcalc.org/community/hp42s-om-en.pdf |
+| HP 38G Graphing Calculator User's Guide | https://literature.hpcalc.org/official/hp38g-ug-en.pdf |
+| HP 39G/40G Graphing Calculator User's Guide | https://literature.hpcalc.org/official/hp39g40g-ug-en.pdf |
 
 ### Key-driven models
 
@@ -872,6 +875,28 @@ saturnus-refgen screen --model 42s --rom $R/hp42s.rom --data crates/saturnus-cli
 
 It takes a second; the ROM-gated test `keyed_references_regenerate_byte_for_byte`
 (`saturnus-refgen`) runs it and compares the file.
+
+The 38G, 39G and 40G have an edit line in HOME that Search cannot type
+into, so their references (`keys-38g.json`, `keys-39g.json`; the 40G's
+file is the 39G's, a test keeps them equal) list the keys that put a
+function on the edit line from HOME: its key, or MATH (or CMDS, the
+programming commands) and the category and entry, reached by their first
+letters (each press goes to the next entry with that letter) or by ▼,
+then ENTER. They cover the MATH menu, the keyboard functions and the
+programming commands from the user's guides; the aplets, the program
+constants (CONS) and the 40G's CAS are not in them. Per function
+`inserts` is what the keys must leave on the edit line, and an example's
+`then` keys type its arguments and ENTER. `saturnus-refgen keys` reads
+HOME (`crates/saturnus-refgen/src/apletext.rs`: the four history lines
+and the edit line, fonts learned at run time from the `learn` screens,
+the names the keys insert, and the edit line echoed into the history by
+ENTER). The ROM files are `38G_A167.ROM` and `rom.39g` (the 40G's too);
+in a debug build the regeneration test takes about 40 s per model.
+
+```sh
+saturnus-refgen keys --model 39g --rom $R/rom.39g --data crates/saturnus-cli/data/commands/keys-39g.json \
+    --out crates/saturnus-cli/data/commands/examples-39g.json
+```
 
 ## Building the app
 

@@ -43,10 +43,11 @@ saturnus run --model 48gx --rom roms/gxrom-r --serve
 saturnus ctl --help
 
 # Look up a built-in command (48SX, 48GX, 49G): description, stack
-# effect, menu, examples run in saturnus, manual pages. A 42S function
-# with --model 42s: its keys instead of a menu.
+# effect, menu, examples run in saturnus, manual pages. A function of
+# the 42S, 38G, 39G or 40G with --model: its keys instead of a menu.
 saturnus ref "->LIST"
 saturnus ref "->POL" --model 42s
+saturnus ref COMB --model 39g
 
 # Disassemble ROM code.
 saturnus disasm --rom roms/gxrom-r --at 0 --count 20
