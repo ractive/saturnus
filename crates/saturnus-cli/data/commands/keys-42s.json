@@ -4,6 +4,7 @@
   "menu_keys": ["sigmaplus", "inv", "sqrt", "log", "ln", "xeq"],
   "marks": ["■"],
   "ready": [{"key": "on", "label": "EXIT"}],
+  "leave": {"keys": [{"key": "on", "label": "EXIT"}], "menu_box": {"x": 0, "width": 21, "rows": [9, 15]}},
   "learn": [
     {"keys": [], "lines": ["y:0.0000", "x:0.0000"]},
     {"keys": [{"key": "shift"}, {"key": "divide", "label": "STAT"}], "menu": ["Σ+", "SUM", "MEAN", "WMN", "SDEV", "CFIT"]},

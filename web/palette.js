@@ -2,10 +2,12 @@
 // rows, the selection, the command line's state (read from the host when
 // the palette opens and after every send) and what choosing a row does:
 // `insert` or `run` through the protocol's typing verbs (web/protocol.md,
-// "Typing"), an app action, or a menu to browse. `<sat-palette>` renders
-// it; `web/test/` drives it with a fake backend.
+// "Typing"), an app action, or a menu to browse. On a key-driven model
+// (the 42S) a function is pressed instead: its keys go to the key queue
+// (`typeKeys`), after leaving the menu the screen shows, if any.
+// `<sat-palette>` renders it; `web/test/` drives it with a fake backend.
 
-import { buildIndex, enterPlan, enterVerb, exampleText, search } from "./reference.js";
+import { buildIndex, enterPlan, enterVerb, exampleSteps, exampleText, keyNames, keysText, menuShown, search } from "./reference.js";
 
 const message = (err) => String(err?.message ?? err);
 
@@ -144,7 +146,19 @@ export class PaletteModel {
     this.notice = null;
     /** A send is on its way. */
     this.sending = false;
+    /** How long `settle` waits before and between its looks, in ms (tests set 0). */
+    this.pace = { first: 40, poll: 40, limit: 10_000 };
     this.onChange = () => {};
+  }
+
+  /** Whether the shown model is key-driven: its functions are pressed. */
+  get keyed() {
+    return Boolean(this.index?.keyed);
+  }
+
+  /** Whether a function of the shown key-driven model can be pressed now. */
+  get canPress() {
+    return this.keyed && this.store.state.booted === this.index.model;
   }
 
   changed() {
@@ -292,6 +306,7 @@ export class PaletteModel {
   async choose(row, { opposite = false } = {}) {
     const plan = enterPlan(row, this.commandLine, opposite);
     if (!plan) return { close: false };
+    if (plan.press) return this.press(plan.press.steps, { closeAfter: true });
     if (plan.action) {
       // An action that is off says why and stays (`off`, its reason).
       if (plan.action.off) {
@@ -313,9 +328,79 @@ export class PaletteModel {
     return this.send(plan.verb, plan.text, { closeAfter: true });
   }
 
-  /** "Try it": the example's setup, input and command, run. The palette stays open to show the next one. */
-  tryExample(example) {
+  /** "Try it": the example's setup, input and command, run (pressed, on a key-driven model). The palette stays open to show the next one. */
+  tryExample(example, command = this.row?.command) {
+    if (this.keyed && command) return this.press(exampleSteps(command, example), { closeAfter: false, fresh: true });
     return this.send("run", exampleText(example), { closeAfter: false });
+  }
+
+  /**
+   * Press `steps` on the running key-driven calculator: first out of
+   * the menu the screen shows (its `leave` keys, again while one
+   * shows), then the steps through the key queue, waiting until the
+   * calculator has played them. `fresh` (an example) also ends the
+   * entry in progress, so its numbers start new ones.
+   */
+  async press(steps, { closeAfter, fresh = false }) {
+    if (!this.canPress) {
+      this.notice = { text: this.store.state.booted ? `The calculator running is not the ${this.index?.model}.` : "Start the calculator to press this.", error: true };
+      this.changed();
+      return { close: false };
+    }
+    if (this.sending) return { close: false };
+    const text = keysText(steps);
+    this.sending = true;
+    this.notice = { text: `Pressing ${text}…`, error: false };
+    this.changed();
+    try {
+      await this.leaveMenus(fresh);
+      this.backend.typeKeys(keyNames(steps));
+      await this.settle();
+    } catch (err) {
+      this.sending = false;
+      this.notice = { text: message(err), error: true };
+      this.changed();
+      return { close: false };
+    }
+    this.sending = false;
+    this.notice = closeAfter ? null : { text: `Pressed ${text}.`, error: false };
+    this.changed();
+    return { close: closeAfter };
+  }
+
+  /** Leave the menus the screen shows (at most six levels); with `always`, press the leave keys once even with none. */
+  async leaveMenus(always = false) {
+    const leave = this.index.km?.leave;
+    if (!leave) return;
+    let pressed = 0;
+    while (pressed < 6 && menuShown(this.index.km, this.store.state.frame)) {
+      this.backend.typeKeys(keyNames(leave.keys));
+      pressed++;
+      await this.settle();
+    }
+    if (always && !pressed) {
+      this.backend.typeKeys(keyNames(leave.keys));
+      await this.settle();
+    }
+  }
+
+  /** Wait until the calculator has played the queued keys and sleeps (two looks in a row), at most `pace.limit` ms. */
+  async settle() {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const until = Date.now() + this.pace.limit;
+    let calm = 0;
+    await wait(this.pace.first);
+    while (Date.now() < until) {
+      const s = await this.backend.stats();
+      if (s.loop === "sleep" && !this.store.state.keysDown?.length) {
+        if (++calm >= 2) break;
+      } else {
+        calm = 0;
+      }
+      await wait(this.pace.poll);
+    }
+    // The last frame after the calculator went to sleep.
+    await wait(this.pace.poll);
   }
 
   async send(verb, text, { closeAfter }) {

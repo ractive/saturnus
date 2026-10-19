@@ -1090,7 +1090,7 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .prow-name { font: 600 var(--fs-base)/1.4 var(--mono); white-space: nowrap; }
 :where(#calculator-view) .prow-title { font-family: var(--font); font-weight: 600; }
 :where(#calculator-view) .prow-text { white-space: pre-wrap; overflow-wrap: anywhere; }
-:where(#calculator-view) .prow-stack {
+:where(#calculator-view) :is(.prow-stack, .prow-keys) {
   font: var(--fs-sm)/1.4 var(--mono);
   color: var(--muted);
   white-space: nowrap;
@@ -1308,6 +1308,9 @@ body.resizing * { cursor: col-resize !important; }
   border-radius: var(--r-sm);
 }
 :where(#calculator-view) .ex-line { display: flex; gap: 8px; align-items: baseline; }
+/* A key-driven model's example: the display's two lines, as shown. */
+:where(#calculator-view) .ex-screen .ex-text { margin-left: 0; white-space: pre; }
+:where(#calculator-view) .entry-keys { display: flex; flex-wrap: wrap; gap: 4px; }
 :where(#calculator-view) .ex-level { flex: none; font: var(--fs-xs)/1.4 var(--mono); color: var(--muted); min-width: 2ch; }
 /* An object that fits on its line right-aligned, as on the calculator's
    stack; a longer one wraps left-aligned across the side's width. */

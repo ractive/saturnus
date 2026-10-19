@@ -14,6 +14,10 @@
 //!   "menu_keys": ["sigmaplus", ...], // the keys under the menu boxes, left to right
 //!   "marks": ["■"],                   // optional: what a menu box adds to a label when its setting is on
 //!   "ready": [steps],                 // optional: after the boot, into the normal state
+//!   "leave": {"keys": [steps], "menu_box": {"x": 0, "width": 21, "rows": [9, 15]}},
+//!                                     // optional: the keys that leave a menu, pressed (by
+//!                                     // the app) while the screen shows one: dots x to
+//!                                     // x+width-1 dark on each of the rows
 //!   "learn": [{"keys": [steps], "lines": ["y:0.0000", "x:0.0000"], "menu": ["Σ+", ...]}],
 //!                                     // optional: screens of known text, to read the fonts
 //!   "alpha": {                        // optional: typing characters
@@ -57,7 +61,8 @@
 //! (read from the screen, [`crate::lcdtext`]); then each example's
 //! `input` keys, the screen read (`before`), the function's keys, the
 //! screen read again (`after`). A function run by name must not leave
-//! `xeq.unknown` on the screen. The fonts are learned first from the
+//! `xeq.unknown` on the screen, and `leave.menu_box` must see a menu
+//! exactly when one shows. The fonts are learned first from the
 //! `learn` screens and the characters of `alpha.chars`, typed one by one
 //! (each shows in the first cell of the upper line).
 
@@ -104,6 +109,40 @@ pub struct Xeq {
     /// What the upper line shows when the name is unknown.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unknown: Option<String>,
+}
+
+/// Leaving menus before a function is pressed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Leave {
+    /// The keys that leave one menu level.
+    pub keys: Vec<Step>,
+    /// Where the screen shows that a menu is open.
+    pub menu_box: MenuBox,
+}
+
+/// A row of dots that are all dark when a menu shows.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MenuBox {
+    pub x: usize,
+    pub width: usize,
+    pub rows: Vec<usize>,
+}
+
+impl MenuBox {
+    /// Whether `lcd` shows a menu by this test.
+    pub fn shown(&self, lcd: &Lcd) -> bool {
+        self.rows.iter().all(|&y| {
+            (self.x..self.x + self.width).all(|x| {
+                lcd.pixels
+                    .get(y)
+                    .and_then(|r| r.get(x))
+                    .copied()
+                    .unwrap_or(false)
+            })
+        })
+    }
 }
 
 /// A screen of known text, to learn the font from.
@@ -165,6 +204,8 @@ pub struct KeyFile {
     pub ready: Vec<Step>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub learn: Vec<Learn>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub leave: Option<Leave>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alpha: Option<Alpha>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -517,8 +558,15 @@ pub fn generate(
         }
         let steps = file.sequence(cmd)?;
         d.reset()?;
-        d.press_all(&steps)
-            .with_context(|| cmd.name.clone())?;
+        d.press_all(&steps).with_context(|| cmd.name.clone())?;
+        if let Some(leave) = &file.leave
+            && leave.menu_box.shown(&d.lcd()) != lcdtext::has_menu(&d.lcd())
+        {
+            bail!(
+                "{}: leave.menu_box does not tell whether a menu shows",
+                cmd.name
+            );
+        }
         if let (Some(_), Some(unknown)) =
             (&cmd.xeq, file.xeq.as_ref().and_then(|x| x.unknown.as_ref()))
             && d.read()[0].contains(unknown.as_str())
@@ -537,8 +585,7 @@ pub fn generate(
                     .with_context(|| format!("{}: example input", cmd.name))?;
             }
             let before = d.read();
-            d.press_all(&steps)
-                .with_context(|| cmd.name.clone())?;
+            d.press_all(&steps).with_context(|| cmd.name.clone())?;
             list.push(Example {
                 input: ex.input.clone(),
                 before,

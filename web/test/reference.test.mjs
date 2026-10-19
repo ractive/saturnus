@@ -10,6 +10,7 @@ import {
   NOT_IN_MENU, OTHER_MENUS, buildIndex, enterPlan, enterVerb, exampleBefore, exampleResult, exampleText, findCommands, findMenu,
   flattenMenus, fromCodes, friendly, menuLabel,
   isSingleToken, keyLegend, manualLinks, menuCommands, placement, search, spaced, stackVerified, toCodes,
+  exampleSteps, keyNames, keySteps, keysText, legendText, menuShown, referenceModels, spell,
 } from "../reference.js";
 import { IndexWatch, NOT_READY, PaletteModel, sendFailure } from "../palette.js";
 
@@ -502,4 +503,147 @@ test("the Commands tab's index: a failed load is kept for its model only and tri
   const w2 = new IndexWatch(loader);
   const [a, b] = await Promise.all([w2.ensure("48sx"), w2.ensure("48sx")]);
   assert.equal(a.index, b.index);
+});
+
+// ------------------------------------------------------------ key-driven models (the 42S)
+
+const k42 = buildIndex(data, "42s");
+
+/** A 131 x 16 frame (base64 rows of bits), with the dots of `dark` (`[x, y]`) on. */
+function frame(dark = []) {
+  const row = Math.ceil(131 / 8);
+  const bytes = new Uint8Array(row * 16);
+  for (const [x, y] of dark) bytes[y * row + (x >> 3)] |= 0x80 >> (x & 7);
+  return { width: 131, height: 16, pixels: Buffer.from(bytes).toString("base64") };
+}
+/** A frame with the 42S's menu boxes drawn (their border rows). */
+const menuFrame = () => frame([9, 15].flatMap((y) => Array.from({ length: 131 }, (_, x) => [x, y])));
+
+test("the 42S's functions: found by name and spelling, each with the keys that run it", () => {
+  assert.equal(k42.keyed, true);
+  assert.equal(k42.supported, true);
+  assert.equal(k42.commands.length, Object.keys(data.keyModels["42s"].commands).length);
+  assert.ok(k42.commands.length >= 270, `${k42.commands.length} functions`);
+  const pol = search(k42, "->pol")[0];
+  assert.equal(pol.name, "→POL");
+  assert.equal(pol.keys, "⇧ CONVERT →POL");
+  assert.deepEqual(keyNames(pol.command.steps), ["shift", "5", "xeq"]);
+  assert.equal(search(k42, "sqrt")[0].keys, "√x");
+  assert.equal(search(k42, "square root")[0].name, "SQRT");
+  // Every function can be pressed: by its keys or by XEQ and its name.
+  for (const c of k42.commands) assert.ok(c.steps?.length, `${c.name} has keys`);
+  // One run by name: XEQ, ALPHA, its letters through the ALPHA menu, ENTER.
+  const acosh = k42.byName.get("ACOSH");
+  assert.equal(acosh.keysText, 'XEQ "ACOSH"');
+  assert.deepEqual(keyNames(acosh.steps).slice(0, 3), ["xeq", "shift", "enter"]);
+  assert.equal(acosh.steps.at(-1).key, "enter");
+  assert.equal(keysText(acosh.steps.slice(3, 5)), "ABCDE A");
+  // No variables, nothing typed: no send row.
+  assert.ok(search(k42, "13 4 ^", { typing: false }).every((r) => r.kind !== "send"));
+});
+
+test("key steps: labels in order, a shift as ⇧, names spelt through the ALPHA map", () => {
+  const km = {
+    alpha: { start: [{ key: "shift" }, { key: "enter", label: "ALPHA" }], chars: { A: [{ key: "sigmaplus", label: "ABCDE" }, { key: "sigmaplus", label: "A" }], "1": [{ key: "1", label: "1" }] } },
+    xeq: { start: [{ key: "xeq", label: "XEQ" }], end: [{ key: "enter", label: "ENTER" }] },
+  };
+  assert.equal(keysText(keySteps(km, { xeq: "A1" })), "XEQ ⇧ ALPHA ABCDE A 1 ENTER");
+  assert.equal(keySteps(km, { xeq: "B" }), null, "a letter with no keys");
+  assert.equal(spell(km, "B"), null);
+  assert.equal(keysText(keySteps(km, { keys: [{ key: "shift" }, { key: "5", label: "CONVERT" }] })), "⇧ CONVERT");
+  assert.equal(keysText([{ key: "enter" }]), "ENTER");
+  const legends = [{ name: "5", label: "5", left: "CONVERT" }, { name: "enter", label: "ENTER", left: "ALPHA" }];
+  assert.equal(legendText(["4", "enter", "shift", "5", "shift"], legends), "4 ENTER ⇧ CONVERT ⇧");
+  assert.equal(legendText(["point"]), "POINT");
+  const sqrt = k42.byName.get("SQRT");
+  assert.deepEqual(keyNames(exampleSteps(sqrt, sqrt.per.examples[0])), ["9", "sqrt"]);
+});
+
+test("the 42S's menu is seen on its display: the boxes' border rows dark", () => {
+  const km = data.keyModels["42s"];
+  assert.equal(menuShown(km, menuFrame()), true);
+  assert.equal(menuShown(km, frame()), false);
+  assert.equal(menuShown(km, frame([[0, 9], [5, 15]])), false, "a few dots are not a box");
+  assert.equal(menuShown(km, null), false);
+  assert.equal(menuShown({}, menuFrame()), false, "a model without the test");
+  assert.equal(menuShown(km, { width: 137, height: 8, pixels: "" }), false, "another display");
+});
+
+test("the 42S's tree: the menus the manual names, the keyboard and the names run by XEQ", () => {
+  const all = flattenMenus(k42.menus);
+  const convert = all.find((m) => m.path === "CONVERT");
+  assert.ok(convert.commands.some((c) => c.name === "→POL"));
+  const modl = all.find((m) => m.path === "STAT CFIT MODL");
+  assert.ok(modl && modl.depth === 2 && modl.commands.some((c) => c.name === "BEST"));
+  const other = k42.menus.at(-1);
+  assert.equal(other.name, NOT_IN_MENU);
+  assert.deepEqual(other.children.map((n) => n.name).sort(), ["By name (XEQ)", "Keyboard"]);
+  const placed = new Set(all.flatMap((m) => m.commands.map((c) => c.name)));
+  assert.equal(placed.size, k42.commands.length);
+  assert.equal(data.keyModels["42s"].commands.SQRT.group, undefined, "the data is left as it is");
+});
+
+test("Enter presses a key-driven model's function; the reference names the models it covers", () => {
+  const row = search(k42, "SQRT")[0];
+  assert.equal(enterVerb(row, null), "press");
+  assert.equal(enterPlan(row, null, true).press, row.command);
+  assert.match(referenceModels(data, { "42s": "HP 42S", "48sx": "HP 48SX" }), /^48SX, .* and 42S$/);
+  assert.equal(referenceModels({ models: ["48sx"] }), "48sx");
+});
+
+/** A backend for the 42S: records the keys typed; EXIT takes the menu off the display. */
+function fakeKeys(store) {
+  const calls = [];
+  return {
+    calls,
+    async commandLine() { throw new Error("the 42s has no RPL command line to type into (48SX, 48GX and 49G only)"); },
+    async flags() { return { system: [], user: [], set: [] }; },
+    typeKeys(keys) {
+      calls.push(keys);
+      if (keys.join(" ") === "on") store.frame = frame();
+    },
+    async stats() { return { loop: "sleep" }; },
+  };
+}
+
+test("the palette model presses a 42S function, leaving the menu the display shows first", async () => {
+  const state = { model: "42s", booted: "42s", frame: menuFrame(), keysDown: [] };
+  const backend = fakeKeys(state);
+  const m = new PaletteModel(backend, { state });
+  m.pace = { first: 0, poll: 0, limit: 1000 };
+  m.setIndex(k42);
+  await m.open();
+  assert.equal(m.keyed, true);
+  assert.equal(m.canPress, true);
+  m.setQuery("->POL");
+  assert.equal(m.verbFor(m.rows[0]), "press");
+  const r = await m.choose(m.rows[0]);
+  assert.deepEqual(backend.calls, [["on"], ["shift", "5", "xeq"]]);
+  assert.equal(r.close, true);
+  assert.equal(m.notice, null);
+
+  // No menu shown: only the function's keys.
+  backend.calls.length = 0;
+  m.setQuery("SQRT");
+  await m.choose(m.rows[0]);
+  assert.deepEqual(backend.calls, [["sqrt"]]);
+
+  // An example ends the entry in progress first, then presses its input and the keys; the palette stays open.
+  backend.calls.length = 0;
+  const sqrt = k42.byName.get("SQRT");
+  const t = await m.tryExample(sqrt.per.examples[0], sqrt);
+  assert.deepEqual(backend.calls, [["on"], ["9", "sqrt"]]);
+  assert.equal(t.close, false);
+  assert.match(m.notice.text, /^Pressed 9 √x\.$/);
+
+  // Nothing is pressed without the calculator.
+  const off = { model: "42s", booted: null, frame: null };
+  const b2 = fakeKeys(off);
+  const m2 = new PaletteModel(b2, { state: off });
+  m2.setIndex(k42);
+  m2.setQuery("SQRT");
+  const r2 = await m2.choose(m2.rows[0]);
+  assert.equal(r2.close, false);
+  assert.deepEqual(b2.calls, []);
+  assert.match(m2.notice.text, /Start the calculator/);
 });
