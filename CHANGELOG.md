@@ -5,6 +5,32 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## 0.8.0 (2026-10-19)
+
+- **A command reference for every model.** Search and `saturnus ref` now
+  cover the 42S, 27S, 17BII, 17B, 19BII, 28S, 38G, 39G and 40G as well as
+  the 48SX, 48GX and 49G: what each function does, the keys that reach it,
+  its manual page and examples run on the emulator.
+- **Run a function from Search on every model.** On the 42S and the menu
+  models Search presses the function's keys (on the 42S, XEQ and its name
+  where it has no key); on the 28S it types the name and presses ENTER;
+  on the 38G, 39G and 40G it puts the function on HOME's edit line. A
+  pending shift or ALPHA is cancelled first.
+- **Comments on examples** where the input alone does not say what it
+  shows ("1h30m plus 2h45m gives 4h15m"), and a **Note** where a ROM gets
+  a result wrong (the 48SX's HMS+, the 38G's ACOT in DEG mode).
+- **Fix:** at 2×, 4× and Max a key held by you runs at normal speed, so a
+  tap stays a tap. Before, the 42S showed NULL and dropped the key, and
+  the 48 and 49 repeated it.
+- **Plainer wording** in the app, Files, the desktop app, the CLIs, the
+  READMEs and the crate docs; error messages with real plurals.
+- The ROM note says how to read a 42S, 27S, 17BII, 17B or 28S ROM out of
+  your own calculator (Christoph Gießelink's Emu42 page).
+- The landing page: a card and a history dialog for each model, the
+  desktop app's cask in the install lines.
+- The libraries: `saturnus-host` has the protocol command `entryModes`
+  (the 28S's lower case and Menu Lock); no breaking changes.
+
 ## 0.7.0 (2026-10-18)
 
 - **Calculators and ROMs on the home page.** Choosing, switching, giving
