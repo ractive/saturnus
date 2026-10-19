@@ -89,6 +89,12 @@ jobs:
             name: windows-x86_64
           - os: ubuntu-22.04
             name: linux-x86_64
+          # GitHub's native ARM runners (free for public repositories);
+          # the Linux one on 22.04 like x86_64, for the same glibc reach.
+          - os: windows-11-arm
+            name: windows-aarch64
+          - os: ubuntu-22.04-arm
+            name: linux-aarch64
     runs-on: ${{ matrix.platform.os }}
     # The Apple secrets live in the `release` environment (deployments from
     # main and v* tags only, set in the repository's settings); a run that
