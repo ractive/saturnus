@@ -431,7 +431,7 @@ export class Pane {
     this.wireDevice(place);
     this.mine = place;
     this.note = "";
-    this.step = { title: heading, status: "Connecting to the calculator in Calculator…", busy: true };
+    this.step = { title: heading, status: "Connecting to the running calculator…", busy: true };
     this.render();
     try {
       const conn = await device.connect({ model, rom, romName: name });

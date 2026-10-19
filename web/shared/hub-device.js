@@ -198,7 +198,7 @@ export class HubDevice extends EventTarget {
    * connection.
    */
   connect({ model, rom, romName = "" }) {
-    return this.run("Connecting to the calculator in Calculator…", async () => {
+    return this.run("Connecting to the running calculator…", async () => {
       await this.request("hello");
       const booted = await this.request("attach", { model, rom, romName });
       const got = booted?.model ?? model;
