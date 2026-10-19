@@ -17,9 +17,13 @@
 //!   "leave": {"keys": [steps], "menu_box": {"x": 0, "width": 21, "rows": [9, 15]}},
 //!                                     // optional: the keys that leave a menu, pressed (by
 //!                                     // the app) while the screen shows one: dots x to
-//!                                     // x+width-1 dark on each of the rows
+//!                                     // x+width-1 dark on each of the rows. Without
+//!                                     // "menu_box" (a model whose normal state shows a
+//!                                     // menu, the 17BII's MAIN) the keys go back to the
+//!                                     // normal state from anywhere and are pressed once
 //!   "learn": [{"keys": [steps], "lines": ["y:0.0000", "x:0.0000"], "menu": ["Σ+", ...]}],
 //!                                     // optional: screens of known text, to read the fonts
+//!                                     // ("lines" the text lines above the menu, if one shows)
 //!   "alpha": {                        // optional: typing characters
 //!     "start": [steps],               //   from the normal state into letter entry
 //!     "chars": {"A": [steps], ...}    //   each character from there
@@ -34,7 +38,8 @@
 //!     "stack": "x y → r θ",          // optional: the stack effect
 //!     "param": "register or variable", // optional: what it asks for after the keys
 //!     "keys": [steps],               // the keys from the normal state, or
-//!     "xeq": "NAME",                 //   (no keys) the name XEQ runs it by
+//!     "xeq": "NAME",                 //   (no keys) the name XEQ runs it by; neither
+//!                                    //   for a function only typed into an equation
 //!     "menu": "CONVERT",             // optional: the menu path as the manual names it
 //!     "page": 91,                    // the manual's PDF page
 //!     "examples": [{"input": ["4", "enter", "3"]}]  // optional
@@ -49,8 +54,9 @@
 //! step but a shift has a label; the keys read as the labels in order,
 //! a shift as `⇧`: `⇧ CONVERT →POL`. A box may show one of `marks`
 //! after its label, or in place of its last letter (`DEG■`, `WRA■`). The normal state is the
-//! calculator as it boots and `ready` leaves it: no menu, no message, no
-//! entry in progress. A function run
+//! calculator as it boots and `ready` leaves it: no menu (or, where the
+//! calculator always shows one, its top menu: MAIN on the 17BII, 17B and
+//! 19BII), no message, no entry in progress. A function run
 //! by name is `xeq.start`, `alpha.start`, the name's characters from
 //! `alpha.chars`, `xeq.end`.
 //!
@@ -60,7 +66,9 @@
 //! model, every label is the key's legend or what the menu box shows
 //! (read from the screen, [`crate::lcdtext`]); then each example's
 //! `input` keys, the screen read (`before`), the function's keys, the
-//! screen read again (`after`). A function run by name must not leave
+//! screen read again (`after`). When the input presses a menu key under a
+//! menu, the example also keeps what each input key showed (`labels`),
+//! so it reads as `BUS %CHG 100 OLD` rather than as key names. A function run by name must not leave
 //! `xeq.unknown` on the screen, and `leave.menu_box` must see a menu
 //! exactly when one shows. The fonts are learned first from the
 //! `learn` screens and the characters of `alpha.chars`, typed one by one
@@ -115,10 +123,14 @@ pub struct Xeq {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Leave {
-    /// The keys that leave one menu level.
+    /// The keys that leave one menu level, or (without `menu_box`) that
+    /// go back to the normal state from any menu.
     pub keys: Vec<Step>,
-    /// Where the screen shows that a menu is open.
-    pub menu_box: MenuBox,
+    /// Where the screen shows that a menu is open; none on a model whose
+    /// normal state shows a menu (the 17BII's MAIN), where `keys` are
+    /// pressed once before every function.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub menu_box: Option<MenuBox>,
 }
 
 /// A row of dots that are all dark when a menu shows.
@@ -155,7 +167,8 @@ pub struct Learn {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lines: Vec<String>,
     /// The menu boxes' labels, left to right; each may have one letter
-    /// not learned yet, or in another form.
+    /// not learned yet, or in another form, or new letters that stand
+    /// apart (a blank column between them).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub menu: Vec<String>,
 }
@@ -237,7 +250,8 @@ impl KeyFile {
     }
 
     /// The keys that run `cmd` from the normal state: its `keys`, or XEQ
-    /// and its name spelt.
+    /// and its name spelt; none for a function only typed into an
+    /// equation.
     pub fn sequence(&self, cmd: &Command) -> Result<Vec<Step>> {
         match (&cmd.keys, &cmd.xeq) {
             (Some(k), None) => Ok(k.clone()),
@@ -253,7 +267,9 @@ impl KeyFile {
                 out.extend(xeq.end.iter().cloned());
                 Ok(out)
             }
-            _ => bail!("{}: give either \"keys\" or \"xeq\"", cmd.name),
+            // Typed into an equation (the Solver's functions), not pressed.
+            (None, None) => Ok(Vec::new()),
+            _ => bail!("{}: give either \"keys\" or \"xeq\", not both", cmd.name),
         }
     }
 }
@@ -485,8 +501,12 @@ impl Driver {
             self.press_all(&l.keys).context("learn")?;
             let lcd = self.lcd();
             for (b, label) in l.menu.iter().enumerate() {
+                let cols = lcdtext::box_columns(&lcd, b);
+                // One letter not learned yet, or every new letter apart
+                // from its neighbours.
                 self.glyphs
-                    .teach_label(&lcdtext::box_columns(&lcd, b), label)
+                    .teach_label(&cols, label)
+                    .or_else(|_| self.glyphs.check_label(&cols, label))
                     .map_err(|m| {
                         anyhow::anyhow!("learn: box {} shows {:?}, not {label:?}", b + 1, m.shown)
                     })?;
@@ -514,6 +534,11 @@ fn legend(model: Model, key: &str, shifted: bool) -> Result<String> {
 pub struct Example {
     /// The keys pressed first (names).
     pub input: Vec<String>,
+    /// What each input key showed when pressed (its legend, `⇧` for a
+    /// shift, a menu key's box label), when a menu key among them
+    /// pressed under a menu reads as its label rather than its legend.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
     /// The screen after them, upper line first.
     pub before: Vec<String>,
     /// The screen after the function's keys.
@@ -559,8 +584,8 @@ pub fn generate(
         let steps = file.sequence(cmd)?;
         d.reset()?;
         d.press_all(&steps).with_context(|| cmd.name.clone())?;
-        if let Some(leave) = &file.leave
-            && leave.menu_box.shown(&d.lcd()) != lcdtext::has_menu(&d.lcd())
+        if let Some(menu_box) = file.leave.as_ref().and_then(|l| l.menu_box.as_ref())
+            && menu_box.shown(&d.lcd()) != lcdtext::has_menu(&d.lcd())
         {
             bail!(
                 "{}: leave.menu_box does not tell whether a menu shows",
@@ -580,7 +605,21 @@ pub fn generate(
         let mut list = Vec::new();
         for ex in &cmd.examples {
             d.reset()?;
+            let mut labels = Vec::new();
+            let mut by_box = false;
+            let mut shifted = false;
             for k in &ex.input {
+                let lcd = d.lcd();
+                let menu_box = file.menu_keys.iter().position(|m| m == k);
+                labels.push(match menu_box {
+                    _ if is_shift(k) => "⇧".to_string(),
+                    Some(b) if lcdtext::has_menu(&lcd) && !shifted => {
+                        by_box = true;
+                        d.glyphs.read_box(&lcdtext::box_columns(&lcd, b))
+                    }
+                    _ => legend(model, k, shifted).unwrap_or_else(|_| k.to_uppercase()),
+                });
+                shifted = is_shift(k) && !shifted;
                 d.press_key(k)
                     .with_context(|| format!("{}: example input", cmd.name))?;
             }
@@ -588,6 +627,7 @@ pub fn generate(
             d.press_all(&steps).with_context(|| cmd.name.clone())?;
             list.push(Example {
                 input: ex.input.clone(),
+                labels: if by_box { labels } else { Vec::new() },
                 before,
                 after: d.read(),
             });
@@ -668,6 +708,11 @@ mod tests {
         let mut f = file();
         f.commands[1].keys = Some(vec![]);
         assert!(lint(&f).unwrap_err().to_string().contains("either"));
+        // Neither: a function typed into an equation, pressed by nobody.
+        let mut f = file();
+        f.commands[1].xeq = None;
+        lint(&f).unwrap();
+        assert!(f.sequence(&f.commands[1]).unwrap().is_empty());
         let mut f = file();
         f.commands.push(f.commands[0].clone());
         assert!(lint(&f).unwrap_err().to_string().contains("twice"));

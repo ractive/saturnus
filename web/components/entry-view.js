@@ -183,7 +183,9 @@ function keyedEntryView(index, command, ctx) {
     ? el("dd", {}, el("kbd", { text: "XEQ" }), " ", el("code", { text: `"${entry.xeq}"` }),
       el("span", { class: "muted", text: " · run by name: XEQ, then the name through the ALPHA menu, then ENTER" }))
     : el("dd", { class: "entry-keys" }, ...(command.steps ?? []).map((s) => el("kbd", { text: s.label ?? (s.key === "shift" ? "⇧" : s.key.toUpperCase()) })));
-  const where = [el("dt", { text: "Keys" }), keys];
+  // A function typed into an equation (the Solver's) has no keys.
+  const typed = !command.steps && !command.byName;
+  const where = typed ? [] : [el("dt", { text: "Keys" }), keys];
   if (entry.param) where.push(el("dt", { text: "Asks for" }), el("dd", { text: entry.param }));
   if (entry.menu) where.push(el("dt", { text: "Menu" }), el("dd", {}, el("span", { class: "menu-path", text: entry.menu })));
   const manual = index.data.manuals?.[km.manual];
@@ -211,7 +213,8 @@ function screenLines(lines, cls, label) {
 
 /** One example of a key-driven model: the screen after its input keys, the function's keys, the screen after. */
 function keyedExampleRow(command, x, i, ctx) {
-  const input = legendText(x.input, ctx.legends ?? null);
+  // A menu key in the input reads as the label its box showed (the generator kept them).
+  const input = x.labels?.length ? x.labels.join(" ") : legendText(x.input, ctx.legends ?? null);
   const tried = ctx.tried?.example === x ? ctx.tried : null;
   let tryBtn = null;
   if (ctx.onTry) {

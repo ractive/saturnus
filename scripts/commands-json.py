@@ -26,11 +26,13 @@ first. The typed stacks of the examples stay out: the page shows the
 calculator's own display text. The key legends that place a
 command no manual mentions come from the skins at run time.
 
-The key-driven models (the 42S; any `keys-<model>.json` in the folder)
+The key-driven models (the 42S, 27S, 17BII, 17B, 19BII; any
+`keys-<model>.json` in the folder)
 come under `keyModels`, one entry per model, with no command line: per
 model the manual, the keys under the menu boxes (`menuKeys`), how to
-leave a menu (`leave`: its keys and the dots that show a menu is open),
-the keys that type each character (`alpha`) and run a name (`xeq`), the
+leave a menu (`leave`: its keys and the dots that show a menu is open;
+without the dots, keys back to the top menu, pressed once), the keys
+that type each character (`alpha`, only with `xeq`) and run a name (`xeq`), the
 booted screen, and per function `long`, `description`, `stack`,
 `param`, `keys` (steps `{key, label}` from the normal state) or `xeq`
 (the name XEQ runs it by), `menu`, `page` (the manual's PDF page) and
@@ -139,7 +141,7 @@ def key_models():
             entry = {k: c[k] for k in ("long", "description", "stack", "param", "keys", "xeq", "menu", "page") if k in c}
             runs = ex["examples"].get(c["name"])
             if runs:
-                entry["examples"] = [{k: x[k] for k in ("input", "before", "after")} for x in runs]
+                entry["examples"] = [{k: x[k] for k in ("input", "labels", "before", "after") if k in x} for x in runs]
             if c["name"] in commands:
                 raise SystemExit(f"{path.name}: {c['name']} is listed twice")
             commands[c["name"]] = entry
@@ -150,9 +152,12 @@ def key_models():
             "commands": commands,
         }
         if "leave" in src:
-            box = src["leave"]["menu_box"]
-            km["leave"] = {"keys": src["leave"]["keys"], "menuBox": {"x": box["x"], "width": box["width"], "rows": box["rows"]}}
-        if "alpha" in src:
+            km["leave"] = {"keys": src["leave"]["keys"]}
+            box = src["leave"].get("menu_box")
+            if box:
+                km["leave"]["menuBox"] = {"x": box["x"], "width": box["width"], "rows": box["rows"]}
+        # The characters' keys matter to the page only for running names.
+        if "alpha" in src and "xeq" in src:
             km["alpha"] = src["alpha"]
         if "xeq" in src:
             km["xeq"] = {"start": src["xeq"]["start"], "end": src["xeq"]["end"]}

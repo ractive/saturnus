@@ -486,6 +486,15 @@
           "sigmaplus",
           "on"
         ],
+        "labels": [
+          "2",
+          "ENTER",
+          "3",
+          "⇧",
+          "MATRIX",
+          "NEW",
+          "EXIT"
+        ],
         "before": [
           "y:0.0000",
           "x:[ 2x3 Matrix ]"
@@ -544,6 +553,14 @@
           "shift",
           "9",
           "sigmaplus"
+        ],
+        "labels": [
+          "2",
+          "ENTER",
+          "2",
+          "⇧",
+          "MATRIX",
+          "NEW"
         ],
         "before": [
           "x:[ 2x2 Matrix ]",
@@ -1218,6 +1235,15 @@
           "9",
           "sigmaplus",
           "on"
+        ],
+        "labels": [
+          "2",
+          "ENTER",
+          "3",
+          "⇧",
+          "MATRIX",
+          "NEW",
+          "EXIT"
         ],
         "before": [
           "y:0.0000",

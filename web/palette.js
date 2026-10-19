@@ -368,10 +368,18 @@ export class PaletteModel {
     return { close: closeAfter };
   }
 
-  /** Leave the menus the screen shows (at most six levels); with `always`, press the leave keys once even with none. */
+  /**
+   * Leave the menus the screen shows (at most six levels); with `always`, press the leave keys once even with none.
+   * A model without `leave.menuBox` always shows a menu (the 17BII's MAIN): its leave keys go back there from anywhere, once.
+   */
   async leaveMenus(always = false) {
     const leave = this.index.km?.leave;
     if (!leave) return;
+    if (!leave.menuBox) {
+      this.backend.typeKeys(keyNames(leave.keys));
+      await this.settle();
+      return;
+    }
     let pressed = 0;
     while (pressed < 6 && menuShown(this.index.km, this.store.state.frame)) {
       this.backend.typeKeys(keyNames(leave.keys));

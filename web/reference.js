@@ -542,7 +542,8 @@ function actionRow(a, score) {
 
 /** The verb Enter uses on `row` given the command line's state; `opposite` is Cmd/Ctrl+Enter. */
 export function enterVerb(row, commandLine, opposite = false) {
-  if (row.kind === "command" && row.command?.steps !== undefined) return "press";
+  // A key-driven model's function is pressed; one typed into an equation has no verb.
+  if (row.kind === "command" && row.command?.steps !== undefined) return row.command.steps ? "press" : null;
   const active = Boolean(commandLine?.active);
   let verb;
   // Variables insert their name (as the plan says), commands and typed

@@ -20,7 +20,7 @@
 import { comboLabel, numberDigit } from "../bindings.js";
 import { EditSession, FORMAT_KEY, History, afterSave, editorKey, format, fromDigraphs, indentAfter, pullEdit, saveSession, sentence, targetTitle, unclosed } from "../editor.js";
 import { PaletteModel, stop } from "../palette.js";
-import { menuCommands, menuShown, referenceModels } from "../reference.js";
+import { keysText, menuCommands, menuShown, referenceModels } from "../reference.js";
 import { el } from "../shared/dom.js";
 import { entryView } from "./entry-view.js";
 import { icon, iconEl } from "../shared/components/icons.js";
@@ -552,7 +552,7 @@ export class SatPalette extends HTMLElement {
       case "command":
         // A key-driven model's function shows its keys ("⇧ CONVERT →POL") where a command shows its stack.
         head = row.keys !== null && row.keys !== undefined
-          ? el("div", { class: "prow-head" }, el("span", { class: "prow-name", text: row.name }), el("span", { class: "prow-keys", text: row.keys || "XEQ" }))
+          ? el("div", { class: "prow-head" }, el("span", { class: "prow-name", text: row.name }), el("span", { class: "prow-keys", text: row.keys || (row.command?.entry?.xeq ? "XEQ" : "") }))
           : el("div", { class: "prow-head" }, el("span", { class: "prow-name", text: row.name }), el("span", { class: "prow-stack", text: row.stack }));
         // What the mnemonic stands for leads the description: "Residual · Computes …".
         desc = row.longName ? [el("span", { class: "prow-long", text: row.longName }), " · ", row.description] : row.description;
@@ -652,6 +652,7 @@ export class SatPalette extends HTMLElement {
     if (row.kind === "action" && row.action.off) return el("div", { class: "palette-actions" });
     if (row.kind === "action") return el("div", { class: "palette-actions" }, button("Run", "choose", true));
     if (row.kind === "menu") return el("div", { class: "palette-actions" }, button("Open in the Reference tab", "choose", true));
+    if (m.keyed && row.kind === "command" && !row.command.steps) return el("div", { class: "palette-actions" });
     if (m.keyed && row.kind === "command") {
       return el("div", { class: "palette-actions" }, m.canPress
         ? button("Press the keys", "choose", true)
@@ -675,9 +676,12 @@ export class SatPalette extends HTMLElement {
     if (row.kind === "action") return el("p", { class: "entry-enter" }, key("Enter"), " runs this action.");
     if (row.kind === "menu") return el("p", { class: "entry-enter" }, key("Enter"), " opens it in the Reference tab beside the calculator.");
     if (m.keyed && row.kind === "command") {
+      if (!row.command.steps) return el("p", { class: "entry-enter muted", text: `Typed into an equation (${row.command.entry.menu}), not pressed.` });
       if (!m.canPress) return el("p", { class: "entry-enter muted", text: "Start the calculator to press this." });
-      const leaves = menuShown(m.index.km, this.store.state.frame);
-      return el("p", { class: "entry-enter" }, key("Enter"), ` presses ${row.command.keysText} on the calculator${leaves ? ", after leaving the menu it shows" : ""}. It works on what the calculator holds, as the keys would.`);
+      const leave = m.index.km.leave;
+      // Without a menu test the leave keys go back to the top menu first, every time.
+      const first = leave && !leave.menuBox ? `, after ${keysText(leave.keys)}` : menuShown(m.index.km, this.store.state.frame) ? ", after leaving the menu it shows" : "";
+      return el("p", { class: "entry-enter" }, key("Enter"), ` presses ${row.command.keysText} on the calculator${first}. It works on what the calculator holds, as the keys would.`);
     }
     if (!m.canType) return el("p", { class: "entry-enter muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start the calculator to send this." });
     const verb = m.verbFor(row);
@@ -710,7 +714,7 @@ export class SatPalette extends HTMLElement {
       hints.push(key("Enter"), m.canPress ? " press · " : " choose · ");
     } else if (m.canType && verb) {
       hints.push(key("Enter"), ` ${verb} · `, key(`${mod}Enter`), ` ${verb === "run" ? "insert" : "run"} · `);
-    } else if (m.row) {
+    } else if (m.row && !(m.keyed && m.row.kind === "command")) {
       hints.push(key("Enter"), m.row.kind === "menu" ? " open · " : m.row.kind === "action" ? " run · " : " choose · ");
     }
     hints.push(key(this.shortcutLabel("1–9")), " pick a row · ", key("Esc"), " close");

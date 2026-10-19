@@ -1,39 +1,34 @@
-//! The text on a Pioneer display (131 x 16 dots: the 42S, 27S, 17BII and
-//! 17B), read back from the pixels for the key-driven reference
-//! ([`crate::keyed`]).
+//! The text on the key-driven models' displays, read back from the
+//! pixels for the key-driven reference ([`crate::keyed`]): the Pioneer
+//! display (131 x 16 dots: the 42S, 27S, 17BII and 17B) and the 19BII's
+//! (137 x 32 dots).
 //!
-//! The display has two lines of 22 character cells, each cell 5 dots wide
-//! at a pitch of 6 and 8 rows tall (the eighth row carries descenders and
-//! the cursor). When a menu is shown, the lower line is six boxes of 21
-//! dots at a pitch of 22, dark with light letters in a smaller font of 5
-//! rows (rows 10-14, inside a dark border on rows 9 and 15).
+//! The Pioneer display has two lines of 22 character cells, the 19BII's
+//! four lines of 23; each cell is 5 dots wide at a pitch of 6 and 8 rows
+//! tall (the eighth row carries descenders and the cursor). When a menu is
+//! shown, the last line is six boxes (21 dots at a pitch of 22 on the
+//! Pioneers, 22 at a pitch of 23 on the 19BII), dark with light letters
+//! in a smaller font of 5 rows inside a dark border one row above and
+//! below them. A box with nothing in it is not drawn.
 //!
 //! No font is stored: [`Glyphs`] learns both fonts at run time from text
 //! the calculator is made to show (the characters typed through its ALPHA
-//! menu, the labels the reference expects on its menus), and reads back
-//! what it learned. A cell or a letter it has not seen reads as `�`.
+//! menu or letter keys, the labels the reference expects on its menus),
+//! and reads back what it learned. A cell or a letter it has not seen
+//! reads as `�`.
 
 use std::collections::HashMap;
 
 use saturnus_core::Lcd;
 
-/// Character cells per line.
-pub const CELLS: usize = 22;
 /// Pitch of the character cells, in dots.
 const CELL_PITCH: usize = 6;
 /// Width of a character cell, in dots.
 const CELL_WIDTH: usize = 5;
 /// Rows of a text line.
 const LINE_ROWS: usize = 8;
-/// Menu boxes on the lower line.
+/// Menu boxes on the last line.
 pub const BOXES: usize = 6;
-/// Pitch and width of a menu box.
-const BOX_PITCH: usize = 22;
-const BOX_WIDTH: usize = 21;
-/// The menu boxes' border rows and the rows of their letters.
-const BOX_TOP: usize = 9;
-const BOX_BOTTOM: usize = 15;
-const LETTER_ROWS: std::ops::Range<usize> = 10..15;
 
 /// What a cell or a letter reads as when it was never learned.
 pub const UNKNOWN: char = '\u{fffd}';
@@ -45,9 +40,65 @@ pub type Cell = [u8; CELL_WIDTH];
 /// letter row), light dots set, the blank columns at either end trimmed.
 pub type BoxColumns = Vec<u8>;
 
-/// Whether `lcd` is a Pioneer display this module reads.
+/// Where the text and the menu boxes sit on a display.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Layout {
+    /// Character cells per line.
+    cells: usize,
+    /// Text lines; the last one holds the menu boxes.
+    lines: usize,
+    /// Pitch and width of a menu box.
+    box_pitch: usize,
+    box_width: usize,
+}
+
+impl Layout {
+    fn of(lcd: &Lcd) -> Self {
+        if lcd.width() == 137 {
+            Layout {
+                cells: 23,
+                lines: lcd.height() / LINE_ROWS,
+                box_pitch: 23,
+                box_width: 22,
+            }
+        } else {
+            Layout {
+                cells: 22,
+                lines: lcd.height() / LINE_ROWS,
+                box_pitch: 22,
+                box_width: 21,
+            }
+        }
+    }
+
+    /// The border row above the menu letters.
+    fn box_top(&self) -> usize {
+        (self.lines - 1) * LINE_ROWS + 1
+    }
+
+    /// The border row below them.
+    fn box_bottom(&self) -> usize {
+        self.box_top() + 6
+    }
+
+    /// The rows of the menu letters.
+    fn letter_rows(&self) -> std::ops::Range<usize> {
+        self.box_top() + 1..self.box_bottom()
+    }
+
+    fn box_xs(&self, b: usize) -> std::ops::Range<usize> {
+        b * self.box_pitch..b * self.box_pitch + self.box_width
+    }
+}
+
+/// Whether `lcd` is a display this module reads.
 pub fn fits(lcd: &Lcd) -> bool {
-    lcd.height() == 16 && lcd.width() == 131
+    (lcd.height() == 16 && lcd.width() == 131) || (lcd.height() == 32 && lcd.width() == 137)
+}
+
+/// Text lines of `lcd`, the menu line included.
+pub fn lines(lcd: &Lcd) -> usize {
+    Layout::of(lcd).lines
 }
 
 fn dark(lcd: &Lcd, x: usize, y: usize) -> bool {
@@ -58,7 +109,7 @@ fn dark(lcd: &Lcd, x: usize, y: usize) -> bool {
         .unwrap_or(false)
 }
 
-/// Cell `i` of text line `line` (0 the upper, 1 the lower).
+/// Cell `i` of text line `line` (0 the upper).
 pub fn cell(lcd: &Lcd, line: usize, i: usize) -> Cell {
     let mut out = [0u8; CELL_WIDTH];
     for (dx, col) in out.iter_mut().enumerate() {
@@ -71,21 +122,37 @@ pub fn cell(lcd: &Lcd, line: usize, i: usize) -> Cell {
     out
 }
 
-/// Whether the lower line shows menu boxes: some box has its dark border
-/// rows.
+/// Whether box `b` shows both its border rows dark.
+fn box_framed(lcd: &Lcd, l: &Layout, b: usize) -> bool {
+    l.box_xs(b)
+        .all(|x| dark(lcd, x, l.box_top()) && dark(lcd, x, l.box_bottom()))
+}
+
+/// Whether box `b` is drawn: one of its border rows dark (a character
+/// such as the 42S's `"` reaches into the upper one).
+fn box_drawn(lcd: &Lcd, l: &Layout, b: usize) -> bool {
+    [l.box_top(), l.box_bottom()]
+        .iter()
+        .any(|&y| l.box_xs(b).all(|x| dark(lcd, x, y)))
+}
+
+/// Whether the last line shows menu boxes: some box is framed.
 pub fn has_menu(lcd: &Lcd) -> bool {
-    (0..BOXES).any(|b| {
-        (b * BOX_PITCH..b * BOX_PITCH + BOX_WIDTH)
-            .all(|x| dark(lcd, x, BOX_TOP) && dark(lcd, x, BOX_BOTTOM))
-    })
+    let l = Layout::of(lcd);
+    (0..BOXES).any(|b| box_framed(lcd, &l, b))
 }
 
 /// The letter columns of menu box `b` (0-5), trimmed; empty for a blank
-/// box.
+/// box or one not drawn.
 pub fn box_columns(lcd: &Lcd, b: usize) -> BoxColumns {
-    let cols: Vec<u8> = (b * BOX_PITCH..b * BOX_PITCH + BOX_WIDTH)
+    let l = Layout::of(lcd);
+    if !box_drawn(lcd, &l, b) {
+        return Vec::new();
+    }
+    let cols: Vec<u8> = l
+        .box_xs(b)
         .map(|x| {
-            LETTER_ROWS
+            l.letter_rows()
                 .enumerate()
                 .filter(|&(_, y)| !dark(lcd, x, y))
                 .fold(0u8, |m, (i, _)| m | 1 << i)
@@ -212,7 +279,7 @@ impl Glyphs {
 
     /// Text line `line` as characters, trailing spaces dropped.
     pub fn read_line(&self, lcd: &Lcd, line: usize) -> String {
-        let s: String = (0..CELLS)
+        let s: String = (0..Layout::of(lcd).cells)
             .map(|i| self.read_cell(&cell(lcd, line, i)))
             .collect();
         s.trim_end().to_string()
@@ -310,16 +377,18 @@ impl Glyphs {
             .collect()
     }
 
-    /// The display as text: the upper line, then the lower line or the
-    /// menu ([`Glyphs::read_menu`]). Lines with nothing on them are empty
-    /// strings.
+    /// The display as text: the text lines from the top, the last one
+    /// the menu ([`Glyphs::read_menu`]) when one shows. Lines with nothing
+    /// on them are empty strings.
     pub fn read(&self, lcd: &Lcd) -> Vec<String> {
-        let lower = if has_menu(lcd) {
+        let n = lines(lcd);
+        let mut out: Vec<String> = (0..n - 1).map(|l| self.read_line(lcd, l)).collect();
+        out.push(if has_menu(lcd) {
             self.read_menu(lcd)
         } else {
-            self.read_line(lcd, 1)
-        };
-        vec![self.read_line(lcd, 0), lower]
+            self.read_line(lcd, n - 1)
+        });
+        out
     }
 }
 
@@ -341,10 +410,15 @@ mod tests {
     /// A display whose lower line is a menu: every box dark, with `letters`
     /// (rows of `#` = light dots) drawn into box 0 from column 2.
     fn menu(letters: &[&str]) -> Lcd {
-        let mut l = Lcd::blank_sized(131, 16);
+        menu_sized(131, 16, letters)
+    }
+
+    fn menu_sized(w: usize, h: usize, letters: &[&str]) -> Lcd {
+        let mut l = Lcd::blank_sized(w, h);
+        let lay = Layout::of(&l);
         for b in 0..BOXES {
-            for x in b * BOX_PITCH..b * BOX_PITCH + BOX_WIDTH {
-                for y in BOX_TOP..=BOX_BOTTOM {
+            for x in lay.box_xs(b) {
+                for y in lay.box_top()..=lay.box_bottom() {
                     l.pixels[y][x] = true;
                 }
             }
@@ -352,7 +426,7 @@ mod tests {
         for (dy, r) in letters.iter().enumerate() {
             for (dx, c) in r.chars().enumerate() {
                 if c == '#' {
-                    l.pixels[LETTER_ROWS.start + dy][2 + dx] = false;
+                    l.pixels[lay.letter_rows().start + dy][2 + dx] = false;
                 }
             }
         }
@@ -422,6 +496,24 @@ mod tests {
         assert!(g.teach_label(&cols, "A…AA").is_err());
         // Two unknown letters cannot be told apart.
         assert!(Glyphs::default().teach_label(&cols, "A…A").is_err());
+    }
+
+    #[test]
+    fn the_19bii_has_four_lines_and_wider_boxes() {
+        let mut l = menu_sized(137, 32, &[".#.", "#.#", "###", "#.#", "#.#"]);
+        assert!(fits(&l));
+        let mut g = Glyphs::default();
+        g.check_label(&box_columns(&l, 0), "A").unwrap();
+        assert_eq!(g.read_box(&box_columns(&l, 1)), "");
+        assert_eq!(g.read(&l).len(), 4);
+        assert_eq!(g.read(&l)[3], "[A][][][][][]");
+        // A box not drawn is blank, not a box of light dots.
+        for x in 23..45 {
+            l.pixels[25][x] = false;
+            l.pixels[31][x] = false;
+        }
+        assert!(box_columns(&l, 1).is_empty());
+        assert!(has_menu(&l));
     }
 
     #[test]
