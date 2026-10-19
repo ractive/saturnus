@@ -1,0 +1,783 @@
+{
+  "group": "rpl",
+  "comments": {
+    "OCT": [
+      {
+        "i": 0,
+        "comment": "Decimal 64 is 100 in octal"
+      },
+      {
+        "i": 1,
+        "comment": "Hexadecimal FF is 377 in octal"
+      }
+    ],
+    "OR": [
+      {
+        "i": 0,
+        "comment": "Binary 1100 OR 1010 gives 1110"
+      }
+    ],
+    "P2C": [
+      {
+        "i": 0,
+        "comment": "1 goes to 3 and back, 2 goes to 4 and back"
+      },
+      {
+        "i": 1,
+        "comment": "1 goes to 2, 2 to 3, and 3 back to 1"
+      }
+    ],
+    "PA2B2": [
+      {
+        "i": 0,
+        "comment": "13 is 3 squared plus 2 squared"
+      },
+      {
+        "i": 1,
+        "comment": "29 is 5 squared plus 2 squared"
+      }
+    ],
+    "PCOEF": [
+      {
+        "i": 0,
+        "comment": "The roots 1 and 2 give X^2 - 3X + 2"
+      }
+    ],
+    "PDIM": [
+      {
+        "i": 0,
+        "comment": "(-5,-2) and (5,2) become the new minimum and maximum of the plot range"
+      }
+    ],
+    "PEVAL": [
+      {
+        "i": 0,
+        "comment": "X^2 - 3X + 2 evaluated at X=5"
+      },
+      {
+        "i": 1,
+        "comment": "2X^3 + 1 evaluated at X=-1"
+      }
+    ],
+    "PIX?": [
+      {
+        "i": 2,
+        "comment": "A pixel given as an {x y} list in pixels"
+      }
+    ],
+    "POS": [
+      {
+        "i": 0,
+        "comment": "The first L is the 3rd character"
+      },
+      {
+        "i": 1,
+        "comment": "The 7 is the 3rd element"
+      }
+    ],
+    "POTENTIAL": [
+      {
+        "i": 0,
+        "comment": "The field (X,Y) in the variables X and Y"
+      },
+      {
+        "i": 1,
+        "comment": "The field (Y,X) in the variables X and Y"
+      }
+    ],
+    "POWMOD": [
+      {
+        "i": 0,
+        "comment": "3^5 is 243, and 243 is -2 modulo 7"
+      },
+      {
+        "i": 1,
+        "comment": "(X+1)^3 modulo 3 loses the middle terms"
+      }
+    ],
+    "PREVAL": [
+      {
+        "i": 0,
+        "comment": "A is the lower bound and B the upper"
+      }
+    ],
+    "PROOT": [
+      {
+        "i": 1,
+        "comment": "X^2 + 1 has the roots i and -i"
+      }
+    ],
+    "PTAYL": [
+      {
+        "i": 0,
+        "comment": "(X-2)^2+7*(X-2)+11 expands back to X^2+3*X+1"
+      }
+    ],
+    "PUT": [
+      {
+        "i": 0,
+        "comment": "Replaces element 2 with 9"
+      },
+      {
+        "i": 1,
+        "comment": "Row 2, column 1 becomes 0"
+      }
+    ],
+    "PUTI": [
+      {
+        "i": 0,
+        "comment": "Replaces element 1 and returns the next index, 2"
+      },
+      {
+        "i": 1,
+        "comment": "After the last element the index wraps back to 1"
+      },
+      {
+        "i": 2,
+        "comment": "After the last element the index wraps to 1 and flag 46 is set"
+      }
+    ],
+    "PVARS": [
+      {
+        "i": 0,
+        "comment": "Port 0 holds nothing; the number is its free memory"
+      }
+    ],
+    "PX→C": [
+      {
+        "i": 0,
+        "comment": "Pixel 0, 0 is the plot range's upper-left point"
+      },
+      {
+        "i": 1,
+        "comment": "Pixel 65, 32 is the origin of the default plot window"
+      }
+    ],
+    "P→R": [
+      {
+        "i": 0,
+        "comment": "Radius 2 at 90 degrees"
+      }
+    ],
+    "QUAD": [
+      {
+        "i": 0,
+        "comment": "s1 is +1 or -1, so the roots are 2 and 1"
+      },
+      {
+        "i": 2,
+        "comment": "Flag -103 selects complex mode, so the roots i and -i are found"
+      }
+    ],
+    "QUOTE": [
+      {
+        "i": 0,
+        "comment": "A holds 5, yet the expression stays as it is"
+      }
+    ],
+    "RAND": [
+      {
+        "i": 0,
+        "comment": "Seed 123 gives the same number every time"
+      },
+      {
+        "i": 1,
+        "comment": "The second call continues the sequence"
+      }
+    ],
+    "RANM": [
+      {
+        "i": 0,
+        "comment": "Seed 1 makes the values repeatable; 2 rows, 3 columns"
+      },
+      {
+        "i": 1,
+        "comment": "Only the size of the given matrix is used"
+      }
+    ],
+    "RCI": [
+      {
+        "i": 0,
+        "comment": "Multiplies row 2 by 10"
+      },
+      {
+        "i": 1,
+        "comment": "Multiplies row 1 by 0.5"
+      }
+    ],
+    "RCIJ": [
+      {
+        "i": 0,
+        "comment": "Adds -3 times row 1 to row 2"
+      },
+      {
+        "i": 1,
+        "comment": "Adds -2 times row 1 to row 2"
+      }
+    ],
+    "RCLALARM": [
+      {
+        "i": 0,
+        "comment": "Alarm 1 comes back as date, time, text and repeat 0"
+      }
+    ],
+    "RCLF": [
+      {
+        "i": 1,
+        "comment": "Flags 1 and 3 set give 5 in the user flag word (1 + 4)"
+      },
+      {
+        "i": 2,
+        "comment": "Masks the low three flags: 1 and 3 are set, 2 is clear"
+      }
+    ],
+    "RCLMENU": [
+      {
+        "i": 0,
+        "comment": "Menu 2, page 1"
+      }
+    ],
+    "RDM": [
+      {
+        "i": 0,
+        "comment": "A 2 by 2 matrix, filled row by row"
+      },
+      {
+        "i": 1,
+        "comment": "A single size gives a vector; the fourth element is dropped"
+      }
+    ],
+    "RECT": [
+      {
+        "i": 0,
+        "comment": "After SPHERE, RECT clears flag -16 and leaves -15 set"
+      }
+    ],
+    "REPL": [
+      {
+        "i": 0,
+        "comment": "Overwrites from the 2nd character"
+      },
+      {
+        "i": 1,
+        "comment": "Overwrites from the 3rd element"
+      }
+    ],
+    "RES": [
+      {
+        "i": 1,
+        "comment": "A binary integer sets the resolution in pixels"
+      }
+    ],
+    "RESULTANT": [
+      {
+        "i": 1,
+        "comment": "Both have the root 1, so the result is 0"
+      }
+    ],
+    "RKF": [
+      {
+        "i": 0,
+        "comment": "y' = -y with y=1 at t=0, solved to t=1 within .00001"
+      }
+    ],
+    "RKFERR": [
+      {
+        "i": 0,
+        "comment": "One step of size .5 from t=0, y=1"
+      }
+    ],
+    "RRK": [
+      {
+        "i": 0,
+        "comment": "The partial derivatives of -Y, -1 and 0, extend the list"
+      }
+    ],
+    "RSD": [
+      {
+        "i": 0,
+        "comment": "Level 3 is B, level 2 is A, level 1 the trial solution Z"
+      },
+      {
+        "i": 1,
+        "comment": "Z solves the system exactly, so the residual is zero"
+      }
+    ],
+    "R→B": [
+      {
+        "i": 1,
+        "comment": "10.6 is rounded to 11 first"
+      }
+    ],
+    "R→P": [
+      {
+        "i": 1,
+        "comment": "Straight up: radius 2 at 90 degrees"
+      }
+    ],
+    "SAME": [
+      {
+        "i": 1,
+        "comment": "Different names give 0, not a symbolic result"
+      }
+    ],
+    "SCALE": [
+      {
+        "i": 0,
+        "comment": "2 units per 10 pixels in x, 1 in y"
+      }
+    ],
+    "SCI": [
+      {
+        "i": 0,
+        "comment": "Two decimals; 1234.5 is rounded to 1.23E3"
+      }
+    ],
+    "SEQ": [
+      {
+        "i": 1,
+        "comment": "K runs from 0 to 1 in steps of 0.25"
+      }
+    ],
+    "SHOW": [
+      {
+        "i": 0,
+        "comment": "B is replaced by its contents, X stays as a name"
+      }
+    ],
+    "SIGN": [
+      {
+        "i": 2,
+        "comment": "The unit vector: (3,4) divided by its length, 5"
+      }
+    ],
+    "SIMP2": [
+      {
+        "i": 0,
+        "comment": "12/18 reduces to 2/3: both numbers are divided by 6"
+      }
+    ],
+    "SIZE": [
+      {
+        "i": 2,
+        "comment": "Rows, then columns"
+      },
+      {
+        "i": 3,
+        "comment": "Counts A, B, C and the two operators"
+      }
+    ],
+    "SL": [
+      {
+        "i": 1,
+        "comment": "The highest bit falls off the end, leaving 0"
+      }
+    ],
+    "SREPL": [
+      {
+        "i": 0,
+        "comment": "Both Bs are replaced; the count 2 is on level 1"
+      },
+      {
+        "i": 1,
+        "comment": "Nothing found: the string is unchanged and the count is 0"
+      }
+    ],
+    "START": [
+      {
+        "i": 0,
+        "comment": "Runs the loop 5 times, doubling each time"
+      }
+    ],
+    "STO-": [
+      {
+        "i": 0,
+        "comment": "A minus 1 (name in level 2)"
+      },
+      {
+        "i": 1,
+        "comment": "10 minus A (name in level 1)"
+      }
+    ],
+    "STO/": [
+      {
+        "i": 0,
+        "comment": "A divided by 2 (name in level 2)"
+      },
+      {
+        "i": 1,
+        "comment": "2 divided by A (name in level 1)"
+      }
+    ],
+    "STOALARM": [
+      {
+        "i": 0,
+        "comment": "Date 1 January 2030, time 12:00, text Meet; the result is the alarm's index"
+      },
+      {
+        "i": 1,
+        "comment": "Date 1 January 2030, time 9:30"
+      }
+    ],
+    "STOF": [
+      {
+        "i": 2,
+        "comment": "The binary integer 5 sets flags 1 and 3 and leaves 2 clear"
+      }
+    ],
+    "STREAM": [
+      {
+        "i": 0,
+        "comment": "Multiplies the elements one after another"
+      },
+      {
+        "i": 1,
+        "comment": "Keeps the larger of each pair"
+      }
+    ],
+    "STURMAB": [
+      {
+        "i": 0,
+        "comment": "One root between 0 and 2; the polynomial is -2 at 0"
+      },
+      {
+        "i": 1,
+        "comment": "No real root between 0 and 2"
+      }
+    ],
+    "STWS": [
+      {
+        "i": 1,
+        "comment": "With 8 bits, 1FF is cut to FF"
+      }
+    ],
+    "SYST2MAT": [
+      {
+        "i": 0,
+        "comment": "The last column holds the constants moved to the left side: -3 and -1"
+      }
+    ],
+    "S→H": [
+      {
+        "i": 0,
+        "comment": "A is 41 and B is 42 in hexadecimal, each with its two digits in reverse order"
+      }
+    ],
+    "SUB": [
+      {
+        "i": 1,
+        "comment": "The 2nd and 3rd elements"
+      }
+    ],
+    "TDELTA": [
+      {
+        "i": 0,
+        "comment": "100 °C minus 50 °F is a difference of 90 °C"
+      }
+    ],
+    "TIME": [
+      {
+        "i": 0,
+        "comment": "After setting 12:30 the clock has run a few seconds"
+      }
+    ],
+    "TINC": [
+      {
+        "i": 0,
+        "comment": "A rise of 15 K is a rise of 15 °C"
+      },
+      {
+        "i": 1,
+        "comment": "A rise of 10 °C is 18 °F, so 68 becomes 86"
+      }
+    ],
+    "TMENU": [
+      {
+        "i": 0,
+        "comment": "A custom menu reads as .01"
+      }
+    ],
+    "TRANSIO": [
+      {
+        "i": 0,
+        "comment": "The translation code, 2, is the last element of IOPAR"
+      }
+    ],
+    "TRN": [
+      {
+        "i": 1,
+        "comment": "Complex entries are conjugated: (1,1) becomes (1,-1)"
+      }
+    ],
+    "TRNC": [
+      {
+        "i": 1,
+        "comment": "A negative count keeps 3 significant digits"
+      }
+    ],
+    "TSTR": [
+      {
+        "i": 0,
+        "comment": "1 January 2030 at 12:30"
+      },
+      {
+        "i": 1,
+        "comment": "4 July 1991 at 18:45:12, shown on a 12-hour clock"
+      }
+    ],
+    "TVARS": [
+      {
+        "i": 0,
+        "comment": "Type 0 is real: only A is listed"
+      },
+      {
+        "i": 1,
+        "comment": "Types 0 (real) and 2 (string)"
+      }
+    ],
+    "TVMROOT": [
+      {
+        "i": 0,
+        "comment": "Loan of 10000, 36 payments, 6% a year, 12 payments a year; solves PMT"
+      }
+    ],
+    "UFACT": [
+      {
+        "i": 0,
+        "comment": "Factors N out of the joule"
+      }
+    ],
+    "UNPICK": [
+      {
+        "i": 0,
+        "comment": "99 replaces the object on level 2, the 2"
+      }
+    ],
+    "UTPC": [
+      {
+        "i": 0,
+        "comment": "5 degrees of freedom, upper tail beyond 11.07"
+      }
+    ],
+    "UTPF": [
+      {
+        "i": 0,
+        "comment": "5 and 10 degrees of freedom, value 3.33"
+      }
+    ],
+    "UTPN": [
+      {
+        "i": 0,
+        "comment": "Mean 0, variance 1, value 1.96"
+      },
+      {
+        "i": 1,
+        "comment": "Mean 100, variance 225, so 115 is one standard deviation above the mean"
+      }
+    ],
+    "UTPT": [
+      {
+        "i": 0,
+        "comment": "10 degrees of freedom"
+      },
+      {
+        "i": 1,
+        "comment": "At 0 the upper tail is half"
+      }
+    ],
+    "V→": [
+      {
+        "i": 2,
+        "comment": "In cylindrical mode a 2-element vector splits into radius and angle (not on the 48SX)"
+      }
+    ],
+    "WHILE": [
+      {
+        "i": 0,
+        "comment": "Doubles the value while it is below 100"
+      }
+    ],
+    "XCOL": [
+      {
+        "i": 0,
+        "comment": "Column 2 becomes the x column, so ΣX adds up that column"
+      }
+    ],
+    "YCOL": [
+      {
+        "i": 0,
+        "comment": "Column 1 becomes the y column, so ΣY adds up that column"
+      }
+    ],
+    "XLIB~": [
+      {
+        "i": 0,
+        "comment": "Library 788, command 1"
+      }
+    ],
+    "XOR": [
+      {
+        "i": 0,
+        "comment": "Binary 1100 XOR 1010 gives 0110"
+      }
+    ],
+    "XPON": [
+      {
+        "i": 1,
+        "comment": "4.2E-4 has the exponent -4"
+      }
+    ],
+    "XVOL": [
+      {
+        "i": 0,
+        "comment": "Sets entries 1 and 2 of VPAR, the x bounds"
+      }
+    ],
+    "XXRNG": [
+      {
+        "i": 0,
+        "comment": "Sets entries 7 and 8 of VPAR"
+      }
+    ],
+    "YVOL": [
+      {
+        "i": 0,
+        "comment": "Sets entries 3 and 4 of VPAR, the depth"
+      }
+    ],
+    "YYRNG": [
+      {
+        "i": 0,
+        "comment": "Sets entries 9 and 10 of VPAR"
+      }
+    ],
+    "ZVOL": [
+      {
+        "i": 0,
+        "comment": "Sets entries 5 and 6 of VPAR, the height"
+      }
+    ],
+    "^": [
+      {
+        "i": 1,
+        "comment": "The square root of -8, so the result is complex"
+      }
+    ],
+    "|": [
+      {
+        "i": 0,
+        "comment": "X is replaced by 2 and Y by 3"
+      }
+    ],
+    "Σ": [
+      {
+        "i": 0,
+        "comment": "The sum of N^2 for N from 1 to 10"
+      }
+    ],
+    "Σ+": [
+      {
+        "i": 1,
+        "comment": "Two single values make a one-column matrix"
+      },
+      {
+        "i": 2,
+        "comment": "Adds a fourth data row, so NΣ gives 4"
+      }
+    ],
+    "↑MATCH": [
+      {
+        "i": 0,
+        "comment": "Rewritten by distributing; the 1 reports a match"
+      }
+    ],
+    "↓MATCH": [
+      {
+        "i": 0,
+        "comment": "Rewritten by distributing; the 1 reports a match"
+      }
+    ],
+    "→": [
+      {
+        "i": 0,
+        "comment": "Binds 3 to a and 4 to b"
+      }
+    ],
+    "→ARRY": [
+      {
+        "i": 1,
+        "comment": "A 2 by 2 matrix: the list gives rows and columns"
+      }
+    ],
+    "→DATE": [
+      {
+        "i": 0,
+        "comment": "10.052026 is 5 October 2026"
+      },
+      {
+        "i": 1,
+        "comment": "29 February 1992, a leap day"
+      }
+    ],
+    "→HMS": [
+      {
+        "i": 0,
+        "comment": "1.5 hours is 1h30m"
+      },
+      {
+        "i": 1,
+        "comment": "2.7525 hours is 2h45m09s"
+      }
+    ],
+    "→TIME": [
+      {
+        "i": 0,
+        "comment": "14.3 is 14:30"
+      },
+      {
+        "i": 1,
+        "comment": "8.1530 is 8:15:30"
+      }
+    ],
+    "∞": [
+      {
+        "i": 1,
+        "comment": "The limit of 1/X as X goes to infinity"
+      }
+    ],
+    "∫": [
+      {
+        "i": 3,
+        "comment": "0 to 1 to within .00001; the second value is the error estimate"
+      }
+    ],
+    "RR": [
+      {
+        "i": 1,
+        "comment": "The lowest bit wraps to the top"
+      },
+      {
+        "i": 2,
+        "comment": "In an 8-bit word the lowest bit wraps to 128"
+      }
+    ],
+    "RL": [
+      {
+        "i": 1,
+        "comment": "The top bit wraps to the bottom"
+      }
+    ],
+    "RLB": [
+      {
+        "i": 1,
+        "comment": "The top byte wraps to the bottom"
+      }
+    ],
+    "RRB": [
+      {
+        "i": 2,
+        "comment": "In a 16-bit word the two bytes swap"
+      }
+    ]
+  }
+}

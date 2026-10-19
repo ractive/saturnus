@@ -257,14 +257,15 @@ test("an example's comment comes with the example it was written for, on every m
   for (const m of ["48sx", "48gx", "49g", "28s"]) {
     const ex = buildIndex(data, m).byName.get("HMS+").per.examples;
     assert.equal(ex[0].comment, "1h30m plus 2h45m gives 4h15m", m);
-    assert.equal(ex[1]?.comment, undefined, m);
+    // Plain arithmetic carries no comment.
+    assert.ok(buildIndex(data, m).byName.get("+").per.examples.every((x) => x.comment === undefined), m);
   }
   // RND's specs differ per model: spec 1 runs on the 48s and the 49G only.
   assert.equal(g49.byName.get("RND").per.examples[1].comment, "A negative count rounds to 3 significant digits");
   assert.ok(buildIndex(data, "28s").byName.get("RND").per.examples.every((x) => x.comment === undefined));
   const ch = buildIndex(data, "17bii").byName.get("%CH");
   assert.equal(ch.per.examples[0].comment, "From 100 to 125 is a rise of 25 percent");
-  assert.equal(buildIndex(data, "17b").byName.get("%CH").per.examples[0].comment, undefined);
+  assert.equal(buildIndex(data, "42s").byName.get("+").per.examples[0].comment, undefined);
   // Each is short and has no full stop.
   const all = Object.values(data.commands).flatMap((c) => Object.values(c.models).flatMap((p) => p.examples ?? []))
     .concat(Object.values(data.keyModels).flatMap((km) => Object.values(km.commands).flatMap((c) => c.examples ?? [])));

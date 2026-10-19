@@ -893,7 +893,7 @@ mod tests {
 
     #[test]
     fn an_example_shows_its_comment_under_it() {
-        // HMS+'s first example on every model, its second (no comment) not.
+        // HMS+'s first example on every model; plain arithmetic has none.
         let h = one("HMS+", None);
         for m in MODELS {
             assert_eq!(
@@ -901,7 +901,14 @@ mod tests {
                 "{m}"
             );
         }
-        assert!(h["examples"]["48gx"][1].get("comment").is_none());
+        let plus = one("+", None);
+        assert!(
+            plus["examples"]["48gx"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .all(|x| x.get("comment").is_none())
+        );
         let t = text(&h);
         assert!(
             t.contains("  1.3 2.45 HMS+  =>  4.15\n  # 1h30m plus 2h45m gives 4h15m\n"),

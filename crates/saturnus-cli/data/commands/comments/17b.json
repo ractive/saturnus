@@ -1,0 +1,113 @@
+{
+ "group": "17b",
+ "comments": {
+  "360D": [
+   {
+    "i": 0,
+    "comment": "3 April to 25 December 1991, counted in 30-day months"
+   }
+  ],
+  "365D": [
+   {
+    "i": 0,
+    "comment": "3 April to 25 December 1991, leap days ignored"
+   }
+  ],
+  "DAYS": [
+   {
+    "i": 0,
+    "comment": "3 April to 25 December 1991, counted by the real calendar"
+   }
+  ],
+  "DATE1": [
+   {
+    "i": 0,
+    "comment": "Dates are typed as MM.DDYYYY: 4.031991 is 3 April 1991"
+   }
+  ],
+  "DATE2": [
+   {
+    "i": 0,
+    "comment": "Dates are typed as MM.DDYYYY: 12.251991 is 25 December 1991"
+   }
+  ],
+  "SETT": [
+   {
+    "i": 0,
+    "comment": "1.031991 is 3 January 1991, the day the bond is bought"
+   }
+  ],
+  "MAT": [
+   {
+    "i": 0,
+    "comment": "1.032001 is 3 January 2001"
+   }
+  ],
+  "DB": [
+   {
+    "i": 0,
+    "comment": "Year 1 of 5, at double the straight-line rate: 40 percent of 10,000"
+   }
+  ],
+  "SL": [
+   {
+    "i": 0,
+    "comment": "Cost 10,000, salvage 500, life 5 years: (10,000 - 500) / 5 for year 1"
+   }
+  ],
+  "SOYD": [
+   {
+    "i": 0,
+    "comment": "Cost 10,000, salvage 500, life 5 years: 5/15 of 9,500 for year 1"
+   }
+  ],
+  "EFF% (CONT)": [
+   {
+    "i": 0,
+    "comment": "A nominal 10 percent compounded continuously is 10.52 percent a year"
+   }
+  ],
+  "EFF% (PER)": [
+   {
+    "i": 0,
+    "comment": "A nominal 10 percent compounded 12 times a year is 10.47 percent a year"
+   }
+  ],
+  "FV": [
+   {
+    "i": 0,
+    "comment": "Pays in 100 over 10 periods at 5 percent a year; PMT is 0"
+   }
+  ],
+  "PMT": [
+   {
+    "i": 0,
+    "comment": "A 100,000 loan over 360 periods at 6 percent a year, nothing owed at the end"
+   }
+  ],
+  "N": [
+   {
+    "i": 0,
+    "comment": "360 periods, for example a 30-year loan paid monthly"
+   }
+  ],
+  "M%C": [
+   {
+    "i": 0,
+    "comment": "Cost 4.10 and price 4.60: the markup is 12.2 percent of the cost"
+   }
+  ],
+  "M%P": [
+   {
+    "i": 0,
+    "comment": "Cost 4.10 and price 4.60: the markup is 10.87 percent of the price"
+   }
+  ],
+  "%CH": [
+   {
+    "i": 0,
+    "comment": "From 100 to 125 is a rise of 25 percent"
+   }
+  ]
+ }
+}

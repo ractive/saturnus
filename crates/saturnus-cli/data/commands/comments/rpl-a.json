@@ -1,0 +1,723 @@
+{
+  "group": "rpl",
+  "comments": {
+    "*H": [
+      {
+        "i": 0,
+        "comment": "The y range -3.1 to 3.2 doubles to -6.2 to 6.4; the x range stays"
+      }
+    ],
+    "*W": [
+      {
+        "i": 0,
+        "comment": "The x range -6.5 to 6.5 doubles to -13 to 13; the y range stays"
+      }
+    ],
+    "/": [
+      {
+        "i": 2,
+        "comment": "Solves the linear system: the matrix times the result gives [ 5 6 ]"
+      }
+    ],
+    "<": [
+      {
+        "i": 2,
+        "comment": "Units are compared after conversion: 1 m is longer than 50 cm"
+      }
+    ],
+    "ABCUV": [
+      {
+        "i": 0,
+        "comment": "Finds u and v with (X^2+1)*u+(X-1)*v=1"
+      }
+    ],
+    "ADDTMOD": [
+      {
+        "i": 0,
+        "comment": "The sum X^2+12*X+9 reduces modulo 7 to X^2-2*X+2"
+      },
+      {
+        "i": 1,
+        "comment": "Modulo 7: 5 plus 4 gives 2"
+      }
+    ],
+    "AMORT": [
+      {
+        "i": 0,
+        "comment": "First 12 monthly payments of 200 on 10000 at 6% a year: principal, interest, balance"
+      }
+    ],
+    "AND": [
+      {
+        "i": 0,
+        "comment": "Binary 1100 AND 1010 gives 1000"
+      }
+    ],
+    "ARCHIVE": [
+      {
+        "i": 0,
+        "comment": "Backs up HOME to port 0 under the name BK; PVARS then lists it"
+      }
+    ],
+    "ASN": [
+      {
+        "i": 0,
+        "comment": "Puts « 1 » on key 11 (row 1, column 1, unshifted); RCLKEYS shows it"
+      }
+    ],
+    "ASR": [
+      {
+        "i": 1,
+        "comment": "The top bit stays set as the other bits move down"
+      }
+    ],
+    "A→H": [
+      {
+        "i": 0,
+        "comment": "The five digits come back in reverse order"
+      }
+    ],
+    "BAUD": [
+      {
+        "i": 0,
+        "comment": "The baud rate is the first element of IOPAR"
+      }
+    ],
+    "BESTFIT": [
+      {
+        "i": 0,
+        "comment": "Data that triple at each step fit an exponential model best"
+      }
+    ],
+    "BIN": [
+      {
+        "i": 0,
+        "comment": "Decimal 12 is 1100 in binary"
+      },
+      {
+        "i": 1,
+        "comment": "Hexadecimal FF is eight ones in binary"
+      }
+    ],
+    "BINS": [
+      {
+        "i": 0,
+        "comment": "Two bins of width 2 from 0: counts per bin, then counts below and above"
+      }
+    ],
+    "B→R": [
+      {
+        "i": 1,
+        "comment": "Binary 101 is 5"
+      }
+    ],
+    "C2P": [
+      {
+        "i": 0,
+        "comment": "The cycles (1 3) and (2 4) give the images 3, 4, 1, 2"
+      }
+    ],
+    "CASE": [
+      {
+        "i": 0,
+        "comment": "The test for 1 fails, the test for 2 passes and pushes B"
+      }
+    ],
+    "CEIL": [
+      {
+        "i": 1,
+        "comment": "A negative number rounds up towards zero"
+      }
+    ],
+    "CF": [
+      {
+        "i": 0,
+        "comment": "Sets flag 3, clears it, then tests it: 0 means clear"
+      }
+    ],
+    "CIRC": [
+      {
+        "i": 0,
+        "comment": "The two permutations are inverses, so the result is the identity"
+      }
+    ],
+    "CLKADJ": [
+      {
+        "i": 0,
+        "comment": "Moves the clock forward by one second (8192 ticks)"
+      },
+      {
+        "i": 1,
+        "comment": "Moves the clock back by 2.5 seconds"
+      }
+    ],
+    "CLΣ": [
+      {
+        "i": 0,
+        "comment": "The old data is gone: only the new point 7 remains"
+      }
+    ],
+    "COL+": [
+      {
+        "i": 0,
+        "comment": "Inserts [ 9 9 ] as the new column 1"
+      },
+      {
+        "i": 1,
+        "comment": "Inserts the number 2 as element 2"
+      }
+    ],
+    "COLΣ": [
+      {
+        "i": 0,
+        "comment": "Column 2 is the independent variable, column 1 the dependent one"
+      }
+    ],
+    "COMB": [
+      {
+        "i": 1,
+        "comment": "The number of five-card hands from a 52-card deck"
+      }
+    ],
+    "CONST": [
+      {
+        "i": 1,
+        "comment": "NA is Avogadro's number"
+      },
+      {
+        "i": 2,
+        "comment": "With flag 61 set the value has no units; g is standard gravity"
+      }
+    ],
+    "C→PX": [
+      {
+        "i": 0,
+        "comment": "The origin falls on pixel 65, 32 of the default plot window"
+      },
+      {
+        "i": 1,
+        "comment": "(-6.5,3.2), the plot window's upper-left point, is pixel 0, 0"
+      }
+    ],
+    "DARCY": [
+      {
+        "i": 0,
+        "comment": "Relative roughness 0.0001, Reynolds number 100000"
+      },
+      {
+        "i": 1,
+        "comment": "Zero roughness at Reynolds number 1000 gives 64 divided by 1000"
+      }
+    ],
+    "DATE": [
+      {
+        "i": 0,
+        "comment": "1.012030 is 1 January 2030 in MM.DDYYYY form"
+      }
+    ],
+    "DDAYS": [
+      {
+        "i": 0,
+        "comment": "From 1 January to 15 July 1991, in MM.DDYYYY form"
+      }
+    ],
+    "DEC": [
+      {
+        "i": 0,
+        "comment": "Hexadecimal FF is 255 in decimal"
+      },
+      {
+        "i": 1,
+        "comment": "Binary 101 is 5 in decimal"
+      }
+    ],
+    "DEF": [
+      {
+        "i": 0,
+        "comment": "Defines F(X)=X^2, then calls F with 3"
+      }
+    ],
+    "DEFINE": [
+      {
+        "i": 1,
+        "comment": "Defines the function F, then calls it with 3"
+      }
+    ],
+    "DELALARM": [
+      {
+        "i": 1,
+        "comment": "Index 0 deletes every alarm, so FINDALARM then finds none"
+      }
+    ],
+    "DELAY": [
+      {
+        "i": 0,
+        "comment": "The delay is the first element of PRTPAR"
+      }
+    ],
+    "DELKEYS": [
+      {
+        "i": 0,
+        "comment": "Removes the assignment on key 11 only; the one on key 12 stays"
+      }
+    ],
+    "DIAGMAP": [
+      {
+        "i": 0,
+        "comment": "Squares the eigenvalues of the matrix, 1 and 4"
+      }
+    ],
+    "DIV2MOD": [
+      {
+        "i": 0,
+        "comment": "Quotient X, remainder X+4, which is X+1 modulo 3"
+      },
+      {
+        "i": 1,
+        "comment": "11 is 4 modulo 7, so 11 divided by 4 gives 1, remainder 0"
+      }
+    ],
+    "DIVMOD": [
+      {
+        "i": 0,
+        "comment": "Modulo 7, so 3 times -3 gives 5"
+      }
+    ],
+    "DIVPC": [
+      {
+        "i": 0,
+        "comment": "1/(1-X) as a series up to X^4"
+      }
+    ],
+    "DO": [
+      {
+        "i": 0,
+        "comment": "Multiplies by 3 until the value is above 50: 3, 9, 27, 81"
+      }
+    ],
+    "DOLIST": [
+      {
+        "i": 0,
+        "comment": "Two lists, the count 2, and a program that multiplies each pair"
+      }
+    ],
+    "DOSUBS": [
+      {
+        "i": 0,
+        "comment": "Adds each pair of neighbouring elements"
+      },
+      {
+        "i": 1,
+        "comment": "SWAP - subtracts the earlier element from the later one in each pair"
+      }
+    ],
+    "DUPN": [
+      {
+        "i": 0,
+        "comment": "The count 2 copies the top two objects, the 2 and the 3"
+      }
+    ],
+    "EGCD": [
+      {
+        "i": 0,
+        "comment": "Returns c, u, v with (X^2+1)*u+(X-1)*v=c"
+      }
+    ],
+    "EGVL": [
+      {
+        "i": 1,
+        "comment": "A quarter-turn rotation matrix has the eigenvalues i and -i"
+      }
+    ],
+    "ENDSUB": [
+      {
+        "i": 0,
+        "comment": "Windows of one element give 3 windows, so ENDSUB is 3 every time"
+      }
+    ],
+    "EPSX0": [
+      {
+        "i": 0,
+        "comment": "1E-15 is below EPS, so its term becomes 0"
+      }
+    ],
+    "ERR0": [
+      {
+        "i": 0,
+        "comment": "Traps 1/0, clears the error record, then ERRN gives #0"
+      }
+    ],
+    "ERRN": [
+      {
+        "i": 0,
+        "comment": "305h, 773 in decimal, is the code of Infinite Result"
+      }
+    ],
+    "EULER": [
+      {
+        "i": 1,
+        "comment": "13 is prime, so 12 numbers up to it are coprime to it"
+      }
+    ],
+    "EXGET": [
+      {
+        "i": 0,
+        "comment": "The 2nd object is +, so its subexpression is A+B"
+      }
+    ],
+    "EXP": [
+      {
+        "i": 1,
+        "comment": "e^i has real part cos 1 and imaginary part sin 1, in radians"
+      }
+    ],
+    "EXPANDMOD": [
+      {
+        "i": 0,
+        "comment": "Modulo 7 the X term vanishes and 12 becomes -2"
+      }
+    ],
+    "EXPM": [
+      {
+        "i": 0,
+        "comment": "The final 5 is the x²/2 term, a digit EXP(x)-1 would round away"
+      }
+    ],
+    "EXSUB": [
+      {
+        "i": 0,
+        "comment": "Replaces the + subexpression, A+B, with E^F"
+      }
+    ],
+    "F0λ": [
+      {
+        "i": 0,
+        "comment": "Wavelength 500 nm (5E-7 m), temperature 5800 K"
+      },
+      {
+        "i": 1,
+        "comment": "Wavelength 10 micrometres (0.00001 m), temperature 300 K"
+      }
+    ],
+    "FACTORS": [
+      {
+        "i": 0,
+        "comment": "Each factor is followed by its multiplicity: 5, 3 squared, 2 cubed"
+      }
+    ],
+    "FANNING": [
+      {
+        "i": 0,
+        "comment": "Relative roughness 0.0001, Reynolds number 100000"
+      },
+      {
+        "i": 1,
+        "comment": "Zero roughness at Reynolds number 1000 gives 16 divided by 1000"
+      }
+    ],
+    "FC?C": [
+      {
+        "i": 0,
+        "comment": "Flag 5 is set, so 0 comes back, and then flag 5 is cleared"
+      }
+    ],
+    "FCOEF": [
+      {
+        "i": 0,
+        "comment": "Root 1 twice (multiplicity 2) and a pole at 3 (multiplicity -1)"
+      },
+      {
+        "i": 1,
+        "comment": "Root 0 once and root 2 once"
+      }
+    ],
+    "FFT": [
+      {
+        "i": 1,
+        "comment": "A single 1 followed by zeros gives a flat spectrum"
+      }
+    ],
+    "FINDALARM": [
+      {
+        "i": 0,
+        "comment": "The alarm, on 1 January 2030, falls due after 1 January 2029"
+      },
+      {
+        "i": 1,
+        "comment": "The alarm is at 12:00, before 13:00, so none is found"
+      },
+      {
+        "i": 2,
+        "comment": "0 looks for a past-due alarm, and none is due"
+      }
+    ],
+    "FIX": [
+      {
+        "i": 1,
+        "comment": "Zero decimal places rounds 12.7 up and keeps the point"
+      }
+    ],
+    "FOR": [
+      {
+        "i": 0,
+        "comment": "Adds k from 1 to 5 to the 0 already on the stack"
+      },
+      {
+        "i": 1,
+        "comment": "Counts from 1 to 10 in steps of 3"
+      }
+    ],
+    "FS?C": [
+      {
+        "i": 0,
+        "comment": "Returns 1 because flag 5 is set, then clears it, so FS? gives 0"
+      }
+    ],
+    "GETI": [
+      {
+        "i": 0,
+        "comment": "The list, the next position 2, and the element at position 1"
+      },
+      {
+        "i": 1,
+        "comment": "After position 3 the index wraps round to 1"
+      }
+    ],
+    "GOR": [
+      {
+        "i": 1,
+        "comment": "ORs a 4 by 4 graphic into an 8 by 8 one at pixel 0, 0; the size is unchanged"
+      }
+    ],
+    "GRAD": [
+      {
+        "i": 0,
+        "comment": "100 grads is a quarter circle, so its sine is 1"
+      }
+    ],
+    "GROB": [
+      {
+        "i": 0,
+        "comment": "8 pixels wide and 2 high: FF is the first row, 00 the second"
+      }
+    ],
+    "HEX": [
+      {
+        "i": 0,
+        "comment": "255 decimal is FF in hexadecimal"
+      },
+      {
+        "i": 1,
+        "comment": "Binary 11111111 is FF in hexadecimal"
+      }
+    ],
+    "HMS+": [
+      {
+        "i": 1,
+        "comment": "0h59m59s plus 1 second carries over to exactly 1 hour"
+      }
+    ],
+    "HMS-": [
+      {
+        "i": 0,
+        "comment": "4h15m minus 1h30m gives 2h45m"
+      },
+      {
+        "i": 1,
+        "comment": "1 hour minus 1 second gives 0h59m59s"
+      }
+    ],
+    "HMS→": [
+      {
+        "i": 0,
+        "comment": "1h30m is 1.5 hours"
+      },
+      {
+        "i": 1,
+        "comment": "2h45m09s is 2.7525 hours"
+      }
+    ],
+    "HORNER": [
+      {
+        "i": 0,
+        "comment": "Divides by (X-3): the quotient, the point 3, and the value at 3"
+      },
+      {
+        "i": 1,
+        "comment": "Divides by (X+1): the quotient, the point -1, and the value at -1"
+      }
+    ],
+    "H→S": [
+      {
+        "i": 0,
+        "comment": "Each character is two digits in reverse order: 41 is A, 42 is B"
+      }
+    ],
+    "IABCUV": [
+      {
+        "i": 0,
+        "comment": "Finds u and v with 6*u + 11*v = 3"
+      },
+      {
+        "i": 1,
+        "comment": "Finds u and v with 4*u + 6*v = 10"
+      }
+    ],
+    "ICHINREM": [
+      {
+        "i": 0,
+        "comment": "x is 2 modulo 3 and 1 modulo 5, giving -4 modulo 15"
+      }
+    ],
+    "IEGCD": [
+      {
+        "i": 0,
+        "comment": "6*2 + 11*-1 = 1, so the gcd is 1"
+      }
+    ],
+    "IFERR": [
+      {
+        "i": 0,
+        "comment": "1/0 fails, so the THEN part runs and pushes the text; the 1 and 0 stay"
+      }
+    ],
+    "IFT": [
+      {
+        "i": 2,
+        "comment": "The test 1 is not zero, so the program runs: 2 plus 3"
+      }
+    ],
+    "INDEP": [
+      {
+        "i": 1,
+        "comment": "A list also sets the range of the variable: T from 0 to 5"
+      }
+    ],
+    "INT": [
+      {
+        "i": 0,
+        "comment": "Integrates X^2 in X, evaluated at Y"
+      }
+    ],
+    "INVMOD": [
+      {
+        "i": 0,
+        "comment": "Modulo 7, so 2 times -3 gives 1"
+      },
+      {
+        "i": 1,
+        "comment": "Modulo 11, so 3 times 4 gives 1"
+      }
+    ],
+    "ISPRIME?": [
+      {
+        "i": 1,
+        "comment": "91 is 7 times 13, so it is not prime"
+      }
+    ],
+    "LAGRANGE": [
+      {
+        "i": 0,
+        "comment": "The points (1,2), (2,5) and (3,10)"
+      },
+      {
+        "i": 1,
+        "comment": "The points (0,1) and (1,3)"
+      }
+    ],
+    "LASTARG": [
+      {
+        "i": 1,
+        "comment": "The one argument, 16, comes back after the square root"
+      }
+    ],
+    "LCXM": [
+      {
+        "i": 0,
+        "comment": "Entry (i,j) is i plus j, for 2 rows and 3 columns"
+      },
+      {
+        "i": 1,
+        "comment": "A 3 by 3 multiplication table"
+      }
+    ],
+    "LDEC": [
+      {
+        "i": 0,
+        "comment": "The right-hand side is 0 and the characteristic polynomial is X^2+1"
+      }
+    ],
+    "LININ": [
+      {
+        "i": 2,
+        "comment": "SIN(Y) does not contain X, so the term is linear"
+      }
+    ],
+    "LSQ": [
+      {
+        "i": 0,
+        "comment": "The vector is B, the matrix is A: three equations, two unknowns"
+      }
+    ],
+    "LVAR": [
+      {
+        "i": 1,
+        "comment": "SIN(X) is listed as a whole, not as X"
+      }
+    ],
+    "MKISOM": [
+      {
+        "i": 0,
+        "comment": "A rotation by π/2; the sign 1 marks a direct isometry"
+      }
+    ],
+    "MOD": [
+      {
+        "i": 1,
+        "comment": "The result takes the sign of the divisor, so -17 mod 5 is 3"
+      }
+    ],
+    "MODSTO": [
+      {
+        "i": 0,
+        "comment": "Modulo 7, so 2 times -3 gives 1"
+      }
+    ],
+    "NOT": [
+      {
+        "i": 0,
+        "comment": "Every one of the 64 bits is inverted"
+      },
+      {
+        "i": 1,
+        "comment": "The word size is 8, so only 8 bits are inverted"
+      }
+    ],
+    "NSUB": [
+      {
+        "i": 0,
+        "comment": "NSUB is 1, 2, 3 in turn, so each element is multiplied by its position"
+      }
+    ],
+    "OBGET": [
+      {
+        "i": 0,
+        "comment": "Counting A, +, B, * and C from the left, the 2nd is +"
+      },
+      {
+        "i": 1,
+        "comment": "Counting A, * and B from the left, the 3rd is B"
+      }
+    ],
+    "OBSUB": [
+      {
+        "i": 0,
+        "comment": "Replaces the 3rd object, B, with C"
+      },
+      {
+        "i": 1,
+        "comment": "Replaces the 2nd object, the *, with +"
+      }
+    ]
+  }
+}

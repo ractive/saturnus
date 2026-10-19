@@ -1,0 +1,197 @@
+{
+ "group": "38g",
+ "comments": {
+  "%CHANGE": [
+   {
+    "i": 0,
+    "comment": "From 20 to 50 is a rise of 150 percent"
+   }
+  ],
+  "%TOTAL": [
+   {
+    "i": 0,
+    "comment": "50 is 250 percent of 20"
+   }
+  ],
+  "Ans": [
+   {
+    "i": 0,
+    "comment": "Ans is the 42 from the line above, so the second line adds 1 to it"
+   }
+  ],
+  "ARG": [
+   {
+    "i": 0,
+    "comment": "The angle mode is degrees: (1,1) lies at 45 degrees"
+   }
+  ],
+  "COLNORM": [
+   {
+    "i": 0,
+    "comment": "Stores a 2 by 2 matrix in M1; its columns sum to 4 and 6 in absolute value"
+   }
+  ],
+  "ROWNORM": [
+   {
+    "i": 0,
+    "comment": "Stores a 2 by 2 matrix in M1; its rows sum to 3 and 7 in absolute value"
+   }
+  ],
+  "COND": [
+   {
+    "i": 0,
+    "comment": "The column norm 2 times that of the inverse, 1, gives 2"
+   }
+  ],
+  "COT": [
+   {
+    "i": 0,
+    "comment": "The angle mode is degrees, so 1 means 1 degree"
+   }
+  ],
+  "CSC": [
+   {
+    "i": 0,
+    "comment": "The angle mode is degrees, so 1 means 1 degree"
+   }
+  ],
+  "CROSS": [
+   {
+    "i": 0,
+    "comment": "M1 and M2 hold the x and y unit vectors; their cross product is the z unit vector"
+   }
+  ],
+  "EIGENVAL": [
+   {
+    "i": 0,
+    "comment": "The eigenvalues of a diagonal matrix are its diagonal entries"
+   }
+  ],
+  "FLOOR": [
+   {
+    "i": 0,
+    "comment": "A negative value rounds down, away from zero"
+   }
+  ],
+  "FNROOT": [
+   {
+    "i": 0,
+    "comment": "Finds where X^2-2 is zero, starting the search at X = 1: the square root of 2"
+   }
+  ],
+  "HMS→": [
+   {
+    "i": 0,
+    "comment": "8.3 is 8h30m, which is 8.5 hours"
+   }
+  ],
+  "→HMS": [
+   {
+    "i": 0,
+    "comment": "8.5 hours is 8h30m"
+   }
+  ],
+  "IFTE": [
+   {
+    "i": 0,
+    "comment": "The test 1 is non-zero, so the result is the second argument, 5"
+   }
+  ],
+  "ITERATE": [
+   {
+    "i": 0,
+    "comment": "Squares X three times from the start value 2: 4, 16, 256"
+   }
+  ],
+  "MAKELIST": [
+   {
+    "i": 0,
+    "comment": "A^2 for A from 1 to 4 in steps of 1"
+   }
+  ],
+  "MAKEMAT": [
+   {
+    "i": 0,
+    "comment": "A 2 by 2 matrix whose entry is row I plus column J"
+   }
+  ],
+  "NTHROOT": [
+   {
+    "i": 0,
+    "comment": "The cube root of 8; the degree 3 comes first"
+   }
+  ],
+  "POLYCOEF": [
+   {
+    "i": 0,
+    "comment": "The roots 2 and -3 give X^2 + X - 6"
+   }
+  ],
+  "POLYEVAL": [
+   {
+    "i": 0,
+    "comment": "The polynomial X^2 + 2X - 3 at X = 2"
+   }
+  ],
+  "POLYROOT": [
+   {
+    "i": 0,
+    "comment": "The roots of X^2 + X - 6"
+   }
+  ],
+  "POS": [
+   {
+    "i": 0,
+    "comment": "The 12 is the 3rd element of the list"
+   }
+  ],
+  "QUAD": [
+   {
+    "i": 0,
+    "comment": "Solves X^2 - 4 = 0; s1*4/2 stands for 2 and -2"
+   }
+  ],
+  "RANK": [
+   {
+    "i": 0,
+    "comment": "The second row is twice the first, so the rank is 1"
+   }
+  ],
+  "RREF": [
+   {
+    "i": 0,
+    "comment": "Stores an augmented matrix in M1; the last column holds the solution x = -1, y = 2"
+   }
+  ],
+  "UTPN": [
+   {
+    "i": 0,
+    "comment": "Mean 0, variance 1, at the value 0: half of the probability lies above"
+   }
+  ],
+  "ΔLIST": [
+   {
+    "i": 0,
+    "comment": "The differences 5-3, 8-5 and 12-8"
+   }
+  ],
+  "∂": [
+   {
+    "i": 0,
+    "comment": "Differentiates s1^2+3*s1 with respect to s1; the name s1 keeps the result symbolic"
+   }
+  ],
+  "∫": [
+   {
+    "i": 0,
+    "comment": "The area under 2*X from X = 0 to X = 1"
+   }
+  ],
+  "XPON": [
+   {
+    "i": 0,
+    "comment": "123.4 is 1.234 times 10 to the power 2"
+   }
+  ]
+ }
+}

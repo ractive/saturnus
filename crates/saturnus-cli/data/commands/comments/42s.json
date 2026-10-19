@@ -1,0 +1,179 @@
+{
+  "group": "42s",
+  "comments": {
+    "%CH": [
+      {
+        "i": 0,
+        "comment": "From 50 to 75 is a rise of 50 percent"
+      }
+    ],
+    "AND": [
+      {
+        "i": 0,
+        "comment": "Binary 1100 AND 1010 gives 1000, which is 8"
+      }
+    ],
+    "NOT": [
+      {
+        "i": 0,
+        "comment": "Flips every bit of 5, giving -6 in two's complement"
+      }
+    ],
+    "ROTXY": [
+      {
+        "i": 0,
+        "comment": "Rotates the 8 right by 1 bit, giving 4"
+      }
+    ],
+    "XOR": [
+      {
+        "i": 0,
+        "comment": "Binary 1100 XOR 1010 gives 0110, which is 6"
+      }
+    ],
+    "HEXM": [
+      {
+        "i": 0,
+        "comment": "Decimal 255 is FF in hexadecimal"
+      }
+    ],
+    "OCTM": [
+      {
+        "i": 0,
+        "comment": "Decimal 64 is 100 in octal"
+      }
+    ],
+    "BINM": [
+      {
+        "i": 0,
+        "comment": "Decimal 5 is 101 in binary"
+      }
+    ],
+    "COMPLEX": [
+      {
+        "i": 0,
+        "comment": "y becomes the real part and x the imaginary part: 3 + 4i"
+      }
+    ],
+    "DIM?": [
+      {
+        "i": 0,
+        "comment": "Makes a 2 by 3 matrix; DIM? puts the rows in y and the columns in x"
+      }
+    ],
+    "HMS+": [
+      {
+        "i": 0,
+        "comment": "1h30m plus 2h45m gives 4h15m"
+      }
+    ],
+    "HMS-": [
+      {
+        "i": 0,
+        "comment": "2h45m minus 1h30m gives 1h15m"
+      }
+    ],
+    "→HMS": [
+      {
+        "i": 0,
+        "comment": "1.5 hours is 1h30m"
+      }
+    ],
+    "→HR": [
+      {
+        "i": 0,
+        "comment": "1h30m is 1.5 hours"
+      }
+    ],
+    "LASTX": [
+      {
+        "i": 0,
+        "comment": "Square root of 9 gives 3; LASTX brings back the 9 it used"
+      }
+    ],
+    "R↑": [
+      {
+        "i": 0,
+        "comment": "Stack of 1 2 3 4: the 1 from t comes to x, and the 4 moves up to y"
+      }
+    ],
+    "R↓": [
+      {
+        "i": 0,
+        "comment": "Stack of 1 2 3 4: the 4 in x goes to t, the 3 from y comes to x"
+      }
+    ],
+    "FCSTX": [
+      {
+        "i": 0,
+        "comment": "Data points (1,2) and (3,4); the line reaches y = 5 at x = 4"
+      }
+    ],
+    "FCSTY": [
+      {
+        "i": 0,
+        "comment": "Data points (1,2) and (3,4); the line gives y = 6 at x = 5"
+      }
+    ],
+    "SLOPE": [
+      {
+        "i": 0,
+        "comment": "Through the points (1,2) and (3,4)"
+      }
+    ],
+    "MEAN": [
+      {
+        "i": 0,
+        "comment": "Of the points (1,2) and (3,4); x shows the mean of the x values"
+      }
+    ],
+    "WMEAN": [
+      {
+        "i": 0,
+        "comment": "The x values 1 and 3 weighted by the y values 2 and 4"
+      }
+    ],
+    "CORR": [
+      {
+        "i": 0,
+        "comment": "Each point typed as y ENTER x Σ+: (1,2), (3,4), (5,7)"
+      }
+    ],
+    "Σ+": [
+      {
+        "i": 0,
+        "comment": "Adds the point with y = 2 and x = 1; the count 1 replaces x"
+      }
+    ],
+    "Σ-": [
+      {
+        "i": 0,
+        "comment": "Removes the point added a moment ago, so the count is back to 0"
+      }
+    ],
+    "→POL": [
+      {
+        "i": 0,
+        "comment": "The point x = 3, y = 4 is 5 from the origin at 53.1301 degrees"
+      }
+    ],
+    "→REC": [
+      {
+        "i": 0,
+        "comment": "Length 2 at 30 degrees gives x = 1.7321 and y = 1"
+      }
+    ],
+    "→DEC": [
+      {
+        "i": 0,
+        "comment": "Octal 10 is 8"
+      }
+    ],
+    "→OCT": [
+      {
+        "i": 0,
+        "comment": "Decimal 8 is 10 in octal"
+      }
+    ]
+  }
+}

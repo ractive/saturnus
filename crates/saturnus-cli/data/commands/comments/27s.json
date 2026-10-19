@@ -1,0 +1,119 @@
+{
+ "group": "27s",
+ "comments": {
+  "%CH": [
+   {
+    "i": 0,
+    "comment": "From an old value of 100 to a new value of 125 is a rise of 25 percent"
+   }
+  ],
+  "360D": [
+   {
+    "i": 0,
+    "comment": "3 April to 25 December 1991, counted in 30-day months"
+   }
+  ],
+  "365D": [
+   {
+    "i": 0,
+    "comment": "3 April to 25 December 1991, leap days ignored"
+   }
+  ],
+  "DAYS": [
+   {
+    "i": 0,
+    "comment": "3 April to 25 December 1991, counted by the real calendar"
+   }
+  ],
+  "DATE1": [
+   {
+    "i": 0,
+    "comment": "Dates are typed as MM.DDYYYY: 4.031991 is 3 April 1991"
+   }
+  ],
+  "DATE2": [
+   {
+    "i": 0,
+    "comment": "Dates are typed as MM.DDYYYY: 12.251991 is 25 December 1991"
+   }
+  ],
+  "BIN": [
+   {
+    "i": 0,
+    "comment": "Decimal 10 is 1010 in binary"
+   }
+  ],
+  "HEX": [
+   {
+    "i": 0,
+    "comment": "Decimal 255 is FF in hexadecimal"
+   }
+  ],
+  "OCT": [
+   {
+    "i": 0,
+    "comment": "Decimal 64 is 100 in octal"
+   }
+  ],
+  "CX,Y": [
+   {
+    "i": 0,
+    "comment": "X is 5 items to choose from, Y is the 3 chosen"
+   }
+  ],
+  "PX,Y": [
+   {
+    "i": 0,
+    "comment": "X is 5 items to choose from, Y is the 3 chosen"
+   }
+  ],
+  "FV": [
+   {
+    "i": 0,
+    "comment": "Pays in 100 over 10 periods at 5 percent a year; PMT is 0"
+   }
+  ],
+  "PMT": [
+   {
+    "i": 0,
+    "comment": "A 100,000 loan over 360 periods at 6 percent a year, nothing owed at the end"
+   }
+  ],
+  "N": [
+   {
+    "i": 0,
+    "comment": "360 periods, for example a 30-year loan paid monthly"
+   }
+  ],
+  "R": [
+   {
+    "i": 0,
+    "comment": "Point at x 3, y 4: its distance from the origin"
+   }
+  ],
+  "∡": [
+   {
+    "i": 0,
+    "comment": "Point at x 3, y 4: its angle from the x axis"
+   }
+  ],
+  "→HMS": [
+   {
+    "i": 0,
+    "comment": "1.5 hours is 1h30m"
+   }
+  ],
+  "→HR": [
+   {
+    "i": 0,
+    "comment": "1h30m is 1.5 hours"
+   }
+  ],
+  "RND": [
+   {
+    "i": 0,
+    "comment": "Rounds to the 4 decimals the display shows"
+   }
+  ]
+ }
+}

@@ -115,7 +115,8 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "The y range -3.1 to 3.2 doubles to -6.2 to 6.4; the x range stays"
         },
         {
           "input": "2.",
@@ -139,7 +140,8 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "The x range -6.5 to 6.5 doubles to -13 to 13; the y range stays"
         },
         {
           "input": "2.",
@@ -214,7 +216,8 @@
           ]
         },
         {
-          "input": "[ 5. 6. ] [[ 1. 0. ][ 0. 2. ]]"
+          "input": "[ 5. 6. ] [[ 1. 0. ][ 0. 2. ]]",
+          "comment": "Solves the linear system: the matrix times the result gives [ 5 6 ]"
         }
       ],
       "per_model": {
@@ -247,7 +250,8 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "Units are compared after conversion: 1 m is longer than 50 cm"
         }
       ],
       "per_model": {
@@ -323,7 +327,8 @@
       "stack": "'a' 'b' 'c' → 'u' 'v'",
       "examples": [
         {
-          "input": "'X^2+1' 'X-1' '1'"
+          "input": "'X^2+1' 'X-1' '1'",
+          "comment": "Finds u and v with (X^2+1)*u+(X-1)*v=1"
         },
         {
           "input": "'X' 'X+1' 'X^2'"
@@ -445,11 +450,13 @@
       "examples": [
         {
           "input": "'X^2+3*X+6' '9*X+3'",
-          "setup": "7 MODSTO"
+          "setup": "7 MODSTO",
+          "comment": "The sum X^2+12*X+9 reduces modulo 7 to X^2-2*X+2"
         },
         {
           "input": "5 4",
-          "setup": "7 MODSTO"
+          "setup": "7 MODSTO",
+          "comment": "Modulo 7: 5 plus 4 gives 2"
         }
       ]
     },
@@ -492,7 +499,8 @@
       "examples": [
         {
           "setup": "12. 'PYR' STO 6. 'I%YR' STO 1E4 'PV' STO -200. 'PMT' STO",
-          "input": "12."
+          "input": "12.",
+          "comment": "First 12 monthly payments of 200 on 10000 at 6% a year: principal, interest, balance"
         }
       ]
     },
@@ -501,7 +509,8 @@
       "stack": "#n1 #n2 → #n3; x y → 0|1; 'symb1' 'symb2' → 'symb1 AND symb2'",
       "examples": [
         {
-          "input": "#Ch #Ah"
+          "input": "#Ch #Ah",
+          "comment": "Binary 1100 AND 1010 gives 1000"
         },
         {
           "input": "1. 0."
@@ -554,7 +563,8 @@
         {
           "input": ":0:BK",
           "run": "ARCHIVE 0. PVARS",
-          "setup": "1. 'A' STO"
+          "setup": "1. 'A' STO",
+          "comment": "Backs up HOME to port 0 under the name BK; PVARS then lists it"
         }
       ]
     },
@@ -693,7 +703,8 @@
       "examples": [
         {
           "input": "« 1. » 11.1",
-          "run": "ASN RCLKEYS"
+          "run": "ASN RCLKEYS",
+          "comment": "Puts « 1 » on key 11 (row 1, column 1, unshifted); RCLKEYS shows it"
         }
       ]
     },
@@ -711,7 +722,8 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "The top bit stays set as the other bits move down"
         },
         {
           "setup": "HEX",
@@ -875,7 +887,8 @@
       "examples": [
         {
           "setup": "256. ATTACH",
-          "input": "#12345h"
+          "input": "#12345h",
+          "comment": "The five digits come back in reverse order"
         }
       ]
     },
@@ -914,7 +927,8 @@
       "examples": [
         {
           "input": "2400.",
-          "run": "BAUD IOPAR"
+          "run": "BAUD IOPAR",
+          "comment": "The baud rate is the first element of IOPAR"
         }
       ]
     },
@@ -938,7 +952,8 @@
         {
           "input": "",
           "setup": "[[ 1. 3. ][ 2. 9. ][ 3. 27. ]] STOΣ",
-          "run": "BESTFIT ΣPAR"
+          "run": "BESTFIT ΣPAR",
+          "comment": "Data that triple at each step fit an exponential model best"
         }
       ]
     },
@@ -949,11 +964,13 @@
       "examples": [
         {
           "input": "",
-          "run": "BIN #12d →STR"
+          "run": "BIN #12d →STR",
+          "comment": "Decimal 12 is 1100 in binary"
         },
         {
           "input": "",
-          "run": "BIN #FFh →STR"
+          "run": "BIN #FFh →STR",
+          "comment": "Hexadecimal FF is eight ones in binary"
         }
       ]
     },
@@ -965,7 +982,8 @@
         {
           "input": "0. 2. 2.",
           "run": "BINS",
-          "setup": "[[ 1. ][ 2. ][ 2.5 ][ 4. ]] STOΣ"
+          "setup": "[[ 1. ][ 2. ][ 2.5 ][ 4. ]] STOΣ",
+          "comment": "Two bins of width 2 from 0: counts per bin, then counts below and above"
         }
       ]
     },
@@ -1026,7 +1044,8 @@
           "comment": "Hexadecimal FF is 255"
         },
         {
-          "input": "#101b"
+          "input": "#101b",
+          "comment": "Binary 101 is 5"
         }
       ]
     },
@@ -1036,7 +1055,8 @@
       "stack": "{cycles} → {perm}",
       "examples": [
         {
-          "input": "{ { 1. 3. } { 2. 4. } }"
+          "input": "{ { 1. 3. } { 2. 4. } }",
+          "comment": "The cycles (1 3) and (2 4) give the images 3, 4, 1, 2"
         }
       ]
     },
@@ -1060,7 +1080,8 @@
       "examples": [
         {
           "input": "2.",
-          "run": "« CASE DUP 1. == THEN \"A\" END DUP 2. == THEN \"B\" END END » EVAL"
+          "run": "« CASE DUP 1. == THEN \"A\" END DUP 2. == THEN \"B\" END END » EVAL",
+          "comment": "The test for 1 fails, the test for 2 passes and pushes B"
         }
       ]
     },
@@ -1086,7 +1107,8 @@
           "input": "3.2"
         },
         {
-          "input": "-3.7"
+          "input": "-3.7",
+          "comment": "A negative number rounds up towards zero"
         }
       ],
       "per_model": {
@@ -1122,7 +1144,8 @@
         {
           "input": "",
           "setup": "3. SF",
-          "run": "3. CF 3. FS?"
+          "run": "3. CF 3. FS?",
+          "comment": "Sets flag 3, clears it, then tests it: 0 means clear"
         }
       ],
       "per_model": {
@@ -1176,7 +1199,8 @@
       "stack": "{perm1} {perm2} → {perm}",
       "examples": [
         {
-          "input": "{ 3. 1. 2. } { 2. 3. 1. }"
+          "input": "{ 3. 1. 2. } { 2. 3. 1. }",
+          "comment": "The two permutations are inverses, so the result is the identity"
         }
       ]
     },
@@ -1208,10 +1232,12 @@
       "stack": "x →",
       "examples": [
         {
-          "input": "8192."
+          "input": "8192.",
+          "comment": "Moves the clock forward by one second (8192 ticks)"
         },
         {
-          "input": "-20480."
+          "input": "-20480.",
+          "comment": "Moves the clock back by 2.5 seconds"
         }
       ]
     },
@@ -1297,7 +1323,8 @@
         {
           "input": "",
           "run": "CLΣ 7. Σ+ RCLΣ",
-          "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ"
+          "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+          "comment": "The old data is gone: only the new point 7 remains"
         }
       ]
     },
@@ -1327,10 +1354,12 @@
       "stack": "[[matrix]] [col] n → [[matrix']]; [vector] x n → [vector']",
       "examples": [
         {
-          "input": "[[ 1. 2. ][ 3. 4. ]] [ 9. 9. ] 1."
+          "input": "[[ 1. 2. ][ 3. 4. ]] [ 9. 9. ] 1.",
+          "comment": "Inserts [ 9 9 ] as the new column 1"
         },
         {
-          "input": "[ 1. 3. ] 2. 2."
+          "input": "[ 1. 3. ] 2. 2.",
+          "comment": "Inserts the number 2 as element 2"
         }
       ]
     },
@@ -1380,7 +1409,8 @@
       "examples": [
         {
           "input": "2. 1.",
-          "run": "COLΣ ΣPAR"
+          "run": "COLΣ ΣPAR",
+          "comment": "Column 2 is the independent variable, column 1 the dependent one"
         }
       ]
     },
@@ -1406,7 +1436,8 @@
           "input": "5. 2."
         },
         {
-          "input": "52. 5."
+          "input": "52. 5.",
+          "comment": "The number of five-card hands from a 52-card deck"
         }
       ],
       "per_model": {
@@ -1501,11 +1532,13 @@
           "input": "'c'"
         },
         {
-          "input": "'NA'"
+          "input": "'NA'",
+          "comment": "NA is Avogadro's number"
         },
         {
           "input": "'g'",
-          "setup": "61. SF"
+          "setup": "61. SF",
+          "comment": "With flag 61 set the value has no units; g is standard gravity"
         }
       ]
     },
@@ -1751,10 +1784,12 @@
       "stack": "(x,y) → {#x #y}",
       "examples": [
         {
-          "input": "(0.,0.)"
+          "input": "(0.,0.)",
+          "comment": "The origin falls on pixel 65, 32 of the default plot window"
         },
         {
-          "input": "(-6.5,3.2)"
+          "input": "(-6.5,3.2)",
+          "comment": "(-6.5,3.2), the plot window's upper-left point, is pixel 0, 0"
         }
       ]
     },
@@ -1777,10 +1812,12 @@
       "stack": "x_roughness y_Re → f",
       "examples": [
         {
-          "input": "0.0001 100000."
+          "input": "0.0001 100000.",
+          "comment": "Relative roughness 0.0001, Reynolds number 100000"
         },
         {
-          "input": "0. 1000."
+          "input": "0. 1000.",
+          "comment": "Zero roughness at Reynolds number 1000 gives 64 divided by 1000"
         }
       ]
     },
@@ -1791,7 +1828,8 @@
         {
           "input": "",
           "run": "DATE",
-          "setup": "1.012030 →DATE"
+          "setup": "1.012030 →DATE",
+          "comment": "1.012030 is 1 January 2030 in MM.DDYYYY form"
         }
       ]
     },
@@ -1822,7 +1860,8 @@
       "stack": "date1 date2 → x",
       "examples": [
         {
-          "input": "1.011991 7.151991"
+          "input": "1.011991 7.151991",
+          "comment": "From 1 January to 15 July 1991, in MM.DDYYYY form"
         },
         {
           "input": "12.252026 1.012026",
@@ -1837,11 +1876,13 @@
       "examples": [
         {
           "input": "",
-          "run": "DEC #FFh →STR"
+          "run": "DEC #FFh →STR",
+          "comment": "Hexadecimal FF is 255 in decimal"
         },
         {
           "input": "",
-          "run": "DEC #101b →STR"
+          "run": "DEC #101b →STR",
+          "comment": "Binary 101 is 5 in decimal"
         }
       ]
     },
@@ -1871,7 +1912,8 @@
       "examples": [
         {
           "input": "'F(X)=X^2'",
-          "run": "DEF 3. F"
+          "run": "DEF 3. F",
+          "comment": "Defines F(X)=X^2, then calls F with 3"
         }
       ]
     },
@@ -1886,7 +1928,8 @@
         },
         {
           "input": "'F(X)=X^2+1'",
-          "run": "DEFINE 3. F"
+          "run": "DEFINE 3. F",
+          "comment": "Defines the function F, then calls it with 3"
         }
       ]
     },
@@ -1931,7 +1974,8 @@
         {
           "input": "0.",
           "run": "DELALARM 0. FINDALARM",
-          "setup": "{ 1.012030 12. \"Meet\" } STOALARM DROP"
+          "setup": "{ 1.012030 12. \"Meet\" } STOALARM DROP",
+          "comment": "Index 0 deletes every alarm, so FINDALARM then finds none"
         }
       ]
     },
@@ -1942,7 +1986,8 @@
       "examples": [
         {
           "input": "2.",
-          "run": "DELAY PRTPAR"
+          "run": "DELAY PRTPAR",
+          "comment": "The delay is the first element of PRTPAR"
         }
       ]
     },
@@ -1954,7 +1999,8 @@
         {
           "input": "11.1",
           "run": "DELKEYS RCLKEYS",
-          "setup": "« 1. » 11.1 ASN « 2. » 12.1 ASN"
+          "setup": "« 1. » 11.1 ASN « 2. » 12.1 ASN",
+          "comment": "Removes the assignment on key 11 only; the one on key 12 stays"
         },
         {
           "input": "0.",
@@ -2057,7 +2103,8 @@
       "stack": "[[A]] 'symb' → [[B]]",
       "examples": [
         {
-          "input": "[[ 1. 0. ][ 0. 4. ]] 'X^2'"
+          "input": "[[ 1. 0. ][ 0. 4. ]] 'X^2'",
+          "comment": "Squares the eigenvalues of the matrix, 1 and 4"
         }
       ]
     },
@@ -2162,11 +2209,13 @@
       "examples": [
         {
           "input": "'X^3+4' 'X^2-1'",
-          "setup": "3 MODSTO"
+          "setup": "3 MODSTO",
+          "comment": "Quotient X, remainder X+4, which is X+1 modulo 3"
         },
         {
           "input": "11 4",
-          "setup": "7 MODSTO"
+          "setup": "7 MODSTO",
+          "comment": "11 is 4 modulo 7, so 11 divided by 4 gives 1, remainder 0"
         }
       ]
     },
@@ -2190,7 +2239,8 @@
       "examples": [
         {
           "input": "5 3",
-          "setup": "7 MODSTO"
+          "setup": "7 MODSTO",
+          "comment": "Modulo 7, so 3 times -3 gives 5"
         },
         {
           "input": "'X^2-1' 'X+1'",
@@ -2204,7 +2254,8 @@
       "stack": "'symb1' 'symb2' n → 'symb'",
       "examples": [
         {
-          "input": "'1' '1-X' 4"
+          "input": "'1' '1-X' 4",
+          "comment": "1/(1-X) as a series up to X^4"
         },
         {
           "input": "'X^3+4*X+12' '11*X^11+1' 4"
@@ -2217,7 +2268,8 @@
       "examples": [
         {
           "input": "1.",
-          "run": "« DO 3. * UNTIL DUP 50. > END » EVAL"
+          "run": "« DO 3. * UNTIL DUP 50. > END » EVAL",
+          "comment": "Multiplies by 3 until the value is above 50: 3, 9, 27, 81"
         }
       ]
     },
@@ -2240,7 +2292,8 @@
       "stack": "{list1} ... {listn} n prog → {results}; {list} prog → {results}",
       "examples": [
         {
-          "input": "{ 1. 2. 3. } { 4. 5. 6. } 2. « * »"
+          "input": "{ 1. 2. 3. } { 4. 5. 6. } 2. « * »",
+          "comment": "Two lists, the count 2, and a program that multiplies each pair"
         },
         {
           "input": "{ 1. 2. 3. } « SQ »"
@@ -2266,10 +2319,12 @@
       "stack": "{list} n prog → {results}",
       "examples": [
         {
-          "input": "{ 1. 2. 3. 4. } 2. « + »"
+          "input": "{ 1. 2. 3. 4. } 2. « + »",
+          "comment": "Adds each pair of neighbouring elements"
         },
         {
-          "input": "{ 1. 4. 9. 16. } 2. « SWAP - »"
+          "input": "{ 1. 4. 9. 16. } 2. « SWAP - »",
+          "comment": "SWAP - subtracts the earlier element from the later one in each pair"
         }
       ]
     },
@@ -2420,7 +2475,8 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "The count 2 copies the top two objects, the 2 and the 3"
         },
         {
           "input": "1. 2. 2.",
@@ -2462,7 +2518,8 @@
       "stack": "'a' 'b' → 'c' 'u' 'v'",
       "examples": [
         {
-          "input": "'X^2+1' 'X-1'"
+          "input": "'X^2+1' 'X-1'",
+          "comment": "Returns c, u, v with (X^2+1)*u+(X-1)*v=c"
         },
         {
           "input": "'X^2-1' 'X^3+1'"
@@ -2491,7 +2548,8 @@
           "input": "[[ 2. 1. ][ 1. 2. ]]"
         },
         {
-          "input": "[[ 0. -1. ][ 1. 0. ]]"
+          "input": "[[ 0. -1. ][ 1. 0. ]]",
+          "comment": "A quarter-turn rotation matrix has the eigenvalues i and -i"
         }
       ]
     },
@@ -2518,7 +2576,8 @@
       "examples": [
         {
           "input": "{ 10. 20. 30. }",
-          "run": "1. « ENDSUB » DOSUBS"
+          "run": "1. « ENDSUB » DOSUBS",
+          "comment": "Windows of one element give 3 windows, so ENDSUB is 3 every time"
         }
       ]
     },
@@ -2556,7 +2615,8 @@
       "category": "ALGEBRA",
       "examples": [
         {
-          "input": "'X+1.E-15*Y'"
+          "input": "'X+1.E-15*Y'",
+          "comment": "1E-15 is below EPS, so its term becomes 0"
         }
       ]
     },
@@ -2606,7 +2666,8 @@
       "examples": [
         {
           "input": "",
-          "run": "« IFERR 1. 0. / THEN END ERR0 ERRN » EVAL"
+          "run": "« IFERR 1. 0. / THEN END ERR0 ERRN » EVAL",
+          "comment": "Traps 1/0, clears the error record, then ERRN gives #0"
         }
       ]
     },
@@ -2634,7 +2695,8 @@
       "examples": [
         {
           "input": "1. 0.",
-          "run": "« IFERR / THEN ERRN END » EVAL"
+          "run": "« IFERR / THEN ERRN END » EVAL",
+          "comment": "305h, 773 in decimal, is the code of Infinite Result"
         }
       ],
       "per_model": {
@@ -2653,7 +2715,8 @@
           "input": "36."
         },
         {
-          "input": "13."
+          "input": "13.",
+          "comment": "13 is prime, so 12 numbers up to it are coprime to it"
         }
       ]
     },
@@ -2687,7 +2750,8 @@
       "stack": "'symb1' n → 'symb2'",
       "examples": [
         {
-          "input": "'(A+B)*C' 2."
+          "input": "'(A+B)*C' 2.",
+          "comment": "The 2nd object is +, so its subexpression is A+B"
         }
       ]
     },
@@ -2712,7 +2776,8 @@
           "input": "1."
         },
         {
-          "input": "(0.,1.)"
+          "input": "(0.,1.)",
+          "comment": "e^i has real part cos 1 and imaginary part sin 1, in radians"
         }
       ]
     },
@@ -2779,7 +2844,8 @@
       "examples": [
         {
           "input": "'(X+3)*(X+4)'",
-          "setup": "7 MODSTO"
+          "setup": "7 MODSTO",
+          "comment": "Modulo 7 the X term vanishes and 12 becomes -2"
         }
       ]
     },
@@ -2815,7 +2881,8 @@
       "stack": "x → e^x-1; 'symb' → 'EXPM(symb)'",
       "examples": [
         {
-          "input": "1.E-10"
+          "input": "1.E-10",
+          "comment": "The final 5 is the x²/2 term, a digit EXP(x)-1 would round away"
         },
         {
           "input": "1."
@@ -2828,7 +2895,8 @@
       "stack": "'symb1' n 'symb2' → 'symb3'",
       "examples": [
         {
-          "input": "'(A+B)*C' 2. 'E^F'"
+          "input": "'(A+B)*C' 2. 'E^F'",
+          "comment": "Replaces the + subexpression, A+B, with E^F"
         }
       ]
     },
@@ -2849,10 +2917,12 @@
       "stack": "λ T → x",
       "examples": [
         {
-          "input": "5.E-7 5800."
+          "input": "5.E-7 5800.",
+          "comment": "Wavelength 500 nm (5E-7 m), temperature 5800 K"
         },
         {
-          "input": "0.00001 300."
+          "input": "0.00001 300.",
+          "comment": "Wavelength 10 micrometres (0.00001 m), temperature 300 K"
         }
       ]
     },
@@ -2904,7 +2974,8 @@
       "stack": "obj → {factor mult ...}",
       "examples": [
         {
-          "input": "360"
+          "input": "360",
+          "comment": "Each factor is followed by its multiplicity: 5, 3 squared, 2 cubed"
         },
         {
           "input": "'X^3-X'"
@@ -2917,10 +2988,12 @@
       "stack": "x_roughness y_Re → f",
       "examples": [
         {
-          "input": "0.0001 100000."
+          "input": "0.0001 100000.",
+          "comment": "Relative roughness 0.0001, Reynolds number 100000"
         },
         {
-          "input": "0. 1000."
+          "input": "0. 1000.",
+          "comment": "Zero roughness at Reynolds number 1000 gives 16 divided by 1000"
         }
       ]
     },
@@ -2958,7 +3031,8 @@
         {
           "input": "5.",
           "setup": "5. SF",
-          "run": "FC?C 5. FS?"
+          "run": "FC?C 5. FS?",
+          "comment": "Flag 5 is set, so 0 comes back, and then flag 5 is cleared"
         },
         {
           "input": "5."
@@ -2971,10 +3045,12 @@
       "stack": "[ r1 m1 r2 m2 ... ] → 'symb'",
       "examples": [
         {
-          "input": "[ 1. 2. 3. -1. ]"
+          "input": "[ 1. 2. 3. -1. ]",
+          "comment": "Root 1 twice (multiplicity 2) and a pole at 3 (multiplicity -1)"
         },
         {
-          "input": "[ 0. 1. 2. 1. ]"
+          "input": "[ 0. 1. 2. 1. ]",
+          "comment": "Root 0 once and root 2 once"
         }
       ]
     },
@@ -3000,7 +3076,8 @@
           "input": "[ 1. 2. 3. 4. ]"
         },
         {
-          "input": "[ 1. 0. 0. 0. ]"
+          "input": "[ 1. 0. 0. 0. ]",
+          "comment": "A single 1 followed by zeros gives a flat spectrum"
         },
         {
           "input": "[[ 1. 2. ][ 3. 4. ]]"
@@ -3021,15 +3098,18 @@
       "examples": [
         {
           "input": "1.012029",
-          "setup": "{ 1.012030 12. \"Meet\" } STOALARM DROP"
+          "setup": "{ 1.012030 12. \"Meet\" } STOALARM DROP",
+          "comment": "The alarm, on 1 January 2030, falls due after 1 January 2029"
         },
         {
           "input": "{ 1.012030 13. }",
-          "setup": "{ 1.012030 12. \"Meet\" } STOALARM DROP"
+          "setup": "{ 1.012030 12. \"Meet\" } STOALARM DROP",
+          "comment": "The alarm is at 12:00, before 13:00, so none is found"
         },
         {
           "input": "0.",
-          "setup": "{ 1.012030 12. \"Meet\" } STOALARM DROP"
+          "setup": "{ 1.012030 12. \"Meet\" } STOALARM DROP",
+          "comment": "0 looks for a past-due alarm, and none is due"
         }
       ]
     },
@@ -3050,7 +3130,8 @@
         },
         {
           "input": "0.",
-          "run": "FIX 12.7 →STR"
+          "run": "FIX 12.7 →STR",
+          "comment": "Zero decimal places rounds 12.7 up and keeps the point"
         }
       ]
     },
@@ -3127,11 +3208,13 @@
       "examples": [
         {
           "input": "0. 1. 5.",
-          "run": "« FOR k k + NEXT » EVAL"
+          "run": "« FOR k k + NEXT » EVAL",
+          "comment": "Adds k from 1 to 5 to the 0 already on the stack"
         },
         {
           "input": "1. 10.",
-          "run": "« FOR k k 3. STEP » EVAL"
+          "run": "« FOR k k 3. STEP » EVAL",
+          "comment": "Counts from 1 to 10 in steps of 3"
         }
       ]
     },
@@ -3227,7 +3310,8 @@
         {
           "input": "5.",
           "setup": "5. SF",
-          "run": "FS?C 5. FS?"
+          "run": "FS?C 5. FS?",
+          "comment": "Returns 1 because flag 5 is set, then clears it, so FS? gives 0"
         }
       ]
     },
@@ -3342,10 +3426,12 @@
       "stack": "[array] n → [array] n+1 x; {list} n → {list} n+1 obj",
       "examples": [
         {
-          "input": "{ 10. 20. 30. } 1."
+          "input": "{ 10. 20. 30. } 1.",
+          "comment": "The list, the next position 2, and the element at position 1"
         },
         {
-          "input": "{ 10. 20. 30. } 3."
+          "input": "{ 10. 20. 30. } 3.",
+          "comment": "After position 3 the index wraps round to 1"
         },
         {
           "input": "{ 10. 20. 30. } 3.",
@@ -3372,7 +3458,8 @@
         },
         {
           "input": "#8d #8d BLANK { #0d #0d } #4d #4d BLANK",
-          "run": "GOR SIZE"
+          "run": "GOR SIZE",
+          "comment": "ORs a 4 by 4 graphic into an 8 by 8 one at pixel 0, 0; the size is unchanged"
         }
       ]
     },
@@ -3383,7 +3470,8 @@
       "examples": [
         {
           "input": "",
-          "run": "GRAD 100. SIN"
+          "run": "GRAD 100. SIN",
+          "comment": "100 grads is a quarter circle, so its sine is 1"
         },
         {
           "input": "",
@@ -3435,7 +3523,8 @@
       "examples": [
         {
           "input": "",
-          "run": "GROB 8 2 FF00"
+          "run": "GROB 8 2 FF00",
+          "comment": "8 pixels wide and 2 high: FF is the first row, 00 the second"
         }
       ]
     },
@@ -3549,11 +3638,13 @@
       "examples": [
         {
           "input": "",
-          "run": "HEX #255d →STR"
+          "run": "HEX #255d →STR",
+          "comment": "255 decimal is FF in hexadecimal"
         },
         {
           "input": "",
-          "run": "HEX #11111111b →STR"
+          "run": "HEX #11111111b →STR",
+          "comment": "Binary 11111111 is FF in hexadecimal"
         }
       ]
     },
@@ -3603,7 +3694,8 @@
             "48gx",
             "49g",
             "28s"
-          ]
+          ],
+          "comment": "0h59m59s plus 1 second carries over to exactly 1 hour"
         }
       ],
       "per_model": {
@@ -3618,10 +3710,12 @@
       "stack": "hms1 hms2 → hms",
       "examples": [
         {
-          "input": "4.15 1.3"
+          "input": "4.15 1.3",
+          "comment": "4h15m minus 1h30m gives 2h45m"
         },
         {
-          "input": "1. 0.0001"
+          "input": "1. 0.0001",
+          "comment": "1 hour minus 1 second gives 0h59m59s"
         }
       ]
     },
@@ -3631,10 +3725,12 @@
       "stack": "hms → x",
       "examples": [
         {
-          "input": "1.3"
+          "input": "1.3",
+          "comment": "1h30m is 1.5 hours"
         },
         {
-          "input": "2.4509"
+          "input": "2.4509",
+          "comment": "2h45m09s is 2.7525 hours"
         }
       ]
     },
@@ -3655,10 +3751,12 @@
       "stack": "'p' a → 'quot' a value",
       "examples": [
         {
-          "input": "'X^2+X+1' 3."
+          "input": "'X^2+X+1' 3.",
+          "comment": "Divides by (X-3): the quotient, the point 3, and the value at 3"
         },
         {
-          "input": "'X^3-2*X+5' -1."
+          "input": "'X^3-2*X+5' -1.",
+          "comment": "Divides by (X+1): the quotient, the point -1, and the value at -1"
         }
       ]
     },
@@ -3701,7 +3799,8 @@
       "examples": [
         {
           "setup": "256. ATTACH",
-          "input": "\"1424\""
+          "input": "\"1424\"",
+          "comment": "Each character is two digits in reverse order: 41 is A, 42 is B"
         }
       ]
     },
@@ -3711,10 +3810,12 @@
       "stack": "n1 n2 n3 → u v",
       "examples": [
         {
-          "input": "6. 11. 3."
+          "input": "6. 11. 3.",
+          "comment": "Finds u and v with 6*u + 11*v = 3"
         },
         {
-          "input": "4. 6. 10."
+          "input": "4. 6. 10.",
+          "comment": "Finds u and v with 4*u + 6*v = 10"
         }
       ]
     },
@@ -3760,7 +3861,8 @@
       "stack": "[ a1 m1 ] [ a2 m2 ] → [ a m ]",
       "examples": [
         {
-          "input": "[ 2. 3. ] [ 1. 5. ]"
+          "input": "[ 2. 3. ] [ 1. 5. ]",
+          "comment": "x is 2 modulo 3 and 1 modulo 5, giving -4 modulo 15"
         },
         {
           "input": "[ 1. 4. ] [ 3. 7. ]"
@@ -3799,7 +3901,8 @@
       "stack": "n1 n2 → c u v",
       "examples": [
         {
-          "input": "6. 11."
+          "input": "6. 11.",
+          "comment": "6*2 + 11*-1 = 1, so the gcd is 1"
         },
         {
           "input": "240. 46."
@@ -3827,7 +3930,8 @@
       "examples": [
         {
           "input": "1. 0.",
-          "run": "« IFERR / THEN \"failed\" END » EVAL"
+          "run": "« IFERR / THEN \"failed\" END » EVAL",
+          "comment": "1/0 fails, so the THEN part runs and pushes the text; the 1 and 0 stay"
         },
         {
           "input": "6. 2.",
@@ -3860,7 +3964,8 @@
           "input": "0. \"yes\""
         },
         {
-          "input": "2. 3. 1. « + »"
+          "input": "2. 3. 1. « + »",
+          "comment": "The test 1 is not zero, so the program runs: 2 plus 3"
         }
       ]
     },
@@ -3942,7 +4047,8 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "A list also sets the range of the variable: T from 0 to 5"
         }
       ],
       "per_model": {
@@ -3970,7 +4076,8 @@
       "category": "CALC",
       "examples": [
         {
-          "input": "'X^2' 'X' 'Y'"
+          "input": "'X^2' 'X' 'Y'",
+          "comment": "Integrates X^2 in X, evaluated at Y"
         }
       ]
     },
@@ -4023,11 +4130,13 @@
       "examples": [
         {
           "input": "2",
-          "setup": "7 MODSTO"
+          "setup": "7 MODSTO",
+          "comment": "Modulo 7, so 2 times -3 gives 1"
         },
         {
           "input": "3",
-          "setup": "11 MODSTO"
+          "setup": "11 MODSTO",
+          "comment": "Modulo 11, so 3 times 4 gives 1"
         }
       ]
     },
@@ -4114,7 +4223,8 @@
           "input": "97."
         },
         {
-          "input": "91."
+          "input": "91.",
+          "comment": "91 is 7 times 13, so it is not prime"
         }
       ]
     },
@@ -4216,10 +4326,12 @@
       "stack": "[[array]] → 'symb'",
       "examples": [
         {
-          "input": "[[ 1 2 3 ][ 2 5 10 ]]"
+          "input": "[[ 1 2 3 ][ 2 5 10 ]]",
+          "comment": "The points (1,2), (2,5) and (3,10)"
         },
         {
-          "input": "[[ 0 1 ][ 1 3 ]]"
+          "input": "[[ 0 1 ][ 1 3 ]]",
+          "comment": "The points (0,1) and (1,3)"
         }
       ]
     },
@@ -4283,7 +4395,8 @@
         },
         {
           "input": "16.",
-          "run": "√ LASTARG"
+          "run": "√ LASTARG",
+          "comment": "The one argument, 16, comes back after the square root"
         }
       ]
     },
@@ -4332,10 +4445,12 @@
       "stack": "n m prog → [[matrix]]",
       "examples": [
         {
-          "input": "2. 3. « + »"
+          "input": "2. 3. « + »",
+          "comment": "Entry (i,j) is i plus j, for 2 rows and 3 columns"
         },
         {
-          "input": "3. 3. « * »"
+          "input": "3. 3. « * »",
+          "comment": "A 3 by 3 multiplication table"
         }
       ]
     },
@@ -4360,7 +4475,8 @@
       "stack": "'rhs' 'poly' → 'symb'; [vector] [[matrix]] → [array]",
       "examples": [
         {
-          "input": "'0' 'X^2+1'"
+          "input": "'0' 'X^2+1'",
+          "comment": "The right-hand side is 0 and the characteristic polynomial is X^2+1"
         },
         {
           "input": "'EXP(2*X)' 'X^2-1'"
@@ -4453,7 +4569,8 @@
           "input": "'X^2.+1.' 'X'"
         },
         {
-          "input": "'SIN(Y)*X' 'X'"
+          "input": "'SIN(Y)*X' 'X'",
+          "comment": "SIN(Y) does not contain X, so the term is linear"
         }
       ]
     },
@@ -4633,7 +4750,8 @@
       "stack": "[B] [[A]] → [X]; [[B]] [[A]] → [[X]]",
       "examples": [
         {
-          "input": "[ 1. 2. 2. ] [[ 1. 0. ][ 0. 1. ][ 1. 1. ]]"
+          "input": "[ 1. 2. 2. ] [[ 1. 0. ][ 0. 1. ][ 1. 1. ]]",
+          "comment": "The vector is B, the matrix is A: three equations, two unknowns"
         },
         {
           "input": "[ 5. 6. ] [[ 1. 2. ][ 3. 4. ]]"
@@ -4663,7 +4781,8 @@
           "input": "'X^2+Y*Z'"
         },
         {
-          "input": "'SIN(X)+Y'"
+          "input": "'SIN(X)+Y'",
+          "comment": "SIN(X) is listed as a whole, not as X"
         }
       ]
     },
@@ -4938,7 +5057,8 @@
       "stack": "obj n → [[A]]",
       "examples": [
         {
-          "input": "'π/2' 1"
+          "input": "'π/2' 1",
+          "comment": "A rotation by π/2; the sign 1 marks a direct isometry"
         }
       ]
     },
@@ -4951,7 +5071,8 @@
           "input": "17. 5."
         },
         {
-          "input": "-17. 5."
+          "input": "-17. 5.",
+          "comment": "The result takes the sign of the divisor, so -17 mod 5 is 3"
         },
         {
           "input": "7.5 2."
@@ -4965,7 +5086,8 @@
       "examples": [
         {
           "input": "7",
-          "run": "MODSTO 2 INVMOD"
+          "run": "MODSTO 2 INVMOD",
+          "comment": "Modulo 7, so 2 times -3 gives 1"
         }
       ]
     },
@@ -5146,11 +5268,13 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "Every one of the 64 bits is inverted"
         },
         {
           "setup": "8. STWS",
-          "input": "#Fh"
+          "input": "#Fh",
+          "comment": "The word size is 8, so only 8 bits are inverted"
         },
         {
           "input": "0."
@@ -5182,7 +5306,8 @@
       "examples": [
         {
           "input": "{ 10. 20. 30. }",
-          "run": "1. « NSUB * » DOSUBS"
+          "run": "1. « NSUB * » DOSUBS",
+          "comment": "NSUB is 1, 2, 3 in turn, so each element is multiplied by its position"
         }
       ]
     },
@@ -5239,10 +5364,12 @@
       "stack": "'symb' n → { obj }",
       "examples": [
         {
-          "input": "'(A+B)*C' 2."
+          "input": "'(A+B)*C' 2.",
+          "comment": "Counting A, +, B, * and C from the left, the 2nd is +"
         },
         {
-          "input": "'A*B' 3."
+          "input": "'A*B' 3.",
+          "comment": "Counting A, * and B from the left, the 3rd is B"
         }
       ]
     },
@@ -5268,10 +5395,12 @@
       "stack": "'symb' n { obj } → 'symb''",
       "examples": [
         {
-          "input": "'A*B' 3. { C }"
+          "input": "'A*B' 3. { C }",
+          "comment": "Replaces the 3rd object, B, with C"
         },
         {
-          "input": "'A*B' 2. { + }"
+          "input": "'A*B' 2. { + }",
+          "comment": "Replaces the 2nd object, the *, with +"
         }
       ]
     },
@@ -5282,11 +5411,13 @@
       "examples": [
         {
           "input": "",
-          "run": "OCT #64d →STR"
+          "run": "OCT #64d →STR",
+          "comment": "Decimal 64 is 100 in octal"
         },
         {
           "input": "",
-          "run": "OCT #FFh →STR"
+          "run": "OCT #FFh →STR",
+          "comment": "Hexadecimal FF is 377 in octal"
         }
       ]
     },
@@ -5318,7 +5449,8 @@
       "stack": "#n1 #n2 → #n3; x y → 0|1; 'symb1' 'symb2' → 'symb1 OR symb2'",
       "examples": [
         {
-          "input": "#Ch #Ah"
+          "input": "#Ch #Ah",
+          "comment": "Binary 1100 OR 1010 gives 1110"
         },
         {
           "input": "0. 0."
@@ -5360,10 +5492,12 @@
       "stack": "{perm} → {cycles} n",
       "examples": [
         {
-          "input": "{ 3 4 1 2 }"
+          "input": "{ 3 4 1 2 }",
+          "comment": "1 goes to 3 and back, 2 goes to 4 and back"
         },
         {
-          "input": "{ 2 3 1 }"
+          "input": "{ 2 3 1 }",
+          "comment": "1 goes to 2, 2 to 3, and 3 back to 1"
         }
       ]
     },
@@ -5373,10 +5507,12 @@
       "stack": "p → (a,b)",
       "examples": [
         {
-          "input": "13."
+          "input": "13.",
+          "comment": "13 is 3 squared plus 2 squared"
         },
         {
-          "input": "29."
+          "input": "29.",
+          "comment": "29 is 5 squared plus 2 squared"
         }
       ]
     },
@@ -5462,7 +5598,8 @@
       "stack": "[roots] → [coefficients]",
       "examples": [
         {
-          "input": "[ 1. 2. ]"
+          "input": "[ 1. 2. ]",
+          "comment": "The roots 1 and 2 give X^2 - 3X + 2"
         },
         {
           "input": "[ 1. 2. 3. ]"
@@ -5498,7 +5635,8 @@
       "examples": [
         {
           "input": "(-5.,-2.) (5.,2.)",
-          "run": "PDIM PPAR"
+          "run": "PDIM PPAR",
+          "comment": "(-5,-2) and (5,2) become the new minimum and maximum of the plot range"
         }
       ]
     },
@@ -5548,10 +5686,12 @@
       "stack": "[coefficients] x → y",
       "examples": [
         {
-          "input": "[ 1. -3. 2. ] 5."
+          "input": "[ 1. -3. 2. ] 5.",
+          "comment": "X^2 - 3X + 2 evaluated at X=5"
         },
         {
-          "input": "[ 2. 0. 0. 1. ] -1."
+          "input": "[ 2. 0. 0. 1. ] -1.",
+          "comment": "2X^3 + 1 evaluated at X=-1"
         }
       ]
     },
@@ -5629,7 +5769,8 @@
         },
         {
           "input": "{ #3d #3d }",
-          "setup": "ERASE"
+          "setup": "ERASE",
+          "comment": "A pixel given as an {x y} list in pixels"
         }
       ]
     },
@@ -5759,10 +5900,12 @@
       "stack": "\"str\" \"sub\" → n; {list} obj → n",
       "examples": [
         {
-          "input": "\"HELLO\" \"L\""
+          "input": "\"HELLO\" \"L\"",
+          "comment": "The first L is the 3rd character"
         },
         {
-          "input": "{ 5. 6. 7. } 7."
+          "input": "{ 5. 6. 7. } 7.",
+          "comment": "The 7 is the 3rd element"
         },
         {
           "input": "\"HELLO\" \"Z\""
@@ -5775,10 +5918,12 @@
       "category": "CALC",
       "examples": [
         {
-          "input": "[ 'X' 'Y' ] [ 'X' 'Y' ]"
+          "input": "[ 'X' 'Y' ] [ 'X' 'Y' ]",
+          "comment": "The field (X,Y) in the variables X and Y"
         },
         {
-          "input": "[ 'Y' 'X' ] [ 'X' 'Y' ]"
+          "input": "[ 'Y' 'X' ] [ 'X' 'Y' ]",
+          "comment": "The field (Y,X) in the variables X and Y"
         }
       ]
     },
@@ -5799,11 +5944,13 @@
       "examples": [
         {
           "input": "3 5",
-          "setup": "7 MODSTO"
+          "setup": "7 MODSTO",
+          "comment": "3^5 is 243, and 243 is -2 modulo 7"
         },
         {
           "input": "'X+1' 3",
-          "setup": "3 MODSTO"
+          "setup": "3 MODSTO",
+          "comment": "(X+1)^3 modulo 3 loses the middle terms"
         }
       ]
     },
@@ -5861,7 +6008,8 @@
       "stack": "'symb' a b → 'symb''",
       "examples": [
         {
-          "input": "'X^2' 'A' 'B'"
+          "input": "'X^2' 'A' 'B'",
+          "comment": "A is the lower bound and B the upper"
         },
         {
           "input": "'X^3/3' '0' '3'"
@@ -5914,7 +6062,8 @@
           "input": "[ 1. -3. 2. ]"
         },
         {
-          "input": "[ 1. 0. 1. ]"
+          "input": "[ 1. 0. 1. ]",
+          "comment": "X^2 + 1 has the roots i and -i"
         },
         {
           "input": "[ 1. -6. 11. -6. ]"
@@ -5992,7 +6141,8 @@
       "stack": "'p' a → 'q'",
       "examples": [
         {
-          "input": "'X^2+3*X+1' 2."
+          "input": "'X^2+3*X+1' 2.",
+          "comment": "(X-2)^2+7*(X-2)+11 expands back to X^2+3*X+1"
         },
         {
           "input": "'X^3' 1."
@@ -6033,10 +6183,12 @@
       "stack": "[array] n x → [array']; {list} n obj → {list'}; 'name' n obj →",
       "examples": [
         {
-          "input": "[ 1. 2. 3. ] 2. 9."
+          "input": "[ 1. 2. 3. ] 2. 9.",
+          "comment": "Replaces element 2 with 9"
         },
         {
-          "input": "[[ 1. 2. ][ 3. 4. ]] { 2. 1. } 0."
+          "input": "[[ 1. 2. ][ 3. 4. ]] { 2. 1. } 0.",
+          "comment": "Row 2, column 1 becomes 0"
         },
         {
           "input": "'L' 1. 5.",
@@ -6051,17 +6203,20 @@
       "stack": "[array] n x → [array'] n+1; {list} n obj → {list'} n+1; 'name' n obj → 'name' n+1",
       "examples": [
         {
-          "input": "[ 1. 2. 3. ] 1. 9."
+          "input": "[ 1. 2. 3. ] 1. 9.",
+          "comment": "Replaces element 1 and returns the next index, 2"
         },
         {
-          "input": "{ 1. 2. } 2. \"A\""
+          "input": "{ 1. 2. } 2. \"A\"",
+          "comment": "After the last element the index wraps back to 1"
         },
         {
           "input": "[ 1. 2. 3. ] 3. 9.",
           "run": "PUTI 46. FS?",
           "models": [
             "28s"
-          ]
+          ],
+          "comment": "After the last element the index wraps to 1 and flag 46 is set"
         }
       ],
       "per_model": {
@@ -6092,7 +6247,8 @@
       "stack": "n → {list} x_mem",
       "examples": [
         {
-          "input": "0."
+          "input": "0.",
+          "comment": "Port 0 holds nothing; the number is its free memory"
         }
       ]
     },
@@ -6121,10 +6277,12 @@
       "stack": "{#x #y} → (x,y)",
       "examples": [
         {
-          "input": "{ #0d #0d }"
+          "input": "{ #0d #0d }",
+          "comment": "Pixel 0, 0 is the plot range's upper-left point"
         },
         {
-          "input": "{ #65d #32d }"
+          "input": "{ #65d #32d }",
+          "comment": "Pixel 65, 32 is the origin of the default plot window"
         }
       ]
     },
@@ -6148,7 +6306,8 @@
       "examples": [
         {
           "setup": "DEG",
-          "input": "(2.,90.)"
+          "input": "(2.,90.)",
+          "comment": "Radius 2 at 90 degrees"
         },
         {
           "setup": "DEG",
@@ -6175,7 +6334,8 @@
       "stack": "'symb' 'name' → 'name=symb' (48); 'symb' 'name' → {'name=root' ...} (49G)",
       "examples": [
         {
-          "input": "'X^2-3*X+2' 'X'"
+          "input": "'X^2-3*X+2' 'X'",
+          "comment": "s1 is +1 or -1, so the roots are 2 and 1"
         },
         {
           "input": "'X^2+1' 'X'",
@@ -6189,7 +6349,8 @@
           "setup": "-103 SF",
           "models": [
             "49g"
-          ]
+          ],
+          "comment": "Flag -103 selects complex mode, so the roots i and -i are found"
         },
         {
           "input": "'X^2+1' 'X'",
@@ -6225,7 +6386,8 @@
         {
           "input": "'A+1'",
           "run": "QUOTE",
-          "setup": "5. 'A' STO"
+          "setup": "5. 'A' STO",
+          "comment": "A holds 5, yet the expression stays as it is"
         },
         {
           "input": "'A'",
@@ -6266,12 +6428,14 @@
       "examples": [
         {
           "setup": "123. RDZ",
-          "input": ""
+          "input": "",
+          "comment": "Seed 123 gives the same number every time"
         },
         {
           "setup": "123. RDZ",
           "input": "",
-          "run": "RAND RAND"
+          "run": "RAND RAND",
+          "comment": "The second call continues the sequence"
         }
       ]
     },
@@ -6294,11 +6458,13 @@
       "examples": [
         {
           "setup": "1. RDZ",
-          "input": "{ 2. 3. }"
+          "input": "{ 2. 3. }",
+          "comment": "Seed 1 makes the values repeatable; 2 rows, 3 columns"
         },
         {
           "setup": "1. RDZ",
-          "input": "[[ 0. 0. ][ 0. 0. ]]"
+          "input": "[[ 0. 0. ][ 0. 0. ]]",
+          "comment": "Only the size of the given matrix is used"
         }
       ]
     },
@@ -6333,10 +6499,12 @@
       "stack": "[[matrix]] x n → [[matrix']]; [vector] x n → [vector']",
       "examples": [
         {
-          "input": "[[ 1. 2. ][ 3. 4. ]] 10. 2."
+          "input": "[[ 1. 2. ][ 3. 4. ]] 10. 2.",
+          "comment": "Multiplies row 2 by 10"
         },
         {
-          "input": "[[ 2. 4. ][ 1. 1. ]] 0.5 1."
+          "input": "[[ 2. 4. ][ 1. 1. ]] 0.5 1.",
+          "comment": "Multiplies row 1 by 0.5"
         }
       ]
     },
@@ -6346,10 +6514,12 @@
       "stack": "[[matrix]] x i j → [[matrix']]",
       "examples": [
         {
-          "input": "[[ 1. 2. ][ 3. 4. ]] -3. 1. 2."
+          "input": "[[ 1. 2. ][ 3. 4. ]] -3. 1. 2.",
+          "comment": "Adds -3 times row 1 to row 2"
         },
         {
-          "input": "[[ 2. 1. ][ 4. 5. ]] -2. 1. 2."
+          "input": "[[ 2. 1. ][ 4. 5. ]] -2. 1. 2.",
+          "comment": "Adds -2 times row 1 to row 2"
         }
       ]
     },
@@ -6375,7 +6545,8 @@
       "examples": [
         {
           "input": "1.",
-          "setup": "{ 1.012030 12. \"Meet\" } STOALARM DROP"
+          "setup": "{ 1.012030 12. \"Meet\" } STOALARM DROP",
+          "comment": "Alarm 1 comes back as date, time, text and repeat 0"
         }
       ]
     },
@@ -6400,7 +6571,8 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "Flags 1 and 3 set give 5 in the user flag word (1 + 4)"
         },
         {
           "setup": "1. SF 2. CF 3. SF",
@@ -6408,7 +6580,8 @@
           "run": "RCLF # 7d AND",
           "models": [
             "28s"
-          ]
+          ],
+          "comment": "Masks the low three flags: 1 and 3 are set, 2 is clear"
         }
       ],
       "per_model": {
@@ -6439,7 +6612,8 @@
       "examples": [
         {
           "input": "",
-          "setup": "2. MENU"
+          "setup": "2. MENU",
+          "comment": "Menu 2, page 1"
         },
         {
           "input": ""
@@ -6493,10 +6667,12 @@
       "stack": "[array] {dims} → [array]'; 'name' {dims} →",
       "examples": [
         {
-          "input": "[ 1. 2. 3. 4. ] { 2. 2. }"
+          "input": "[ 1. 2. 3. 4. ] { 2. 2. }",
+          "comment": "A 2 by 2 matrix, filled row by row"
         },
         {
-          "input": "[[ 1. 2. ][ 3. 4. ]] { 3. }"
+          "input": "[[ 1. 2. ][ 3. 4. ]] { 3. }",
+          "comment": "A single size gives a vector; the fourth element is dropped"
         }
       ]
     },
@@ -6542,7 +6718,8 @@
         {
           "input": "",
           "setup": "SPHERE",
-          "run": "RECT -15. FS? -16. FS?"
+          "run": "RECT -15. FS? -16. FS?",
+          "comment": "After SPHERE, RECT clears flag -16 and leaves -15 set"
         }
       ]
     },
@@ -6604,10 +6781,12 @@
       "stack": "\"str\" n \"new\" → \"str'\"; {list} n {new} → {list'}; grob1 c grob2 → grob1'",
       "examples": [
         {
-          "input": "\"HELLO\" 2. \"AX\""
+          "input": "\"HELLO\" 2. \"AX\"",
+          "comment": "Overwrites from the 2nd character"
         },
         {
-          "input": "{ 1. 2. 3. 4. } 3. { 8. 9. }"
+          "input": "{ 1. 2. 3. 4. } 3. { 8. 9. }",
+          "comment": "Overwrites from the 3rd element"
         }
       ]
     },
@@ -6632,7 +6811,8 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "A binary integer sets the resolution in pixels"
         },
         {
           "input": "2.",
@@ -6662,7 +6842,8 @@
           "input": "'X^2-1' 'X-2'"
         },
         {
-          "input": "'X^2-1' 'X-1'"
+          "input": "'X^2-1' 'X-1'",
+          "comment": "Both have the root 1, so the result is 0"
         }
       ]
     },
@@ -6706,7 +6887,8 @@
         {
           "input": "{ T Y '-Y' } .00001 1.",
           "setup": "0. 'T' STO 1. 'Y' STO",
-          "run": "RKF Y"
+          "run": "RKF Y",
+          "comment": "y' = -y with y=1 at t=0, solved to t=1 within .00001"
         }
       ]
     },
@@ -6717,7 +6899,8 @@
       "examples": [
         {
           "input": "{ T Y '-Y' } .5",
-          "setup": "0. 'T' STO 1. 'Y' STO"
+          "setup": "0. 'T' STO 1. 'Y' STO",
+          "comment": "One step of size .5 from t=0, y=1"
         }
       ]
     },
@@ -6742,7 +6925,8 @@
           "input": "#81h"
         },
         {
-          "input": "#8000000000000001h"
+          "input": "#8000000000000001h",
+          "comment": "The top bit wraps to the bottom"
         }
       ]
     },
@@ -6755,7 +6939,8 @@
           "input": "#1234h"
         },
         {
-          "input": "#AB00000000000000h"
+          "input": "#AB00000000000000h",
+          "comment": "The top byte wraps to the bottom"
         }
       ]
     },
@@ -6941,14 +7126,16 @@
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "The lowest bit wraps to the top"
         },
         {
           "setup": "8. STWS",
           "input": "#1h",
           "models": [
             "28s"
-          ]
+          ],
+          "comment": "In an 8-bit word the lowest bit wraps to 128"
         }
       ]
     },
@@ -6979,7 +7166,8 @@
           "run": "RRB HEX →STR",
           "models": [
             "28s"
-          ]
+          ],
+          "comment": "In a 16-bit word the two bytes swap"
         }
       ]
     },
@@ -7016,7 +7204,8 @@
         {
           "input": "{ T Y '-Y' -1. 0. } .00001 1.",
           "setup": "0. 'T' STO 1. 'Y' STO",
-          "run": "RRK Y"
+          "run": "RRK Y",
+          "comment": "The partial derivatives of -Y, -1 and 0, extend the list"
         }
       ]
     },
@@ -7049,10 +7238,12 @@
       "stack": "[B] [[A]] [Z] → [B-AZ]",
       "examples": [
         {
-          "input": "[ 3. 5. ] [[ 1. 1. ][ 1. 2. ]] [ 1. 1. ]"
+          "input": "[ 3. 5. ] [[ 1. 1. ][ 1. 2. ]] [ 1. 1. ]",
+          "comment": "Level 3 is B, level 2 is A, level 1 the trial solution Z"
         },
         {
-          "input": "[ 3. 5. ] [[ 1. 1. ][ 1. 2. ]] [ 1. 2. ]"
+          "input": "[ 3. 5. ] [[ 1. 1. ][ 1. 2. ]] [ 1. 2. ]",
+          "comment": "Z solves the system exactly, so the residual is zero"
         }
       ]
     },
@@ -7101,7 +7292,8 @@
           "input": "255."
         },
         {
-          "input": "10.6"
+          "input": "10.6",
+          "comment": "10.6 is rounded to 11 first"
         }
       ]
     },
@@ -7155,7 +7347,8 @@
         },
         {
           "setup": "DEG",
-          "input": "(0.,2.)"
+          "input": "(0.,2.)",
+          "comment": "Straight up: radius 2 at 90 degrees"
         }
       ]
     },
@@ -7167,7 +7360,8 @@
           "input": "\"AB\" \"AB\""
         },
         {
-          "input": "'X' 'Y'"
+          "input": "'X' 'Y'",
+          "comment": "Different names give 0, not a symbolic result"
         },
         {
           "input": "{ 1. } { 1. }"
@@ -7203,7 +7397,8 @@
       "examples": [
         {
           "input": "2. 1.",
-          "run": "SCALE PPAR"
+          "run": "SCALE PPAR",
+          "comment": "2 units per 10 pixels in x, 1 in y"
         }
       ]
     },
@@ -7269,7 +7464,8 @@
       "examples": [
         {
           "input": "2.",
-          "run": "SCI 1234.5 →STR"
+          "run": "SCI 1234.5 →STR",
+          "comment": "Two decimals; 1234.5 is rounded to 1.23E3"
         },
         {
           "input": "4.",
@@ -7359,7 +7555,8 @@
           "input": "'K^2' 'K' 1. 5. 1."
         },
         {
-          "input": "« K 10. * » 'K' 0. 1. 0.25"
+          "input": "« K 10. * » 'K' 0. 1. 0.25",
+          "comment": "K runs from 0 to 1 in steps of 0.25"
         }
       ]
     },
@@ -7446,7 +7643,8 @@
       "examples": [
         {
           "input": "'A*B' 'X'",
-          "setup": "'X+1' 'B' STO"
+          "setup": "'X+1' 'B' STO",
+          "comment": "B is replaced by its contents, X stays as a name"
         }
       ],
       "per_model": {
@@ -7506,7 +7704,8 @@
           "input": "0."
         },
         {
-          "input": "(3.,4.)"
+          "input": "(3.,4.)",
+          "comment": "The unit vector: (3,4) divided by its length, 5"
         }
       ]
     },
@@ -7529,7 +7728,8 @@
       "stack": "obj1 obj2 → obj1' obj2'",
       "examples": [
         {
-          "input": "12 18"
+          "input": "12 18",
+          "comment": "12/18 reduces to 2/3: both numbers are divided by 6"
         },
         {
           "input": "'X^2-1' 'X^2-2*X+1'"
@@ -7616,13 +7816,15 @@
           "input": "{ 1. 2. 3. }"
         },
         {
-          "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]]"
+          "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]]",
+          "comment": "Rows, then columns"
         },
         {
           "input": "'A+B*C'",
           "models": [
             "28s"
-          ]
+          ],
+          "comment": "Counts A, B, C and the two operators"
         }
       ],
       "per_model": {
@@ -7641,7 +7843,8 @@
           "input": "#5h"
         },
         {
-          "input": "#8000000000000000h"
+          "input": "#8000000000000000h",
+          "comment": "The highest bit falls off the end, leaving 0"
         }
       ]
     },
@@ -7834,10 +8037,12 @@
       "stack": "\"str\" \"find\" \"repl\" → \"str'\" n",
       "examples": [
         {
-          "input": "\"ABCABC\" \"B\" \"XY\""
+          "input": "\"ABCABC\" \"B\" \"XY\"",
+          "comment": "Both Bs are replaced; the count 2 is on level 1"
         },
         {
-          "input": "\"HELLO\" \"Z\" \"Q\""
+          "input": "\"HELLO\" \"Z\" \"Q\"",
+          "comment": "Nothing found: the string is unchanged and the count is 0"
         }
       ]
     },
@@ -7859,7 +8064,8 @@
       "examples": [
         {
           "input": "1.",
-          "run": "« 1. 5. START 2. * NEXT » EVAL"
+          "run": "« 1. 5. START 2. * NEXT » EVAL",
+          "comment": "Runs the loop 5 times, doubling each time"
         }
       ]
     },
@@ -7991,12 +8197,14 @@
         {
           "input": "'A' 1.",
           "run": "STO- A",
-          "setup": "4. 'A' STO"
+          "setup": "4. 'A' STO",
+          "comment": "A minus 1 (name in level 2)"
         },
         {
           "input": "10. 'A'",
           "run": "STO- A",
-          "setup": "4. 'A' STO"
+          "setup": "4. 'A' STO",
+          "comment": "10 minus A (name in level 1)"
         }
       ]
     },
@@ -8008,12 +8216,14 @@
         {
           "input": "'A' 2.",
           "run": "STO/ A",
-          "setup": "8. 'A' STO"
+          "setup": "8. 'A' STO",
+          "comment": "A divided by 2 (name in level 2)"
         },
         {
           "input": "2. 'A'",
           "run": "STO/ A",
-          "setup": "8. 'A' STO"
+          "setup": "8. 'A' STO",
+          "comment": "2 divided by A (name in level 1)"
         }
       ]
     },
@@ -8023,10 +8233,12 @@
       "stack": "time → n; { date time } → n; { date time obj } → n; { date time obj x_repeat } → n",
       "examples": [
         {
-          "input": "{ 1.012030 12. \"Meet\" }"
+          "input": "{ 1.012030 12. \"Meet\" }",
+          "comment": "Date 1 January 2030, time 12:00, text Meet; the result is the alarm's index"
         },
         {
-          "input": "{ 1.012030 9.3 }"
+          "input": "{ 1.012030 9.3 }",
+          "comment": "Date 1 January 2030, time 9:30"
         }
       ]
     },
@@ -8059,7 +8271,8 @@
           "run": "STOF 1 FS? 2 FS? 3 FS?",
           "models": [
             "28s"
-          ]
+          ],
+          "comment": "The binary integer 5 sets flags 1 and 3 and leaves 2 clear"
         }
       ],
       "per_model": {
@@ -8119,10 +8332,12 @@
       "stack": "{list} prog → obj",
       "examples": [
         {
-          "input": "{ 1. 2. 3. 4. } « * »"
+          "input": "{ 1. 2. 3. 4. } « * »",
+          "comment": "Multiplies the elements one after another"
         },
         {
-          "input": "{ 3. 9. 2. } « MAX »"
+          "input": "{ 3. 9. 2. } « MAX »",
+          "comment": "Keeps the larger of each pair"
         }
       ]
     },
@@ -8168,10 +8383,12 @@
       "stack": "'symb' a b → f(a) n",
       "examples": [
         {
-          "input": "'X^2-2' 0 2"
+          "input": "'X^2-2' 0 2",
+          "comment": "One root between 0 and 2; the polynomial is -2 at 0"
         },
         {
-          "input": "'X^2+1' 0 2"
+          "input": "'X^2+1' 0 2",
+          "comment": "No real root between 0 and 2"
         }
       ]
     },
@@ -8186,7 +8403,8 @@
         },
         {
           "input": "8.",
-          "run": "STWS #1FFh"
+          "run": "STWS #1FFh",
+          "comment": "With 8 bits, 1FF is cut to FF"
         }
       ],
       "per_model": {
@@ -8206,7 +8424,8 @@
           "comment": "The 2nd to 4th character"
         },
         {
-          "input": "{ 1. 2. 3. 4. 5. } 2. 3."
+          "input": "{ 1. 2. 3. 4. 5. } 2. 3.",
+          "comment": "The 2nd and 3rd elements"
         }
       ],
       "per_model": {
@@ -8305,7 +8524,8 @@
       "stack": "[eqs] [vars] → [[A]]",
       "examples": [
         {
-          "input": "[ 'X+Y=3' 'X-Y=1' ] [ 'X' 'Y' ]"
+          "input": "[ 'X+Y=3' 'X-Y=1' ] [ 'X' 'Y' ]",
+          "comment": "The last column holds the constants moved to the left side: -3 and -1"
         }
       ]
     },
@@ -8339,7 +8559,8 @@
       "examples": [
         {
           "setup": "256. ATTACH",
-          "input": "\"AB\""
+          "input": "\"AB\"",
+          "comment": "A is 41 and B is 42 in hexadecimal, each with its two digits in reverse order"
         }
       ]
     },
@@ -8494,7 +8715,8 @@
       "stack": "x y → x_delta; x_unit1 y_unit2 → x_unit1delta",
       "examples": [
         {
-          "input": "100._°C 50._°F"
+          "input": "100._°C 50._°F",
+          "comment": "100 °C minus 50 °F is a difference of 90 °C"
         },
         {
           "input": "25. 20."
@@ -8593,7 +8815,8 @@
           "models": [
             "48sx",
             "48gx"
-          ]
+          ],
+          "comment": "After setting 12:30 the clock has run a few seconds"
         },
         {
           "input": "",
@@ -8610,10 +8833,12 @@
       "stack": "x y_delta → x'; x_unit1 y_unit2 → x_unit1'",
       "examples": [
         {
-          "input": "20._°C 15._K"
+          "input": "20._°C 15._K",
+          "comment": "A rise of 15 K is a rise of 15 °C"
         },
         {
-          "input": "68._°F 10._°C"
+          "input": "68._°F 10._°C",
+          "comment": "A rise of 10 °C is 18 °F, so 68 becomes 86"
         }
       ]
     },
@@ -8643,7 +8868,8 @@
       "examples": [
         {
           "input": "{ A B }",
-          "run": "TMENU RCLMENU"
+          "run": "TMENU RCLMENU",
+          "comment": "A custom menu reads as .01"
         }
       ]
     },
@@ -8692,7 +8918,8 @@
       "examples": [
         {
           "input": "2.",
-          "run": "TRANSIO IOPAR"
+          "run": "TRANSIO IOPAR",
+          "comment": "The translation code, 2, is the last element of IOPAR"
         }
       ]
     },
@@ -8758,7 +8985,8 @@
           "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]]"
         },
         {
-          "input": "[[ (1.,1.) 2. ][ 3. 4. ]]"
+          "input": "[[ (1.,1.) 2. ][ 3. 4. ]]",
+          "comment": "Complex entries are conjugated: (1,1) becomes (1,-1)"
         }
       ]
     },
@@ -8771,7 +8999,8 @@
           "input": "3.14159 2."
         },
         {
-          "input": "12345.678 -3."
+          "input": "12345.678 -3.",
+          "comment": "A negative count keeps 3 significant digits"
         }
       ]
     },
@@ -8817,10 +9046,12 @@
       "stack": "date time → \"str\"",
       "examples": [
         {
-          "input": "1.012030 12.3"
+          "input": "1.012030 12.3",
+          "comment": "1 January 2030 at 12:30"
         },
         {
-          "input": "7.041991 18.4512"
+          "input": "7.041991 18.4512",
+          "comment": "4 July 1991 at 18:45:12, shown on a 12-hour clock"
         }
       ]
     },
@@ -8831,11 +9062,13 @@
       "examples": [
         {
           "input": "0.",
-          "setup": "1. 'A' STO \"x\" 'S' STO"
+          "setup": "1. 'A' STO \"x\" 'S' STO",
+          "comment": "Type 0 is real: only A is listed"
         },
         {
           "input": "{ 0. 2. }",
-          "setup": "1. 'A' STO \"x\" 'S' STO"
+          "setup": "1. 'A' STO \"x\" 'S' STO",
+          "comment": "Types 0 (real) and 2 (string)"
         }
       ]
     },
@@ -8878,7 +9111,8 @@
       "examples": [
         {
           "setup": "12. 'PYR' STO 36. 'N' STO 6. 'I%YR' STO 1E4 'PV' STO",
-          "input": "0. 'FV' STO 'PMT'"
+          "input": "0. 'FV' STO 'PMT'",
+          "comment": "Loan of 10000, 36 payments, 6% a year, 12 payments a year; solves PMT"
         }
       ]
     },
@@ -8919,7 +9153,8 @@
       "stack": "x1_u1 x2_u2 → x3_u2*u3",
       "examples": [
         {
-          "input": "1._J 1._N"
+          "input": "1._J 1._N",
+          "comment": "Factors N out of the joule"
         },
         {
           "input": "1._W 1._V"
@@ -8971,7 +9206,8 @@
       "stack": "obj n →",
       "examples": [
         {
-          "input": "1. 2. 3. 99. 2."
+          "input": "1. 2. 3. 99. 2.",
+          "comment": "99 replaces the object on level 2, the 2"
         }
       ]
     },
@@ -9009,7 +9245,8 @@
       "stack": "n x → p",
       "examples": [
         {
-          "input": "5. 11.07"
+          "input": "5. 11.07",
+          "comment": "5 degrees of freedom, upper tail beyond 11.07"
         },
         {
           "input": "1. 3.84"
@@ -9022,7 +9259,8 @@
       "stack": "n1 n2 x → p",
       "examples": [
         {
-          "input": "5. 10. 3.33"
+          "input": "5. 10. 3.33",
+          "comment": "5 and 10 degrees of freedom, value 3.33"
         },
         {
           "input": "2. 20. 1."
@@ -9035,10 +9273,12 @@
       "stack": "m v x → p",
       "examples": [
         {
-          "input": "0. 1. 1.96"
+          "input": "0. 1. 1.96",
+          "comment": "Mean 0, variance 1, value 1.96"
         },
         {
-          "input": "100. 225. 115."
+          "input": "100. 225. 115.",
+          "comment": "Mean 100, variance 225, so 115 is one standard deviation above the mean"
         }
       ]
     },
@@ -9048,10 +9288,12 @@
       "stack": "n x → p",
       "examples": [
         {
-          "input": "10. 2.228"
+          "input": "10. 2.228",
+          "comment": "10 degrees of freedom"
         },
         {
-          "input": "5. 0."
+          "input": "5. 0.",
+          "comment": "At 0 the upper tail is half"
         }
       ]
     },
@@ -9181,7 +9423,8 @@
         },
         {
           "setup": "DEG CYLIN",
-          "input": "[ 3. 4. ]"
+          "input": "[ 3. 4. ]",
+          "comment": "In cylindrical mode a 2-element vector splits into radius and angle (not on the 48SX)"
         }
       ]
     },
@@ -9206,7 +9449,8 @@
       "examples": [
         {
           "input": "1.",
-          "run": "« WHILE DUP 100. < REPEAT 2. * END » EVAL"
+          "run": "« WHILE DUP 100. < REPEAT 2. * END » EVAL",
+          "comment": "Doubles the value while it is below 100"
         }
       ]
     },
@@ -9240,7 +9484,8 @@
         {
           "input": "2.",
           "run": "XCOL ΣX",
-          "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ"
+          "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+          "comment": "Column 2 becomes the x column, so ΣX adds up that column"
         }
       ]
     },
@@ -9262,7 +9507,8 @@
           "setup": "256. ATTACH",
           "models": [
             "49g"
-          ]
+          ],
+          "comment": "Library 788, command 1"
         }
       ]
     },
@@ -9291,7 +9537,8 @@
       "stack": "#n1 #n2 → #n3; x y → 0|1; 'symb1' 'symb2' → 'symb1 XOR symb2'",
       "examples": [
         {
-          "input": "#Ch #Ah"
+          "input": "#Ch #Ah",
+          "comment": "Binary 1100 XOR 1010 gives 0110"
         },
         {
           "input": "1. 1."
@@ -9310,7 +9557,8 @@
           "input": "12345."
         },
         {
-          "input": "0.00042"
+          "input": "0.00042",
+          "comment": "4.2E-4 has the exponent -4"
         }
       ]
     },
@@ -9388,7 +9636,8 @@
       "examples": [
         {
           "input": "-5. 5.",
-          "run": "XVOL VPAR"
+          "run": "XVOL VPAR",
+          "comment": "Sets entries 1 and 2 of VPAR, the x bounds"
         }
       ]
     },
@@ -9400,7 +9649,8 @@
       "examples": [
         {
           "input": "-3. 3.",
-          "run": "XXRNG VPAR"
+          "run": "XXRNG VPAR",
+          "comment": "Sets entries 7 and 8 of VPAR"
         }
       ]
     },
@@ -9412,7 +9662,8 @@
         {
           "input": "1.",
           "run": "YCOL ΣY",
-          "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ"
+          "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+          "comment": "Column 1 becomes the y column, so ΣY adds up that column"
         }
       ]
     },
@@ -9445,7 +9696,8 @@
       "examples": [
         {
           "input": "-2. 4.",
-          "run": "YVOL VPAR"
+          "run": "YVOL VPAR",
+          "comment": "Sets entries 3 and 4 of VPAR, the depth"
         }
       ]
     },
@@ -9457,7 +9709,8 @@
       "examples": [
         {
           "input": "-2. 2.",
-          "run": "YYRNG VPAR"
+          "run": "YYRNG VPAR",
+          "comment": "Sets entries 9 and 10 of VPAR"
         }
       ]
     },
@@ -9561,7 +9814,8 @@
       "examples": [
         {
           "input": "0. 10.",
-          "run": "ZVOL VPAR"
+          "run": "ZVOL VPAR",
+          "comment": "Sets entries 5 and 6 of VPAR, the height"
         }
       ]
     },
@@ -9575,7 +9829,8 @@
           "input": "2. 10."
         },
         {
-          "input": "-8. 0.5"
+          "input": "-8. 0.5",
+          "comment": "The square root of -8, so the result is complex"
         },
         {
           "input": "'X' 3."
@@ -9723,7 +9978,8 @@
       "stack": "'symb' {name1 obj1 ...} → 'symb''",
       "examples": [
         {
-          "input": "'X^2+Y' { X 2. Y 3. }"
+          "input": "'X^2+Y' { X 2. Y 3. }",
+          "comment": "X is replaced by 2 and Y by 3"
         },
         {
           "input": "'SIN(A)' { A 'B+1' }"
@@ -9775,7 +10031,8 @@
       "category": "Keyboard",
       "examples": [
         {
-          "input": "'N' 1. 10. 'N^2'"
+          "input": "'N' 1. 10. 'N^2'",
+          "comment": "The sum of N^2 for N from 1 to 10"
         },
         {
           "input": "'K' 0. 'M' 'K'"
@@ -9793,12 +10050,14 @@
         },
         {
           "input": "5.",
-          "run": "Σ+ 6. Σ+ RCLΣ"
+          "run": "Σ+ 6. Σ+ RCLΣ",
+          "comment": "Two single values make a one-column matrix"
         },
         {
           "input": "[ 7. 8. ]",
           "run": "Σ+ NΣ",
-          "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ"
+          "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ",
+          "comment": "Adds a fourth data row, so NΣ gives 4"
         }
       ],
       "per_model": {
@@ -9959,7 +10218,8 @@
       "stack": "'symb' {'pat' 'repl'} → 'symb'' 0/1; 'symb' {'pat' 'repl' 'cond'} → 'symb'' 0/1",
       "examples": [
         {
-          "input": "'2*(A+B)' { '&X*(&Y+&Z)' '&X*&Y+&X*&Z' }"
+          "input": "'2*(A+B)' { '&X*(&Y+&Z)' '&X*&Y+&X*&Z' }",
+          "comment": "Rewritten by distributing; the 1 reports a match"
         },
         {
           "input": "'SIN(X)' { 'COS(&A)' '1' }"
@@ -9974,7 +10234,8 @@
       "examples": [
         {
           "input": "3. 4.",
-          "run": "→ a b 'a^2+b^2'"
+          "run": "→ a b 'a^2+b^2'",
+          "comment": "Binds 3 to a and 4 to b"
         },
         {
           "input": "5.",
@@ -10010,7 +10271,8 @@
           "input": "1. 2. 3. 3."
         },
         {
-          "input": "1. 2. 3. 4. { 2. 2. }"
+          "input": "1. 2. 3. 4. { 2. 2. }",
+          "comment": "A 2 by 2 matrix: the list gives rows and columns"
         }
       ]
     },
@@ -10046,11 +10308,13 @@
       "examples": [
         {
           "input": "10.052026",
-          "run": "→DATE DATE"
+          "run": "→DATE DATE",
+          "comment": "10.052026 is 5 October 2026"
         },
         {
           "input": "2.291992",
-          "run": "→DATE DATE"
+          "run": "→DATE DATE",
+          "comment": "29 February 1992, a leap day"
         }
       ]
     },
@@ -10130,10 +10394,12 @@
       "stack": "x → hms",
       "examples": [
         {
-          "input": "1.5"
+          "input": "1.5",
+          "comment": "1.5 hours is 1h30m"
         },
         {
-          "input": "2.7525"
+          "input": "2.7525",
+          "comment": "2.7525 hours is 2h45m09s"
         }
       ]
     },
@@ -10356,10 +10622,12 @@
       "stack": "time →",
       "examples": [
         {
-          "input": "14.3"
+          "input": "14.3",
+          "comment": "14.3 is 14:30"
         },
         {
-          "input": "8.1530"
+          "input": "8.1530",
+          "comment": "8.1530 is 8:15:30"
         }
       ]
     },
@@ -10416,7 +10684,8 @@
       "stack": "'symb' {'pat' 'repl'} → 'symb'' 0/1; 'symb' {'pat' 'repl' 'cond'} → 'symb'' 0/1",
       "examples": [
         {
-          "input": "'2*(A+B)' { '&X*(&Y+&Z)' '&X*&Y+&X*&Z' }"
+          "input": "'2*(A+B)' { '&X*(&Y+&Z)' '&X*&Y+&X*&Z' }",
+          "comment": "Rewritten by distributing; the 1 reports a match"
         },
         {
           "input": "'LN(A*B)' { 'LN(&X*&Y)' 'LN(&X)+LN(&Y)' }"
@@ -10477,7 +10746,8 @@
         },
         {
           "input": "'1/X' 'X'",
-          "run": "∞ = lim"
+          "run": "∞ = lim",
+          "comment": "The limit of 1/X as X goes to infinity"
         }
       ]
     },
@@ -10518,7 +10788,8 @@
           "input": "'EXP(-X^2)' { X 0. 1. } .00001",
           "models": [
             "28s"
-          ]
+          ],
+          "comment": "0 to 1 to within .00001; the second value is the error estimate"
         }
       ],
       "per_model": {
