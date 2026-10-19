@@ -33,6 +33,15 @@
         "49g"
       ]
     }
+ ,
+    {
+      "id": "hp42s-om",
+      "title": "HP-42S Owner's Manual",
+      "url": "https://literature.hpcalc.org/community/hp42s-om-en.pdf",
+      "models": [
+        "42s"
+      ]
+    }
   ],
   "pages": {
     "!": {

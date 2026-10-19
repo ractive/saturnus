@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 use saturnus_core::Model;
 use saturnus_refgen::catalog::{self, Catalog, model_name};
 use saturnus_refgen::examples::{self, Examples};
+use saturnus_refgen::keyed::{self, KeyFile};
 use saturnus_refgen::menus;
 use saturnus_refgen::names;
 use saturnus_refgen::reference::Reference;
@@ -134,6 +135,41 @@ fn catalogs_and_examples_regenerate_byte_for_byte() {
         let ex = examples::generate(model, &rom, &cat, &reference, None).unwrap();
         assert_eq!(
             examples::to_file_text(&ex).unwrap(),
+            std::fs::read_to_string(data(&format!("examples-{m}.json"))).unwrap(),
+            "examples-{m}.json"
+        );
+    }
+}
+
+/// Every key-driven model's reference (`keys-<model>.json`) checked on the
+/// emulator and its examples run again to the committed file, byte for
+/// byte (a second or two per model). A model without its ROM in
+/// `SATURNUS_ROM_DIR` is skipped.
+#[test]
+fn keyed_references_regenerate_byte_for_byte() {
+    let Some(dir) = std::env::var_os("SATURNUS_ROM_DIR") else {
+        eprintln!("SATURNUS_ROM_DIR not set: skipping the key-driven references");
+        return;
+    };
+    for entry in std::fs::read_dir(data("")).unwrap() {
+        let path = entry.unwrap().path();
+        let file = path.file_name().unwrap().to_string_lossy().to_string();
+        let Some(m) = file
+            .strip_prefix("keys-")
+            .and_then(|f| f.strip_suffix(".json"))
+        else {
+            continue;
+        };
+        let rom = Path::new(&dir).join(format!("hp{m}.rom"));
+        if !rom.exists() {
+            eprintln!("{} missing: skipping {file}", rom.display());
+            continue;
+        }
+        let keys: KeyFile = read(&file);
+        let model: Model = m.parse().unwrap();
+        let ex = keyed::generate(model, &rom, &keys, None).unwrap();
+        assert_eq!(
+            keyed::to_file_text(&ex).unwrap(),
             std::fs::read_to_string(data(&format!("examples-{m}.json"))).unwrap(),
             "examples-{m}.json"
         );
