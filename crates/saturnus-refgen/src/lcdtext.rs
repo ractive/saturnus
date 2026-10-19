@@ -6,7 +6,9 @@
 //! at a pitch of 6 and 8 rows tall (the eighth row carries descenders and
 //! the cursor). When a menu is shown, the lower line is six boxes of 21
 //! dots at a pitch of 22, dark with light letters in a smaller font of 5
-//! rows (rows 10-14, inside a dark border on rows 9 and 15).
+//! rows (rows 10-14, inside a dark border on rows 9 and 15). The 38G, 39G
+//! and 40G draw their menu boxes the same way on their last 7 rows (57-63
+//! of 64), so the menu functions read those too.
 //!
 //! No font is stored: [`Glyphs`] learns both fonts at run time from text
 //! the calculator is made to show (the characters typed through its ALPHA
@@ -71,23 +73,31 @@ pub fn cell(lcd: &Lcd, line: usize, i: usize) -> Cell {
     out
 }
 
+/// How far down the menu boxes are: 0 on a Pioneer, 48 on the 131 x 64
+/// display of the 38G, 39G and 40G.
+fn menu_offset(lcd: &Lcd) -> usize {
+    lcd.height().saturating_sub(16)
+}
+
 /// Whether the lower line shows menu boxes: some box has its dark border
 /// rows.
 pub fn has_menu(lcd: &Lcd) -> bool {
+    let off = menu_offset(lcd);
     (0..BOXES).any(|b| {
         (b * BOX_PITCH..b * BOX_PITCH + BOX_WIDTH)
-            .all(|x| dark(lcd, x, BOX_TOP) && dark(lcd, x, BOX_BOTTOM))
+            .all(|x| dark(lcd, x, off + BOX_TOP) && dark(lcd, x, off + BOX_BOTTOM))
     })
 }
 
 /// The letter columns of menu box `b` (0-5), trimmed; empty for a blank
 /// box.
 pub fn box_columns(lcd: &Lcd, b: usize) -> BoxColumns {
+    let off = menu_offset(lcd);
     let cols: Vec<u8> = (b * BOX_PITCH..b * BOX_PITCH + BOX_WIDTH)
         .map(|x| {
             LETTER_ROWS
                 .enumerate()
-                .filter(|&(_, y)| !dark(lcd, x, y))
+                .filter(|&(_, y)| !dark(lcd, x, off + y))
                 .fold(0u8, |m, (i, _)| m | 1 << i)
         })
         .collect();

@@ -110,7 +110,11 @@ fn main() -> Result<()> {
             d.press_key(k)?;
         }
         let (cells, letters) = d.glyphs.known();
-        eprintln!("{cells} characters and {letters} menu letters learned");
+        let (small, large) = d.aplet.known();
+        eprintln!(
+            "{cells} characters and {letters} menu letters learned \
+             ({small} and {large} in HOME's two fonts)"
+        );
         for line in d.read() {
             println!("{line}");
         }

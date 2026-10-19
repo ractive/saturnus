@@ -143,7 +143,8 @@ fn catalogs_and_examples_regenerate_byte_for_byte() {
 
 /// Every key-driven model's reference (`keys-<model>.json`) checked on the
 /// emulator and its examples run again to the committed file, byte for
-/// byte (a second or two per model). A model without its ROM in
+/// byte (a second or two per Pioneer; the 38G, 39G and 40G take about
+/// 40 s each in a debug build). A model without its ROM in
 /// `SATURNUS_ROM_DIR` is skipped.
 #[test]
 fn keyed_references_regenerate_byte_for_byte() {
@@ -160,13 +161,17 @@ fn keyed_references_regenerate_byte_for_byte() {
         else {
             continue;
         };
-        let rom = Path::new(&dir).join(format!("hp{m}.rom"));
+        let model: Model = m.parse().unwrap();
+        // The file saturnus downloads (rom.39g for the 39G and 40G), else
+        // the owner's dump, hp<model>.rom.
+        let name = saturnus_host::romid::download(model)
+            .map_or_else(|| format!("hp{m}.rom"), |k| k.file.to_string());
+        let rom = Path::new(&dir).join(name);
         if !rom.exists() {
             eprintln!("{} missing: skipping {file}", rom.display());
             continue;
         }
         let keys: KeyFile = read(&file);
-        let model: Model = m.parse().unwrap();
         let ex = keyed::generate(model, &rom, &keys, None).unwrap();
         assert_eq!(
             keyed::to_file_text(&ex).unwrap(),
@@ -174,4 +179,15 @@ fn keyed_references_regenerate_byte_for_byte() {
             "examples-{m}.json"
         );
     }
+}
+
+/// The 40G runs the 39G's ROM with the same keyboard: its reference is the
+/// 39G's, function for function.
+#[test]
+fn the_40g_reference_is_the_39gs() {
+    let a: KeyFile = read("keys-39g.json");
+    let b: KeyFile = read("keys-40g.json");
+    assert_eq!((a.model.as_str(), b.model.as_str()), ("39g", "40g"));
+    assert_eq!(a.commands, b.commands);
+    assert_eq!((a.learn, a.home, a.ready), (b.learn, b.home, b.ready));
 }

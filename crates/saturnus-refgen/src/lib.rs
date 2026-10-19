@@ -8,9 +8,11 @@
 //! - [`examples`]: those inputs run on each model.
 //! - [`keyed`]: the key-driven models' reference (`keys-<model>.json`),
 //!   checked and its examples run on the emulator, reading the screen
-//!   with [`lcdtext`].
+//!   with [`lcdtext`] (the Pioneers) or [`apletext`] (HOME on the 38G,
+//!   39G and 40G).
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod apletext;
 pub mod catalog;
 pub mod examples;
 pub mod keyed;
