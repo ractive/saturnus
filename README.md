@@ -728,9 +728,11 @@ enter
 
 ## Command reference
 
-`crates/saturnus-cli/data/commands/` holds a reference of every built-in
-command of the 48SX, 48GX and 49G, generated from the ROMs on the
-emulator by `saturnus-refgen` (`crates/saturnus-refgen`). In the app it
+`crates/saturnus-cli/data/commands/` holds a reference for every model:
+every built-in command of the 48SX, 48GX, 49G and 28S, and every function
+of the 42S, 27S, 17BII, 17B, 19BII, 38G, 39G and 40G with the keys that
+reach it (`keys-<model>.json`). `saturnus-refgen` (`crates/saturnus-refgen`)
+generates the examples and checks the keys on the emulator. In the app it
 is Search (Cmd/Ctrl+K: suggestions while typing, the entry with its
 examples beside them, Enter sends the command to the calculator;
 `web/README.md`, "Search (the command palette)") and the Reference tab
