@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 37: saturnus-tx skeleton: Web Serial, connect, list, get and put"
 date: 2026-10-10
-status: completed
+status: in-progress
 tags:
   - iteration
   - saturnus-tx

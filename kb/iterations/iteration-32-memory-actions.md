@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 32: The memory view's actions"
 date: 2026-10-09
-status: completed
+status: in-progress
 tags:
   - iteration
   - saturnus

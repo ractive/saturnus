@@ -2,7 +2,7 @@
 title: "Iteration 45: saturnus tx, see what's happening (progress where you clicked, the cable console)"
 type: iteration
 date: 2026-10-13
-status: completed
+status: in-progress
 branch: iter-45/tx-progress-console
 tags:
   - iteration

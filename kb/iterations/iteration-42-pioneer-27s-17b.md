@@ -2,7 +2,7 @@
 title: "Iteration 42: HP 27S, 17BII and 17B (one Lewis, the 42S board)"
 type: iteration
 date: 2026-10-12
-status: completed
+status: in-progress
 branch: iter-42/pioneer-27s-17b
 tags:
   - iteration
