@@ -12,7 +12,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 /// The models with a reference, in order.
-pub const MODELS: [&str; 3] = ["48sx", "48gx", "49g"];
+pub const MODELS: [&str; 4] = ["48sx", "48gx", "49g", "28s"];
 
 /// The files, deflated by `build.rs`.
 macro_rules! packed {
@@ -20,15 +20,17 @@ macro_rules! packed {
         include_bytes!(concat!(env!("OUT_DIR"), "/", $file, ".deflate"))
     };
 }
-const CATALOGS: [&[u8]; 3] = [
+const CATALOGS: [&[u8]; 4] = [
     packed!("48sx.json"),
     packed!("48gx.json"),
     packed!("49g.json"),
+    packed!("28s.json"),
 ];
-const EXAMPLES: [&[u8]; 3] = [
+const EXAMPLES: [&[u8]; 4] = [
     packed!("examples-48sx.json"),
     packed!("examples-48gx.json"),
     packed!("examples-49g.json"),
+    packed!("examples-28s.json"),
 ];
 const REFERENCE: &[u8] = packed!("reference.json");
 const MANUALS: &[u8] = packed!("manuals.json");
@@ -95,6 +97,18 @@ struct Entry {
     stack: String,
     #[serde(default)]
     category: Option<String>,
+    /// A model's own text where the command differs there.
+    #[serde(default)]
+    per_model: BTreeMap<String, ModelText>,
+}
+
+/// A model's own long name, description and stack.
+#[derive(Debug, Deserialize)]
+struct ModelText {
+    #[serde(default)]
+    name: Option<String>,
+    description: String,
+    stack: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -223,6 +237,7 @@ fn keyboard(model: &str, name: &str) -> Option<String> {
         "48sx" => saturnus_core::Model::Hp48sx,
         "48gx" => saturnus_core::Model::Hp48gx,
         "49g" => saturnus_core::Model::Hp49g,
+        "28s" => saturnus_core::Model::Hp28s,
         _ => return None,
     };
     let skin = saturnus_host::skins::skin(model)?;
@@ -309,7 +324,10 @@ pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
     if let Some(m) = model
         && !MODELS.contains(&m)
     {
-        bail!("no command reference for {m:?}: it covers 48sx, 48gx and 49g");
+        bail!(
+            "no command reference for {m:?}: it covers {}",
+            MODELS.join(", ")
+        );
     }
     let name = match resolve(d, query)? {
         Resolved::One(n) => n,
@@ -342,23 +360,44 @@ pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
         .map(|(m, c)| ((*m).to_string(), c.clone().unwrap_or(Value::Null)))
         .collect();
     let first = avail.iter().find_map(|(_, c)| c.clone());
+    // One model asked for: its own text where it has one. Else the shared
+    // text, and each model's own under `per_model`.
+    let own = |m: &str| entry.and_then(|e| e.per_model.get(m));
+    let one = model.and_then(own);
+    let per_model: serde_json::Map<String, Value> = if model.is_some() {
+        serde_json::Map::new()
+    } else {
+        models
+            .iter()
+            .filter_map(|m| {
+                let t = own(m)?;
+                Some((
+                    (*m).to_string(),
+                    json!({"long_name": t.name, "description": t.description, "stack": t.stack}),
+                ))
+            })
+            .collect()
+    };
     let mut out = json!({
         "name": name,
         "models": models,
         "category": first.as_ref().map(|c| c["category"].clone()),
         "category_source": first,
         "categories": categories,
-        "long_name": entry.and_then(|e| e.name.as_deref()),
-        "description": entry.map(|e| e.description.as_str()),
-        "stack": entry.map(|e| e.stack.as_str()),
+        "long_name": one.and_then(|t| t.name.as_deref()).or(entry.and_then(|e| e.name.as_deref())),
+        "description": one.map(|t| t.description.as_str()).or(entry.map(|e| e.description.as_str())),
+        "stack": one.map(|t| t.stack.as_str()).or(entry.map(|e| e.stack.as_str())),
         "stack_verified": ran(d, name, &models),
         "manuals": links(d, name, &models),
         "examples": examples,
     });
-    if !skipped.is_empty()
-        && let Some(o) = out.as_object_mut()
-    {
-        o.insert("no_examples".into(), Value::Object(skipped));
+    if let Some(o) = out.as_object_mut() {
+        if !skipped.is_empty() {
+            o.insert("no_examples".into(), Value::Object(skipped));
+        }
+        if !per_model.is_empty() {
+            o.insert("per_model".into(), Value::Object(per_model));
+        }
     }
     Ok(Found::One(out))
 }
@@ -410,7 +449,7 @@ fn resolve<'a>(d: &'a Data, query: &str) -> Result<Resolved<'a>> {
         .take(20)
         .collect();
     if close.is_empty() {
-        bail!("no command {q:?} on the 48SX, 48GX or 49G");
+        bail!("no command {q:?} on the 48SX, 48GX, 49G or 28S");
     }
     bail!("no command {q:?}; did you mean one of: {}", close.join(" "))
 }
@@ -586,6 +625,16 @@ pub fn text(entry: &Value) -> String {
     };
     out.push_str(&format!("stack:  {}{unverified}\n", s(&entry["stack"])));
     out.push_str(&format!("\n{}\n", s(&entry["description"])));
+    if let Some(own) = entry["per_model"].as_object() {
+        // Where a model differs: its own text after the shared one.
+        for (model, t) in own {
+            out.push_str(&format!(
+                "\non the {model}: {}\n  stack:  {}\n",
+                s(&t["description"]),
+                s(&t["stack"])
+            ));
+        }
+    }
     if let Some(examples) = entry["examples"].as_object() {
         for (model, list) in examples {
             out.push_str(&format!("\nexamples ({model}):\n"));
@@ -795,5 +844,52 @@ mod tests {
             t.contains("examples (48sx):") && t.contains("#page="),
             "{t}"
         );
+    }
+
+    #[test]
+    fn the_28s_has_its_menus_manual_examples_and_own_texts() {
+        // SIN: shared text, the TRIG menu, the Reference Manual's page,
+        // examples typed on the 28S.
+        let sin = one("SIN", Some("28s"));
+        assert_eq!(sin["models"], json!(["28s"]));
+        assert_eq!(sin["categories"]["28s"]["menus"], json!(["TRIG"]));
+        assert_eq!(sin["categories"]["28s"]["key"]["category"], "TRIG");
+        assert_eq!(sin["stack_verified"], true);
+        assert!(
+            sin["examples"]["28s"]
+                .as_array()
+                .is_some_and(|a| !a.is_empty())
+        );
+        assert_eq!(sin["description"], one("SIN", Some("48sx"))["description"]);
+        let links = sin["manuals"].as_array().unwrap();
+        assert!(
+            links
+                .iter()
+                .all(|l| l["manual"] == "HP-28S Reference Manual")
+                && links[0]["url"]
+                    .as_str()
+                    .unwrap()
+                    .contains("hp28s-rm-en.pdf#page="),
+            "{links:?}"
+        );
+        // RND differs: one argument on the 28S. Asked for the 28S, its own
+        // text; asked for all models, the shared one with the 28S's after.
+        let rnd = one("RND", Some("28s"));
+        assert!(rnd["stack"].as_str().unwrap().starts_with("x → y"), "{rnd}");
+        let all = one("RND", None);
+        assert!(all["stack"].as_str().unwrap().starts_with("x n → y"));
+        assert_eq!(all["per_model"]["28s"]["stack"], rnd["stack"]);
+        let t = text(&all);
+        assert!(
+            t.contains("\non the 28s: ") && t.contains("menu:   48sx MTH PARTS"),
+            "{t}"
+        );
+        // A 28S-only command, and a 48 command the 28S lacks.
+        assert_eq!(one("CLUSR", None)["models"], json!(["28s"]));
+        assert!(lookup("CLVAR", Some("28s")).is_err());
+        // A key, not a menu: placed by the manual's section.
+        let drop = one("DROP", Some("28s"));
+        assert_eq!(drop["categories"]["28s"]["key"]["category"], "STACK");
+        assert!(drop["categories"]["28s"].get("menus").is_none());
     }
 }

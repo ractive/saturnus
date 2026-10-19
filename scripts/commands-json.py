@@ -20,7 +20,9 @@ PDF page) and `models`, one entry per model that has the command, with
 the ROM's `menus`, the manual's `key` (`category`, `manual`, `page`,
 `other` when it is another model's manual), the `examples` (`setup`,
 `input`, `run`, `before`, `display`, `effect`, `error`) and the `skip`
-reason where none was generated. `before` and `display` are the stack
+reason where none was generated, and the model's own `description`,
+`stack` and `name` where the command differs there (reference.json's
+`per_model`: the 28S's RND takes one argument). `before` and `display` are the stack
 before and after the command as the calculator displays it, level 1
 first. The typed stacks of the examples stay out: the page shows the
 calculator's own display text. The key legends that place a
@@ -37,7 +39,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "crates" / "saturnus-cli" / "data" / "commands"
 OUT = REPO / "web" / "commands.json"
-MODELS = ["48sx", "48gx", "49g"]
+MODELS = ["48sx", "48gx", "49g", "28s"]
 EXAMPLE_FIELDS = ["setup", "input", "run", "before", "display", "effect", "error"]
 
 
@@ -78,6 +80,12 @@ def build():
                 ]
             elif name in examples[m]["skipped"]:
                 per["skip"] = examples[m]["skipped"][name]
+            # The model's own text where the command differs there.
+            own = reference.get(name, {}).get("per_model", {}).get(m)
+            if own:
+                for k in ("name", "description", "stack"):
+                    if own.get(k):
+                        per[k] = own[k]
             entry["models"][m] = per
 
     for name, entry in commands.items():

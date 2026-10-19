@@ -58,7 +58,7 @@ enum Cmd {
         #[arg(long, default_value_t = 20)]
         count: usize,
     },
-    /// Look up a built-in command in the reference (48SX, 48GX, 49G):
+    /// Look up a built-in command in the reference (48SX, 48GX, 49G, 28S):
     /// description, stack effect, menu, examples run in saturnus, manual
     /// pages. ASCII spellings work (->LIST, SIGMA+, or the
     /// calculator's codes such as \->LIST and \.S); a query that names
@@ -67,7 +67,7 @@ enum Cmd {
         /// The command, e.g. STO, →LIST or ->LIST.
         #[arg(allow_hyphen_values = true)]
         command: String,
-        /// Only this model: 48sx, 48gx or 49g (its menu, examples and
+        /// Only this model: 48sx, 48gx, 49g or 28s (its menu, examples and
         /// manual pages).
         #[arg(long)]
         model: Option<String>,

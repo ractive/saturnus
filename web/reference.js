@@ -56,7 +56,8 @@ const ASCII = /^[\x00-\x7f]*$/;
  * The index of one model's commands, built once from the data: each
  * command with the forms a query is matched against, and the ROM's
  * menus as a tree. `model` may have no catalog (the 38G, the 42S): the
- * index is then empty and says so.
+ * index is then empty and says so. A model's own description, stack and
+ * long name (`per`) replace the shared ones where the command differs there.
  */
 export function buildIndex(data, model) {
   const commands = [];
@@ -72,6 +73,9 @@ export function buildIndex(data, model) {
     // others still count as an alias, ranked below an exact name.
     const unique = !ASCII.test(name) && !names.some((o) => o !== name && (upperOf.get(o) === f || (!ASCII.test(o) && friendly(o) === f)));
     const examples = per.examples ?? [];
+    // The model's own text where the command differs there (the 28S's RND).
+    const longName = per.name ?? entry.name ?? null;
+    const description = per.description ?? entry.description;
     commands.push({
       name,
       upper: upperOf.get(name),
@@ -79,14 +83,14 @@ export function buildIndex(data, model) {
       friendly: ASCII.test(name) ? null : f,
       friendlyUnique: unique,
       // What the mnemonic stands for ("Residual" for RSD), or null.
-      longName: entry.name ?? null,
-      longUpper: entry.name?.toUpperCase() ?? "",
-      longWords: (entry.name ?? "").toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
-      description: entry.description,
-      descUpper: entry.description.toUpperCase(),
-      descWords: entry.description.toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
+      longName,
+      longUpper: longName?.toUpperCase() ?? "",
+      longWords: (longName ?? "").toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
+      description,
+      descUpper: description.toUpperCase(),
+      descWords: description.toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
       exampleText: examples.map((x) => [x.setup, x.input, x.run].filter(Boolean).join(" ")).join("\n").toUpperCase(),
-      stack: entry.stack,
+      stack: per.stack ?? entry.stack,
       entry,
       per,
     });

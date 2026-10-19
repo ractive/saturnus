@@ -494,14 +494,14 @@ export class SatPalette extends HTMLElement {
     if (m.loadError) text = `The command reference could not be read (${m.loadError}). Actions still work.`;
     else if (!m.index) text = "Reading the command reference…";
     else if (!s.booted && m.index.supported) text = `No calculator is running. You can read the ${MODEL_TITLES[model]} reference but not send anything. Choose a ROM to start.`;
-    else if (!s.booted) text = `No calculator is running, and the ${MODEL_TITLES[model]} has no command reference (48SX, 48GX and 49G only). Actions are listed.`;
+    else if (!s.booted) text = `No calculator is running, and the ${MODEL_TITLES[model]} has no command reference (48SX, 48GX, 49G and 28S only). Actions are listed.`;
     else if (!m.index.supported && m.noTyping) {
       // The models without a command line say it plainly; any other reason the host gave is kept.
       text = /no RPL command line/.test(m.noTyping)
         ? `The ${MODEL_TITLES[s.booted]} has no command reference and no command line to type into. Actions are listed.`
         : `The ${MODEL_TITLES[s.booted]} has no command reference, and nothing can be sent: ${m.noTyping}. Actions are listed.`;
     }
-    else if (!m.index.supported) text = `The ${MODEL_TITLES[s.booted]} has no command reference (48SX, 48GX and 49G only). Text can still be typed into it, and actions are listed.`;
+    else if (!m.index.supported) text = `The ${MODEL_TITLES[s.booted]} has no command reference (48SX, 48GX, 49G and 28S only). Text can still be typed into it, and actions are listed.`;
     else if (m.noTyping) text = `Nothing can be sent: ${m.noTyping}. The reference can still be read.`;
     // Not in the editor: saving there sets the mode itself (the host's transfer).
     else if (m.algebraic && !this.session) text = "The 49G is in algebraic mode. Commands and examples here are written for RPN mode.";

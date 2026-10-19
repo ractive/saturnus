@@ -579,10 +579,10 @@ export class SatExplorer extends HTMLElement {
   commandsEmptyState(s) {
     const shown = s.booted ?? s.model;
     if (!this.reference) return { title: "No command reference", text: "The command reference is not available here." };
-    if (shown && !["48sx", "48gx", "49g"].includes(shown)) {
+    if (shown && !["48sx", "48gx", "49g", "28s"].includes(shown)) {
       return {
         title: `No command reference for the ${MODEL_TITLES[shown] ?? shown}`,
-        text: "The reference covers the commands of the HP 48SX, 48GX and 49G, read from their ROMs.",
+        text: "The reference covers the commands of the HP 48SX, 48GX, 49G and 28S, read from their ROMs.",
       };
     }
     const st = this.cmdWatch.state(shown);
