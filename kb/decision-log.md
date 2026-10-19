@@ -4363,3 +4363,9 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   1 bit, so RCLF's words show one bit (48G AUR, RCLF and STOF; 48G UG
   appendix D). The examples now store `#FF0h`, which keeps the 64-bit word
   size and HEX base.
+
+## 2026-10-19 (49G Kermit-server clock: confirmed in saturnng)
+
+- saturnng's 49G gives the same 61.877009 for `1.012030 →DATE DATE` sent
+  over its Kermit server, so the clock wrap described above is the ROM's,
+  not saturnus's. Wiki: hardware/clocks.
