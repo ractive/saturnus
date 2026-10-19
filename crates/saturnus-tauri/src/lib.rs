@@ -631,7 +631,8 @@ fn rom_work(
                 }
                 format!(
                     "HP never published the {} ROM, so there is no download; read the ROM out \
-                     of your own calculator, then choose the file",
+                     of your own calculator, then choose the file (hp.giesselink.com/emu42.htm \
+                     explains how)",
                     model.name().to_uppercase()
                 )
             })?;

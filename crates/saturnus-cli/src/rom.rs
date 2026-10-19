@@ -33,7 +33,8 @@ pub fn fetch(model: Model, dir: &Path, yes: bool) -> Result<PathBuf> {
         }
         bail!(
             "there is no download for the {}: HP never published its ROM. Read the ROM \
-             out of your own calculator and pass the file with --rom",
+             out of your own calculator (hp.giesselink.com/emu42.htm explains how) and \
+             pass the file with --rom",
             model.name().to_uppercase()
         );
     };

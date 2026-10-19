@@ -67,7 +67,7 @@
   "saturnus includes no ROM. The ROMs are HP's software. hpcalc.org hosts them with HP's permission for use with emulators; saturnus does not host or pass them on.",
   "In the browser, the app links each model to its download on hpcalc.org: download it, unzip it and drop the file into the app. The desktop app downloads a model's ROM from hpcalc.org after asking, and so does \"saturnus rom fetch\"; both check each file's size and SHA-256.",
   "In the browser, the ROM you choose stays in this browser. \"Remove ROMs…\" deletes it, together with the saved 49G state, which contains the 49G's ROM. The desktop app remembers where the ROM file is and reads it from there.",
-  "HP never published the 42S, 27S, 17BII, 17B and 28S ROMs; they run from a copy read out of your own calculator. The 19BII's ROM was never published either and cannot be read out of the calculator, so there is no download for it."
+  "HP never published the 42S, 27S, 17BII, 17B and 28S ROMs; they run from a copy read out of your own calculator, with an HP 48 as the infrared receiver; Christoph Gießelink's Emu42 page (hp.giesselink.com/emu42.htm) points to the tools and the steps. The 19BII's ROM was never published either and cannot be read out of the calculator, so there is no download for it."
  ],
  "sources": [
   {

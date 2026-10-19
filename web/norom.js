@@ -24,7 +24,7 @@ export const NO_CALCULATOR = "No calculator is running.";
 /** The empty state's text for `title` (the model's title) and `model`, a model with no ROM. */
 export function noRomText(model, title) {
   if (DUMP_ONLY.includes(model)) {
-    return `No ROM for the ${title}. HP never published it: read the ROM out of your own calculator, then choose the file.`;
+    return `No ROM for the ${title}. HP never published it: read the ROM out of your own calculator, then choose the file. The Emu42 page (hp.giesselink.com/emu42.htm) explains how.`;
   }
   if (NO_ROM_SOURCE.includes(model)) {
     return `No ROM for the ${title}. There is no download for it. If you have the file, choose it.`;
