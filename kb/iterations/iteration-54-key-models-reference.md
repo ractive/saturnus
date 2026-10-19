@@ -48,38 +48,57 @@ Clean room: never open `~/devel/hp-emulator-refs/`.
 
 ## Design
 
-- **Data**: one file per key-driven model,
-  `crates/saturnus-cli/data/commands/keys-<model>.json`:
-  `{ model, manual, commands: [{ name, long?, description, stack?, keys,
-  menu?, page, examples? }] }`. `keys` is the key names pressed from the
-  calculator's normal state (menus closed, no entry in progress) to run
-  the function; `menu` the menu path as the manual names it; `page` the
-  PDF page. A function reached only by XEQ and a name has `keys: null`
-  and `xeq: "NAME"`.
-- **Examples** are generated on the emulator, as for the 48 (a key
-  script, the display before and after), by a generator next to the
-  existing one; a model without its ROM in `SATURNUS_ROM_DIR` keeps the
-  committed examples.
+- **Data** (as built on the 42S; the full reference is the doc comment
+  of `crates/saturnus-refgen/src/keyed.rs`): one file per key-driven
+  model, `crates/saturnus-cli/data/commands/keys-<model>.json`:
+  `{ model, manual, menu_keys, marks?, ready?, leave?, learn?, alpha?,
+  xeq?, commands: [{ name, long?, description, stack?, param?, keys |
+  xeq, menu?, page, examples? }] }`. A step is `{key, label?}`: the
+  key's script name (the skin's) and what it shows, its legend (the
+  shifted legend after a shift) or the label of the menu box above a
+  menu key; every step but a shift has a label, and the keys read as
+  the labels: `⇧ CONVERT →POL`. `keys` run the function from the
+  normal state (as booted and `ready` leaves it: no menu, no message,
+  no entry). A function reached only by name has `xeq: "NAME"` instead:
+  `xeq.start`, `alpha.start`, the name's characters from `alpha.chars`
+  (each from the ALPHA menu, which it returns to), `xeq.end`.
+  `menu_keys` are the keys under the six boxes; `leave` the keys that
+  leave one menu level and the dots that show a menu is open
+  (`menu_box`), for the app; `param` what the function asks for after
+  its keys; `page` the manual's PDF page; `examples` the keys pressed
+  before the function's.
+- **Examples** are generated on the emulator by `saturnus-refgen keys`
+  into `examples-<model>.json` (the input keys, the display before and
+  after as text lines). It also checks the whole file: every label
+  against the skin's legend or the menu box the display shows, every
+  name XEQ runs against `xeq.unknown`, `leave.menu_box` against the
+  display. The display is read with fonts learned at run time (the
+  `learn` screens and the `alpha.chars` typed one by one); no font is
+  stored. `saturnus-refgen screen --press "KEYS"` prints the display for
+  writing a file. A model without its ROM keeps the committed examples
+  (the ROM-gated regen test skips it).
 - **Running**: Search's verb for a key-driven model presses the keys
-  through the key queue (the protocol's key presses, not `insert`/`run`
-  text). First it brings the calculator to the normal state (EXIT/CLEAR
-  as the model needs) only where the function needs it. A function that
-  needs arguments says so in its row (stack or inputs) and runs on what
-  the calculator holds, as a key press would.
+  through the key queue (`typeKeys`, not `insert`/`run` text). Where
+  the display shows a menu (the top row is then that menu's keys) it
+  first presses `leave.keys` until none shows; otherwise nothing extra.
+  "Try it" presses `leave.keys` once more (ending an entry), then the
+  example's and the function's keys. A function that needs arguments
+  says so (stack, "Asks for") and runs on what the calculator holds, as
+  a key press would.
 - **Search texts**: the "no command reference" messages go for these
   models; the reference rows show the keys ("⇧ CONVERT → POL").
 - `saturnus ref --model 42s NAME` works the same way.
 
 ## Tasks
 
-- [ ] Data format, generator, `commands-json.py`, `reference.js`,
+- [x] Data format, generator, `commands-json.py`, `reference.js`,
   `reference.rs` and Search's running for key-driven models, built on
   the 42S
-- [ ] 42S reference: every function of the manual's operation index
+- [x] 42S reference: every function of the manual's operation index
 - [ ] 27S, 17BII, 17B, 19BII references
 - [ ] 28S reference (RPL pipeline, Reference Manual)
 - [ ] Search texts and tour/README mention the new models
-- [ ] Page test: a 42S function chosen in Search runs (ROM-gated)
+- [x] Page test: a 42S function chosen in Search runs (ROM-gated)
 - [ ] Gates, review, merge, deploy
 
 ## Done means

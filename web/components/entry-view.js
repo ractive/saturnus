@@ -190,7 +190,7 @@ function keyedEntryView(index, command, ctx) {
   const examples = command.per.examples ?? [];
   return el("div", { class: "entry" },
     head,
-    el("div", { class: "entry-stack-wrap" }, el("pre", { class: "entry-stack", text: command.stack || "—" })),
+    command.stack ? el("div", { class: "entry-stack-wrap" }, el("pre", { class: "entry-stack", text: command.stack })) : null,
     el("p", { class: "entry-desc", text: command.description }),
     el("dl", { class: "entry-where" }, ...where),
     el("h4", {}, "Examples", el("span", { class: "muted", text: examples.length ? `, run on the emulated ${MODEL_TITLES[model]}` : "" })),
