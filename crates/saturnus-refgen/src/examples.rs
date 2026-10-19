@@ -28,6 +28,28 @@ const LIMIT: Duration = Duration::from_secs(20);
 pub const SETUP_49G: &str = "-120. SF";
 /// Most stack levels recorded.
 const LEVELS: usize = 16;
+/// Run on the 49G, as two commands, before an example that sets the
+/// clock: the clock a day forward and back again. The 49G ROM's clock
+/// setting takes its next timer event from a five-minute deadline when
+/// one is armed, as it is while the Kermit server runs commands; it then
+/// reloads the 32-bit TIMER2 with the deadline less the new time, so a
+/// move of more than about three days (2^31 ticks at 8192 Hz) wraps and
+/// `1.012030 →DATE` sets a garbage date. From the keyboard the same
+/// `→DATE` is exact. The day forward passes the
+/// deadline, which clears it, and the day back is then set exactly
+/// (wiki: hardware/clocks, "49G: setting the clock from the Kermit
+/// server").
+pub const CLOCK_49G: [&str; 2] = ["707788800. CLKADJ", "-707788800. CLKADJ"];
+/// The commands that set the clock, which on the 49G need [`CLOCK_49G`].
+const SETS_CLOCK: [&str; 3] = ["\u{2192}DATE", "\u{2192}TIME", "CLKADJ"];
+
+/// Whether `spec`, whose run is `run`, sets the clock anywhere.
+fn sets_clock(spec: &ExampleSpec, run: &str) -> bool {
+    [spec.setup.as_deref(), Some(spec.input.as_str()), Some(run)]
+        .into_iter()
+        .flatten()
+        .any(|s| SETS_CLOCK.iter().any(|c| s.contains(c)))
+}
 
 /// One generated example.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -166,6 +188,15 @@ impl Runner {
             error: None,
             effect: String::new(),
         };
+        if self.emu.model() == Model::Hp49g && sets_clock(spec, &run) {
+            for command in CLOCK_49G {
+                match self.emu.eval(command, 0, LIMIT) {
+                    Ok(Ok(_)) => {}
+                    Ok(Err(e)) => anyhow::bail!("{command} on the 49G: {}", e.error),
+                    Err(e) => return Err(e.context(format!("{command} on the 49G"))),
+                }
+            }
+        }
         if let Some(setup) = &spec.setup {
             match self.emu.eval(setup, 0, LIMIT) {
                 Ok(Ok(_)) => self.emu.clear_stack()?,
@@ -281,6 +312,25 @@ pub fn to_file_text(examples: &Examples) -> Result<String> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn clock_setting_examples_are_recognised() {
+        let spec = |setup: Option<&str>, input: &str| ExampleSpec {
+            setup: setup.map(str::to_string),
+            input: input.to_string(),
+            run: None,
+            models: None,
+            comment: None,
+        };
+        assert!(sets_clock(&spec(Some("1.012030 \u{2192}DATE"), ""), "DATE"));
+        assert!(sets_clock(&spec(None, "14.3"), "\u{2192}TIME"));
+        assert!(sets_clock(&spec(None, "8192."), "CLKADJ"));
+        assert!(!sets_clock(&spec(None, ""), "TIME"));
+        assert!(!sets_clock(
+            &spec(None, "1500."),
+            "\u{2192}KEYTIME KEYTIME\u{2192}"
+        ));
+    }
 
     #[test]
     fn effects_read_deepest_first() {

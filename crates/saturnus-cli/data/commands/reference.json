@@ -104,7 +104,7 @@
     },
     "*H": {
       "name": "Multiply height",
-      "description": "Multiplies the height of the plot range by a factor, keeping it centred, so the vertical extent in PPAR grows or shrinks.",
+      "description": "Multiplies the height of the plot range by a factor, so the vertical extent in PPAR grows or shrinks; the y value at the display's centre row stays where it is.",
       "stack": "x →",
       "category": "PLOT",
       "examples": [
@@ -116,7 +116,7 @@
             "48gx",
             "49g"
           ],
-          "comment": "The y range -3.1 to 3.2 doubles to -6.2 to 6.4; the x range stays"
+          "comment": "The y range -3.1 to 3.2 doubles to -6.2 to 6.4; 0, at the centre row, stays put"
         },
         {
           "input": "2.",
@@ -1949,7 +1949,7 @@
       ]
     },
     "DEGREE": {
-      "description": "Returns the degree of a polynomial, the highest total power of its variables.",
+      "description": "Returns the degree of a polynomial in the CAS's current variable (VX, X by default) or, when that variable does not occur, in its first variable in alphabetical order.",
       "stack": "'symb' → n",
       "category": "ARITH",
       "examples": [
@@ -1957,7 +1957,8 @@
           "input": "'X^3+2*X+1'"
         },
         {
-          "input": "'X^2*Y^2+X'"
+          "input": "'X^2*Y^2+X'",
+          "comment": "Only the powers of X count, not those of Y"
         }
       ]
     },
@@ -8248,23 +8249,25 @@
       "stack": "#n_sys →; { #n_sys #n_user } →",
       "examples": [
         {
-          "input": "{ #0h #5h }",
+          "input": "{ #FF0h #5h }",
           "run": "STOF RCLF",
           "models": [
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "#FF0h keeps the word size and base flags set; #5h sets user flags 1 and 3"
         },
         {
-          "input": "#0h",
+          "input": "#FF0h",
           "run": "STOF RCLF",
           "setup": "1. SF",
           "models": [
             "48sx",
             "48gx",
             "49g"
-          ]
+          ],
+          "comment": "Only the system flags change: user flag 1 stays set"
         },
         {
           "input": "#5h",
@@ -8812,18 +8815,7 @@
           "input": "",
           "run": "TIME",
           "setup": "1.012030 →DATE 12.3 →TIME",
-          "models": [
-            "48sx",
-            "48gx"
-          ],
           "comment": "After setting 12:30 the clock has run a few seconds"
-        },
-        {
-          "input": "",
-          "run": "TIME",
-          "models": [
-            "49g"
-          ]
         }
       ]
     },

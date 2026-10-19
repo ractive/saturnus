@@ -4340,3 +4340,26 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   not the emulation (ATAN, ACSC and ASEC follow the mode). The 38G's ACOT
   description says so and it has no example. The 39G and 40G examples run
   in RAD, their default, and are right. Wiki: hardware/hp38g "ROM quirks".
+
+## 2026-10-19 (49G clock examples: the ROM's server context, not the emulator)
+
+- The 49G's `1.012030 →DATE DATE` gave 61.877009 in the generated examples
+  (48SX and 48GX right). Traced with registers in saturnus (ROM 2.15 and
+  2.10): the 49G ROM sets the clock by storing a next-event time and loading
+  TIMER2 with it less the new time; it takes the next event from the
+  five-minute deadline the Kermit server has armed (#80069), so moves of
+  more than 2^31 ticks (about 3 days) wrap in TIMER2's 32 bits. Every
+  instruction on the path does what it should, and from the keyboard the
+  same `→DATE` is exact, so the core stays unchanged. Not checked on a real
+  49G or saturnng (no container runtime set up on this Mac).
+- saturnus-refgen runs `707788800. CLKADJ` and `-707788800. CLKADJ` as two
+  commands before every 49G example that sets the clock (`CLOCK_49G`): the
+  day forward passes the deadline, which clears it, and the day back is
+  exact. The 49G examples now show what a keyboard user gets, and the 49G
+  shares the 48s' TIME example. Wiki: hardware/clocks "49G: setting the
+  clock from the Kermit server".
+- STOF `{ #0h #5h }` RCLF gave `{ # 0d # 1d }`: the example's fault. Clearing
+  every system flag clears flags -5 to -10 too, the word size, which becomes
+  1 bit, so RCLF's words show one bit (48G AUR, RCLF and STOF; 48G UG
+  appendix D). The examples now store `#FF0h`, which keeps the 64-bit word
+  size and HEX base.

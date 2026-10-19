@@ -22952,16 +22952,16 @@
     ],
     "STOF": [
       {
-        "input": "{ #0h #5h }",
+        "input": "{ #FF0h #5h }",
         "run": "STOF RCLF",
         "stack": [
           {
             "items": [
               {
                 "base": "dec",
-                "text": "# 0d",
+                "text": "# 4080d",
                 "type": "binary",
-                "value": 0
+                "value": 4080
               },
               {
                 "base": "dec",
@@ -22974,20 +22974,20 @@
           }
         ],
         "before": [
-          "{ # 0d # 5d }"
+          "{ # 4080d # 5d }"
         ],
         "result": [
           {
             "items": [
               {
-                "base": "dec",
-                "text": "# 0d",
+                "base": "hex",
+                "text": "# FF0h",
                 "type": "binary",
-                "value": 0
+                "value": 4080
               },
               {
-                "base": "dec",
-                "text": "# 5d",
+                "base": "hex",
+                "text": "# 5h",
                 "type": "binary",
                 "value": 5
               }
@@ -22996,37 +22996,37 @@
           }
         ],
         "display": [
-          "{ # 0d # 1d }"
+          "{ # FF0h # 5h }"
         ],
         "effect": "list → list"
       },
       {
         "setup": "1. SF",
-        "input": "#0h",
+        "input": "#FF0h",
         "run": "STOF RCLF",
         "stack": [
           {
             "base": "dec",
-            "text": "# 0d",
+            "text": "# 4080d",
             "type": "binary",
-            "value": 0
+            "value": 4080
           }
         ],
         "before": [
-          "# 0d"
+          "# 4080d"
         ],
         "result": [
           {
             "items": [
               {
-                "base": "dec",
-                "text": "# 0d",
+                "base": "hex",
+                "text": "# FF0h",
                 "type": "binary",
-                "value": 0
+                "value": 4080
               },
               {
-                "base": "dec",
-                "text": "# 1d",
+                "base": "hex",
+                "text": "# 1h",
                 "type": "binary",
                 "value": 1
               }
@@ -23035,7 +23035,7 @@
           }
         ],
         "display": [
-          "{ # 0d # 1d }"
+          "{ # FF0h # 1h }"
         ],
         "effect": "binary → list"
       }
