@@ -342,3 +342,38 @@ Opus agents).
 - Whether Antigravity CLI's free tier takes local MCP servers.
 - How badly small local models do at 48-series RPL: run the reference
   examples as an evaluation before promising local models anything.
+
+## WebMCP status (checked 2026-10-19)
+
+- **Spec:** a W3C Draft Community Group Report of the Web Machine Learning
+  Community Group, dated 16 October 2026, not on the Standards Track;
+  editors from Microsoft and Google
+  ([spec](https://webmachinelearning.github.io/webmcp/)). The entry point is
+  `document.modelContext` with `registerTool(tool, options)` (removed by
+  aborting the `signal`), `getTools()` and `executeTool()`. Older drafts and
+  articles use `navigator.modelContext`. A "tools" Permissions Policy
+  (default `'self'`) gates it; tools carry hints such as `consequentialHint`;
+  the spec names prompt injection among its risks.
+- **Browsers:** Chrome origin trial from Chrome 149
+  ([Chrome blog, 9 June 2026](https://developer.chrome.com/blog/ai-webmcp-origin-trial));
+  local testing with `chrome://flags/#enable-webmcp-testing`
+  ([Chrome docs](https://developer.chrome.com/docs/ai/webmcp)). Edge runs its
+  own origin trial, listed until 30 March 2027
+  ([Edge origin trials](https://developer.microsoft.com/en-us/microsoft-edge/origin-trials/trials/0b76fe60-b266-458e-a285-04e375c0c31a)).
+  No Firefox or Safari plans found.
+- **Agents that call the tools:** Google said at I/O 2026 that Gemini in
+  Chrome "will soon" support WebMCP
+  ([Chrome at I/O 2026](https://developer.chrome.com/blog/chrome-at-io26));
+  no official source says it does today, and a community tracker rates it
+  "not usable yet" ([tracker](https://webmcp.com/ecosystem-tracker)). Claims
+  that Claude or ChatGPT consume WebMCP were not found in official sources.
+- **The one working path today:** Chrome DevTools for agents (the
+  chrome-devtools MCP server, used by coding agents such as Claude Code)
+  has `list_webmcp_tools` and `execute_webmcp_tool` behind
+  `--categoryExperimentalWebmcp`, with Chrome 149+ and WebMCP enabled
+  ([DevTools docs, updated 23 September 2026](https://developer.chrome.com/docs/devtools/agents/webmcp-debugging)).
+- **For saturnus:** registering a few tools in the web app (press keys, read
+  the screen and the stack, run RPL through the hub) would be small, but only
+  developers with a flag and a DevTools agent could use them today. Keep the
+  recommendation: `saturnus mcp` first; revisit WebMCP when Gemini in Chrome
+  or another mainstream agent consumes it without a flag.
