@@ -32,6 +32,14 @@
       "models": [
         "49g"
       ]
+    },
+    {
+      "id": "hp28s-rm",
+      "title": "HP-28S Reference Manual",
+      "url": "https://literature.hpcalc.org/community/hp28s-rm-en.pdf",
+      "models": [
+        "28s"
+      ]
     }
   ],
   "pages": {
@@ -40,14 +48,17 @@
       "hp48sx-om": 181
     },
     "%": {
+      "hp28s-rm": 216,
       "hp48g-aur": 580,
       "hp48sx-om": 175
     },
     "%CH": {
+      "hp28s-rm": 216,
       "hp48g-aur": 211,
       "hp48sx-om": 175
     },
     "%T": {
+      "hp28s-rm": 225,
       "hp48g-aur": 503,
       "hp48sx-om": 175
     },
@@ -55,41 +66,57 @@
       "hp48sx-om": 474
     },
     "*": {
+      "hp28s-rm": 58,
       "hp48g-aur": 564
     },
+    "*H": {
+      "hp28s-rm": 164
+    },
     "*W": {
+      "hp28s-rm": 164,
       "hp48g-ug": 569
     },
     "+": {
+      "hp28s-rm": 55,
       "hp48g-aur": 560,
       "hp48sx-om": 404
     },
     "-": {
+      "hp28s-rm": 57,
       "hp48g-ug": 577
     },
     "/": {
+      "hp28s-rm": 60,
       "hp48g-aur": 565
     },
     "<": {
+      "hp28s-rm": 204,
       "hp48g-aur": 567,
       "hp48g-ug": 574
     },
     "=": {
+      "hp28s-rm": 23,
       "hp48g-ug": 136,
       "hp48sx-om": 207
     },
     "==": {
+      "hp28s-rm": 212,
       "hp48g-ug": 576,
       "hp48sx-om": 524
     },
     ">": {
+      "hp28s-rm": 204,
       "hp48g-aur": 570,
       "hp48g-ug": 575
     },
     "ABCUV": {
       "hp49g-aug": 128
     },
+    "ABORT": {
+      "hp28s-rm": 198
+    },
     "ABS": {
+      "hp28s-rm": 83,
       "hp48g-aur": 169,
       "hp48sx-om": 182
     },
@@ -100,12 +127,14 @@
       "hp48g-aur": 170
     },
     "ACOS": {
+      "hp28s-rm": 277,
       "hp48g-aur": 166
     },
     "ACOS2S": {
       "hp49g-aug": 128
     },
     "ACOSH": {
+      "hp28s-rm": 139,
       "hp48g-aur": 173,
       "hp48sx-om": 174
     },
@@ -116,6 +145,7 @@
       "hp49g-aug": 129
     },
     "ALOG": {
+      "hp28s-rm": 135,
       "hp48g-aur": 176,
       "hp48sx-om": 174
     },
@@ -123,6 +153,7 @@
       "hp48g-aur": 176
     },
     "AND": {
+      "hp28s-rm": 95,
       "hp48g-aur": 177
     },
     "ANIMATE": {
@@ -139,28 +170,34 @@
       "hp48sx-om": 688
     },
     "ARG": {
+      "hp28s-rm": 117,
       "hp48g-aur": 183
     },
     "ARRY→": {
+      "hp28s-rm": 73,
       "hp48g-aur": 183
     },
     "ASIN": {
+      "hp28s-rm": 276,
       "hp48g-aur": 185
     },
     "ASIN2C": {
       "hp49g-aug": 130
     },
     "ASINH": {
+      "hp28s-rm": 138,
       "hp48g-aur": 187
     },
     "ASN": {
       "hp48g-aur": 188
     },
     "ASR": {
+      "hp28s-rm": 94,
       "hp48g-aur": 189,
       "hp48sx-om": 247
     },
     "ATAN": {
+      "hp28s-rm": 278,
       "hp48g-aur": 190,
       "hp48sx-om": 177
     },
@@ -168,6 +205,7 @@
       "hp49g-aug": 130
     },
     "ATANH": {
+      "hp28s-rm": 140,
       "hp48g-aur": 192
     },
     "ATICK": {
@@ -181,6 +219,7 @@
       "hp48sx-om": 337
     },
     "AXES": {
+      "hp28s-rm": 163,
       "hp48g-aur": 197
     },
     "AXM": {
@@ -200,6 +239,7 @@
       "hp48g-aur": 200
     },
     "BEEP": {
+      "hp28s-rm": 200,
       "hp48g-aur": 201
     },
     "BESTFIT": {
@@ -207,6 +247,7 @@
       "hp48sx-om": 417
     },
     "BIN": {
+      "hp28s-rm": 90,
       "hp48g-aur": 202,
       "hp48sx-om": 244
     },
@@ -227,6 +268,7 @@
       "hp48g-aur": 205
     },
     "B→R": {
+      "hp28s-rm": 92,
       "hp48g-aur": 206,
       "hp48sx-om": 247
     },
@@ -237,14 +279,17 @@
       "hp48g-aur": 206
     },
     "CEIL": {
+      "hp28s-rm": 222,
       "hp48g-aur": 208,
       "hp48sx-om": 182
     },
     "CENTR": {
+      "hp28s-rm": 163,
       "hp48g-aur": 208,
       "hp48sx-om": 332
     },
     "CF": {
+      "hp28s-rm": 206,
       "hp48g-aur": 209
     },
     "CHINREM": {
@@ -254,6 +299,7 @@
       "hp48g-aur": 210
     },
     "CHR": {
+      "hp28s-rm": 268,
       "hp48g-aur": 212,
       "hp48sx-om": 123
     },
@@ -261,6 +307,7 @@
       "hp48g-aur": 213
     },
     "CLEAR": {
+      "hp28s-rm": 242,
       "hp48g-aur": 214,
       "hp48sx-om": 95
     },
@@ -269,8 +316,12 @@
       "hp48sx-om": 480
     },
     "CLLCD": {
+      "hp28s-rm": 167,
       "hp48g-aur": 215,
       "hp48sx-om": 571
+    },
+    "CLMF": {
+      "hp28s-rm": 169
     },
     "CLOSEIO": {
       "hp48g-aur": 215
@@ -278,11 +329,18 @@
     "CLTEACH": {
       "hp48g-aur": 216
     },
+    "CLUSR": {
+      "hp28s-rm": 146
+    },
     "CLVAR": {
       "hp48g-aur": 217,
       "hp48sx-om": 147
     },
+    "CLΣ": {
+      "hp28s-rm": 250
+    },
     "CNRM": {
+      "hp28s-rm": 83,
       "hp48g-aur": 217,
       "hp48sx-om": 403
     },
@@ -293,17 +351,23 @@
       "hp48g-aur": 219
     },
     "COLCT": {
+      "hp28s-rm": 30,
       "hp48g-aur": 220,
       "hp48sx-om": 439
+    },
+    "COLΣ": {
+      "hp28s-rm": 166
     },
     "COL→": {
       "hp48g-aur": 220
     },
     "COMB": {
+      "hp28s-rm": 259,
       "hp48g-aur": 222,
       "hp48sx-om": 181
     },
     "CON": {
+      "hp28s-rm": 79,
       "hp48g-aur": 223,
       "hp48sx-om": 403
     },
@@ -314,6 +378,7 @@
       "hp48g-aur": 225
     },
     "CONJ": {
+      "hp28s-rm": 86,
       "hp48g-aur": 226,
       "hp48sx-om": 202
     },
@@ -328,29 +393,39 @@
       "hp48sx-om": 571
     },
     "CONVERT": {
+      "hp28s-rm": 285,
       "hp48g-aur": 229,
       "hp48sx-om": 229
     },
     "CORR": {
+      "hp28s-rm": 254,
       "hp48g-aur": 229,
       "hp48sx-om": 418
     },
     "COS": {
+      "hp28s-rm": 277,
       "hp48sx-om": 177
     },
     "COSH": {
+      "hp28s-rm": 139,
       "hp48g-aur": 231,
       "hp48sx-om": 174
     },
+    "COV": {
+      "hp28s-rm": 255
+    },
     "CR": {
+      "hp28s-rm": 175,
       "hp48g-aur": 232,
       "hp48sx-om": 643
     },
     "CRDIR": {
+      "hp28s-rm": 146,
       "hp48g-aur": 233,
       "hp48sx-om": 153
     },
     "CROSS": {
+      "hp28s-rm": 81,
       "hp48g-aur": 233,
       "hp48g-ug": 160,
       "hp48sx-om": 395
@@ -366,6 +441,7 @@
       "hp48g-ug": 117
     },
     "C→R": {
+      "hp28s-rm": 84,
       "hp48g-aur": 235,
       "hp48sx-om": 123
     },
@@ -390,6 +466,7 @@
       "hp48sx-om": 493
     },
     "DEC": {
+      "hp28s-rm": 89,
       "hp48g-aur": 239,
       "hp48g-ug": 188,
       "hp48sx-om": 244
@@ -404,6 +481,7 @@
       "hp48g-ug": 71
     },
     "DEG": {
+      "hp28s-rm": 151,
       "hp48g-aur": 242
     },
     "DELALARM": {
@@ -423,6 +501,7 @@
       "hp48g-aur": 245
     },
     "DEPTH": {
+      "hp28s-rm": 246,
       "hp48g-aur": 246,
       "hp48sx-om": 108
     },
@@ -436,12 +515,16 @@
       "hp49g-aug": 135
     },
     "DET": {
+      "hp28s-rm": 82,
       "hp48g-aur": 246,
       "hp48sx-om": 403
     },
     "DETACH": {
       "hp48g-aur": 248,
       "hp48sx-om": 693
+    },
+    "DGTIZ": {
+      "hp28s-rm": 168
     },
     "DIAG→": {
       "hp48g-aur": 248
@@ -450,6 +533,7 @@
       "hp48g-aur": 250
     },
     "DISP": {
+      "hp28s-rm": 201,
       "hp48g-aur": 252,
       "hp48sx-om": 558
     },
@@ -460,6 +544,7 @@
       "hp49g-aug": 137
     },
     "DO": {
+      "hp28s-rm": 194,
       "hp48g-aur": 253,
       "hp48g-ug": 420,
       "hp48sx-om": 544
@@ -476,48 +561,61 @@
       "hp48g-aur": 256
     },
     "DOT": {
+      "hp28s-rm": 82,
       "hp48g-aur": 258,
       "hp48g-ug": 160,
       "hp48sx-om": 395
     },
     "DRAW": {
+      "hp28s-rm": 161,
       "hp48g-aur": 258,
       "hp48sx-om": 337
     },
     "DRAX": {
+      "hp28s-rm": 168,
       "hp48g-aur": 259
     },
     "DROP": {
+      "hp28s-rm": 241,
       "hp48g-aur": 259,
       "hp48g-ug": 41,
       "hp48sx-om": 95
     },
     "DROP2": {
+      "hp28s-rm": 244,
       "hp48g-aur": 260,
       "hp48sx-om": 108
     },
     "DROPN": {
+      "hp28s-rm": 246,
       "hp48g-aur": 260,
       "hp48sx-om": 108
+    },
+    "DRWΣ": {
+      "hp28s-rm": 167
     },
     "DTAG": {
       "hp48g-aur": 261,
       "hp48sx-om": 123
     },
     "DUP": {
+      "hp28s-rm": 243,
       "hp48g-aur": 261,
       "hp48sx-om": 95
     },
     "DUP2": {
+      "hp28s-rm": 243,
       "hp48g-aur": 262,
       "hp48sx-om": 109
     },
     "DUPN": {
+      "hp28s-rm": 245,
       "hp48g-aur": 262,
       "hp48g-ug": 44,
       "hp48sx-om": 109
     },
     "D→R": {
+      "hp28s-rm": 284,
       "hp48g-aur": 263,
       "hp48sx-om": 179
     },
@@ -534,9 +632,11 @@
       "hp48g-aur": 265
     },
     "ELSE": {
+      "hp28s-rm": 189,
       "hp48g-aur": 265
     },
     "END": {
+      "hp28s-rm": 189,
       "hp48g-aur": 266,
       "hp48g-ug": 416,
       "hp48sx-om": 527
@@ -546,6 +646,7 @@
       "hp48g-ug": 203
     },
     "ENG": {
+      "hp28s-rm": 151,
       "hp48g-aur": 267,
       "hp48sx-om": 89
     },
@@ -562,11 +663,13 @@
       "hp48sx-om": 337
     },
     "ERRM": {
+      "hp28s-rm": 202,
       "hp48g-aur": 269,
       "hp48g-ug": 544,
       "hp48sx-om": 581
     },
     "ERRN": {
+      "hp28s-rm": 202,
       "hp48g-aur": 270,
       "hp48g-ug": 545,
       "hp48sx-om": 581
@@ -575,16 +678,22 @@
       "hp49g-aug": 140
     },
     "EVAL": {
+      "hp28s-rm": 126,
       "hp48g-aur": 271,
       "hp48sx-om": 130
+    },
+    "EXGET": {
+      "hp28s-rm": 35
     },
     "EXLR": {
       "hp49g-aug": 140
     },
     "EXP": {
+      "hp28s-rm": 136,
       "hp48g-aur": 272
     },
     "EXPAN": {
+      "hp28s-rm": 31,
       "hp48g-aur": 273,
       "hp48g-ug": 258,
       "hp48sx-om": 439
@@ -600,13 +709,18 @@
       "hp49g-aug": 142
     },
     "EXPM": {
+      "hp28s-rm": 137,
       "hp48g-aur": 274
+    },
+    "EXSUB": {
+      "hp28s-rm": 34
     },
     "EYEPT": {
       "hp48g-aur": 275,
       "hp48g-ug": 545
     },
     "FACT": {
+      "hp28s-rm": 218,
       "hp48g-aur": 276
     },
     "FACTOR": {
@@ -619,11 +733,13 @@
       "hp48g-aur": 277
     },
     "FC?": {
+      "hp28s-rm": 207,
       "hp48g-aur": 278,
       "hp48g-ug": 56,
       "hp48sx-om": 552
     },
     "FC?C": {
+      "hp28s-rm": 208,
       "hp48g-aur": 278,
       "hp48g-ug": 56,
       "hp48sx-om": 552
@@ -640,19 +756,26 @@
       "hp48g-ug": 379
     },
     "FIX": {
+      "hp28s-rm": 149,
       "hp48g-aur": 281,
       "hp48sx-om": 89
     },
     "FLOOR": {
+      "hp28s-rm": 222,
       "hp48g-aur": 282,
       "hp48sx-om": 182
     },
     "FOR": {
+      "hp28s-rm": 191,
       "hp48g-aur": 283,
       "hp48g-ug": 419,
       "hp48sx-om": 540
     },
+    "FORM": {
+      "hp28s-rm": 33
+    },
     "FP": {
+      "hp28s-rm": 222,
       "hp48g-aur": 285,
       "hp48sx-om": 182
     },
@@ -668,11 +791,13 @@
       "hp48g-aur": 287
     },
     "FS?": {
+      "hp28s-rm": 207,
       "hp48g-aur": 288,
       "hp48g-ug": 56,
       "hp48sx-om": 552
     },
     "FS?C": {
+      "hp28s-rm": 207,
       "hp48g-aur": 289,
       "hp48sx-om": 552
     },
@@ -687,11 +812,13 @@
       "hp49g-aug": 148
     },
     "GET": {
+      "hp28s-rm": 75,
       "hp48g-aur": 291,
       "hp48g-ug": 171,
       "hp48sx-om": 124
     },
     "GETI": {
+      "hp28s-rm": 76,
       "hp48g-aur": 293,
       "hp48g-ug": 205,
       "hp48sx-om": 124
@@ -719,6 +846,7 @@
       "hp49g-aug": 149
     },
     "HALT": {
+      "hp28s-rm": 198,
       "hp48g-aur": 300,
       "hp48g-ug": 415,
       "hp48sx-om": 522
@@ -733,6 +861,7 @@
       "hp49g-aug": 149
     },
     "HEX": {
+      "hp28s-rm": 89,
       "hp48g-aur": 301,
       "hp48g-ug": 187,
       "hp48sx-om": 244
@@ -749,14 +878,20 @@
       "hp48sx-om": 425
     },
     "HMS+": {
+      "hp28s-rm": 283,
       "hp48g-aur": 303,
       "hp48sx-om": 179
     },
+    "HMS-": {
+      "hp28s-rm": 284
+    },
     "HMS→": {
+      "hp28s-rm": 283,
       "hp48g-aur": 304,
       "hp48sx-om": 179
     },
     "HOME": {
+      "hp28s-rm": 145,
       "hp48g-aur": 306,
       "hp48g-ug": 70,
       "hp48sx-om": 155
@@ -765,6 +900,7 @@
       "hp49g-aug": 152
     },
     "IDN": {
+      "hp28s-rm": 80,
       "hp48g-aur": 307,
       "hp48sx-om": 403
     },
@@ -772,10 +908,12 @@
       "hp49g-aug": 154
     },
     "IF": {
+      "hp28s-rm": 189,
       "hp48g-aur": 308,
       "hp48g-ug": 416
     },
     "IFERR": {
+      "hp28s-rm": 189,
       "hp48g-aur": 310,
       "hp48g-ug": 421
     },
@@ -784,10 +922,12 @@
       "hp48g-ug": 164
     },
     "IFT": {
+      "hp28s-rm": 193,
       "hp48g-aur": 312,
       "hp48g-ug": 547
     },
     "IFTE": {
+      "hp28s-rm": 193,
       "hp48g-aur": 313,
       "hp48g-ug": 547
     },
@@ -795,6 +935,7 @@
       "hp49g-aug": 155
     },
     "IM": {
+      "hp28s-rm": 85,
       "hp48g-aur": 314
     },
     "INCR": {
@@ -803,6 +944,7 @@
       "hp48sx-om": 547
     },
     "INDEP": {
+      "hp28s-rm": 161,
       "hp48g-aur": 315,
       "hp48g-ug": 548,
       "hp48sx-om": 338
@@ -818,16 +960,21 @@
       "hp49g-aug": 155
     },
     "INV": {
+      "hp28s-rm": 62,
       "hp48g-aur": 320,
       "hp48sx-om": 171
     },
     "INVMOD": {
       "hp49g-aug": 156
     },
+    "IP": {
+      "hp28s-rm": 221
+    },
     "IQUOT": {
       "hp49g-aug": 157
     },
     "ISOL": {
+      "hp28s-rm": 236,
       "hp48g-aur": 322,
       "hp48g-ug": 256,
       "hp48sx-om": 432
@@ -844,6 +991,7 @@
       "hp48sx-om": 794
     },
     "KEY": {
+      "hp28s-rm": 199,
       "hp48g-aur": 323,
       "hp48g-ug": 548,
       "hp48sx-om": 568
@@ -852,6 +1000,7 @@
       "hp48g-aur": 324
     },
     "KILL": {
+      "hp28s-rm": 198,
       "hp48g-aur": 325,
       "hp48sx-om": 522
     },
@@ -867,12 +1016,16 @@
     "LAPL": {
       "hp49g-aug": 159
     },
+    "LAST": {
+      "hp28s-rm": 242
+    },
     "LASTARG": {
       "hp48g-aur": 327,
       "hp48g-ug": 41,
       "hp48sx-om": 95
     },
     "LCD→": {
+      "hp28s-rm": 271,
       "hp48g-aur": 327,
       "hp48g-ug": 118
     },
@@ -910,18 +1063,22 @@
       "hp48g-ug": 549
     },
     "LIST→": {
+      "hp28s-rm": 130,
       "hp48g-aur": 333
     },
     "LN": {
+      "hp28s-rm": 136,
       "hp48g-aur": 336
     },
     "LNCOLLECT": {
       "hp49g-aug": 164
     },
     "LNP1": {
+      "hp28s-rm": 137,
       "hp48g-aur": 338
     },
     "LOG": {
+      "hp28s-rm": 135,
       "hp48g-aur": 338
     },
     "LOGFIT": {
@@ -932,6 +1089,7 @@
       "hp48g-ug": 185
     },
     "LR": {
+      "hp28s-rm": 255,
       "hp48g-aur": 341,
       "hp48g-ug": 550,
       "hp48sx-om": 418
@@ -948,31 +1106,38 @@
       "hp49g-aug": 164
     },
     "MANT": {
+      "hp28s-rm": 221,
       "hp48g-aur": 343,
       "hp48sx-om": 182
     },
     "MAX": {
+      "hp28s-rm": 223,
       "hp48sx-om": 182
     },
     "MAXR": {
+      "hp28s-rm": 219,
       "hp48g-aur": 347,
       "hp48sx-om": 183
     },
     "MAXΣ": {
+      "hp28s-rm": 253,
       "hp48g-aur": 348
     },
     "MCALC": {
       "hp48g-aur": 349
     },
     "MEAN": {
+      "hp28s-rm": 251,
       "hp48g-aur": 349,
       "hp48sx-om": 415
     },
     "MEM": {
+      "hp28s-rm": 143,
       "hp48g-aur": 350,
       "hp48sx-om": 134
     },
     "MENU": {
+      "hp28s-rm": 143,
       "hp48g-aur": 351
     },
     "MENUXY": {
@@ -986,6 +1151,7 @@
       "hp48g-ug": 404
     },
     "MIN": {
+      "hp28s-rm": 224,
       "hp48g-aur": 355,
       "hp48sx-om": 182
     },
@@ -997,11 +1163,13 @@
       "hp48g-ug": 355
     },
     "MINR": {
+      "hp28s-rm": 219,
       "hp48g-aur": 357,
       "hp48g-ug": 136,
       "hp48sx-om": 183
     },
     "MINΣ": {
+      "hp28s-rm": 253,
       "hp48g-aur": 358
     },
     "MITM": {
@@ -1009,6 +1177,7 @@
       "hp48g-ug": 355
     },
     "MOD": {
+      "hp28s-rm": 224,
       "hp48g-aur": 359,
       "hp48sx-om": 182
     },
@@ -1033,6 +1202,7 @@
       "hp48g-aur": 362
     },
     "NEG": {
+      "hp28s-rm": 72,
       "hp48g-aur": 363
     },
     "NEWOB": {
@@ -1040,6 +1210,7 @@
       "hp48g-ug": 552
     },
     "NEXT": {
+      "hp28s-rm": 191,
       "hp48g-aur": 365,
       "hp48g-ug": 418,
       "hp48sx-om": 536
@@ -1048,6 +1219,7 @@
       "hp49g-aug": 166
     },
     "NOT": {
+      "hp28s-rm": 97,
       "hp48g-aur": 365
     },
     "NOVAL": {
@@ -1058,6 +1230,7 @@
       "hp48g-ug": 203
     },
     "NUM": {
+      "hp28s-rm": 268,
       "hp48g-aur": 368,
       "hp48g-ug": 553,
       "hp48sx-om": 124
@@ -1071,14 +1244,22 @@
       "hp48g-ug": 553
     },
     "NΣ": {
+      "hp28s-rm": 250,
       "hp48g-aur": 372
+    },
+    "OBGET": {
+      "hp28s-rm": 35
     },
     "OBJ→": {
       "hp48g-aur": 373,
       "hp48g-ug": 554,
       "hp48sx-om": 125
     },
+    "OBSUB": {
+      "hp28s-rm": 34
+    },
     "OCT": {
+      "hp28s-rm": 89,
       "hp48g-aur": 374
     },
     "OFF": {
@@ -1093,14 +1274,17 @@
       "hp48g-aur": 376
     },
     "OR": {
+      "hp28s-rm": 95,
       "hp48g-aur": 377
     },
     "ORDER": {
+      "hp28s-rm": 145,
       "hp48g-aur": 378,
       "hp48g-ug": 554,
       "hp48sx-om": 146
     },
     "OVER": {
+      "hp28s-rm": 243,
       "hp48g-aur": 379,
       "hp48g-ug": 48
     },
@@ -1119,6 +1303,7 @@
       "hp49g-aug": 167
     },
     "PATH": {
+      "hp28s-rm": 145,
       "hp48g-aur": 383,
       "hp48g-ug": 555
     },
@@ -1140,6 +1325,7 @@
       "hp48g-ug": 116
     },
     "PERM": {
+      "hp28s-rm": 259,
       "hp48g-aur": 388,
       "hp48sx-om": 181
     },
@@ -1152,6 +1338,7 @@
       "hp48sx-om": 156
     },
     "PICK": {
+      "hp28s-rm": 245,
       "hp48g-aur": 390,
       "hp48g-ug": 48,
       "hp48sx-om": 109
@@ -1172,6 +1359,9 @@
       "hp48g-aur": 393,
       "hp48g-ug": 117
     },
+    "PIXEL": {
+      "hp28s-rm": 168
+    },
     "PIXOFF": {
       "hp48g-aur": 392,
       "hp48g-ug": 116
@@ -1185,9 +1375,11 @@
       "hp48g-ug": 381
     },
     "PMAX": {
+      "hp28s-rm": 160,
       "hp48g-aur": 395
     },
     "PMIN": {
+      "hp28s-rm": 160,
       "hp48g-aur": 395
     },
     "POLAR": {
@@ -1195,6 +1387,7 @@
       "hp48g-ug": 304
     },
     "POS": {
+      "hp28s-rm": 134,
       "hp48g-aur": 398,
       "hp48sx-om": 126
     },
@@ -1202,10 +1395,12 @@
       "hp49g-aug": 168
     },
     "PR1": {
+      "hp28s-rm": 173,
       "hp48g-aur": 405,
       "hp48sx-om": 638
     },
     "PREDV": {
+      "hp28s-rm": 256,
       "hp48g-aur": 398,
       "hp48g-ug": 556
     },
@@ -1220,7 +1415,11 @@
       "hp48sx-om": 418
     },
     "PRLCD": {
+      "hp28s-rm": 169,
       "hp48g-aur": 401
+    },
+    "PRMD": {
+      "hp28s-rm": 153
     },
     "PROMPT": {
       "hp48g-aur": 402,
@@ -1234,14 +1433,20 @@
       "hp49g-aug": 170
     },
     "PRST": {
+      "hp28s-rm": 174,
       "hp48g-aur": 403,
       "hp48sx-om": 638
     },
     "PRSTC": {
+      "hp28s-rm": 176,
       "hp48g-aur": 404,
       "hp48sx-om": 638
     },
+    "PRUSR": {
+      "hp28s-rm": 177
+    },
     "PRVAR": {
+      "hp28s-rm": 175,
       "hp48g-aur": 404,
       "hp48sx-om": 638
     },
@@ -1253,14 +1458,17 @@
       "hp49g-aug": 170
     },
     "PURGE": {
+      "hp28s-rm": 142,
       "hp48g-aur": 407,
       "hp48sx-om": 146
     },
     "PUT": {
+      "hp28s-rm": 74,
       "hp48g-aur": 408,
       "hp48sx-om": 126
     },
     "PUTI": {
+      "hp28s-rm": 75,
       "hp48g-aur": 410,
       "hp48sx-om": 126
     },
@@ -1287,11 +1495,15 @@
     "Psi": {
       "hp49g-aug": 171
     },
+    "P→R": {
+      "hp28s-rm": 116
+    },
     "QR": {
       "hp48g-aur": 417,
       "hp48g-ug": 185
     },
     "QUAD": {
+      "hp28s-rm": 237,
       "hp48g-aur": 417,
       "hp48g-ug": 256,
       "hp48sx-om": 433
@@ -1308,9 +1520,11 @@
       "hp49g-aug": 172
     },
     "RAD": {
+      "hp28s-rm": 152,
       "hp48g-aur": 420
     },
     "RAND": {
+      "hp28s-rm": 218,
       "hp48g-aur": 420,
       "hp48sx-om": 181
     },
@@ -1326,6 +1540,7 @@
       "hp48g-ug": 558
     },
     "RCEQ": {
+      "hp28s-rm": 160,
       "hp48g-aur": 423,
       "hp48g-ug": 558,
       "hp48sx-om": 299
@@ -1339,6 +1554,7 @@
       "hp48g-ug": 183
     },
     "RCL": {
+      "hp28s-rm": 142,
       "hp48g-aur": 425,
       "hp48g-ug": 97,
       "hp48sx-om": 143
@@ -1349,6 +1565,7 @@
       "hp48sx-om": 492
     },
     "RCLF": {
+      "hp28s-rm": 213,
       "hp48g-aur": 426,
       "hp48sx-om": 554
     },
@@ -1362,20 +1579,27 @@
       "hp48g-ug": 559,
       "hp48sx-om": 573
     },
+    "RCLΣ": {
+      "hp28s-rm": 165
+    },
     "RCWS": {
+      "hp28s-rm": 90,
       "hp48g-aur": 429,
       "hp48g-ug": 188,
       "hp48sx-om": 244
     },
     "RDM": {
+      "hp28s-rm": 78,
       "hp48g-aur": 430,
       "hp48sx-om": 403
     },
     "RDZ": {
+      "hp28s-rm": 219,
       "hp48g-aur": 431,
       "hp48sx-om": 181
     },
     "RE": {
+      "hp28s-rm": 85,
       "hp48g-aur": 431,
       "hp48sx-om": 203
     },
@@ -1394,6 +1618,7 @@
       "hp49g-aug": 173
     },
     "REPEAT": {
+      "hp28s-rm": 194,
       "hp48g-aur": 434,
       "hp48g-ug": 420,
       "hp48sx-om": 546
@@ -1402,6 +1627,7 @@
       "hp48g-aur": 434
     },
     "RES": {
+      "hp28s-rm": 163,
       "hp48g-aur": 435,
       "hp48g-ug": 560
     },
@@ -1431,40 +1657,48 @@
       "hp48g-ug": 561
     },
     "RL": {
+      "hp28s-rm": 91,
       "hp48g-aur": 442,
       "hp48g-ug": 191,
       "hp48sx-om": 248
     },
     "RLB": {
+      "hp28s-rm": 91,
       "hp48g-aur": 442,
       "hp48g-ug": 191,
       "hp48sx-om": 248
     },
     "RND": {
+      "hp28s-rm": 223,
       "hp48g-aur": 443,
       "hp48sx-om": 183
     },
     "RNRM": {
+      "hp28s-rm": 83,
       "hp48g-aur": 444,
       "hp48g-ug": 172,
       "hp48sx-om": 403
     },
     "ROLL": {
+      "hp28s-rm": 242,
       "hp48g-aur": 444,
       "hp48g-ug": 48,
       "hp48sx-om": 109
     },
     "ROLLD": {
+      "hp28s-rm": 245,
       "hp48g-aur": 445,
       "hp48g-ug": 48,
       "hp48sx-om": 109
     },
     "ROOT": {
+      "hp28s-rm": 235,
       "hp48g-aur": 445,
       "hp48g-ug": 561,
       "hp48sx-om": 299
     },
     "ROT": {
+      "hp28s-rm": 244,
       "hp48g-aur": 446,
       "hp48g-ug": 48,
       "hp48sx-om": 109
@@ -1479,11 +1713,13 @@
       "hp48g-aur": 448
     },
     "RR": {
+      "hp28s-rm": 91,
       "hp48g-aur": 449,
       "hp48g-ug": 191,
       "hp48sx-om": 248
     },
     "RRB": {
+      "hp28s-rm": 92,
       "hp48g-aur": 449,
       "hp48g-ug": 191,
       "hp48sx-om": 248
@@ -1505,6 +1741,7 @@
       "hp48g-aur": 454
     },
     "RSD": {
+      "hp28s-rm": 80,
       "hp48g-aur": 455,
       "hp48sx-om": 404
     },
@@ -1512,18 +1749,25 @@
       "hp48g-aur": 456
     },
     "R→B": {
+      "hp28s-rm": 92,
       "hp48g-aur": 456,
       "hp48sx-om": 247
     },
     "R→C": {
+      "hp28s-rm": 84,
       "hp48g-aur": 457,
       "hp48sx-om": 127
     },
     "R→D": {
+      "hp28s-rm": 284,
       "hp48g-aur": 458,
       "hp48sx-om": 179
     },
+    "R→P": {
+      "hp28s-rm": 116
+    },
     "SAME": {
+      "hp28s-rm": 211,
       "hp48g-aur": 458,
       "hp48g-ug": 562,
       "hp48sx-om": 524
@@ -1549,16 +1793,20 @@
       "hp48g-aur": 462
     },
     "SCI": {
+      "hp28s-rm": 150,
       "hp48sx-om": 89
     },
     "SCLΣ": {
+      "hp28s-rm": 166,
       "hp48g-aur": 464
     },
     "SCONJ": {
+      "hp28s-rm": 264,
       "hp48g-aur": 464,
       "hp48sx-om": 148
     },
     "SDEV": {
+      "hp28s-rm": 252,
       "hp48g-aur": 464,
       "hp48sx-om": 415
     },
@@ -1579,10 +1827,12 @@
       "hp49g-aug": 177
     },
     "SF": {
+      "hp28s-rm": 206,
       "hp48g-aur": 468,
       "hp48sx-om": 552
     },
     "SHOW": {
+      "hp28s-rm": 237,
       "hp48g-aur": 469,
       "hp48sx-om": 438
     },
@@ -1594,29 +1844,36 @@
       "hp49g-aug": 177
     },
     "SIGN": {
+      "hp28s-rm": 115,
       "hp48g-aur": 470,
       "hp48sx-om": 183
     },
     "SIN": {
+      "hp28s-rm": 276,
       "hp48g-aur": 471,
       "hp48sx-om": 177
     },
     "SINH": {
+      "hp28s-rm": 138,
       "hp48g-aur": 472
     },
     "SINV": {
+      "hp28s-rm": 264,
       "hp48g-aur": 473
     },
     "SIZE": {
+      "hp28s-rm": 33,
       "hp48g-aur": 473,
       "hp48g-ug": 69
     },
     "SL": {
+      "hp28s-rm": 93,
       "hp48g-aur": 474,
       "hp48g-ug": 191,
       "hp48sx-om": 248
     },
     "SLB": {
+      "hp28s-rm": 93,
       "hp48g-aur": 475,
       "hp48g-ug": 191,
       "hp48sx-om": 248
@@ -1626,6 +1883,7 @@
       "hp48g-ug": 325
     },
     "SNEG": {
+      "hp28s-rm": 264,
       "hp48g-aur": 477,
       "hp48g-ug": 564,
       "hp48sx-om": 148
@@ -1648,9 +1906,11 @@
       "hp48g-aur": 480
     },
     "SQ": {
+      "hp28s-rm": 63,
       "hp48g-aur": 480
     },
     "SR": {
+      "hp28s-rm": 93,
       "hp48g-aur": 481,
       "hp48g-ug": 191,
       "hp48sx-om": 248
@@ -1660,6 +1920,7 @@
       "hp48g-ug": 173
     },
     "SRB": {
+      "hp28s-rm": 94,
       "hp48g-aur": 482,
       "hp48g-ug": 191
     },
@@ -1668,17 +1929,21 @@
       "hp48g-ug": 386
     },
     "START": {
+      "hp28s-rm": 191,
       "hp48g-aur": 485,
       "hp48g-ug": 418
     },
     "STD": {
+      "hp28s-rm": 148,
       "hp48g-aur": 486
     },
     "STEP": {
+      "hp28s-rm": 191,
       "hp48g-aur": 487,
       "hp48sx-om": 538
     },
     "STEQ": {
+      "hp28s-rm": 159,
       "hp48g-aur": 488,
       "hp48sx-om": 293
     },
@@ -1687,19 +1952,26 @@
       "hp48g-ug": 386
     },
     "STO": {
+      "hp28s-rm": 141,
       "hp48g-aur": 489,
       "hp48g-ug": 69,
       "hp48sx-om": 140
     },
+    "STO*": {
+      "hp28s-rm": 262
+    },
     "STO+": {
+      "hp28s-rm": 260,
       "hp48g-aur": 493,
       "hp48g-ug": 565,
       "hp48sx-om": 148
     },
     "STO-": {
+      "hp28s-rm": 261,
       "hp48g-aur": 494
     },
     "STO/": {
+      "hp28s-rm": 263,
       "hp48g-aur": 495,
       "hp48sx-om": 148
     },
@@ -1709,6 +1981,7 @@
       "hp48sx-om": 492
     },
     "STOF": {
+      "hp28s-rm": 213,
       "hp48g-aur": 491,
       "hp48sx-om": 554
     },
@@ -1717,15 +1990,23 @@
       "hp48g-ug": 434,
       "hp48sx-om": 254
     },
+    "STOΣ": {
+      "hp28s-rm": 165
+    },
     "STREAM": {
       "hp48g-aur": 497,
       "hp48g-ug": 203
     },
     "STR→": {
+      "hp28s-rm": 267,
       "hp48g-aur": 497
     },
     "STWS": {
+      "hp28s-rm": 90,
       "hp48g-aur": 499
+    },
+    "SUB": {
+      "hp28s-rm": 134
     },
     "SUBTMOD": {
       "hp49g-aug": 125
@@ -1737,6 +2018,7 @@
       "hp48g-aur": 502
     },
     "SWAP": {
+      "hp28s-rm": 241,
       "hp48g-aur": 502,
       "hp48g-ug": 40,
       "hp48sx-om": 94
@@ -1745,6 +2027,7 @@
       "hp49g-aug": 126
     },
     "SYSEVAL": {
+      "hp28s-rm": 128,
       "hp48g-aur": 503,
       "hp48g-ug": 566
     },
@@ -1752,12 +2035,15 @@
       "hp48g-aur": 505
     },
     "TAN": {
+      "hp28s-rm": 278,
       "hp48g-aur": 506
     },
     "TANH": {
+      "hp28s-rm": 139,
       "hp48g-aur": 507
     },
     "TAYLR": {
+      "hp28s-rm": 108,
       "hp48g-aur": 507,
       "hp48g-ug": 253
     },
@@ -1775,6 +2061,7 @@
       "hp48g-aur": 509
     },
     "THEN": {
+      "hp28s-rm": 189,
       "hp48g-aur": 510,
       "hp48g-ug": 416,
       "hp48sx-om": 527
@@ -1801,6 +2088,7 @@
       "hp48sx-om": 572
     },
     "TOT": {
+      "hp28s-rm": 251,
       "hp48g-aur": 515,
       "hp48g-ug": 567,
       "hp48sx-om": 415
@@ -1814,6 +2102,7 @@
       "hp48g-ug": 567
     },
     "TRN": {
+      "hp28s-rm": 78,
       "hp48g-aur": 517
     },
     "TRNC": {
@@ -1848,6 +2137,7 @@
       "hp48g-ug": 568
     },
     "TYPE": {
+      "hp28s-rm": 214,
       "hp48g-aur": 523,
       "hp48g-ug": 568,
       "hp48sx-om": 129
@@ -1863,6 +2153,7 @@
       "hp48sx-om": 233
     },
     "UNTIL": {
+      "hp28s-rm": 194,
       "hp48g-aur": 526,
       "hp48g-ug": 420,
       "hp48sx-om": 544
@@ -1871,18 +2162,22 @@
       "hp48g-aur": 527
     },
     "UTPC": {
+      "hp28s-rm": 258,
       "hp48g-aur": 527,
       "hp48sx-om": 427
     },
     "UTPF": {
+      "hp28s-rm": 258,
       "hp48g-aur": 528,
       "hp48sx-om": 427
     },
     "UTPN": {
+      "hp28s-rm": 258,
       "hp48g-aur": 529,
       "hp48sx-om": 427
     },
     "UTPT": {
+      "hp28s-rm": 259,
       "hp48g-aur": 529,
       "hp48sx-om": 427
     },
@@ -1892,11 +2187,13 @@
       "hp48sx-om": 242
     },
     "VAR": {
+      "hp28s-rm": 252,
       "hp48g-aur": 531,
       "hp48g-ug": 569,
       "hp48sx-om": 415
     },
     "VARS": {
+      "hp28s-rm": 146,
       "hp48g-aur": 531,
       "hp48g-ug": 569
     },
@@ -1912,11 +2209,13 @@
       "hp48sx-om": 218
     },
     "WAIT": {
+      "hp28s-rm": 199,
       "hp48g-aur": 537,
       "hp48g-ug": 570,
       "hp48sx-om": 570
     },
     "WHILE": {
+      "hp28s-rm": 194,
       "hp48g-aur": 538,
       "hp48g-ug": 420
     },
@@ -1937,10 +2236,12 @@
       "hp48g-ug": 386
     },
     "XOR": {
+      "hp28s-rm": 96,
       "hp48g-aur": 546,
       "hp48g-ug": 190
     },
     "XPON": {
+      "hp28s-rm": 221,
       "hp48g-aur": 547,
       "hp48sx-om": 183
     },
@@ -1996,11 +2297,16 @@
       "hp48g-aur": 558,
       "hp48g-ug": 574
     },
+    "^": {
+      "hp28s-rm": 62
+    },
     "e": {
+      "hp28s-rm": 29,
       "hp48g-aur": 263,
       "hp48sx-om": 183
     },
     "i": {
+      "hp28s-rm": 29,
       "hp48g-aur": 307,
       "hp48g-ug": 136
     },
@@ -2012,16 +2318,25 @@
       "hp49g-aug": 177
     },
     "Σ+": {
+      "hp28s-rm": 248,
       "hp48g-aur": 584
+    },
+    "Σ-": {
+      "hp28s-rm": 249
     },
     "ΣLIST": {
       "hp48g-aur": 334
     },
+    "π": {
+      "hp28s-rm": 29
+    },
     "→": {
+      "hp28s-rm": 180,
       "hp48g-ug": 577,
       "hp48sx-om": 511
     },
     "→ARRY": {
+      "hp28s-rm": 73,
       "hp48g-aur": 184,
       "hp48sx-om": 123
     },
@@ -2040,19 +2355,23 @@
       "hp48g-ug": 117
     },
     "→HMS": {
+      "hp28s-rm": 283,
       "hp48g-aur": 306,
       "hp48sx-om": 179
     },
     "→LCD": {
+      "hp28s-rm": 271,
       "hp48g-aur": 328,
       "hp48g-ug": 118
     },
     "→LIST": {
+      "hp28s-rm": 130,
       "hp48g-aur": 333,
       "hp48g-ug": 44,
       "hp48sx-om": 124
     },
     "→NUM": {
+      "hp28s-rm": 126,
       "hp48g-aur": 371,
       "hp48sx-om": 162
     },
@@ -2064,6 +2383,7 @@
       "hp48g-aur": 446
     },
     "→STR": {
+      "hp28s-rm": 266,
       "hp48g-aur": 498
     },
     "→TAG": {
@@ -2085,6 +2405,24 @@
     "→V3": {
       "hp48g-aur": 534,
       "hp48sx-om": 218
+    },
+    "∂": {
+      "hp28s-rm": 98
+    },
+    "√": {
+      "hp28s-rm": 63
+    },
+    "∫": {
+      "hp28s-rm": 102
+    },
+    "≠": {
+      "hp28s-rm": 203
+    },
+    "≤": {
+      "hp28s-rm": 205
+    },
+    "≥": {
+      "hp28s-rm": 205
     }
   }
 }
