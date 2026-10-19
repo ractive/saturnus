@@ -625,9 +625,20 @@ example's keys and the function's. The Solver's functions (`USPV(i%:n)`)
 are typed into an equation: their rows show no keys and Enter presses
 nothing.
 
+The 38G, 39G and 40G are key-driven too: HOME's edit line is algebraic
+(`SIN(45)`) and Search cannot type into it, so a function's keys put it
+there from HOME, as a person would: a key (SIN), or MATH (CMDS for a
+programming command), the category and the entry by their first letters
+or ▼, then ENTER (`MATH P P ▶ ENTER` puts `COMB(` on the edit line).
+Enter closes a choose box first (CANCEL, while one shows), presses HOME,
+then the keys; the person adds the arguments and presses ENTER. The
+entry shows what the keys put on the edit line. Try it also clears the
+edit line (CANCEL) and types the example's arguments and ENTER.
+
 Where it cannot do everything it says so under the input: no ROM running
 (the shown model's reference can be read, nothing sent), a model
-without a reference or a command line (38G, 39G, 40G: app actions only), and the 49G in algebraic mode, where the RPN text of the examples
+without a reference (only app actions are listed; every model has one
+today), and the 49G in algebraic mode, where the RPN text of the examples
 and command names does not parse (the action "Switch the HP 49G to RPN
 mode" runs `CF(-95)`). The editor does not show that notice: saving
 there sets the mode itself.

@@ -60,8 +60,8 @@ enum Cmd {
         count: usize,
     },
     /// Look up a built-in command in the reference (48SX, 48GX, 49G, 28S;
-    /// the functions of the 42S, 27S, 17BII, 17B and 19BII with --model):
-    /// description, stack effect,
+    /// the functions of the 42S, 27S, 17BII, 17B, 19BII, 38G, 39G and 40G
+    /// with --model): description, stack effect,
     /// menu or keys, examples run in saturnus, manual pages. ASCII
     /// spellings work (->LIST, SIGMA+, or the calculator's codes such
     /// as \->LIST and \.S); a query that names several commands lists
@@ -70,8 +70,9 @@ enum Cmd {
         /// The command, e.g. STO, →LIST or ->LIST.
         #[arg(allow_hyphen_values = true)]
         command: String,
-        /// Only this model: 48sx, 48gx, 49g, 28s, 42s, 27s, 17bii, 17b or
-        /// 19bii (its menu or keys, examples and manual pages).
+        /// Only this model: 48sx, 48gx, 49g, 28s, 42s, 27s, 17bii, 17b,
+        /// 19bii, 38g, 39g or 40g (its menu or keys, examples and manual
+        /// pages).
         #[arg(long)]
         model: Option<String>,
         /// Print the entry (or the candidates) as JSON.

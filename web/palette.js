@@ -3,11 +3,12 @@
 // the palette opens and after every send) and what choosing a row does:
 // `insert` or `run` through the protocol's typing verbs (web/protocol.md,
 // "Typing"), an app action, or a menu to browse. On a key-driven model
-// (the 42S) a function is pressed instead: its keys go to the key queue
-// (`typeKeys`), after leaving the menu the screen shows, if any. On the
-// 28S, whose command line cannot be read, the text is typed on its keys
-// (keys28.js). `<sat-palette>` renders it; `web/test/` drives it with a
-// fake backend.
+// (the 42S, 27S, 17BII, 17B, 19BII; the 38G, 39G and 40G) a function is
+// pressed instead: its keys go to the key queue (`typeKeys`), after
+// leaving the menu the screen shows, if any, and (38G, 39G, 40G) going
+// to HOME. On the 28S, whose command line cannot be read, the text is
+// typed on its keys (keys28.js). `<sat-palette>` renders it; `web/test/`
+// drives it with a fake backend.
 
 import { send28 } from "./keys28.js";
 import { buildIndex, enterPlan, enterVerb, exampleSteps, exampleText, keyNames, keysText, menuShown, search } from "./reference.js";
@@ -342,7 +343,7 @@ export class PaletteModel {
 
   /** "Try it": the example's setup, input and command, run (pressed, on a key-driven model). The palette stays open to show the next one. */
   tryExample(example, command = this.row?.command) {
-    if (this.keyed && command) return this.press(exampleSteps(command, example), { closeAfter: false, fresh: true });
+    if (this.keyed && command) return this.press(exampleSteps(command, example), { closeAfter: false, fresh: true, label: example.then?.length ? `the example with ${command.keysText}` : null });
     return this.send("run", exampleText(example), { closeAfter: false });
   }
 
@@ -353,19 +354,27 @@ export class PaletteModel {
    * calculator has played them. `fresh` (an example) also ends the
    * entry in progress, so its numbers start new ones.
    */
-  async press(steps, { closeAfter, fresh = false }) {
+  async press(steps, { closeAfter, fresh = false, label = null }) {
     if (!this.canPress) {
       this.notice = { text: this.store.state.booted ? `The calculator running is not the ${this.index?.model}.` : "Start the calculator to press this.", error: true };
       this.changed();
       return { close: false };
     }
     if (this.sending) return { close: false };
-    const text = keysText(steps);
+    const text = label ?? keysText(steps);
     this.sending = true;
     this.notice = { text: `Pressing ${text}…`, error: false };
     this.changed();
     try {
-      await this.leaveMenus(fresh);
+      // The 38G, 39G and 40G go to HOME first (`home`), and an example
+      // then clears the edit line with the leave keys (CANCEL).
+      const home = this.index.km?.home;
+      await this.leaveMenus(fresh && !home);
+      if (home?.length) {
+        this.backend.typeKeys(keyNames(home));
+        await this.settle();
+        if (fresh) await this.leaveMenus(true);
+      }
       this.backend.typeKeys(keyNames(steps));
       await this.settle();
     } catch (err) {

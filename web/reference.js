@@ -55,11 +55,12 @@ const ASCII = /^[\x00-\x7f]*$/;
 /**
  * The index of one model's commands, built once from the data: each
  * command with the forms a query is matched against, and the ROM's
- * menus as a tree. A key-driven model (`data.keyModels`, the 42S) gets
- * its functions instead (`buildKeyIndex`). `model` may have no
- * reference (the 38G): the index is then empty and says so. A model's own
- * description, stack and long name (`per`) replace the shared ones where
- * the command differs there (the 28S's RND).
+ * menus as a tree. A key-driven model (`data.keyModels`: the 42S, 27S,
+ * 17BII, 17B, 19BII, 38G, 39G and 40G) gets its functions instead
+ * (`buildKeyIndex`). `model` may have no reference: the index is then
+ * empty and says so. A model's own description, stack and long name
+ * (`per`) replace the shared ones where the command differs there (the
+ * 28S's RND).
  */
 export function buildIndex(data, model) {
   if (data.keyModels?.[model]) return buildKeyIndex(data, model);
@@ -113,9 +114,10 @@ export function buildIndex(data, model) {
 
 // ------------------------------------------------------------ key-driven models
 //
-// The 42S (and the other models of `data.keyModels`, from
-// crates/saturnus-cli/data/commands/keys-<model>.json) have no command line: a
-// function is pressed. Each step is `{key, label?}`: the key's script
+// The 42S, the 38G, 39G and 40G (the models of `data.keyModels`, from
+// crates/saturnus-cli/data/commands/keys-<model>.json) have no command line
+// Search can type into: a function is pressed (on the 38G, 39G and 40G,
+// from HOME, putting it on the edit line). Each step is `{key, label?}`: the key's script
 // name and what it shows (its legend, or the menu box above a menu key).
 
 /** Whether `key` is a shift key. */
@@ -236,6 +238,7 @@ export function buildKeyIndex(data, model) {
 export function legendText(names, legends = null) {
   const out = [];
   let shifted = false;
+  let alpha = false;
   for (const n of names) {
     const k = legends?.find((x) => x.name === n);
     if (isShift(n)) {
@@ -243,15 +246,17 @@ export function legendText(names, legends = null) {
       shifted = !shifted;
       continue;
     }
-    out.push((shifted ? k?.left : k?.label) || n.toUpperCase());
+    // A key after ALPHA types its letter.
+    out.push((alpha && k?.alpha ? k.alpha : shifted ? k?.left : k?.label) || n.toUpperCase());
+    alpha = n === "alpha";
     shifted = false;
   }
   return out.join(" ");
 }
 
-/** The keys an example presses: its input, then the function's. */
+/** The keys an example presses: its input, the function's, then its `then` keys (the arguments and ENTER on the 38G, 39G and 40G). */
 export function exampleSteps(command, example) {
-  return [...example.input.map((key) => ({ key })), ...(command.steps ?? [])];
+  return [...example.input.map((key) => ({ key })), ...(command.steps ?? []), ...(example.then ?? []).map((key) => ({ key }))];
 }
 
 /** The headings of the menu tree that are not menus of the ROM. */

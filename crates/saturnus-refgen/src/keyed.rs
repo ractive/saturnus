@@ -1,7 +1,8 @@
 //! The reference of a key-driven model (the 42S, 27S, 17BII, 17B,
-//! 19BII): models without a command line to type into, where a function
-//! is a key, a shifted key, a menu key under a menu, or (42S) XEQ and its
-//! name. Written by hand as `crates/saturnus-cli/data/commands/keys-<model>.json`;
+//! 19BII, and the 38G, 39G and 40G): models without a command line to
+//! type into, where a function is a key, a shifted key, a menu key under
+//! a menu, (42S) XEQ and its name, or (38G, 39G, 40G) a key or a MATH
+//! menu entry that puts its name on HOME's edit line. Written by hand as `crates/saturnus-cli/data/commands/keys-<model>.json`;
 //! [`generate`] checks it on the emulator and runs its examples into
 //! `examples-<model>.json`.
 //!
@@ -14,6 +15,8 @@
 //!   "menu_keys": ["sigmaplus", ...], // the keys under the menu boxes, left to right
 //!   "marks": ["■"],                   // optional: what a menu box adds to a label when its setting is on
 //!   "ready": [steps],                 // optional: after the boot, into the normal state
+//!   "home": [steps],                  // optional: pressed (by the app) before every
+//!                                     // function, after leaving the menus (the 38G's HOME)
 //!   "leave": {"keys": [steps], "menu_box": {"x": 0, "width": 21, "rows": [9, 15]}},
 //!                                     // optional: the keys that leave a menu, pressed (by
 //!                                     // the app) while the screen shows one: dots x to
@@ -41,8 +44,10 @@
 //!     "xeq": "NAME",                 //   (no keys) the name XEQ runs it by; neither
 //!                                    //   for a function only typed into an equation
 //!     "menu": "CONVERT",             // optional: the menu path as the manual names it
+//!     "inserts": "COMB(",            // optional: what the keys put on the edit line
 //!     "page": 91,                    // the manual's PDF page
-//!     "examples": [{"input": ["4", "enter", "3"]}]  // optional
+//!     "examples": [{"input": ["4", "enter", "3"], "then": ["enter"]}]
+//!                                     // optional; `then`: keys after the function's
 //!   }]
 //! }
 //! ```
@@ -53,7 +58,9 @@
 //! a shift key), or the label of the menu box above a menu key. Every
 //! step but a shift has a label; the keys read as the labels in order,
 //! a shift as `⇧`: `⇧ CONVERT →POL`. A box may show one of `marks`
-//! after its label, or in place of its last letter (`DEG■`, `WRA■`). The normal state is the
+//! after its label, or in place of its last letter (`DEG■`, `WRA■`). A
+//! letter key may also be labelled with its alpha letter, and a key with
+//! the text printed below it (the 38G's `CANCEL`). The normal state is the
 //! calculator as it boots and `ready` leaves it: no menu (or, where the
 //! calculator always shows one, its top menu: MAIN on the 17BII, 17B and
 //! 19BII), no message, no entry in progress. A function run
@@ -73,6 +80,14 @@
 //! exactly when one shows. The fonts are learned first from the
 //! `learn` screens and the characters of `alpha.chars`, typed one by one
 //! (each shows in the first cell of the upper line).
+//!
+//! On the 38G, 39G and 40G ([`crate::apletext`]) the screen is HOME: its
+//! four history lines and the edit line (`learn` lines are those five, a
+//! history line spaced as it shows). A function's `inserts` must be what
+//! its keys leave on the edit line, and no menu (`leave.menu_box`) may
+//! show after them. An example whose `then` ends with ENTER teaches the
+//! history's font: the edit line, read just before, must come back as
+//! the last entry's input. No example may show a cell never learned.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -83,6 +98,7 @@ use saturnus_core::{Lcd, Machine, Model};
 use saturnus_drive::session::Session;
 use serde::{Deserialize, Serialize};
 
+use crate::apletext;
 use crate::lcdtext::{self, Glyphs};
 
 /// One key press of a function's keys.
@@ -179,6 +195,10 @@ pub struct Learn {
 pub struct ExampleSpec {
     /// Key names, from the normal state.
     pub input: Vec<String>,
+    /// Key names pressed after the function's (an algebraic entry's
+    /// arguments and ENTER).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub then: Vec<String>,
 }
 
 /// One function.
@@ -199,6 +219,9 @@ pub struct Command {
     pub xeq: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub menu: Option<String>,
+    /// What the keys put on the edit line (38G, 39G, 40G).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inserts: Option<String>,
     pub page: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub examples: Vec<ExampleSpec>,
@@ -215,6 +238,8 @@ pub struct KeyFile {
     pub marks: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ready: Vec<Step>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub home: Vec<Step>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub learn: Vec<Learn>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -309,6 +334,7 @@ pub fn lint(file: &KeyFile) -> Result<()> {
         check("xeq.start", &x.start)?;
         check("xeq.end", &x.end)?;
     }
+    check("home", &file.home)?;
     for c in &file.commands {
         if !seen.insert(c.name.as_str()) {
             bail!("{} is listed twice", c.name);
@@ -335,6 +361,8 @@ pub struct Driver {
     marks: Vec<String>,
     /// The fonts learned.
     pub glyphs: Glyphs,
+    /// The fonts of HOME learned (38G, 39G, 40G).
+    pub aplet: apletext::Fonts,
 }
 
 impl Driver {
@@ -353,6 +381,7 @@ impl Driver {
             menu_keys: file.menu_keys.clone(),
             marks: file.marks.clone(),
             glyphs: Glyphs::default(),
+            aplet: apletext::Fonts::default(),
         };
         d.press_all(&file.ready).context("ready")?;
         d.booted = d.session.machine.save_state();
@@ -375,7 +404,12 @@ impl Driver {
 
     /// The screen as text.
     pub fn read(&self) -> Vec<String> {
-        self.glyphs.read(&self.lcd())
+        let lcd = self.lcd();
+        if apletext::fits(&lcd) {
+            self.aplet.read(&lcd)
+        } else {
+            self.glyphs.read(&lcd)
+        }
     }
 
     fn key(&self, name: &str) -> Result<Key> {
@@ -443,7 +477,9 @@ impl Driver {
                 }
                 _ => {
                     let legend = legend_now;
-                    if legend != *label {
+                    if legend != *label
+                        && (shifted || !other_legends(self.model, &step.key)?.contains(label))
+                    {
                         bail!(
                             "key {}{} is {legend:?}, not {label:?}",
                             if shifted { "shifted " } else { "" },
@@ -475,6 +511,19 @@ impl Driver {
             self.reset()?;
             self.press_all(&l.keys).context("learn")?;
             let lcd = self.lcd();
+            if apletext::fits(&lcd) {
+                for (k, text) in l.lines.iter().enumerate().filter(|(_, t)| !t.is_empty()) {
+                    let seen = if k < apletext::HISTORY {
+                        self.aplet.expect_history(&lcd, k, text)
+                    } else {
+                        self.aplet.expect_edit(&lcd, text)
+                    };
+                    seen.map_err(|m| {
+                        anyhow::anyhow!("learn: line {} shows {:?}, not {text:?}", k + 1, m.shown)
+                    })?;
+                }
+                continue;
+            }
             for (line, text) in l.lines.iter().enumerate() {
                 for (i, c) in text.chars().enumerate().filter(|(_, c)| *c != ' ') {
                     self.glyphs.learn_cell(lcdtext::cell(&lcd, line, i), c);
@@ -516,16 +565,30 @@ impl Driver {
     }
 }
 
+/// What else an unshifted `key` may be labelled with: its alpha letter
+/// and the text printed below it.
+fn other_legends(model: Model, key: &str) -> Result<Vec<String>> {
+    let k = skin_key(model, key)?;
+    Ok([k.alpha, k.below]
+        .iter()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect())
+}
+
+fn skin_key(model: Model, key: &str) -> Result<&'static saturnus_host::skins::SkinKey> {
+    let skin = saturnus_host::skins::skin(model)
+        .with_context(|| format!("no skin for the {}", model.name()))?;
+    skin.keys
+        .iter()
+        .find(|k| k.name == key)
+        .with_context(|| format!("the {} skin has no key {key:?}", model.name()))
+}
+
 /// The legend `key` shows on `model`'s skin: its label, or its shifted
 /// label.
 fn legend(model: Model, key: &str, shifted: bool) -> Result<String> {
-    let skin = saturnus_host::skins::skin(model)
-        .with_context(|| format!("no skin for the {}", model.name()))?;
-    let k = skin
-        .keys
-        .iter()
-        .find(|k| k.name == key)
-        .with_context(|| format!("the {} skin has no key {key:?}", model.name()))?;
+    let k = skin_key(model, key)?;
     Ok(if shifted { k.left } else { k.label }.to_string())
 }
 
@@ -539,6 +602,9 @@ pub struct Example {
     /// pressed under a menu reads as its label rather than its legend.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub labels: Vec<String>,
+    /// The keys pressed after the function's.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub then: Vec<String>,
     /// The screen after them, upper line first.
     pub before: Vec<String>,
     /// The screen after the function's keys.
@@ -572,47 +638,35 @@ pub fn generate(
     lint(file)?;
     let mut d = Driver::boot(model, rom, file)?;
     d.reset()?;
-    let mut out = Examples {
-        model: file.model.clone(),
-        booted: d.read(),
-        examples: BTreeMap::new(),
-    };
+    let booted = d.lcd();
+    // The screens are read at the end, with every font learned.
+    let mut shots: Vec<Shot> = Vec::new();
     for cmd in &file.commands {
         if only.is_some_and(|o| !o.contains(&cmd.name)) {
             continue;
         }
-        let steps = file.sequence(cmd)?;
+        let mut steps = file.home.clone();
+        steps.extend(file.sequence(cmd)?);
         d.reset()?;
         d.press_all(&steps).with_context(|| cmd.name.clone())?;
-        if let Some(menu_box) = file.leave.as_ref().and_then(|l| l.menu_box.as_ref())
-            && menu_box.shown(&d.lcd()) != lcdtext::has_menu(&d.lcd())
-        {
-            bail!(
-                "{}: leave.menu_box does not tell whether a menu shows",
-                cmd.name
-            );
-        }
-        if let (Some(_), Some(unknown)) =
-            (&cmd.xeq, file.xeq.as_ref().and_then(|x| x.unknown.as_ref()))
-            && d.read()[0].contains(unknown.as_str())
-        {
-            bail!(
-                "{}: the calculator does not know the name {:?}",
-                cmd.name,
-                cmd.xeq
-            );
-        }
-        let mut list = Vec::new();
+        check_after(&mut d, file, cmd)?;
         for ex in &cmd.examples {
             d.reset()?;
             let mut labels = Vec::new();
             let mut by_box = false;
             let mut shifted = false;
+            let mut alpha = false;
             for k in &ex.input {
                 let lcd = d.lcd();
                 let menu_box = file.menu_keys.iter().position(|m| m == k);
+                let letter = skin_key(model, k)
+                    .ok()
+                    .map(|x| x.alpha)
+                    .filter(|a| alpha && !a.is_empty());
                 labels.push(match menu_box {
                     _ if is_shift(k) => "⇧".to_string(),
+                    // After ALPHA (38G, 39G, 40G) a key types its letter.
+                    _ if letter.is_some() => letter.unwrap_or_default().to_string(),
                     Some(b) if lcdtext::has_menu(&lcd) && !shifted => {
                         by_box = true;
                         d.glyphs.read_box(&lcdtext::box_columns(&lcd, b))
@@ -620,23 +674,152 @@ pub fn generate(
                     _ => legend(model, k, shifted).unwrap_or_else(|_| k.to_uppercase()),
                 });
                 shifted = is_shift(k) && !shifted;
+                alpha = k == "alpha";
                 d.press_key(k)
                     .with_context(|| format!("{}: example input", cmd.name))?;
             }
-            let before = d.read();
+            let before = d.lcd();
             d.press_all(&steps).with_context(|| cmd.name.clone())?;
-            list.push(Example {
-                input: ex.input.clone(),
+            for (i, k) in ex.then.iter().enumerate() {
+                let last_enter = i + 1 == ex.then.len() && k == "enter";
+                let typed = d.aplet.read_edit(&d.lcd());
+                d.press_key(k)
+                    .with_context(|| format!("{}: example keys after", cmd.name))?;
+                if last_enter && apletext::fits(&d.lcd()) {
+                    learn_input(&mut d, &typed).with_context(|| cmd.name.clone())?;
+                }
+            }
+            // The Pioneers' screens are read now, HOME's at the end with
+            // every font learned.
+            let after = d.lcd();
+            let now =
+                (!apletext::fits(&after)).then(|| (d.glyphs.read(&before), d.glyphs.read(&after)));
+            shots.push(Shot {
+                name: cmd.name.clone(),
+                spec: ex.clone(),
                 labels: if by_box { labels } else { Vec::new() },
                 before,
-                after: d.read(),
+                after,
+                now,
             });
         }
-        if !list.is_empty() {
-            out.examples.insert(cmd.name.clone(), list);
+    }
+    let read = |lcd: &Lcd| {
+        if apletext::fits(lcd) {
+            d.aplet.read(lcd)
+        } else {
+            d.glyphs.read(lcd)
         }
+    };
+    let mut out = Examples {
+        model: file.model.clone(),
+        booted: read(&booted),
+        examples: BTreeMap::new(),
+    };
+    for shot in shots {
+        let name = shot.name;
+        let (before, after) = shot
+            .now
+            .unwrap_or_else(|| (read(&shot.before), read(&shot.after)));
+        let x = Example {
+            input: shot.spec.input,
+            labels: shot.labels,
+            then: shot.spec.then,
+            before,
+            after,
+        };
+        if apletext::fits(&shot.after)
+            && x.before
+                .iter()
+                .chain(&x.after)
+                .any(|l| l.contains(apletext::UNKNOWN))
+        {
+            bail!(
+                "{name}: the example shows characters never learned (add a learn screen): {:?}",
+                x.after
+            );
+        }
+        out.examples.entry(name).or_default().push(x);
     }
     Ok(out)
+}
+
+/// An example run, its screens read later.
+struct Shot {
+    name: String,
+    spec: ExampleSpec,
+    labels: Vec<String>,
+    before: Lcd,
+    after: Lcd,
+    /// The screens as text, read at once (the Pioneers, the 19BII).
+    now: Option<(Vec<String>, Vec<String>)>,
+}
+
+/// The checks after a function's keys: a menu shows exactly when
+/// `leave.menu_box` says so (on the 38G, 39G and 40G: none shows), a
+/// name run by XEQ is known, and the edit line holds `inserts`.
+fn check_after(d: &mut Driver, file: &KeyFile, cmd: &Command) -> Result<()> {
+    let lcd = d.lcd();
+    let aplet = apletext::fits(&lcd);
+    if let Some(menu_box) = file.leave.as_ref().and_then(|l| l.menu_box.as_ref()) {
+        let menu = if aplet {
+            false
+        } else {
+            lcdtext::has_menu(&lcd)
+        };
+        if menu_box.shown(&lcd) != menu {
+            bail!(
+                "{}: leave.menu_box does not tell whether a menu shows",
+                cmd.name
+            );
+        }
+    }
+    if let (Some(_), Some(unknown)) = (&cmd.xeq, file.xeq.as_ref().and_then(|x| x.unknown.as_ref()))
+        && d.read()[0].contains(unknown.as_str())
+    {
+        bail!(
+            "{}: the calculator does not know the name {:?}",
+            cmd.name,
+            cmd.xeq
+        );
+    }
+    if let Some(text) = &cmd.inserts {
+        if !aplet {
+            bail!("{}: \"inserts\" is for HOME's edit line", cmd.name);
+        }
+        d.aplet.expect_edit(&lcd, text).map_err(|m| {
+            anyhow::anyhow!(
+                "{}: the edit line shows {:?}, not {text:?}",
+                cmd.name,
+                m.shown
+            )
+        })?;
+    }
+    Ok(())
+}
+
+/// After ENTER on HOME: the last entry's input must read as `typed`, the
+/// edit line just before, in the history's font (learning it).
+fn learn_input(d: &mut Driver, typed: &str) -> Result<()> {
+    if typed.contains(apletext::UNKNOWN) {
+        bail!("the edit line shows characters never learned: {typed:?} (add a learn screen)");
+    }
+    let lcd = d.lcd();
+    let Some(k) = apletext::Fonts::last_input_line(&lcd) else {
+        bail!("ENTER left no input in the history");
+    };
+    // The history may write a minus as the sign of a negative number
+    // (the 38G shows 4^−1 typed as 4^-1).
+    let signed = typed.replace('\u{2212}', "-");
+    d.aplet
+        .expect_history(&lcd, k, typed)
+        .or_else(|_| d.aplet.expect_history(&lcd, k, &signed))
+        .map_err(|m| {
+            anyhow::anyhow!(
+                "the history shows the input {:?}, not {typed:?} as typed",
+                m.shown
+            )
+        })
 }
 
 /// The examples as the file holds them: pretty JSON and a final newline.

@@ -10,6 +10,9 @@
 //! Pioneers, 22 at a pitch of 23 on the 19BII), dark with light letters
 //! in a smaller font of 5 rows inside a dark border one row above and
 //! below them. A box with nothing in it is not drawn.
+//! The 38G, 39G and 40G draw their menu boxes the same way on the last
+//! 7 of their 64 rows (the Pioneer layout, 8 lines), so the menu functions
+//! read those too.
 //!
 //! No font is stored: [`Glyphs`] learns both fonts at run time from text
 //! the calculator is made to show (the characters typed through its ALPHA

@@ -49,6 +49,23 @@
       "models": [
         "42s"
       ]
+    },
+    {
+      "id": "hp38g-ug",
+      "title": "HP 38G Graphing Calculator User's Guide",
+      "url": "https://literature.hpcalc.org/official/hp38g-ug-en.pdf",
+      "models": [
+        "38g"
+      ]
+    },
+    {
+      "id": "hp39g40g-ug",
+      "title": "HP 39G/40G Graphing Calculator User's Guide",
+      "url": "https://literature.hpcalc.org/official/hp39g40g-ug-en.pdf",
+      "models": [
+        "39g",
+        "40g"
+      ]
     }
  ,
     {

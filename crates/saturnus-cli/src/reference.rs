@@ -343,7 +343,7 @@ pub fn lookup(query: &str, model: Option<&str>) -> Result<Found> {
     let resolved = match resolve(d, query) {
         Ok(r) => r,
         // Not an RPL command: a key-driven model's function, when one
-        // model has it.
+        // model has it; with several, which ones.
         Err(e) if model.is_none() => match crate::keyref::models_with(query).as_slice() {
             [] => return Err(e),
             [m] => return crate::keyref::lookup(m, query),

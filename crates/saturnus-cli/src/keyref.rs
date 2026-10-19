@@ -1,9 +1,10 @@
 //! `saturnus ref` for the key-driven models (the 42S, 27S, 17BII, 17B,
-//! 19BII, and any model with a
+//! 19BII, the 38G, 39G and 40G, and any model with a
 //! `data/commands/keys-<model>.json`): no command line to type into, so a
-//! function is looked up with the keys that run it, what it asks for, its
-//! menu, the examples run on the emulator (the screen before and after)
-//! and its page in the manual. The format is `saturnus-refgen`'s
+//! function is looked up with the keys that run it (on the 38G, 39G and
+//! 40G: that put it on HOME's edit line), what it asks for, its menu, the
+//! examples run on the emulator (the screen before and after) and its
+//! page in the manual. The format is `saturnus-refgen`'s
 //! (`crates/saturnus-refgen/src/keyed.rs`); embedded at build time.
 
 use std::collections::BTreeMap;
@@ -53,6 +54,8 @@ struct Command {
     xeq: Option<String>,
     #[serde(default)]
     menu: Option<String>,
+    #[serde(default)]
+    inserts: Option<String>,
     page: u32,
 }
 
@@ -224,6 +227,7 @@ pub fn lookup(model: &str, query: &str) -> Result<Found> {
         "key_names": steps.as_ref().map(|s| s.iter().map(|x| x.key.clone()).collect::<Vec<_>>()),
         "xeq": c.xeq,
         "menu": c.menu,
+        "inserts": c.inserts,
         "manuals": manual.map(|x| vec![json!({
             "manual": x.title,
             "page": c.page,
@@ -244,7 +248,8 @@ pub fn models_with(query: &str) -> Vec<&'static str> {
 }
 
 /// Key names as the keys read on `model`'s skin: a shifted key by its
-/// shifted legend after `⇧`; a name the skin lacks in capitals.
+/// shifted legend after `⇧`, a key after ALPHA by its letter; a name the
+/// skin lacks in capitals.
 pub fn legend_text(model: &str, names: &[String]) -> String {
     let skin = model
         .parse::<saturnus_core::Model>()
@@ -252,6 +257,7 @@ pub fn legend_text(model: &str, names: &[String]) -> String {
         .and_then(saturnus_host::skins::skin);
     let mut out = Vec::new();
     let mut shifted = false;
+    let mut alpha = false;
     for n in names {
         if is_shift(n) {
             out.push("⇧".to_string());
@@ -260,8 +266,13 @@ pub fn legend_text(model: &str, names: &[String]) -> String {
         }
         let k = skin.and_then(|sk| sk.keys.iter().find(|k| k.name == n));
         let legend = k
-            .map(|k| if shifted { k.left } else { k.label })
+            .map(|k| match (alpha && !k.alpha.is_empty(), shifted) {
+                (true, _) => k.alpha,
+                (false, true) => k.left,
+                (false, false) => k.label,
+            })
             .unwrap_or("");
+        alpha = n == "alpha";
         out.push(if legend.is_empty() {
             n.to_uppercase()
         } else {
@@ -287,6 +298,9 @@ pub fn text(entry: &Value) -> String {
     if let Some(k) = entry["keys"].as_str() {
         out.push_str(&format!("keys:   {k}\n"));
     }
+    if let Some(i) = entry["inserts"].as_str() {
+        out.push_str(&format!("puts:   {} (on the edit line)\n", i.trim_end()));
+    }
     if let Some(p) = entry["param"].as_str() {
         out.push_str(&format!("asks:   {p}\n"));
     }
@@ -299,21 +313,39 @@ pub fn text(entry: &Value) -> String {
             "\nexamples ({model}, the display before and after):\n"
         ));
         for x in list {
-            let names: Vec<String> = x["input"]
-                .as_array()
-                .map(|a| a.iter().map(s).collect())
-                .unwrap_or_default();
-            let lines = |v: &Value| -> String {
+            let keys = |v: &Value| -> Vec<String> {
                 v.as_array()
-                    .map(|a| a.iter().map(s).collect::<Vec<_>>().join(" / "))
+                    .map(|a| a.iter().map(s).collect())
                     .unwrap_or_default()
             };
-            let labels: Vec<String> = x["labels"]
-                .as_array()
-                .map(|a| a.iter().map(s).collect())
-                .unwrap_or_default();
+            let names = keys(&x["input"]);
+            let then = keys(&x["then"]);
+            // The lines with something on them, as they read (HOME's
+            // results stand at the right; their spaces are dropped here).
+            let lines = |v: &Value| -> String {
+                let l: Vec<String> = v
+                    .as_array()
+                    .map(|a| {
+                        a.iter()
+                            .map(|x| s(x).trim().to_string())
+                            .filter(|x| !x.is_empty())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if l.is_empty() {
+                    "blank".to_string()
+                } else {
+                    l.join(" / ")
+                }
+            };
+            let after = if then.is_empty() {
+                String::new()
+            } else {
+                format!(" {}", legend_text(model, &then))
+            };
+            let labels = keys(&x["labels"]);
             out.push_str(&format!(
-                "  {}  [{}]  {}  =>  [{}]\n",
+                "  {}  [{}]  {}{after}  =>  [{}]\n",
                 if labels.is_empty() {
                     legend_text(model, &names)
                 } else {
@@ -395,6 +427,24 @@ mod tests {
     }
 
     #[test]
+    fn the_39g_puts_a_function_on_the_edit_line() {
+        assert!(models().contains(&"39g"));
+        let comb = one("39g", "comb");
+        assert_eq!(comb["keys"], "MATH P P ▶ ENTER");
+        assert_eq!(comb["inserts"], "COMB(");
+        assert_eq!(comb["menu"], "MATH Prob.");
+        let t = text(&comb);
+        assert!(t.contains("puts:   COMB( (on the edit line)\n"), "{t}");
+        // The example types the arguments and ENTER after the keys.
+        assert!(t.contains("MATH P P ▶ ENTER 5 , 2 ) ENTER  =>"), "{t}");
+        assert!(t.contains("COMB(5,2)"), "{t}");
+        assert_eq!(one("40g", "->HMS")["name"], "\u{2192}HMS");
+        assert_eq!(one("38g", "SIN")["keys"], "SIN");
+        let names = ["alpha", "vars", "shift", "alpha", "math", "1"].map(String::from);
+        assert_eq!(legend_text("39g", &names), "ALPHA A ⇧ alpha B 1");
+    }
+
+    #[test]
     fn the_42s_by_name_spelling_and_keys() {
         let pol = one("42s", "->pol");
         assert_eq!(pol["name"], "\u{2192}POL");
@@ -433,7 +483,11 @@ mod tests {
                 .contains("no function")
         );
         assert!(lookup("27x", "SIN").is_err());
-        assert_eq!(models_with("SINH"), vec!["19bii", "27s", "42s"]);
+        assert_eq!(
+            models_with("SINH"),
+            vec!["19bii", "27s", "38g", "39g", "40g", "42s"]
+        );
+        assert_eq!(models_with("MAKELIST"), vec!["38g", "39g", "40g"]);
         let names = ["2", "enter", "1", "sigmaplus", "shift", "sto"].map(String::from);
         assert_eq!(legend_text("42s", &names), "2 ENTER 1 Σ+ ⇧ COMPLEX");
     }
