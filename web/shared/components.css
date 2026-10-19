@@ -212,6 +212,62 @@ button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background:
   .confirm-actions > button { flex: 1; }
 }
 
+/* "Connect your AI tool" (web/ai-dialog.js): the confirmation's look,
+   wider, with the address, the connected apps and the setting. */
+dialog.ai {
+  width: min(520px, calc(100vw - 2 * var(--gutter)));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-xl);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow-3);
+}
+.ai-box { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4) var(--gutter) var(--s3); }
+.ai-box h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-tight); }
+.ai-box h3 { margin: var(--s2) 0 0; font-size: var(--fs-base); font-weight: 600; }
+.ai-box p { margin: 0; font-size: var(--fs-base); line-height: var(--lh); overflow-wrap: anywhere; }
+.ai-address-row { display: flex; gap: var(--s2); }
+.ai-address-row[hidden] { display: none; }
+.ai-address { flex: 1 1 auto; min-width: 0; font-family: var(--mono); font-size: var(--fs-md); }
+.ai-code { font-weight: 600; }
+.ai-status { color: var(--muted); }
+.ai-status.error { color: var(--error); }
+.ai-note { color: var(--muted); font-size: var(--fs-md); }
+.ai-apps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s1); }
+.ai-apps:empty { display: none; }
+.ai-apps li { display: flex; align-items: center; gap: var(--s2); justify-content: space-between; }
+.ai-app { min-width: 0; overflow-wrap: anywhere; }
+.ai-app small, .ai-keep small { color: var(--muted); }
+.ai-keep small { display: block; }
+.ai-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.ai-gap { flex: 1 1 auto; }
+@media (max-width: 560px) {
+  dialog.ai {
+    box-sizing: border-box;
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    border-width: 1px 0 0;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+  }
+  .ai-box { padding-bottom: calc(var(--s3) + var(--safe-b)); }
+}
+/* tab-mcp's own confirmation before store_variable and purge_variable
+   (vendor/tab-mcp-client: styled through these properties only). */
+:root {
+  --tab-mcp-font: var(--fs-base)/var(--lh) var(--font);
+  --tab-mcp-color: var(--ink);
+  --tab-mcp-background: var(--panel);
+  --tab-mcp-border: 1px solid var(--rule);
+  --tab-mcp-radius: var(--r-xl);
+  --tab-mcp-padding: var(--s4) var(--gutter) var(--s3);
+  --tab-mcp-mono: var(--mono);
+  --tab-mcp-title-size: var(--fs-lg);
+}
+
 /* Why a control that is off does nothing (web/shared/components/note.js). */
 .note {
   position: fixed;

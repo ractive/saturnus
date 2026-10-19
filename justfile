@@ -79,6 +79,13 @@ wasm: web
     cargo clippy --locked -p satx-core --no-default-features --all-targets -- -D warnings
     cargo check -p saturnus-tx -p saturnus-web --target wasm32-unknown-unknown --locked
 
+# tab-mcp's browser library for "Connect your AI tool" (iteration 55),
+# copied into web/vendor/tab-mcp-client/ (committed): from a local
+# tab-mcp checkout now; once it is on npm, switch to
+# `scripts/vendor-tab-mcp-client.sh --from-npm VERSION --integrity sha512-…`.
+vendor-tab-mcp dir=env("TAB_MCP_DIR", env("HOME", "") + "/devel/tab-mcp"):
+    scripts/vendor-tab-mcp-client.sh --from-local "{{dir}}"
+
 # The WebAssembly package for both pages (crates/saturnus-web) into
 # web/pkg/ (needs wasm-pack).
 web:

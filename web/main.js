@@ -24,6 +24,7 @@ import { installServiceWorker } from "./pwa.js";
 import { loadIcons } from "./shared/components/icons.js";
 import { closeToastIn } from "./shared/components/toast.js";
 import { applySiteLinks, inDesktopApp } from "./shared/site-links.js";
+import { relayUrl } from "./ai-relay.js";
 
 const desktop = inDesktopApp();
 const roots = Object.fromEntries(VIEWS.map((v) => [v, document.getElementById(`${v}-view`)]));
@@ -41,6 +42,13 @@ for (const a of document.querySelectorAll("a[data-route]")) a.hidden = false;
 
 // The document's service worker (offline, updates); its build goes to the calculator's About.
 const pwa = installServiceWorker(desktop ? "tauri" : "worker", { set() {} });
+
+/**
+ * AI access (web/ai.js, iteration 55): loaded only where there is a relay,
+ * never in the desktop app; with "Keep AI access on" it connects at once.
+ */
+const ai = desktop || !relayUrl() ? null : import("./ai.js").then(({ AiAccess }) => new AiAccess({ calculatorView: () => mounted.calculator ?? null }));
+ai?.then((a) => a.resume(), (err) => console.error("saturnus: AI access did not load", err));
 
 /** The ROM commands of the home page: the app's, or the browser's hub's. */
 const roms = desktop ? appRoms(nativeHub()) : hubRoms();
@@ -62,7 +70,7 @@ function mount(view) {
     const shown = () => current === view;
     if (view === "calculator") {
       const { mountCalculator } = await import("./app.js");
-      return mountCalculator(roots.calculator, { shown, model: routeNow()?.model ?? null, pwa, onModel });
+      return mountCalculator(roots.calculator, { shown, model: routeNow()?.model ?? null, pwa, onModel, ai });
     }
     const { mountFiles } = await import("./tx/app.js");
     return mountFiles(roots.files, { shown });
@@ -162,4 +170,6 @@ window.saturnusApp = {
   mounted: (view) => mount(view),
   home,
   pwa,
+  /** AI access (web/ai.js), or null where there is no relay. */
+  ai,
 };

@@ -153,6 +153,9 @@
 }
 :where(#calculator-view) .site-link .ic { width: 20px; height: 20px; }
 :where(#calculator-view) .site-link:hover { color: var(--ink); text-decoration: underline; }
+/* "Connect your AI tool" (web/ai-dialog.js) is a button that looks like the links above it. */
+:where(#calculator-view) button.site-link { padding: 0; background: none; border: 0; box-shadow: none; font-family: inherit; cursor: pointer; }
+:where(#calculator-view) button.site-link:hover:not(:disabled) { background: none; }
 /* This tab's calculators are its own (app.js watchUnshared): said for as long as it lasts. */
 :where(#calculator-view) .panel-note { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-base); color: var(--ink); background: var(--card); border: 1px solid var(--card-border); border-radius: var(--r-md); }
 /* The shortcuts row's key, at its right. */
@@ -173,7 +176,7 @@
   font: var(--fs-sm)/var(--lh) var(--mono);
   color: var(--muted);
 }
-:where(#calculator-view) .tx-chip a { color: var(--accent-text); text-underline-offset: 2px; font: inherit; min-height: 0; display: inline; }
+:where(#calculator-view) .tx-chip a, :where(#calculator-view) .ai-chip button { color: var(--accent-text); text-underline-offset: 2px; font: inherit; min-height: 0; display: inline; }
 
 :where(#calculator-view) button.floating {
   position: fixed;
