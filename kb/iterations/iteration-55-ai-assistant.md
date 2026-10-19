@@ -165,7 +165,7 @@ Files for `peers`.
 - [x] Page test `web/test/ai-page.test.mjs`: a local tab-mcp relay, the page connected by a click, the MCP SDK client calling the tools on a booted 48GX and 42S (ROM-gated; skipped without tab-mcp, Bun or Chrome)
 - [x] Measure the hidden-tab freeze with a session connected (10-15 minutes hidden, periodic tool calls; normal and Energy Saver), method and result below
 - [x] README (web/README.md "AI tools"), protocol.md (`who: "ai"`), storage names
-- [ ] Gates, PR
+- [x] Gates, PR
 
 ## Hidden-tab measurement
 
