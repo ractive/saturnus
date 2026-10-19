@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 41: one emulated calculator per model, shared by the emulator and saturnus tx"
 date: 2026-10-11
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus-tx

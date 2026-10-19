@@ -2,7 +2,7 @@
 title: "Iteration 43b: HP 28S clamshell skin and hosts"
 type: iteration
 date: 2026-10-12
-status: in-progress
+status: completed
 branch: iter-43b/hp28s-skin-hosts
 tags:
   - iteration

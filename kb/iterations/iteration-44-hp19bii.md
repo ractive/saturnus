@@ -2,7 +2,7 @@
 title: "Iteration 44: HP 19BII (two Lewis chips, after the 28S)"
 type: iteration
 date: 2026-10-12
-status: in-progress
+status: completed
 branch: iter-44/hp19bii
 tags:
   - iteration

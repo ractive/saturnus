@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 35: A restartable tour of the page"
 date: 2026-10-09
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus

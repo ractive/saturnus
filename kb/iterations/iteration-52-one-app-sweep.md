@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 52: the one-app sweep"
 date: 2026-10-17
-status: in-progress
+status: completed
 tags:
   - iteration
   - docs

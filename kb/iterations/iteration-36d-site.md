@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 36d: the saturnus site, landing page and emulator under /emulator/"
 date: 2026-10-10
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus

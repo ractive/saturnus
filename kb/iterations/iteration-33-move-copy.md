@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 33: Copy to… and Move to…"
 date: 2026-10-09
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus

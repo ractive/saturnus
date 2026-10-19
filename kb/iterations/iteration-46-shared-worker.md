@@ -2,7 +2,7 @@
 title: "Iteration 46: one live calculator per model in a SharedWorker, used by the emulator and saturnus tx at once"
 type: iteration
 date: 2026-10-13
-status: in-progress
+status: completed
 branch: iter-46/shared-worker
 tags:
   - iteration

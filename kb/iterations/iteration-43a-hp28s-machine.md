@@ -2,7 +2,7 @@
 title: "Iteration 43a: HP 28S machine (two Lewis chips)"
 type: iteration
 date: 2026-10-12
-status: in-progress
+status: completed
 branch: iter-43a/hp28s-machine
 tags:
   - iteration
