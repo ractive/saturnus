@@ -1120,7 +1120,9 @@ through the relay while the tab is open. Nothing is installed.
   AI access."
 - Tests: `test/ai.test.mjs` (the session on a fake hub: one attach per
   calculator, every connection closed again, when the calculators keep
-  running), `test/ai-tools.test.mjs` (the tools on fake calculators),
+  running), `test/vendor.test.mjs` (the vendored files against
+  `vendor.json`: each SHA-256, no file more or less, the entry's chunks),
+  `test/ai-tools.test.mjs` (the tools on fake calculators),
   `test/hub.test.mjs` (`who: "ai"`), `test/ai-page.test.mjs` (a local
   relay, the page connected by a click, the MCP SDK client on a booted
   48GX and 42S; needs Bun and the tab-mcp checkout, `TAB_MCP_DIR`,
