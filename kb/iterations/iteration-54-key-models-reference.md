@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 54: command reference and running for the key-driven models"
 date: 2026-10-19
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
@@ -135,7 +135,7 @@ Clean room: never open `~/devel/hp-emulator-refs/`.
 - [x] 38G, 39G, 40G references and running
 - [x] Search texts and tour/README mention the new models
 - [x] Page test: a 42S function chosen in Search runs (ROM-gated)
-- [ ] Gates, review, merge, deploy
+- [x] Gates, review, merge, deploy
 
 ## Done means
 
