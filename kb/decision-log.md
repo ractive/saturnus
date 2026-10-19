@@ -4324,3 +4324,11 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   and 48GX parse 0.0001 normalised (MANT 1, XPON -4). The .6 comes from
   the 48SX's own HMS+ code (the 48GX gives 1); not yet checked against
   the saturnng oracle, so the example stays as generated.
+
+## 2026-10-19 (48SX HMS+ is the ROM's)
+
+- `0.5959 ENTER 0.0001 HMS+` gives .6 on the 48SX (ROM J in saturnus) and 1
+  on the 48GX (rev R). The owner's real 48SX also gives .6, so it is the SX
+  ROM's HMS+, not the emulation; the 48SX can do the sum right by hand (HMS→,
+  +, →HMS gives 1). The generated 48SX example keeps .6, the real result.
+  Wiki: hardware/hp48sx "Differences from the G/GX".
