@@ -340,7 +340,7 @@
     },
     "ABS": {
       "name": "Absolute value",
-      "description": "Gives the magnitude of a number: its value without sign, the modulus of a complex number, or the Frobenius (Euclidean) length of an array. Units are kept, and symbolic arguments give a symbolic result.",
+      "description": "Gives the size of a value: a real without its sign, a complex number's modulus, or an array's Frobenius (Euclidean) length. Units are kept, and symbolic arguments give a symbolic result.",
       "stack": "x → |x|; z → x; [array] → x; x_unit → x_unit; 'symb' → 'ABS(symb)'",
       "examples": [
         {
@@ -355,7 +355,7 @@
       ],
       "per_model": {
         "28s": {
-          "description": "Gives the magnitude of a number: its value without sign, the modulus of a complex number, or the Frobenius (Euclidean) length of an array. Symbolic arguments give a symbolic result.",
+          "description": "Gives the size of a value: a real without its sign, a complex number's modulus, or an array's Frobenius (Euclidean) length. Symbolic arguments give a symbolic result.",
           "stack": "x → |x|; z → x; [array] → x; 'symb' → 'ABS(symb)'"
         }
       }
@@ -558,7 +558,7 @@
     },
     "ARG": {
       "name": "Argument",
-      "description": "Gives the angle of a complex number in polar form, measured from the positive real axis in the current angle mode; for a real number the result is 0 or a half turn depending on the sign.",
+      "description": "Gives the angle of a complex value in polar form, measured from the positive real axis in the current angle mode; a real gives 0 or a half turn depending on its sign.",
       "stack": "z → θ; x → θ; 'symb' → 'ARG(symb)'",
       "examples": [
         {
@@ -752,7 +752,7 @@
     },
     "ATANH": {
       "name": "Inverse hyperbolic tangent",
-      "description": "Computes the inverse hyperbolic tangent of its argument; reals outside -1..1 produce a complex result, while exactly ±1 is an infinite-result error.",
+      "description": "Computes the inverse hyperbolic tangent; reals outside -1..1 produce a complex result, while exactly ±1 is an infinite-result error.",
       "stack": "x → atanh x; z → atanh z; 'symb' → 'ATANH(symb)'",
       "examples": [
         {
@@ -1226,7 +1226,7 @@
     },
     "CLMF": {
       "name": "Clear message flag",
-      "description": "Clears the message flag that CLLCD, DISP, PIXEL, DRAX, DRAW and DRWΣ set, so the normal stack display comes back when the program ends.",
+      "description": "Clears the message flag, which DRAW, DRWΣ, DRAX, PIXEL, DISP and CLLCD set, so the normal stack display comes back when the program ends.",
       "stack": "→",
       "skip": "changes only what the display shows after a program and returns nothing to the stack"
     },
@@ -1472,7 +1472,7 @@
     },
     "CONJ": {
       "name": "Conjugate",
-      "description": "Returns the complex conjugate by flipping the sign of the imaginary part, for a complex number or each element of a complex array; real arguments come back unchanged.",
+      "description": "Returns the complex conjugate by flipping the sign of the imaginary part, for a complex number or for every element of a complex array; real arguments come back unchanged.",
       "stack": "z → z'; [array] → [array]'; x → x; 'symb' → 'CONJ(symb)'",
       "examples": [
         {
@@ -1575,7 +1575,7 @@
     },
     "CORR": {
       "name": "Correlation",
-      "description": "Returns the correlation coefficient between the independent and dependent columns of ΣDAT, as chosen by XCOL and YCOL.",
+      "description": "Gives the correlation coefficient for the two ΣDAT columns that XCOL and YCOL choose.",
       "stack": "→ x",
       "examples": [
         {
@@ -1625,7 +1625,7 @@
     },
     "COV": {
       "name": "Covariance",
-      "description": "Returns the sample covariance between the independent and dependent columns of ΣDAT.",
+      "description": "Gives the sample covariance for the two ΣDAT columns that XCOL and YCOL choose.",
       "stack": "→ x",
       "examples": [
         {
@@ -2041,7 +2041,7 @@
     },
     "DGTIZ": {
       "name": "Digitise",
-      "description": "Starts the interactive plot mode from a program, usually after DRAW or DRWΣ, so the user can move the cursor and put point coordinates on the stack. Pressing ON lets the program go on.",
+      "description": "Lets a program hand the plot to the user, usually after DRAW or DRWΣ: the cursor can be moved and coordinates put on the stack. Pressing ON lets the program go on.",
       "stack": "→",
       "skip": "waits for the user to pick points on the plot"
     },
@@ -2286,7 +2286,7 @@
       "skip": "draws into the graphics picture and returns nothing to the stack",
       "per_model": {
         "28s": {
-          "description": "Plots the current equation EQ on the display, drawing the axes first and using the plot parameters in PPAR. An equation gives two curves, one for each side.",
+          "description": "Plots the current equation EQ on the display, drawing the axes first and using the plot parameters in PPAR. An equation with two sides plots as two curves.",
           "stack": "→"
         }
       }
@@ -2518,7 +2518,7 @@
     },
     "ENG": {
       "name": "Engineering mode",
-      "description": "Sets engineering display: like scientific, but the exponent is a multiple of three; n gives the significant digits after the first.",
+      "description": "Sets engineering display: like scientific, but with exponents in steps of three; n gives the significant digits after the first.",
       "stack": "n →",
       "examples": [
         {
@@ -3151,7 +3151,7 @@
     },
     "FP": {
       "name": "Fractional part",
-      "description": "Returns the fractional part of a real number, i.e. the number minus its integer part, so the result keeps the argument's sign.",
+      "description": "Returns what follows the decimal point of a real: the number minus its integer part, so the result keeps the argument's sign.",
       "stack": "x → y; x_unit → y_unit; 'symb' → 'FP(symb)'",
       "examples": [
         {
@@ -3163,7 +3163,7 @@
       ],
       "per_model": {
         "28s": {
-          "description": "Returns the fractional part of a real number, i.e. the number minus its integer part, so the result keeps the argument's sign.",
+          "description": "Returns what follows the decimal point of a real: the number minus its integer part, so the result keeps the argument's sign.",
           "stack": "x → y; 'symb' → 'FP(symb)'"
         }
       }
@@ -3350,7 +3350,7 @@
       ],
       "per_model": {
         "28s": {
-          "description": "Like GET, but keeps the array or list and the next position on the stack under the fetched element, ready for stepping through all elements. After the last element the position wraps to 1 and flag 46 is set.",
+          "description": "Like GET, but leaves the array or list, then the position after the one fetched, on the stack below the element, ready for stepping through all elements. After the last element the position wraps to 1 and flag 46 is set.",
           "stack": "[array] n → [array] n+1 x; {list} n → {list} n+1 obj; 'name' n → 'name' n+1 obj"
         }
       }
@@ -3789,7 +3789,7 @@
       ]
     },
     "IF": {
-      "description": "Opens a conditional structure IF test THEN true-clause [ELSE false-clause] END: the test clause runs and the nonzero or zero value it leaves decides which clause executes. Only valid inside programs.",
+      "description": "Opens a conditional structure, IF test THEN commands [ELSE other commands] END: the test runs, and the nonzero or zero value it leaves decides which commands execute. Only valid inside programs.",
       "stack": "→",
       "examples": [
         {
@@ -3804,7 +3804,7 @@
     },
     "IFERR": {
       "name": "If error",
-      "description": "Opens an error trap IFERR trap-clause THEN error-clause [ELSE normal-clause] END: if any command in the trap clause fails, the program continues with the THEN clause instead of stopping. ERRN and ERRM tell which error occurred.",
+      "description": "Opens an error trap, IFERR commands THEN on-error [ELSE on-success] END: if any command after IFERR fails, the program goes on with the THEN part instead of stopping. ERRN and ERRM tell which error occurred.",
       "stack": "→",
       "examples": [
         {
@@ -3877,7 +3877,7 @@
     },
     "IM": {
       "name": "Imaginary part",
-      "description": "Extracts the imaginary component of a complex number or of each element of a complex array; a real argument gives 0.",
+      "description": "Extracts the imaginary component of a complex value, or of every element of a complex array; a real argument gives 0.",
       "stack": "z → y; [array] → [real array]; x → 0; 'symb' → 'IM(symb)'",
       "examples": [
         {
@@ -3993,7 +3993,7 @@
       ],
       "per_model": {
         "28s": {
-          "description": "Computes the reciprocal 1/x of a real or complex number; for a square matrix it returns the matrix inverse.",
+          "description": "Computes 1/x for a real or a complex number; for a square matrix it returns the matrix inverse.",
           "stack": "x → 1/x; z → 1/z; [[matrix]] → [[matrix]]^-1; 'symb' → 'INV(symb)'"
         }
       }
@@ -4072,7 +4072,7 @@
       ],
       "per_model": {
         "28s": {
-          "description": "Rearranges an equation or expression to isolate the first occurrence of a variable and returns what that variable equals, not an equation; general solutions may bring in the s1 and n1 placeholders.",
+          "description": "Rearranges an equation or expression so that the variable's first appearance stands alone, and returns what that variable equals, not an equation; general solutions may bring in the s1 and n1 placeholders.",
           "stack": "'symb' 'name' → 'symb''"
         }
       }
@@ -4244,7 +4244,7 @@
     },
     "LAST": {
       "name": "Last arguments",
-      "description": "Returns copies of the arguments of the most recent command that took any, to the stack levels they came from. Works only while LAST mode (flag 31) is on.",
+      "description": "Puts back copies of what the last command with arguments took from the stack, at the levels they came from. Works only while LAST mode (flag 31) is on.",
       "stack": "→ obj; → obj1 obj2; → obj1 obj2 obj3",
       "examples": [
         {
@@ -4576,7 +4576,7 @@
     },
     "LR": {
       "name": "Linear regression",
-      "description": "Fits a straight line to the independent and dependent columns of ΣDAT by least squares, returns its intercept and slope, and saves them in ΣPAR for PREDX, PREDY and ΣLINE.",
+      "description": "Fits a straight line by least squares to the two ΣDAT columns that XCOL and YCOL choose, returns its intercept and slope, and saves them in ΣPAR for PREDX, PREDY and ΣLINE.",
       "stack": "→ intercept slope",
       "examples": [
         {
@@ -4664,7 +4664,7 @@
     },
     "MAIN": {
       "name": "CAS main menu",
-      "description": "Opens the top-level menu of the computer algebra system, from which its sub-menus are reached.",
+      "description": "Opens the computer algebra system's main menu, which leads to its sub-menus.",
       "stack": "→",
       "category": "CAS",
       "skip": "opens a menu screen"
@@ -4811,7 +4811,7 @@
       "skip": "changes the soft-key menu on the screen and returns nothing to the stack",
       "per_model": {
         "28s": {
-          "description": "Shows a menu: a number from 1 to 24 selects a built-in menu, a list of names and commands makes a custom menu, and a list that starts with STO makes a menu whose keys store values into the named variables.",
+          "description": "Shows a menu: a number from 1 to 24 selects a built-in menu, a list of commands and names makes a custom menu, and a list that starts with STO makes a menu whose keys store values into the named variables.",
           "stack": "n →; {list} →"
         }
       }
@@ -4996,7 +4996,7 @@
     },
     "MSOLVR": {
       "name": "Multiple-equation solver",
-      "description": "Shows the Multiple-Equation Solver menu of variables for the equation set described by Mpar, ready for entering knowns and solving unknowns.",
+      "description": "Shows the Multiple-Equation Solver's variables menu for the equation set that Mpar describes, ready for entering knowns and solving unknowns.",
       "stack": "→",
       "skip": "installs an interactive solver menu; needs a prepared Mpar"
     },
@@ -5205,7 +5205,7 @@
     },
     "NΣ": {
       "name": "Number of data points",
-      "description": "Returns the number of data points (rows) in ΣDAT.",
+      "description": "Returns how many data points (rows) ΣDAT holds.",
       "stack": "→ n",
       "examples": [
         {
@@ -5427,7 +5427,7 @@
     },
     "PCAR": {
       "name": "Characteristic polynomial",
-      "description": "Computes the characteristic polynomial of a square matrix in the current CAS variable.",
+      "description": "Computes a square matrix's characteristic polynomial, written in the current CAS variable.",
       "stack": "[[matrix]] → 'symb'",
       "examples": [
         {
@@ -5870,7 +5870,7 @@
     },
     "PRMD": {
       "name": "Print modes",
-      "description": "Shows and prints the current modes: display format, binary base, angle mode, radix mark, and whether UNDO, COMMAND, LAST and multi-line display are on.",
+      "description": "Shows and prints the current modes: display format, binary base, angle mode, radix mark, and which of UNDO, COMMAND, LAST and the multi-line display are on.",
       "stack": "→",
       "skip": "prints to the infrared printer"
     },
@@ -5929,7 +5929,7 @@
     },
     "PRUSR": {
       "name": "Print user variables",
-      "description": "Prints the names of the variables in the current directory, in USER menu order.",
+      "description": "Prints the current directory's variable names, in USER menu order.",
       "stack": "→",
       "skip": "prints to the infrared printer"
     },
@@ -6124,7 +6124,7 @@
     },
     "P→R": {
       "name": "Polar to rectangular",
-      "description": "Converts a complex number (r,θ) in polar form to rectangular form (x,y), reading θ in the current angle mode. For a vector it converts the first two elements and keeps the rest; a real r gives (r,0).",
+      "description": "Converts a complex number (r,θ) in polar form to rectangular form (x,y), reading θ in the current angle mode. For a vector, elements 1 and 2 are converted and the rest kept; a real r gives (r,0).",
       "stack": "(r,θ) → (x,y); x → (x,0); [r θ ...] → [x y ...]; 'symb' → 'P→R(symb)'",
       "examples": [
         {
@@ -6336,7 +6336,7 @@
     },
     "RCL": {
       "name": "Recall",
-      "description": "Returns the contents of a variable without evaluating them, searching the current directory and then its parents.",
+      "description": "Puts a variable's value on the stack as it is, unevaluated, searching the current directory and then its parents.",
       "stack": "'name' → obj",
       "examples": [
         {
@@ -6498,7 +6498,7 @@
     },
     "RE": {
       "name": "Real part",
-      "description": "Returns the real part of a complex number or of each element of a complex array; a real argument is returned unchanged.",
+      "description": "Extracts the real component of a complex value, or of every element of a complex array; a real argument comes back unchanged.",
       "stack": "z → x; [array] → [real array]; x → x; 'symb' → 'RE(symb)'",
       "examples": [
         {
@@ -6625,7 +6625,7 @@
       ],
       "per_model": {
         "28s": {
-          "description": "Sets the plot resolution, the fourth item of PPAR: 1 plots a point in every pixel column, 2 in every other column, and so on.",
+          "description": "Sets the plot resolution, the fourth item of PPAR: 1 plots a point in each pixel column, 2 in one column of two, and so on.",
           "stack": "n →"
         }
       }
@@ -6795,7 +6795,7 @@
     },
     "RNRM": {
       "name": "Row norm",
-      "description": "Computes the row norm (infinity norm) of an array: the largest sum of absolute values across any row; for a vector it is the largest absolute element.",
+      "description": "Computes an array's row norm (also called the infinity norm): the largest sum of absolute values across any row; for a vector it is the largest absolute element.",
       "stack": "[array] → x",
       "examples": [
         {
@@ -6817,7 +6817,7 @@
     },
     "ROLLD": {
       "name": "Roll down",
-      "description": "Moves the object in level 1 down to the given stack level, shifting the objects in between up by one; the inverse of ROLL.",
+      "description": "Takes the object from level 1 down to the given stack level, shifting the objects in between up by one; the inverse of ROLL.",
       "stack": "objn … obj1 n → obj1 objn … obj2",
       "examples": [
         {
@@ -7296,7 +7296,7 @@
     },
     "SCONJ": {
       "name": "Store conjugate",
-      "description": "Conjugates the value held in a named variable and stores the result back in place.",
+      "description": "Conjugates the value held in a named variable and keeps the result in that variable.",
       "stack": "'name' →",
       "examples": [
         {
@@ -7413,7 +7413,7 @@
       ],
       "per_model": {
         "28s": {
-          "description": "Sets one of the 64 flags, numbered 1 to 64. Flags 1 to 30 are free for programs; flags 31 to 64 control modes such as angle units, number formats and the binary word size.",
+          "description": "Sets one of the 64 flags. Programs may use flags 1 to 30 freely; flags 31 to 64 control modes such as angle units, number formats and the binary word size.",
           "stack": "n →"
         }
       }
@@ -7678,7 +7678,7 @@
       ]
     },
     "SOLVE": {
-      "description": "Solves an equation (or an expression set to zero) for a variable and returns a list of solutions; also accepts a vector of equations with a vector of variables. In exact mode it may return an empty list when only approximate roots exist.",
+      "description": "Finds the values of a variable that satisfy an equation (or make an expression zero) and returns them as a list; also accepts a vector of equations with a vector of variables. In exact mode it may return an empty list when only approximate roots exist.",
       "stack": "'eq' 'var' → {solutions}; [eqs] [vars] → {solutions}",
       "examples": [
         {
@@ -7710,7 +7710,7 @@
     },
     "SOLVEVX": {
       "name": "Solve for the current variable",
-      "description": "Solves an equation, or an expression taken as equal to zero, for the current CAS variable and returns the solutions.",
+      "description": "Finds the values of the current CAS variable that satisfy an equation, or make an expression zero, and returns them.",
       "stack": "'symb' → {solutions}",
       "examples": [
         {
@@ -7899,7 +7899,7 @@
     },
     "STO": {
       "name": "Store",
-      "description": "Stores an object in a variable of the current directory, creating the variable or replacing its contents.",
+      "description": "Puts an object into a variable of the current directory, creating the variable or replacing its contents.",
       "stack": "obj 'name' →",
       "category": "Keyboard",
       "examples": [
@@ -7915,7 +7915,7 @@
     },
     "STO*": {
       "name": "Store times",
-      "description": "Multiplies the contents of a variable by an object and stores the product back; the arguments may come in either order.",
+      "description": "Multiplies what a variable holds by an object and stores the product back; the arguments may come in either order.",
       "stack": "obj 'name' →; 'name' obj →",
       "examples": [
         {
@@ -7956,7 +7956,7 @@
       ],
       "per_model": {
         "28s": {
-          "description": "Adds a number or array to the number or array held in a variable and stores the sum back; the arguments may come in either order.",
+          "description": "Adds a value (number or array) to what a variable holds and stores the sum back; the arguments may come in either order.",
           "stack": "z 'name' →; 'name' z →; [array] 'name' →; 'name' [array] →"
         }
       }
@@ -8540,7 +8540,7 @@
     },
     "TI2M": {
       "name": "t interval, two means",
-      "description": "Internal routine of the statistics confidence-interval application; the name points to a Student t interval for the difference of two means. Not meant for direct use.",
+      "description": "Internal routine of the statistics confidence-interval application; the name points to a Student t interval for the gap between two means. Not meant for direct use.",
       "stack": "(undocumented)",
       "category": "STAT",
       "skip": "internal routine of the statistics interval forms with undocumented arguments"
@@ -8818,7 +8818,7 @@
     },
     "TVM": {
       "name": "Time value of money",
-      "description": "Opens the time-value-of-money solver menu, where loan and savings variables (N, I%YR, PV, PMT, FV, PYR) are entered and solved for.",
+      "description": "Opens the time-value-of-money solver menu, where loan and savings variables (PV, PMT, FV, N, I%YR, PYR) are entered and solved for.",
       "stack": "→",
       "category": "SOLVE TVM",
       "skip": "only displays the interactive TVM solver menu"
@@ -9479,14 +9479,14 @@
     },
     "ZI2M": {
       "name": "Z interval, two means",
-      "description": "Internal routine of the statistics confidence-interval application; the name points to a Z interval for the difference of two means. Not meant for direct use.",
+      "description": "Internal routine of the statistics confidence-interval application; the name points to a Z interval for the gap between two means. Not meant for direct use.",
       "stack": "(undocumented)",
       "category": "STAT",
       "skip": "internal routine of the statistics interval forms with undocumented arguments"
     },
     "ZI2P": {
       "name": "Z interval, two proportions",
-      "description": "Internal routine of the statistics confidence-interval application; the name points to a Z interval for the difference of two proportions. Not meant for direct use.",
+      "description": "Internal routine of the statistics confidence-interval application; the name points to a Z interval for the gap between two proportions. Not meant for direct use.",
       "stack": "(undocumented)",
       "category": "STAT",
       "skip": "internal routine of the statistics interval forms with undocumented arguments"
@@ -9761,7 +9761,7 @@
     },
     "Σ+": {
       "name": "Add data point",
-      "description": "Appends a data point to the statistics matrix ΣDAT, creating it if needed: a real for one-variable data, a vector or several reals for one row, or a matrix for several rows.",
+      "description": "Adds a row (or rows) to ΣDAT, creating it if needed: a real for one-variable data, a vector or several reals for one row, or a matrix for several rows.",
       "stack": "x →; [vector] →; [[matrix]] →",
       "examples": [
         {
@@ -9859,7 +9859,7 @@
     },
     "ΣXY": {
       "name": "Sum of x times y",
-      "description": "Adds up, row by row, the products of the independent and dependent columns of the statistics matrix ΣDAT.",
+      "description": "Sums the products, row by row, of the two ΣDAT columns that XCOL and YCOL choose.",
       "stack": "→ x",
       "examples": [
         {
@@ -10146,7 +10146,7 @@
       "per_model": {
         "28s": {
           "name": "String to display",
-          "description": "Shows a string as graphics: each character code becomes a column of eight pixels, drawn from the top-left corner of the display. A string of 548 characters fills the screen.",
+          "description": "Shows a string as graphics: each character code becomes a column of eight pixels, drawn from the display's top-left corner. 548 characters fill the screen.",
           "stack": "\"str\" →"
         }
       }
