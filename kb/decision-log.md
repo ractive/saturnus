@@ -4332,3 +4332,11 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   ROM's HMS+, not the emulation; the 48SX can do the sum right by hand (HMS→,
   +, →HMS gives 1). The generated 48SX example keeps .6, the real result.
   Wiki: hardware/hp48sx "Differences from the G/GX".
+
+## 2026-10-19 (38G ACOT is the ROM's)
+
+- On the 38G (ROM A167) ACOT(1) in DEG mode gives .785398163397, the radian
+  answer; the owner's real 38G in DEG gives the same, so it is the ROM's ACOT,
+  not the emulation (ATAN, ACSC and ASEC follow the mode). The 38G's ACOT
+  description says so and it has no example. The 39G and 40G examples run
+  in RAD, their default, and are right. Wiki: hardware/hp38g "ROM quirks".
