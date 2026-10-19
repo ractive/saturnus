@@ -1055,6 +1055,36 @@ fn find_message(m: &Machine, model: Model, before: &[u8], sent: &[u8]) -> Option
     (!found.is_empty()).then(|| found.join(" "))
 }
 
+/// The 28S's entry modes that no annunciator shows (`entryModes`,
+/// `web/protocol.md`): lowercase (the LC key) and Menu Lock (shifted α,
+/// which swaps shifted and unshifted on the letter keys A-R). Read from
+/// RAM: #C00F0 bit 2 is set while lowercase is on, #C00F2 bit 1 while
+/// Menu Lock is on (28S ROM, observed toggling each key; ENTER and
+/// ATTN end lowercase, Menu Lock stays).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EntryModes {
+    /// Letters type in lower case.
+    pub lowercase: bool,
+    /// Menu Lock is on.
+    pub menu_lock: bool,
+}
+
+/// [`EntryModes`] of `machine`, a 28S.
+pub fn entry_modes(machine: &Machine) -> crate::Result<EntryModes> {
+    if machine.model() != Model::Hp28s {
+        return Err(format!(
+            "entryModes is for the 28S, not the {}",
+            machine.model().name().to_uppercase()
+        )
+        .into());
+    }
+    Ok(EntryModes {
+        lowercase: machine.peek(0xC00F0) & 0b0100 != 0,
+        menu_lock: machine.peek(0xC00F2) & 0b0010 != 0,
+    })
+}
+
 impl Emulator {
     /// The command line (`{active, text, cursor}`), read from RAM.
     pub fn command_line(&self) -> crate::Result<CommandLine> {

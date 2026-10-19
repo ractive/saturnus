@@ -16,7 +16,7 @@ behaviour of the calculators' own ROMs.
   stack and flags, where you can edit, store, rename and delete them
   (48SX, 48GX, 49G).
 - Search (Cmd/Ctrl+K), a command palette with a reference of every
-  built-in command of the 48SX, 48GX and 49G and examples run in
+  built-in command of the 48SX, 48GX, 49G and 28S and examples run in
   saturnus.
 - Files: moves files between a calculator, emulated or on a serial
   cable, and your computer.
@@ -728,9 +728,11 @@ enter
 
 ## Command reference
 
-`crates/saturnus-cli/data/commands/` holds a reference of every built-in
-command of the 48SX, 48GX and 49G, generated from the ROMs on the
-emulator by `saturnus-refgen` (`crates/saturnus-refgen`). In the app it
+`crates/saturnus-cli/data/commands/` holds a reference for every model:
+every built-in command of the 48SX, 48GX, 49G and 28S, and every function
+of the 42S, 27S, 17BII, 17B, 19BII, 38G, 39G and 40G with the keys that
+reach it (`keys-<model>.json`). `saturnus-refgen` (`crates/saturnus-refgen`)
+generates the examples and checks the keys on the emulator. In the app it
 is Search (Cmd/Ctrl+K: suggestions while typing, the entry with its
 examples beside them, Enter sends the command to the calculator;
 `web/README.md`, "Search (the command palette)") and the Reference tab
@@ -742,6 +744,9 @@ files by `scripts/commands-json.py`. `saturnus ref` looks a command up
 saturnus ref STO --model 48sx     # description, stack effect, menu, examples, manual pages
 saturnus ref '->LIST' --json      # the same as JSON, every model (menus per model)
 saturnus ref '\.S'                # ∫ by the calculator's ASCII code (\-> \GS \v/ \pi ...)
+saturnus ref '->POL' --model 42s  # a 42S function: its keys (⇧ CONVERT →POL), examples, manual page
+saturnus ref PMT --model 17bii    # a 17BII function: its menu keys (FIN TVM PMT); also 27s, 17b, 19bii
+saturnus ref COMB --model 39g    # a 39G function: its keys (MATH P P ▶ ENTER), what they put on the edit line
 ```
 
 An exact name wins. Otherwise the query may differ in case, use the
@@ -838,6 +843,73 @@ link is `<url>#page=<n>`:
 | HP 48G Series User's Guide | https://literature.hpcalc.org/community/hp48g-ug-en.pdf |
 | HP 48G Series Advanced User's Reference Manual | https://literature.hpcalc.org/community/hp48g-aur-en.pdf |
 | HP 49G Advanced User's Guide | https://literature.hpcalc.org/official/hp49g-aug-en.pdf |
+| HP-42S Owner's Manual | https://literature.hpcalc.org/community/hp42s-om-en.pdf |
+| HP 38G Graphing Calculator User's Guide | https://literature.hpcalc.org/official/hp38g-ug-en.pdf |
+| HP 39G/40G Graphing Calculator User's Guide | https://literature.hpcalc.org/official/hp39g40g-ug-en.pdf |
+
+### Key-driven models
+
+The 42S, 27S, 17BII, 17B and 19BII have no command line: a function is a
+key, a shifted key, a menu key under a menu, or (42S) XEQ and its name.
+Each has its reference in `keys-<model>.json`, written by hand from the
+owner's manual's operation index or menu maps (every function;
+descriptions ours): per function the keys from the normal state, each
+with what it shows (`⇧ CONVERT →POL`, `FIN TVM PMT`), or the name XEQ
+runs it by, spelt through the ALPHA menu with the file's `alpha` keys.
+The normal state is the booted calculator with no message and no entry
+in progress: no menu on the 42S and 27S, the MAIN menu on the 17BII, 17B
+and 19BII, which always show one. There `leave` has no `menu_box`: its
+keys (⇧ MAIN) are pressed once before every function. The Solver's
+functions (`USPV(i%:n)`) are typed into an equation, not pressed: they
+have neither keys nor a name to run, only their menu (SOLVE). The format
+is documented in `crates/saturnus-refgen/src/keyed.rs`; another model
+needs only its `keys-<model>.json` (Search, `saturnus ref` and
+`commands-json.py` take every such file).
+
+`saturnus-refgen keys` checks the file on the emulator: from the booted
+state it presses every function's keys, compares each label with the
+key's legend on the skin or with the menu box the display shows, and
+runs the examples into `examples-<model>.json` (the display before and
+after, as text, and what each input key showed when the input goes
+through menus). The display (131 × 16 dots on the Pioneers, 137 × 32 on
+the 19BII) is read with fonts learned at run time from the characters
+the calculator is made to type and the screens the file's `learn` lists,
+so no font is stored. `saturnus-refgen screen` prints the display after
+some keys, for writing the file:
+
+```sh
+saturnus-refgen keys --model 42s --rom $R/hp42s.rom --data crates/saturnus-cli/data/commands/keys-42s.json \
+    --out crates/saturnus-cli/data/commands/examples-42s.json
+saturnus-refgen screen --model 42s --rom $R/hp42s.rom --data crates/saturnus-cli/data/commands/keys-42s.json \
+    --press "shift 5 down"     # x:0.0000 / [IP][FP][RND][ABS][SIGN][MOD]
+```
+
+It takes seconds per model; the ROM-gated test
+`keyed_references_regenerate_byte_for_byte` (`saturnus-refgen`) runs it
+for every model whose ROM (`hp<model>.rom`) is in `SATURNUS_ROM_DIR` and
+compares the files.
+
+The 38G, 39G and 40G have an edit line in HOME that Search cannot type
+into, so their references (`keys-38g.json`, `keys-39g.json`; the 40G's
+file is the 39G's, a test keeps them equal) list the keys that put a
+function on the edit line from HOME: its key, or MATH (or CMDS, the
+programming commands) and the category and entry, reached by their first
+letters (each press goes to the next entry with that letter) or by ▼,
+then ENTER. They cover the MATH menu, the keyboard functions and the
+programming commands from the user's guides; the aplets, the program
+constants (CONS) and the 40G's CAS are not in them. Per function
+`inserts` is what the keys must leave on the edit line, and an example's
+`then` keys type its arguments and ENTER. `saturnus-refgen keys` reads
+HOME (`crates/saturnus-refgen/src/apletext.rs`: the four history lines
+and the edit line, fonts learned at run time from the `learn` screens,
+the names the keys insert, and the edit line echoed into the history by
+ENTER). The ROM files are `38G_A167.ROM` and `rom.39g` (the 40G's too);
+in a debug build the regeneration test takes about 40 s per model.
+
+```sh
+saturnus-refgen keys --model 39g --rom $R/rom.39g --data crates/saturnus-cli/data/commands/keys-39g.json \
+    --out crates/saturnus-cli/data/commands/examples-39g.json
+```
 
 ## Building the app
 

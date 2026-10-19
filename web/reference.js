@@ -55,10 +55,15 @@ const ASCII = /^[\x00-\x7f]*$/;
 /**
  * The index of one model's commands, built once from the data: each
  * command with the forms a query is matched against, and the ROM's
- * menus as a tree. `model` may have no catalog (the 38G, the 42S): the
- * index is then empty and says so.
+ * menus as a tree. A key-driven model (`data.keyModels`: the 42S, 27S,
+ * 17BII, 17B, 19BII, 38G, 39G and 40G) gets its functions instead
+ * (`buildKeyIndex`). `model` may have no reference: the index is then
+ * empty and says so. A model's own description, stack and long name
+ * (`per`) replace the shared ones where the command differs there (the
+ * 28S's RND).
  */
 export function buildIndex(data, model) {
+  if (data.keyModels?.[model]) return buildKeyIndex(data, model);
   const commands = [];
   const names = Object.keys(data.commands);
   const upperOf = new Map(names.map((n) => [n, n.toUpperCase()]));
@@ -72,6 +77,9 @@ export function buildIndex(data, model) {
     // others still count as an alias, ranked below an exact name.
     const unique = !ASCII.test(name) && !names.some((o) => o !== name && (upperOf.get(o) === f || (!ASCII.test(o) && friendly(o) === f)));
     const examples = per.examples ?? [];
+    // The model's own text where the command differs there (the 28S's RND).
+    const longName = per.name ?? entry.name ?? null;
+    const description = per.description ?? entry.description;
     commands.push({
       name,
       upper: upperOf.get(name),
@@ -79,14 +87,14 @@ export function buildIndex(data, model) {
       friendly: ASCII.test(name) ? null : f,
       friendlyUnique: unique,
       // What the mnemonic stands for ("Residual" for RSD), or null.
-      longName: entry.name ?? null,
-      longUpper: entry.name?.toUpperCase() ?? "",
-      longWords: (entry.name ?? "").toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
-      description: entry.description,
-      descUpper: entry.description.toUpperCase(),
-      descWords: entry.description.toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
+      longName,
+      longUpper: longName?.toUpperCase() ?? "",
+      longWords: (longName ?? "").toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
+      description,
+      descUpper: description.toUpperCase(),
+      descWords: description.toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
       exampleText: examples.map((x) => [x.setup, x.input, x.run].filter(Boolean).join(" ")).join("\n").toUpperCase(),
-      stack: entry.stack,
+      stack: per.stack ?? entry.stack,
       entry,
       per,
     });
@@ -100,7 +108,187 @@ export function buildIndex(data, model) {
     byName,
     menus: menuTree(commands, data.menuKeys?.[model] ?? []),
     supported: commands.length > 0,
+    keyed: false,
   };
+}
+
+// ------------------------------------------------------------ key-driven models
+//
+// The 42S, the 38G, 39G and 40G (the models of `data.keyModels`, from
+// crates/saturnus-cli/data/commands/keys-<model>.json) have no command line
+// Search can type into: a function is pressed (on the 38G, 39G and 40G,
+// from HOME, putting it on the edit line). Each step is `{key, label?}`: the key's script
+// name and what it shows (its legend, or the menu box above a menu key).
+
+/**
+ * The keys that cancel what the annunciators show pending (`frame.annunciators`):
+ * a shift is pressed again, so is ALPHA (the 38G, 39G and 40G; the 42S and
+ * the Pioneers light no alpha annunciator). Shift first: the 39G's shift
+ * ALPHA is a lowercase ALPHA, which ALPHA alone then ends.
+ */
+export function cancelKeys(annunciators) {
+  const a = annunciators ?? {};
+  const out = [];
+  if (a.leftshift) out.push("shift");
+  if (a.alpha) out.push("alpha");
+  return out;
+}
+
+/** Whether `key` is a shift key. */
+export function isShift(key) {
+  return key === "shift" || key === "leftshift" || key === "rightshift";
+}
+
+/** The keys that type `text` from the model's letter entry, or null when a character has none. */
+export function spell(km, text) {
+  const out = [];
+  for (const c of text) {
+    const steps = km.alpha?.chars?.[c];
+    if (!steps) return null;
+    out.push(...steps);
+  }
+  return out;
+}
+
+/** The keys that run `entry` from the normal state: its keys, or XEQ and its name spelt; null when it cannot be pressed. */
+export function keySteps(km, entry) {
+  if (entry.keys) return entry.keys;
+  if (!entry.xeq || !km.xeq || !km.alpha) return null;
+  const name = spell(km, entry.xeq);
+  return name ? [...km.xeq.start, ...km.alpha.start, ...name, ...km.xeq.end] : null;
+}
+
+/** The steps as they read: labels in order, `⇧` for a shift: `⇧ CONVERT →POL`. */
+export function keysText(steps) {
+  return (steps ?? []).map((s) => s.label ?? (isShift(s.key) ? "⇧" : s.key.toUpperCase())).join(" ");
+}
+
+/** The key names of `steps`, as `typeKeys` takes them. */
+export function keyNames(steps) {
+  return (steps ?? []).map((s) => s.key);
+}
+
+/**
+ * Whether `frame` (a `frame` event: `{width, height, pixels}`, rows of
+ * bits in base64) shows a menu: the dots of `km.leave.menuBox` (`{x,
+ * width, rows}`) all dark on each of its rows.
+ */
+export function menuShown(km, frame) {
+  const box = km.leave?.menuBox;
+  if (!box || !frame?.pixels) return false;
+  const bin = atob(frame.pixels);
+  const row = Math.ceil(frame.width / 8);
+  const dark = (x, y) => (bin.charCodeAt(y * row + (x >> 3)) >> (7 - (x & 7))) & 1;
+  if (box.rows.some((y) => y >= frame.height) || box.x + box.width > frame.width) return false;
+  for (const y of box.rows) {
+    for (let x = box.x; x < box.x + box.width; x++) if (!dark(x, y)) return false;
+  }
+  return true;
+}
+
+/**
+ * What the memory view's Commands tab says for `index` (the shown
+ * model's, null while it loads) instead of its panes, from the data: a
+ * model with no reference names those that have one; a key-driven
+ * model's functions are pressed from Search. Null when the tab shows
+ * the reference. `title` names the model, `titles` all of them.
+ */
+export function commandsCoverage(index, title, titles = {}) {
+  if (!index) return null;
+  if (!index.supported) {
+    return { title: `No command reference for the ${title}`, text: `The reference covers the ${referenceModels(index.data, titles)}.` };
+  }
+  if (index.keyed) {
+    return { title: `The ${title} reference is in Search`, text: "Its functions are pressed, not typed: open Search to find one and press its keys." };
+  }
+  return null;
+}
+
+/** "48SX, 48GX, 49G and 42S": the models `data` has a reference for. */
+export function referenceModels(data, titles = {}) {
+  const names = [...(data?.models ?? []), ...Object.keys(data?.keyModels ?? {})].map((m) => (titles[m] ?? m).replace(/^HP /, ""));
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names.join("");
+}
+
+/**
+ * The index of a key-driven model: its functions with their keys
+ * (`steps`, `keysText`), the menu each is in as the tree, and the
+ * examples run on the emulator (`before` and `after` screens).
+ */
+export function buildKeyIndex(data, model) {
+  const km = data.keyModels[model];
+  const commands = [];
+  const names = Object.keys(km.commands);
+  const upperOf = new Map(names.map((n) => [n, n.toUpperCase()]));
+  for (const name of names) {
+    // Placed by its menu, else as a key or a name to run (no menu).
+    const own = km.commands[name];
+    const entry = own.menu ? own : { ...own, group: own.keys ? "Keyboard" : "By name (XEQ)" };
+    const steps = keySteps(km, entry);
+    const f = friendly(name);
+    const examples = entry.examples ?? [];
+    commands.push({
+      name,
+      upper: name.toUpperCase(),
+      codes: toCodes(name).toUpperCase(),
+      friendly: ASCII.test(name) ? null : f,
+      friendlyUnique: !ASCII.test(name) && !names.some((o) => o !== name && (upperOf.get(o) === f || (!ASCII.test(o) && friendly(o) === f))),
+      longName: entry.long ?? null,
+      longUpper: entry.long?.toUpperCase() ?? "",
+      longWords: (entry.long ?? "").toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
+      description: entry.description,
+      descUpper: entry.description.toUpperCase(),
+      descWords: entry.description.toUpperCase().split(/[^A-Z0-9→]+/).filter(Boolean),
+      exampleText: "",
+      stack: entry.stack ?? "",
+      steps,
+      // A function run by name reads as XEQ and its name, not every letter's keys.
+      keysText: !steps ? "" : entry.keys ? keysText(steps) : `XEQ "${entry.xeq}"`,
+      byName: !entry.keys && Boolean(entry.xeq),
+      entry,
+      per: { menus: entry.menu ? [entry.menu] : [], examples },
+    });
+  }
+  commands.sort((a, b) => a.upper.localeCompare(b.upper) || a.name.localeCompare(b.name));
+  return {
+    model,
+    data,
+    km,
+    commands,
+    byName: new Map(commands.map((c) => [c.name, c])),
+    menus: menuTree(commands, km.menus ?? []),
+    supported: commands.length > 0,
+    keyed: true,
+  };
+}
+
+/**
+ * Key names as they read on the keyboard, from the skin's keys
+ * (`legends`: `{name, label, left}`): a shifted key by its shifted
+ * legend after `⇧`. Without legends, the names in capitals.
+ */
+export function legendText(names, legends = null) {
+  const out = [];
+  let shifted = false;
+  let alpha = false;
+  for (const n of names) {
+    const k = legends?.find((x) => x.name === n);
+    if (isShift(n)) {
+      out.push("⇧");
+      shifted = !shifted;
+      continue;
+    }
+    // A key after ALPHA types its letter.
+    out.push((alpha && k?.alpha ? k.alpha : shifted ? k?.left : k?.label) || n.toUpperCase());
+    alpha = n === "alpha";
+    shifted = false;
+  }
+  return out.join(" ");
+}
+
+/** The keys an example presses: its input, the function's, then its `then` keys (the arguments and ENTER on the 38G, 39G and 40G). */
+export function exampleSteps(command, example) {
+  return [...example.input.map((key) => ({ key })), ...(command.steps ?? []), ...(example.then ?? []).map((key) => ({ key }))];
 }
 
 /** The headings of the menu tree that are not menus of the ROM. */
@@ -326,7 +514,10 @@ export function search(index, query, { variables = [], actions = [], typing = tr
     else if (single && c.descWords.some((w) => w.startsWith(upper))) score = T.word;
     else if (words.every((w) => c.descUpper.includes(w))) score = T.description;
     else if (c.exampleText.includes(upper)) score = T.example;
-    if (score) rows.push({ kind: "command", name: c.name, command: c, longName: c.longName, stack: c.stack, description: c.description, score });
+    // A key-driven model has no menu rows (no Reference tab to open
+    // them in): a menu's name finds its functions instead.
+    if (index.keyed && score < T.menu && (c.per.menus ?? []).some((p) => p.toUpperCase().split(" ").some((w) => w.startsWith(upper)))) score = T.menu;
+    if (score) rows.push({ kind: "command", name: c.name, command: c, longName: c.longName, stack: c.stack, keys: c.keysText ?? null, description: c.description, score });
   }
   if (typing) {
     for (const v of variables) {
@@ -338,7 +529,7 @@ export function search(index, query, { variables = [], actions = [], typing = tr
       if (score) rows.push({ kind: "variable", name: v.name, path: v.path, type: v.type, score });
     }
   }
-  for (const m of flattenMenus(index.menus)) {
+  for (const m of index.keyed ? [] : flattenMenus(index.menus)) {
     if (m.kind !== "menu") continue;
     const last = m.name.toUpperCase();
     if (last.startsWith(upper) && !last.startsWith("MENU ")) {
@@ -396,6 +587,8 @@ function actionRow(a, score) {
 
 /** The verb Enter uses on `row` given the command line's state; `opposite` is Cmd/Ctrl+Enter. */
 export function enterVerb(row, commandLine, opposite = false) {
+  // A key-driven model's function is pressed; one typed into an equation has no verb.
+  if (row.kind === "command" && row.command?.steps !== undefined) return row.command.steps ? "press" : null;
   const active = Boolean(commandLine?.active);
   let verb;
   // Variables insert their name (as the plan says), commands and typed
@@ -416,6 +609,8 @@ export function enterPlan(row, commandLine, opposite = false) {
   if (!row) return null;
   if (row.kind === "action") return { action: row.action };
   if (row.kind === "menu") return { menu: row.menu };
+  // A key-driven model's function is pressed, whatever the modifier.
+  if (row.kind === "command" && row.command?.steps !== undefined) return row.command.steps ? { press: row.command } : null;
   const verb = enterVerb(row, commandLine, opposite);
   let text = row.name;
   if (verb === "insert" && commandLine?.active) text = spaced(text, commandLine);

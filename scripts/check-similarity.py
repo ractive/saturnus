@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Flag reference descriptions that share long word runs with HP's manuals.
 
-Our descriptions in crates/saturnus-cli/data/commands/reference.json are written from scratch;
+Our descriptions in crates/saturnus-cli/data/commands/reference.json (a
+model's own ones under `per_model` included) and keys-<model>.json are
+written from scratch;
 this check makes sure none repeats a run of N or more consecutive words
 (default 6) from the manuals' text layers. Words are compared lowercased,
 letters and digits only. Exit status 1 when anything is flagged.
@@ -79,6 +81,18 @@ def main(argv):
         shingles.update(tuple(w[i : i + n]) for i in range(len(w) - n + 1))
     with open(REFERENCE, encoding="utf-8") as f:
         reference = json.load(f)["commands"]
+    # A model's own description (the 28S's, `per_model`).
+    for name, entry in list(reference.items()):
+        for model, own in entry.get("per_model", {}).items():
+            if "description" in own:
+                reference[f"{model} {name} (own)"] = own
+    # The key-driven models' descriptions too (keys-<model>.json).
+    data = os.path.dirname(REFERENCE)
+    for file in sorted(os.listdir(data)):
+        if file.startswith("keys-") and file.endswith(".json"):
+            with open(os.path.join(data, file), encoding="utf-8") as f:
+                for c in json.load(f)["commands"]:
+                    reference[f"{file[5:-5]} {c['name']}"] = c
     flagged = 0
     for name, entry in sorted(reference.items()):
         w = words(entry["description"])

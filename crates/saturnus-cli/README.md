@@ -42,9 +42,13 @@ saturnus run --model 48gx --rom roms/gxrom-r --serve
 # Control the running calculator: keys, screen, stack.
 saturnus ctl --help
 
-# Look up a built-in command (48SX, 48GX, 49G): description, stack
-# effect, menu, examples run in saturnus, manual pages.
+# Look up a built-in command (48SX, 48GX, 49G, 28S): description, stack
+# effect, menu, examples run in saturnus, manual pages. A function of
+# the 42S, 27S, 17BII, 17B, 19BII, 38G, 39G or 40G with --model: its
+# keys instead of a menu.
 saturnus ref "->LIST"
+saturnus ref "->POL" --model 42s
+saturnus ref COMB --model 39g
 
 # Disassemble ROM code.
 saturnus disasm --rom roms/gxrom-r --at 0 --count 20

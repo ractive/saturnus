@@ -10,6 +10,7 @@ import {
   NOT_IN_MENU, OTHER_MENUS, buildIndex, enterPlan, enterVerb, exampleBefore, exampleResult, exampleText, findCommands, findMenu,
   flattenMenus, fromCodes, friendly, menuLabel,
   isSingleToken, keyLegend, manualLinks, menuCommands, placement, search, spaced, stackVerified, toCodes,
+  exampleSteps, keyNames, keySteps, keysText, legendText, menuShown, referenceModels, spell, cancelKeys, commandsCoverage,
 } from "../reference.js";
 import { IndexWatch, NOT_READY, PaletteModel, sendFailure } from "../palette.js";
 
@@ -278,7 +279,7 @@ test("the menu tree follows the ROM's menu paths, roots in key order", () => {
   // Every command of the model is somewhere in the tree.
   const placed = new Set(all.flatMap((m) => m.commands.map((c) => c.name)));
   assert.equal(placed.size, sx.commands.length);
-  assert.equal(buildIndex(data, "38g").supported, false);
+  assert.equal(buildIndex(data, "nosuch").supported, false);
 });
 
 test("one tree: numbered menus named from the manuals, the manuals' placements under their own heading", () => {
@@ -502,4 +503,379 @@ test("the Commands tab's index: a failed load is kept for its model only and tri
   const w2 = new IndexWatch(loader);
   const [a, b] = await Promise.all([w2.ensure("48sx"), w2.ensure("48sx")]);
   assert.equal(a.index, b.index);
+});
+
+// ------------------------------------------------------------ key-driven models (the 42S)
+
+const k42 = buildIndex(data, "42s");
+
+/** A 131 x 16 frame (base64 rows of bits), with the dots of `dark` (`[x, y]`) on. */
+function frame(dark = []) {
+  const row = Math.ceil(131 / 8);
+  const bytes = new Uint8Array(row * 16);
+  for (const [x, y] of dark) bytes[y * row + (x >> 3)] |= 0x80 >> (x & 7);
+  return { width: 131, height: 16, pixels: Buffer.from(bytes).toString("base64") };
+}
+/** A frame with the 42S's menu boxes drawn (their border rows). */
+const menuFrame = () => frame([9, 15].flatMap((y) => Array.from({ length: 131 }, (_, x) => [x, y])));
+
+test("the 42S's functions: found by name and spelling, each with the keys that run it", () => {
+  assert.equal(k42.keyed, true);
+  assert.equal(k42.supported, true);
+  assert.equal(k42.commands.length, Object.keys(data.keyModels["42s"].commands).length);
+  assert.ok(k42.commands.length >= 270, `${k42.commands.length} functions`);
+  const pol = search(k42, "->pol")[0];
+  assert.equal(pol.name, "→POL");
+  assert.equal(pol.keys, "⇧ CONVERT →POL");
+  assert.deepEqual(keyNames(pol.command.steps), ["shift", "5", "xeq"]);
+  assert.equal(search(k42, "sqrt")[0].keys, "√x");
+  assert.equal(search(k42, "square root")[0].name, "SQRT");
+  // Every function can be pressed: by its keys or by XEQ and its name.
+  for (const c of k42.commands) assert.ok(c.steps?.length, `${c.name} has keys`);
+  // One run by name: XEQ, ALPHA, its letters through the ALPHA menu, ENTER.
+  const acosh = k42.byName.get("ACOSH");
+  assert.equal(acosh.keysText, 'XEQ "ACOSH"');
+  assert.deepEqual(keyNames(acosh.steps).slice(0, 3), ["xeq", "shift", "enter"]);
+  assert.equal(acosh.steps.at(-1).key, "enter");
+  assert.equal(keysText(acosh.steps.slice(3, 5)), "ABCDE A");
+  // No variables, nothing typed: no send row.
+  assert.ok(search(k42, "13 4 ^", { typing: false }).every((r) => r.kind !== "send"));
+});
+
+test("key steps: labels in order, a shift as ⇧, names spelt through the ALPHA map", () => {
+  const km = {
+    alpha: { start: [{ key: "shift" }, { key: "enter", label: "ALPHA" }], chars: { A: [{ key: "sigmaplus", label: "ABCDE" }, { key: "sigmaplus", label: "A" }], "1": [{ key: "1", label: "1" }] } },
+    xeq: { start: [{ key: "xeq", label: "XEQ" }], end: [{ key: "enter", label: "ENTER" }] },
+  };
+  assert.equal(keysText(keySteps(km, { xeq: "A1" })), "XEQ ⇧ ALPHA ABCDE A 1 ENTER");
+  assert.equal(keySteps(km, { xeq: "B" }), null, "a letter with no keys");
+  assert.equal(spell(km, "B"), null);
+  assert.equal(keysText(keySteps(km, { keys: [{ key: "shift" }, { key: "5", label: "CONVERT" }] })), "⇧ CONVERT");
+  assert.equal(keysText([{ key: "enter" }]), "ENTER");
+  const legends = [{ name: "5", label: "5", left: "CONVERT" }, { name: "enter", label: "ENTER", left: "ALPHA" }];
+  assert.equal(legendText(["4", "enter", "shift", "5", "shift"], legends), "4 ENTER ⇧ CONVERT ⇧");
+  assert.equal(legendText(["point"]), "POINT");
+  const sqrt = k42.byName.get("SQRT");
+  assert.deepEqual(keyNames(exampleSteps(sqrt, sqrt.per.examples[0])), ["9", "sqrt"]);
+});
+
+test("the 42S's menu is seen on its display: the boxes' border rows dark", () => {
+  const km = data.keyModels["42s"];
+  assert.equal(menuShown(km, menuFrame()), true);
+  assert.equal(menuShown(km, frame()), false);
+  assert.equal(menuShown(km, frame([[0, 9], [5, 15]])), false, "a few dots are not a box");
+  assert.equal(menuShown(km, null), false);
+  assert.equal(menuShown({}, menuFrame()), false, "a model without the test");
+  assert.equal(menuShown(km, { width: 137, height: 8, pixels: "" }), false, "another display");
+});
+
+test("the 42S's tree: the menus the manual names, the keyboard and the names run by XEQ", () => {
+  const all = flattenMenus(k42.menus);
+  const convert = all.find((m) => m.path === "CONVERT");
+  assert.ok(convert.commands.some((c) => c.name === "→POL"));
+  const modl = all.find((m) => m.path === "STAT CFIT MODL");
+  assert.ok(modl && modl.depth === 2 && modl.commands.some((c) => c.name === "BEST"));
+  const other = k42.menus.at(-1);
+  assert.equal(other.name, NOT_IN_MENU);
+  assert.deepEqual(other.children.map((n) => n.name).sort(), ["By name (XEQ)", "Keyboard"]);
+  const placed = new Set(all.flatMap((m) => m.commands.map((c) => c.name)));
+  assert.equal(placed.size, k42.commands.length);
+  assert.equal(data.keyModels["42s"].commands.SQRT.group, undefined, "the data is left as it is");
+});
+
+test("Enter presses a key-driven model's function; the reference names the models it covers", () => {
+  const row = search(k42, "SQRT")[0];
+  assert.equal(enterVerb(row, null), "press");
+  assert.equal(enterPlan(row, null, true).press, row.command);
+  assert.match(referenceModels(data, { "42s": "HP 42S", "48sx": "HP 48SX" }), /^48SX, .* and 42S$/);
+  assert.equal(referenceModels({ models: ["48sx"] }), "48sx");
+});
+
+/** A backend for the 42S: records the keys typed; EXIT takes the menu off the display. */
+function fakeKeys(store) {
+  const calls = [];
+  return {
+    calls,
+    async commandLine() { throw new Error("the 42s has no RPL command line to type into (48SX, 48GX and 49G only)"); },
+    async flags() { return { system: [], user: [], set: [] }; },
+    typeKeys(keys) {
+      calls.push(keys);
+      if (keys.join(" ") === "on") store.frame = frame();
+    },
+    async stats() { return { loop: "sleep" }; },
+  };
+}
+
+test("the palette model presses a 42S function, leaving the menu the display shows first", async () => {
+  const state = { model: "42s", booted: "42s", frame: menuFrame(), keysDown: [] };
+  const backend = fakeKeys(state);
+  const m = new PaletteModel(backend, { state });
+  m.pace = { first: 0, poll: 0, limit: 1000 };
+  m.setIndex(k42);
+  await m.open();
+  assert.equal(m.keyed, true);
+  assert.equal(m.canPress, true);
+  m.setQuery("->POL");
+  assert.equal(m.verbFor(m.rows[0]), "press");
+  const r = await m.choose(m.rows[0]);
+  assert.deepEqual(backend.calls, [["on"], ["shift", "5", "xeq"]]);
+  assert.equal(r.close, true);
+  assert.equal(m.notice, null);
+
+  // No menu shown: only the function's keys.
+  backend.calls.length = 0;
+  m.setQuery("SQRT");
+  await m.choose(m.rows[0]);
+  assert.deepEqual(backend.calls, [["sqrt"]]);
+
+  // An example ends the entry in progress first, then presses its input and the keys; the palette stays open.
+  backend.calls.length = 0;
+  const sqrt = k42.byName.get("SQRT");
+  const t = await m.tryExample(sqrt.per.examples[0], sqrt);
+  assert.deepEqual(backend.calls, [["on"], ["9", "sqrt"]]);
+  assert.equal(t.close, false);
+  assert.match(m.notice.text, /^Pressed 9 √x\.$/);
+
+  // Nothing is pressed without the calculator.
+  const off = { model: "42s", booted: null, frame: null };
+  const b2 = fakeKeys(off);
+  const m2 = new PaletteModel(b2, { state: off });
+  m2.setIndex(k42);
+  m2.setQuery("SQRT");
+  const r2 = await m2.choose(m2.rows[0]);
+  assert.equal(r2.close, false);
+  assert.deepEqual(b2.calls, []);
+  assert.match(m2.notice.text, /Start the calculator/);
+});
+
+// ------------------------------------------------- the menu-driven models (17BII, 27S, 17B, 19BII)
+
+test("the 17BII, 27S, 17B and 19BII have references: menu keys, Solver functions typed in equations", () => {
+  for (const m of ["27s", "17bii", "17b", "19bii"]) {
+    const ix = buildIndex(data, m);
+    assert.equal(ix.keyed, true, m);
+    assert.ok(ix.commands.length >= 240, `${m}: ${ix.commands.length} functions`);
+    // Pressable, or a function typed into an equation (no keys, a menu that says where).
+    for (const c of ix.commands) assert.ok(c.steps?.length || (!c.entry.keys && c.entry.menu), `${m} ${c.name}`);
+  }
+  const k17 = buildIndex(data, "17bii");
+  const pmt = search(k17, "PMT")[0];
+  assert.equal(pmt.name, "PMT");
+  assert.equal(pmt.keys, "FIN TVM PMT");
+  assert.deepEqual(keyNames(pmt.command.steps), ["a", "a", "d"]);
+  const uspv = k17.byName.get("USPV(i%:n)");
+  assert.equal(uspv.steps, null);
+  assert.equal(uspv.keysText, "");
+  assert.equal(enterPlan(search(k17, "USPV")[0], null, true), null, "nothing to press");
+  const all = flattenMenus(k17.menus);
+  assert.ok(all.find((n) => n.path === "FIN TVM OTHER AMRT").commands.some((c) => c.name === "#P"));
+  assert.equal(buildIndex(data, "27s").byName.get("PMT").keysText, "⇧ TVM PMT");
+  assert.equal(data.keyModels["17bii"].leave.menuBox, undefined, "MAIN always shows: no menu test");
+  assert.equal(data.keyModels["17bii"].alpha, undefined, "no names to spell");
+});
+
+test("the palette model goes back to the 17BII's MAIN once, then presses the menu keys", async () => {
+  const k17 = buildIndex(data, "17bii");
+  const state = { model: "17bii", booted: "17bii", frame: frame(), keysDown: [] };
+  const backend = fakeKeys(state);
+  const m = new PaletteModel(backend, { state });
+  m.pace = { first: 0, poll: 0, limit: 1000 };
+  m.setIndex(k17);
+  await m.open();
+  m.setQuery("PMT");
+  await m.choose(m.rows[0]);
+  assert.deepEqual(backend.calls, [["shift", "exit"], ["a", "a", "d"]]);
+});
+
+test("the 28S: its commands, menus in key order, the Reference Manual's pages and its own texts", () => {
+  const ix = buildIndex(data, "28s");
+  assert.equal(ix.supported, true);
+  assert.equal(ix.commands.length, 260);
+  const roots = ix.menus.filter((m) => m.fromRom).map((m) => m.name);
+  assert.deepEqual(roots.slice(0, 3), ["ARRAY", "BINARY", "COMPLX"]);
+  // Every command is somewhere in the tree; keys are placed by the manual's section.
+  const all = flattenMenus(ix.menus);
+  assert.equal(new Set(all.flatMap((m) => m.commands.map((c) => c.name))).size, ix.commands.length);
+  const drop = placement(ix, ix.byName.get("DROP"));
+  assert.deepEqual(drop.menus, []);
+  assert.equal(drop.key.category, "STACK");
+  assert.match(drop.key.url, /hp28s-rm-en\.pdf#page=\d+$/);
+  // A shared command keeps the shared text; RND has the 28S's own.
+  const sin = ix.byName.get("SIN");
+  assert.equal(sin.description, sx.byName.get("SIN").description);
+  assert.deepEqual(placement(ix, sin).menus, ["TRIG"]);
+  assert.ok(stackVerified(sin));
+  const rnd = ix.byName.get("RND");
+  assert.notEqual(rnd.description, sx.byName.get("RND").description);
+  assert.match(rnd.stack, /^x → y/);
+  assert.match(sx.byName.get("RND").stack, /^x n → y/);
+  assert.deepEqual(exampleResult(rnd.per.examples[0]), { lines: ["3.14"] });
+  // Only the 28S's manual is linked; the 28S-only CLUSR is not on the 48SX.
+  assert.ok(manualLinks(ix, sin, ["28s"]).every((l) => l.id === "hp28s-rm"));
+  assert.ok(ix.byName.has("CLUSR") && !sx.byName.has("CLUSR"));
+  assert.equal(search(ix, "clusr", { typing: false })[0].name, "CLUSR");
+});
+
+// ------------------------------------------------------------ the 38G, 39G and 40G (HOME)
+
+const k39 = buildIndex(data, "39g");
+
+/** A 131 x 64 frame, with the dots of `dark` (`[x, y]`) on. */
+function bigFrame(dark = []) {
+  const row = Math.ceil(131 / 8);
+  const bytes = new Uint8Array(row * 64);
+  for (const [x, y] of dark) bytes[y * row + (x >> 3)] |= 0x80 >> (x & 7);
+  return { width: 131, height: 64, pixels: Buffer.from(bytes).toString("base64") };
+}
+/** A 39G frame with a choose box open (its top border on row 4). */
+const chooseFrame = () => bigFrame(Array.from({ length: 116 }, (_, i) => [7 + i, 4]));
+
+test("the 38G, 39G and 40G: their functions with the keys that put them on HOME's edit line", () => {
+  for (const model of ["38g", "39g", "40g"]) {
+    const ix = buildIndex(data, model);
+    assert.equal(ix.keyed, true, model);
+    assert.ok(ix.commands.length >= 200, `${model}: ${ix.commands.length} functions`);
+    for (const c of ix.commands) assert.ok(c.steps?.length && c.entry.inserts, `${model} ${c.name}`);
+  }
+  const comb = search(k39, "comb")[0];
+  assert.equal(comb.name, "COMB");
+  assert.equal(comb.keys, "MATH P P ▶ ENTER");
+  assert.equal(comb.command.entry.inserts, "COMB(");
+  assert.equal(search(k39, "->hms")[0].name, "→HMS");
+  assert.equal(search(k39, "SIN")[0].keys, "SIN");
+  // An example types its arguments and ENTER after the keys.
+  const x = comb.command.per.examples[0];
+  assert.deepEqual(keyNames(exampleSteps(comb.command, x)), ["math", "7", "7", "right", "enter", "5", "comma", "2", "rparen", "enter"]);
+  const legends = [{ name: "vars", label: "VARS", left: "CHARS", alpha: "A" }, { name: "alpha", label: "ALPHA", left: "alpha" }];
+  assert.equal(legendText(["alpha", "vars", "vars"], legends), "ALPHA A VARS");
+  assert.equal(menuShown(data.keyModels["39g"], chooseFrame()), true);
+  assert.equal(menuShown(data.keyModels["39g"], bigFrame()), false);
+});
+
+test("the palette model goes to HOME, closing a choose box, before pressing a 39G function", async () => {
+  const state = { model: "39g", booted: "39g", frame: chooseFrame(), keysDown: [] };
+  const calls = [];
+  const backend = {
+    async commandLine() { throw new Error("the 39g has no RPL command line to type into (48SX, 48GX and 49G only)"); },
+    async flags() { return { system: [], user: [], set: [] }; },
+    typeKeys(keys) {
+      calls.push(keys);
+      if (keys.join(" ") === "on") state.frame = bigFrame();
+    },
+    async stats() { return { loop: "sleep" }; },
+  };
+  const m = new PaletteModel(backend, { state });
+  m.pace = { first: 0, poll: 0, limit: 1000 };
+  m.setIndex(k39);
+  await m.open();
+  m.setQuery("COMB");
+  await m.choose(m.rows[0]);
+  assert.deepEqual(calls, [["on"], ["home"], ["math", "7", "7", "right", "enter"]]);
+  // No box: HOME, then the keys; what is on the edit line stays.
+  calls.length = 0;
+  await m.choose(m.rows[0]);
+  assert.deepEqual(calls, [["home"], ["math", "7", "7", "right", "enter"]]);
+  // An example clears the edit line (CANCEL) after HOME.
+  calls.length = 0;
+  const comb = k39.byName.get("COMB");
+  await m.tryExample(comb.per.examples[0], comb);
+  assert.deepEqual(calls, [["home"], ["on"], ["math", "7", "7", "right", "enter", "5", "comma", "2", "rparen", "enter"]]);
+  assert.match(m.notice.text, /^Pressed the example with MATH P P ▶ ENTER\.$/);
+});
+
+// ------------------------------------------------------------ pending shift and ALPHA (review of PR 201)
+
+/**
+ * A backend for a key-driven model whose display has `annunciators`:
+ * a press of shift or ALPHA turns its annunciator off (a stuck one when
+ * `stuck`), EXIT (`on`) takes the 42S's menu off.
+ */
+function pendingKeys(state, { stuck = false } = {}) {
+  const calls = [];
+  return {
+    calls,
+    async commandLine() { throw new Error("no RPL command line"); },
+    async flags() { return { system: [], user: [], set: [] }; },
+    typeKeys(keys) {
+      calls.push(keys);
+      const a = { ...(state.frame.annunciators ?? {}) };
+      if (!stuck) {
+        if (keys.includes("shift")) a.leftshift = false;
+        if (keys.includes("alpha")) a.alpha = false;
+      }
+      if (keys.join(" ") === "on") state.frame = { ...frame(), annunciators: a };
+      else state.frame = { ...state.frame, annunciators: a };
+    },
+    async stats() { return { loop: "sleep" }; },
+  };
+}
+
+async function pressFirst(model, query, frameNow, opts) {
+  const state = { model, booted: model, frame: frameNow, keysDown: [] };
+  const backend = pendingKeys(state, opts);
+  const m = new PaletteModel(backend, { state });
+  m.pace = { first: 0, poll: 0, limit: 1000 };
+  m.setIndex(buildIndex(data, model));
+  await m.open();
+  m.setQuery(query);
+  const row = m.rows.find((r) => r.kind === "command");
+  const r = await m.choose(row);
+  return { calls: backend.calls, r, m, row };
+}
+
+test("the keys that cancel what the annunciators show pending", () => {
+  assert.deepEqual(cancelKeys(null), []);
+  assert.deepEqual(cancelKeys({ leftshift: true }), ["shift"]);
+  assert.deepEqual(cancelKeys({ alpha: true }), ["alpha"]);
+  assert.deepEqual(cancelKeys({ leftshift: true, alpha: true, busy: true }), ["shift", "alpha"]);
+});
+
+test("a pending shift is cancelled before the 42S's EXIT, which shifted is OFF", async () => {
+  const { calls, r } = await pressFirst("42s", "SQRT", { ...menuFrame(), annunciators: { leftshift: true } });
+  assert.deepEqual(calls, [["shift"], ["on"], ["sqrt"]]);
+  assert.equal(r.close, true);
+  // No menu: the shift is cancelled, then only the function's keys.
+  const plain = await pressFirst("42s", "SQRT", { ...frame(), annunciators: { leftshift: true } });
+  assert.deepEqual(plain.calls, [["shift"], ["sqrt"]]);
+  // A shift that stays on: nothing else is pressed, and the palette says why.
+  const stuck = await pressFirst("42s", "SQRT", { ...menuFrame(), annunciators: { leftshift: true } }, { stuck: true });
+  assert.ok(stuck.calls.every((k) => k.join(" ") === "shift"), JSON.stringify(stuck.calls));
+  assert.equal(stuck.r.close, false);
+  assert.match(stuck.m.notice.text, /shift or ALPHA stays on/);
+});
+
+test("a pending shift is cancelled before the 17BII's ⇧ EXIT, which it would turn into EXIT", async () => {
+  const k17 = buildIndex(data, "17bii");
+  const leave = keyNames(data.keyModels["17bii"].leave.keys);
+  assert.deepEqual(leave, ["shift", "exit"]);
+  const { calls, row } = await pressFirst("17bii", k17.commands[0].name, { ...frame(), annunciators: { leftshift: true } });
+  assert.deepEqual(calls[0], ["shift"]);
+  assert.deepEqual(calls[1], leave);
+  assert.deepEqual(calls.at(-1), keyNames(row.command.steps));
+  // Without a pending shift, no extra press.
+  const clean = await pressFirst("17bii", k17.commands[0].name, frame());
+  assert.deepEqual(clean.calls[0], leave);
+});
+
+test("a pending ALPHA (and shift ALPHA) is cancelled before the 38G's HOME, which would type A", async () => {
+  const sqrt38 = buildIndex(data, "38g").commands.find((c) => c.steps?.length);
+  const { calls, row } = await pressFirst("38g", sqrt38.name, { ...frame(), annunciators: { alpha: true } });
+  assert.deepEqual(calls[0], ["alpha"]);
+  assert.ok(calls.findIndex((k) => k.join(" ") === "home") > 0, JSON.stringify(calls));
+  assert.deepEqual(calls.at(-1), keyNames(row.command.steps));
+  const both = await pressFirst("38g", sqrt38.name, { ...frame(), annunciators: { leftshift: true, alpha: true } });
+  assert.deepEqual(both.calls[0], ["shift", "alpha"]);
+});
+
+test("a key-driven model's menus are no rows: their names find their functions; the Commands tab names its state from the data", () => {
+  const rows = search(k42, "CONVERT");
+  assert.ok(rows.every((r) => r.kind !== "menu"), "no menu row to open in the Reference tab");
+  assert.ok(rows.some((r) => r.name === "→POL"), "CONVERT finds its functions");
+  assert.ok(search(sx, "MTH").some((r) => r.kind === "menu"), "the 48SX keeps its menu rows");
+  assert.equal(commandsCoverage(null, "HP 42S"), null, "loading");
+  assert.equal(commandsCoverage(sx, "HP 48SX"), null);
+  assert.match(commandsCoverage(k42, "HP 42S").title, /reference is in Search/);
+  const none = commandsCoverage(buildIndex(data, "20s"), "HP 20S", { "42s": "HP 42S" });
+  assert.match(none.title, /No command reference for the HP 20S/);
+  assert.match(none.text, /42S/);
 });

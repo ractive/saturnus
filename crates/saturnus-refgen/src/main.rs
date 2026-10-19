@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use saturnus_refgen::catalog::{self, Catalog};
 use saturnus_refgen::examples;
+use saturnus_refgen::keyed::{self, KeyFile};
 use saturnus_refgen::menus;
 use saturnus_refgen::reference::Reference;
 
@@ -14,12 +15,22 @@ const USAGE: &str = "usage:
   saturnus-refgen examples --model M --rom PATH --catalog FILE --reference FILE --out FILE
                            [--only NAME,NAME...]
   saturnus-refgen menus --model M --rom PATH --catalog FILE --categories FILE --out FILE
+  saturnus-refgen keys --model M --rom PATH --data FILE --out FILE [--only NAME,NAME...]
+  saturnus-refgen screen --model M --rom PATH --data FILE --press 'KEY KEY...'
 
 catalog   the ROM's command names (crates/saturnus-cli/data/commands/<model>.json)
 examples  runs the reference's inputs (crates/saturnus-cli/data/commands/examples-<model>.json)
 menus     each command's menus from the ROM's menu definitions, into the catalog
           (written to --out) and into categories.json (updated in place)
-M is 48sx, 48gx or 49g.";
+keys      checks a key-driven model's reference (crates/saturnus-cli/data/commands/keys-<model>.json)
+          on the emulator and runs its examples (examples-<model>.json)
+screen    presses keys from the booted state and prints the screen as text
+          (for writing a keys-<model>.json)
+M is 48sx, 48gx, 49g or 28s; for keys and screen a key-driven model (42s, ...).
+The 28S has no Kermit server: its catalog is the ROM's CATALOG read off the
+display (menus and menu keys kept from --out, which come from its Reference
+Manual), its examples are typed by keys and read off the display, and it has
+no menus run.";
 
 #[derive(Debug, Default)]
 struct Args {
@@ -30,6 +41,8 @@ struct Args {
     reference: Option<PathBuf>,
     categories: Option<PathBuf>,
     only: Option<Vec<String>>,
+    data: Option<PathBuf>,
+    press: Option<String>,
 }
 
 fn parse(args: &[String]) -> Result<Args> {
@@ -47,6 +60,8 @@ fn parse(args: &[String]) -> Result<Args> {
             "--reference" => out.reference = Some(v.into()),
             "--categories" => out.categories = Some(v.into()),
             "--only" => out.only = Some(v.split(',').map(str::to_string).collect()),
+            "--data" => out.data = Some(v.into()),
+            "--press" => out.press = Some(v.clone()),
             other => bail!("unknown argument {other:?}\n{USAGE}"),
         }
     }
@@ -91,8 +106,39 @@ fn main() -> Result<()> {
     let a = parse(&args[1..])?;
     let model: saturnus_core::Model = a.model.as_deref().context("--model is required")?.parse()?;
     let rom = a.rom.context("--rom is required")?;
+    if cmd == "screen" {
+        let file: KeyFile = read_json(&a.data.context("--data is required")?)?;
+        let mut d = keyed::Driver::boot(model, &rom, &file)?;
+        d.reset()?;
+        for k in a.press.as_deref().unwrap_or("").split_whitespace() {
+            d.press_key(k)?;
+        }
+        let (cells, letters) = d.glyphs.known();
+        let (small, large) = d.aplet.known();
+        eprintln!(
+            "{cells} characters and {letters} menu letters learned \
+             ({small} and {large} in HOME's two fonts)"
+        );
+        for line in d.read() {
+            println!("{line}");
+        }
+        return Ok(());
+    }
     let out = a.out.context("--out is required")?;
     let text = match cmd.as_str() {
+        "catalog" if model == saturnus_core::Model::Hp28s => {
+            let old: Option<Catalog> = if out.exists() {
+                Some(read_json(&out)?)
+            } else {
+                None
+            };
+            let cat = catalog::generate_28s(&rom, old.as_ref())?;
+            eprintln!("{} commands", cat.commands.len());
+            catalog::to_file_text(&cat)?
+        }
+        "menus" if model == saturnus_core::Model::Hp28s => {
+            bail!("the 28S's menus come from its Reference Manual, not from the ROM")
+        }
         "catalog" => {
             let cat = catalog::generate(model, &rom)?;
             eprintln!("{} commands", cat.commands.len());
@@ -138,6 +184,17 @@ fn main() -> Result<()> {
                 (categories_path, menus::categories_text(&categories)?),
                 (out, catalog::to_file_text(&cat)?),
             ]);
+        }
+        "keys" => {
+            let file: KeyFile = read_json(&a.data.context("--data is required")?)?;
+            let ex = keyed::generate(model, &rom, &file, a.only.as_deref())?;
+            let n: usize = ex.examples.values().map(Vec::len).sum();
+            eprintln!(
+                "{} functions checked, {n} examples of {}",
+                a.only.as_ref().map_or(file.commands.len(), Vec::len),
+                ex.examples.len()
+            );
+            keyed::to_file_text(&ex)?
         }
         other => bail!("unknown command {other:?}\n{USAGE}"),
     };

@@ -19,8 +19,9 @@
 
 import { comboLabel, numberDigit } from "../bindings.js";
 import { EditSession, FORMAT_KEY, History, afterSave, editorKey, format, fromDigraphs, indentAfter, pullEdit, saveSession, sentence, targetTitle, unclosed } from "../editor.js";
+import { KEY_COMMANDS } from "../keys28.js";
 import { PaletteModel, stop } from "../palette.js";
-import { menuCommands } from "../reference.js";
+import { keysText, menuCommands, menuShown, referenceModels } from "../reference.js";
 import { el } from "../shared/dom.js";
 import { entryView } from "./entry-view.js";
 import { icon, iconEl } from "../shared/components/icons.js";
@@ -461,7 +462,7 @@ export class SatPalette extends HTMLElement {
     this.renderDetail();
     const r = await this.model.tryExample(example);
     const n = this.model.notice;
-    this.tried = { example, text: n?.error ? n.text : "Sent. The result is on the calculator's display.", error: Boolean(n?.error) };
+    this.tried = { example, text: n?.error ? n.text : this.model.keyed ? "Pressed. The result is on the calculator's display." : "Sent. The result is on the calculator's display.", error: Boolean(n?.error) };
     this.model.notice = null;
     this.renderDetail();
     this.renderFoot();
@@ -491,17 +492,23 @@ export class SatPalette extends HTMLElement {
     const model = this.shownModel();
     this.ui.model.textContent = model ? MODEL_TITLES[model] ?? model : "";
     let text = "";
+    // The models with a reference, from the data: "48SX, 48GX, 49G and 42S".
+    const covered = referenceModels(m.index?.data, MODEL_TITLES);
     if (m.loadError) text = `The command reference could not be read (${m.loadError}). Actions still work.`;
     else if (!m.index) text = "Reading the command reference…";
+    else if (!s.booted && m.index.supported && m.keyed) text = `No calculator is running. You can read the ${MODEL_TITLES[model]} reference but not press anything. Choose a ROM to start.`;
     else if (!s.booted && m.index.supported) text = `No calculator is running. You can read the ${MODEL_TITLES[model]} reference but not send anything. Choose a ROM to start.`;
-    else if (!s.booted) text = `No calculator is running, and the ${MODEL_TITLES[model]} has no command reference (48SX, 48GX and 49G only). Actions are listed.`;
+    else if (!s.booted) text = `No calculator is running, and the ${MODEL_TITLES[model]} has no command reference (${covered} only). Actions are listed.`;
+    // A key-driven model: a function is pressed, there is nothing to type.
+    else if (m.keyed && m.index.km?.home) text = `Choosing a function goes to HOME and presses its keys, which put it on the edit line for you to finish.`;
+    else if (m.keyed) text = `The ${MODEL_TITLES[s.booted]} has no command line: choosing a function presses its keys.`;
     else if (!m.index.supported && m.noTyping) {
       // The models without a command line say it plainly; any other reason the host gave is kept.
       text = /no RPL command line/.test(m.noTyping)
         ? `The ${MODEL_TITLES[s.booted]} has no command reference and no command line to type into. Actions are listed.`
         : `The ${MODEL_TITLES[s.booted]} has no command reference, and nothing can be sent: ${m.noTyping}. Actions are listed.`;
     }
-    else if (!m.index.supported) text = `The ${MODEL_TITLES[s.booted]} has no command reference (48SX, 48GX and 49G only). Text can still be typed into it, and actions are listed.`;
+    else if (!m.index.supported) text = `The ${MODEL_TITLES[s.booted]} has no command reference (${covered} only). Text can still be typed into it, and actions are listed.`;
     else if (m.noTyping) text = `Nothing can be sent: ${m.noTyping}. The reference can still be read.`;
     // Not in the editor: saving there sets the mode itself (the host's transfer).
     else if (m.algebraic && !this.session) text = "The 49G is in algebraic mode. Commands and examples here are written for RPN mode.";
@@ -519,8 +526,8 @@ export class SatPalette extends HTMLElement {
     if (!rows.length) {
       const q = m.query.trim();
       rows.push(el("p", { class: "palette-empty", text: q
-        ? (m.index?.supported ? `No command, variable or action matches “${q}”.` : `No action matches “${q}”; this model has no command reference.`)
-        : (m.index?.supported ? "Type a command (SIN, ->LIST, \\.S), part of its description, a variable, an action, or text to send (13 4 ^)." : "Type an action's name.") }));
+        ? (m.keyed ? `No function or action matches “${q}”.` : m.index?.supported ? `No command, variable or action matches “${q}”.` : `No action matches “${q}”; this model has no command reference.`)
+        : (m.keyed ? "Type a function (SIN, ->POL), part of its description, or an action." : m.index?.supported ? "Type a command (SIN, ->LIST, \\.S), part of its description, a variable, an action, or text to send (13 4 ^)." : "Type an action's name.") }));
     }
     this.ui.list.replaceChildren(...rows);
     const sel = this.ui.list.querySelector('[aria-selected="true"]');
@@ -545,7 +552,10 @@ export class SatPalette extends HTMLElement {
     let desc = null;
     switch (row.kind) {
       case "command":
-        head = el("div", { class: "prow-head" }, el("span", { class: "prow-name", text: row.name }), el("span", { class: "prow-stack", text: row.stack }));
+        // A key-driven model's function shows its keys ("⇧ CONVERT →POL") where a command shows its stack.
+        head = row.keys !== null && row.keys !== undefined
+          ? el("div", { class: "prow-head" }, el("span", { class: "prow-name", text: row.name }), el("span", { class: "prow-keys", text: row.keys || (row.command?.entry?.xeq ? "XEQ" : "") }))
+          : el("div", { class: "prow-head" }, el("span", { class: "prow-name", text: row.name }), el("span", { class: "prow-stack", text: row.stack }));
         // What the mnemonic stands for leads the description: "Residual · Computes …".
         desc = row.longName ? [el("span", { class: "prow-long", text: row.longName }), " · ", row.description] : row.description;
         break;
@@ -586,10 +596,11 @@ export class SatPalette extends HTMLElement {
     const show = (...nodes) => box.replaceChildren(this.backBar(row), ...nodes, this.actionBar(row));
     if (row.kind === "command") {
       const command = m.index.byName.get(row.name);
+      const can = m.keyed ? m.canPress : m.canType;
       const ctx = {
         legends: this.legendsModel === m.index.model ? this.legends : null,
-        onTry: m.canType ? (x) => this.tryExample(x) : null,
-        whyNot: m.canType ? null : (m.noTyping ?? "No calculator is running"),
+        onTry: can ? (x) => this.tryExample(x) : null,
+        whyNot: can ? null : (m.keyed || !m.noTyping ? "No calculator is running" : m.noTyping),
         tried: this.tried,
       };
       show(entryView(m.index, command, ctx), enterHint);
@@ -643,6 +654,12 @@ export class SatPalette extends HTMLElement {
     if (row.kind === "action" && row.action.off) return el("div", { class: "palette-actions" });
     if (row.kind === "action") return el("div", { class: "palette-actions" }, button("Run", "choose", true));
     if (row.kind === "menu") return el("div", { class: "palette-actions" }, button("Open in the Reference tab", "choose", true));
+    if (m.keyed && row.kind === "command" && !row.command.steps) return el("div", { class: "palette-actions" });
+    if (m.keyed && row.kind === "command") {
+      return el("div", { class: "palette-actions" }, m.canPress
+        ? button("Press the keys", "choose", true)
+        : el("p", { class: "muted", text: "Start the calculator to press this." }));
+    }
     if (!m.canType) return el("div", { class: "palette-actions" }, el("p", { class: "muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start the calculator to send this." }));
     const verb = m.verbFor(row);
     const what = row.kind === "send" ? "as typed" : row.kind === "variable" ? "its name" : row.name;
@@ -660,11 +677,32 @@ export class SatPalette extends HTMLElement {
     if (row.kind === "action" && row.action.off) return null;
     if (row.kind === "action") return el("p", { class: "entry-enter" }, key("Enter"), " runs this action.");
     if (row.kind === "menu") return el("p", { class: "entry-enter" }, key("Enter"), " opens it in the Reference tab beside the calculator.");
+    if (m.keyed && row.kind === "command") {
+      if (!row.command.steps) return el("p", { class: "entry-enter muted", text: `Typed into an equation (${row.command.entry.menu}), not pressed.` });
+      if (!m.canPress) return el("p", { class: "entry-enter muted", text: "Start the calculator to press this." });
+      const leave = m.index.km.leave;
+      const puts = row.command.entry?.inserts;
+      // The 38G, 39G and 40G: the keys put the function on HOME's edit line.
+      if (m.index.km?.home && puts) {
+        const leaves = menuShown(m.index.km, this.store.state.frame);
+        return el("p", { class: "entry-enter" }, key("Enter"), ` goes to HOME${leaves ? ", leaving the menu it shows," : ""} and presses ${row.command.keysText}: ${puts.trimEnd()} goes on the edit line. Add what it needs and press ENTER on the calculator.`);
+      }
+      // Without a menu test the leave keys go back to the top menu first, every time.
+      const first = leave && !leave.menuBox ? `, after ${keysText(leave.keys)}` : menuShown(m.index.km, this.store.state.frame) ? ", after leaving the menu it shows" : "";
+      return el("p", { class: "entry-enter" }, key("Enter"), ` presses ${row.command.keysText} on the calculator${first}. It works on what the calculator holds, as the keys would.`);
+    }
     if (!m.canType) return el("p", { class: "entry-enter muted", text: m.noTyping ? `Nothing can be sent: ${m.noTyping}.` : "Start the calculator to send this." });
     const verb = m.verbFor(row);
     const other = m.verbFor(row, true);
     const what = row.kind === "send" ? "the text" : row.kind === "variable" ? "its name" : row.name;
-    const explain = (v) => (v === "run"
+    // The 28S's line cannot be read: its keys type the name, as a person would.
+    const on28 = this.store.state.booted === "28s";
+    const key28 = row.kind === "command" && KEY_COMMANDS[row.name];
+    const explain = (v) => (on28
+      ? (v === "run"
+        ? (key28 ? `presses the ${row.name} key` : `types ${what} on the keys and presses ENTER, which also runs an open command line`)
+        : `types ${what} on the keys, into the open command line if there is one`)
+      : v === "run"
       ? (m.commandLine?.active ? `types ${what} after the open command line and presses ENTER` : `types ${what} and presses ENTER`)
       : (m.commandLine?.active ? `inserts ${what} at the cursor` : `starts a command line with ${what}`));
     return el("p", { class: "entry-enter" },
@@ -687,9 +725,11 @@ export class SatPalette extends HTMLElement {
     const mod = this.isMac ? "⌘" : "Ctrl+";
     const hints = [key("↑"), key("↓"), " move · "];
     const verb = m.row ? m.verbFor(m.row) : null;
-    if (m.canType && verb) {
+    if (verb === "press") {
+      hints.push(key("Enter"), m.canPress ? " press · " : " choose · ");
+    } else if (m.canType && verb) {
       hints.push(key("Enter"), ` ${verb} · `, key(`${mod}Enter`), ` ${verb === "run" ? "insert" : "run"} · `);
-    } else if (m.row) {
+    } else if (m.row && !(m.keyed && m.row.kind === "command")) {
       hints.push(key("Enter"), m.row.kind === "menu" ? " open · " : m.row.kind === "action" ? " run · " : " choose · ");
     }
     hints.push(key(this.shortcutLabel("1–9")), " pick a row · ", key("Esc"), " close");

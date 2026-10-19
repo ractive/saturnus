@@ -1,0 +1,1493 @@
+{
+  "model": "17bii",
+  "booted": [
+    "0.00",
+    "[FIN][BUS][SUM][TIME][SOLVE][]"
+  ],
+  "examples": {
+    "%": [
+      {
+        "input": [
+          "2",
+          "0",
+          "0",
+          "plus",
+          "5"
+        ],
+        "before": [
+          "200.00+5█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "200.00+10.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ],
+    "%CH": [
+      {
+        "input": [
+          "b",
+          "a",
+          "1",
+          "0",
+          "0",
+          "a",
+          "1",
+          "2",
+          "5",
+          "b",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "BUS",
+          "%CHG",
+          "1",
+          "0",
+          "0",
+          "OLD",
+          "1",
+          "2",
+          "5",
+          "NEW",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "125.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "%CHANGE=25.00",
+          "[OLD][NEW][%CH][][][]"
+        ]
+      }
+    ],
+    "%T": [
+      {
+        "input": [
+          "b",
+          "b",
+          "2",
+          "0",
+          "0",
+          "a",
+          "5",
+          "0",
+          "b",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "BUS",
+          "%TOTL",
+          "2",
+          "0",
+          "0",
+          "TOTAL",
+          "5",
+          "0",
+          "PART",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "50.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "%TOTAL=25.00",
+          "[TOTAL][PART][%T][][][]"
+        ]
+      }
+    ],
+    "+/-": [
+      {
+        "input": [
+          "5"
+        ],
+        "before": [
+          "5█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "-5█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ],
+    "1/x": [
+      {
+        "input": [
+          "4"
+        ],
+        "before": [
+          "4█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "0.25",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ],
+    "10^X": [
+      {
+        "input": [
+          "2"
+        ],
+        "before": [
+          "2█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "100.00",
+          "[LOG][10^X][LN][EXP][N!][PI]"
+        ]
+      }
+    ],
+    "360D": [
+      {
+        "input": [
+          "d",
+          "a",
+          "4",
+          "point",
+          "0",
+          "3",
+          "1",
+          "9",
+          "9",
+          "1",
+          "a",
+          "1",
+          "2",
+          "point",
+          "2",
+          "5",
+          "1",
+          "9",
+          "9",
+          "1",
+          "b",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "TIME",
+          "CALC",
+          "4",
+          "·",
+          "0",
+          "3",
+          "1",
+          "9",
+          "9",
+          "1",
+          "DATE1",
+          "1",
+          "2",
+          "·",
+          "2",
+          "5",
+          "1",
+          "9",
+          "9",
+          "1",
+          "DATE2",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "12.25",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "360 DAYS=262.00",
+          "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
+        ]
+      }
+    ],
+    "365D": [
+      {
+        "input": [
+          "d",
+          "a",
+          "4",
+          "point",
+          "0",
+          "3",
+          "1",
+          "9",
+          "9",
+          "1",
+          "a",
+          "1",
+          "2",
+          "point",
+          "2",
+          "5",
+          "1",
+          "9",
+          "9",
+          "1",
+          "b",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "TIME",
+          "CALC",
+          "4",
+          "·",
+          "0",
+          "3",
+          "1",
+          "9",
+          "9",
+          "1",
+          "DATE1",
+          "1",
+          "2",
+          "·",
+          "2",
+          "5",
+          "1",
+          "9",
+          "9",
+          "1",
+          "DATE2",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "12.25",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "365 DAYS=266.00",
+          "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
+        ]
+      }
+    ],
+    "=": [
+      {
+        "input": [
+          "2",
+          "plus",
+          "3"
+        ],
+        "before": [
+          "2.00+3█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "5.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ],
+    "ACRS": [
+      {
+        "input": [
+          "a",
+          "e",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "a",
+          "1",
+          "5",
+          "d",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "FIN",
+          "DEPRC",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "BASIS",
+          "1",
+          "5",
+          "ACRS%",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "15.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "ACRS=1,500.00",
+          "[BASIS][SALV][LIFE][ACRS%][ACRS][MORE]"
+        ]
+      }
+    ],
+    "ACRS%": [
+      {
+        "input": [
+          "1",
+          "5"
+        ],
+        "before": [
+          "15█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "ACRS%=15.00",
+          "[BASIS][SALV][LIFE][ACRS%][ACRS][MORE]"
+        ]
+      }
+    ],
+    "BASIS": [
+      {
+        "input": [
+          "1",
+          "0",
+          "0",
+          "0",
+          "0"
+        ],
+        "before": [
+          "10,000█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "BASIS=10,000.00",
+          "[BASIS][SALV][LIFE][ACRS%][ACRS][MORE]"
+        ]
+      }
+    ],
+    "CALL": [
+      {
+        "input": [
+          "1",
+          "0",
+          "0"
+        ],
+        "before": [
+          "100█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "CALL=100.00",
+          "[TYPE][SETT][MAT][CPN%][CALL][MORE]"
+        ]
+      }
+    ],
+    "CLR": [
+      {
+        "input": [
+          "1",
+          "2",
+          "3"
+        ],
+        "before": [
+          "123█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "0.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ],
+    "COST (MU%C)": [
+      {
+        "input": [
+          "4",
+          "point",
+          "1"
+        ],
+        "before": [
+          "4.1█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "COST=4.10",
+          "[COST][PRICE][M%C][][][]"
+        ]
+      }
+    ],
+    "COST (MU%P)": [
+      {
+        "input": [
+          "4",
+          "point",
+          "1"
+        ],
+        "before": [
+          "4.1█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "COST=4.10",
+          "[COST][PRICE][M%P][][][]"
+        ]
+      }
+    ],
+    "CPN%": [
+      {
+        "input": [
+          "6",
+          "point",
+          "7",
+          "5"
+        ],
+        "before": [
+          "6.75█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "CPN%=6.75",
+          "[TYPE][SETT][MAT][CPN%][CALL][MORE]"
+        ]
+      }
+    ],
+    "DATE1": [
+      {
+        "input": [
+          "4",
+          "point",
+          "0",
+          "3",
+          "1",
+          "9",
+          "9",
+          "1"
+        ],
+        "before": [
+          "4.031991█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "DATE1=04/03/1991 WED",
+          "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
+        ]
+      }
+    ],
+    "DATE2": [
+      {
+        "input": [
+          "1",
+          "2",
+          "point",
+          "2",
+          "5",
+          "1",
+          "9",
+          "9",
+          "1"
+        ],
+        "before": [
+          "12.251991█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "DATE2=12/25/1991 WED",
+          "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
+        ]
+      }
+    ],
+    "DAYS": [
+      {
+        "input": [
+          "d",
+          "a",
+          "4",
+          "point",
+          "0",
+          "3",
+          "1",
+          "9",
+          "9",
+          "1",
+          "a",
+          "1",
+          "2",
+          "point",
+          "2",
+          "5",
+          "1",
+          "9",
+          "9",
+          "1",
+          "b",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "TIME",
+          "CALC",
+          "4",
+          "·",
+          "0",
+          "3",
+          "1",
+          "9",
+          "9",
+          "1",
+          "DATE1",
+          "1",
+          "2",
+          "·",
+          "2",
+          "5",
+          "1",
+          "9",
+          "9",
+          "1",
+          "DATE2",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "12.25",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "ACTUAL DAYS=266.00",
+          "[DATE1][DATE2][DAYS][360D][365D][TODAY]"
+        ]
+      }
+    ],
+    "DB": [
+      {
+        "input": [
+          "a",
+          "e",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "a",
+          "5",
+          "0",
+          "0",
+          "b",
+          "5",
+          "c",
+          "f",
+          "1",
+          "a",
+          "2",
+          "0",
+          "0",
+          "b",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "FIN",
+          "DEPRC",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "BASIS",
+          "5",
+          "0",
+          "0",
+          "SALV",
+          "5",
+          "LIFE",
+          "MORE",
+          "1",
+          "YR#",
+          "2",
+          "0",
+          "0",
+          "FACT%",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "200.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "DB=4,000.00",
+          "[YR#][FACT%][DB][SOYD][SL][MORE]"
+        ]
+      }
+    ],
+    "E": [
+      {
+        "input": [
+          "6"
+        ],
+        "before": [
+          "6█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "6E█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ],
+    "EFF% (CONT)": [
+      {
+        "input": [
+          "a",
+          "b",
+          "b",
+          "1",
+          "0",
+          "a",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "FIN",
+          "ICNV",
+          "CONT",
+          "1",
+          "0",
+          "NOM%",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "10.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "EFF%=10.52",
+          "[NOM%][EFF%][][][][]"
+        ]
+      }
+    ],
+    "EFF% (PER)": [
+      {
+        "input": [
+          "a",
+          "b",
+          "a",
+          "1",
+          "2",
+          "c",
+          "1",
+          "0",
+          "a",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "FIN",
+          "ICNV",
+          "PER",
+          "1",
+          "2",
+          "P",
+          "1",
+          "0",
+          "NOM%",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "10.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "EFF%=10.47",
+          "[NOM%][EFF%][P][][][]"
+        ]
+      }
+    ],
+    "EXP": [
+      {
+        "input": [
+          "1"
+        ],
+        "before": [
+          "1█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "2.72",
+          "[LOG][10^X][LN][EXP][N!][PI]"
+        ]
+      }
+    ],
+    "FACT%": [
+      {
+        "input": [
+          "2",
+          "0",
+          "0"
+        ],
+        "before": [
+          "200█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "FACT%=200.00",
+          "[YR#][FACT%][DB][SOYD][SL][MORE]"
+        ]
+      }
+    ],
+    "FV": [
+      {
+        "input": [
+          "a",
+          "a",
+          "1",
+          "0",
+          "a",
+          "5",
+          "b",
+          "1",
+          "0",
+          "0",
+          "neg",
+          "c",
+          "0",
+          "d",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "FIN",
+          "TVM",
+          "1",
+          "0",
+          "N",
+          "5",
+          "I%YR",
+          "1",
+          "0",
+          "0",
+          "+/-",
+          "PV",
+          "0",
+          "PMT",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "0.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "FV=104.25",
+          "[N][I%YR][PV][PMT][FV][OTHER]"
+        ]
+      }
+    ],
+    "I% (CFLO)": [
+      {
+        "input": [
+          "1",
+          "0"
+        ],
+        "before": [
+          "10█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "I%=10.00",
+          "[TOTAL][IRR%][I%][NPV][NUS][NFV]"
+        ]
+      }
+    ],
+    "I%YR": [
+      {
+        "input": [
+          "6"
+        ],
+        "before": [
+          "6█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "I%YR=6.00",
+          "[N][I%YR][PV][PMT][FV][OTHER]"
+        ]
+      }
+    ],
+    "LIFE": [
+      {
+        "input": [
+          "5"
+        ],
+        "before": [
+          "5█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "LIFE=5.00",
+          "[BASIS][SALV][LIFE][ACRS%][ACRS][MORE]"
+        ]
+      }
+    ],
+    "LN": [
+      {
+        "input": [
+          "1",
+          "0"
+        ],
+        "before": [
+          "10█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "2.30",
+          "[LOG][10^X][LN][EXP][N!][PI]"
+        ]
+      }
+    ],
+    "LOG": [
+      {
+        "input": [
+          "1",
+          "0",
+          "0",
+          "0"
+        ],
+        "before": [
+          "1,000█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "3.00",
+          "[LOG][10^X][LN][EXP][N!][PI]"
+        ]
+      }
+    ],
+    "M%C": [
+      {
+        "input": [
+          "b",
+          "c",
+          "4",
+          "point",
+          "1",
+          "a",
+          "4",
+          "point",
+          "6",
+          "b",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "BUS",
+          "MU%C",
+          "4",
+          "·",
+          "1",
+          "COST",
+          "4",
+          "·",
+          "6",
+          "PRICE",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "4.60",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "MARKUP%C=12.20",
+          "[COST][PRICE][M%C][][][]"
+        ]
+      }
+    ],
+    "M%P": [
+      {
+        "input": [
+          "b",
+          "d",
+          "4",
+          "point",
+          "1",
+          "a",
+          "4",
+          "point",
+          "6",
+          "b",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "BUS",
+          "MU%P",
+          "4",
+          "·",
+          "1",
+          "COST",
+          "4",
+          "·",
+          "6",
+          "PRICE",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "4.60",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "MARKUP%P=10.87",
+          "[COST][PRICE][M%P][][][]"
+        ]
+      }
+    ],
+    "MAT": [
+      {
+        "input": [
+          "1",
+          "point",
+          "0",
+          "3",
+          "2",
+          "0",
+          "0",
+          "1"
+        ],
+        "before": [
+          "1.032001█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "MAT=01/03/2001 WED",
+          "[TYPE][SETT][MAT][CPN%][CALL][MORE]"
+        ]
+      }
+    ],
+    "N": [
+      {
+        "input": [
+          "3",
+          "6",
+          "0"
+        ],
+        "before": [
+          "360█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "N=360.00",
+          "[N][I%YR][PV][PMT][FV][OTHER]"
+        ]
+      }
+    ],
+    "N!": [
+      {
+        "input": [
+          "5"
+        ],
+        "before": [
+          "5█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "120.00",
+          "[LOG][10^X][LN][EXP][N!][PI]"
+        ]
+      }
+    ],
+    "NEW (%CHG)": [
+      {
+        "input": [
+          "1",
+          "2",
+          "5"
+        ],
+        "before": [
+          "125█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "NEW=125.00",
+          "[OLD][NEW][%CH][][][]"
+        ]
+      }
+    ],
+    "NOM% (PER)": [
+      {
+        "input": [
+          "a",
+          "b",
+          "a",
+          "1",
+          "2",
+          "c",
+          "shift",
+          "exit",
+          "1",
+          "0"
+        ],
+        "labels": [
+          "FIN",
+          "ICNV",
+          "PER",
+          "1",
+          "2",
+          "P",
+          "⇧",
+          "MAIN",
+          "1",
+          "0"
+        ],
+        "before": [
+          "10█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "NOM%=10.00",
+          "[NOM%][EFF%][P][][][]"
+        ]
+      }
+    ],
+    "OLD": [
+      {
+        "input": [
+          "1",
+          "0",
+          "0"
+        ],
+        "before": [
+          "100█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "OLD=100.00",
+          "[OLD][NEW][%CH][][][]"
+        ]
+      }
+    ],
+    "P": [
+      {
+        "input": [
+          "1",
+          "2"
+        ],
+        "before": [
+          "12█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "P=12.00",
+          "[NOM%][EFF%][P][][][]"
+        ]
+      }
+    ],
+    "P/YR": [
+      {
+        "input": [
+          "1",
+          "2"
+        ],
+        "before": [
+          "12█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "12 P/YR       END MODE",
+          "[P/YR][BEG][END][][][AMRT]"
+        ]
+      }
+    ],
+    "PART": [
+      {
+        "input": [
+          "5",
+          "0"
+        ],
+        "before": [
+          "50█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "PART=50.00",
+          "[TOTAL][PART][%T][][][]"
+        ]
+      }
+    ],
+    "PMT": [
+      {
+        "input": [
+          "a",
+          "a",
+          "3",
+          "6",
+          "0",
+          "a",
+          "6",
+          "b",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "c",
+          "0",
+          "e",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "FIN",
+          "TVM",
+          "3",
+          "6",
+          "0",
+          "N",
+          "6",
+          "I%YR",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "PV",
+          "0",
+          "FV",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "0.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "PMT=-599.55",
+          "[N][I%YR][PV][PMT][FV][OTHER]"
+        ]
+      }
+    ],
+    "PRICE (MU%C)": [
+      {
+        "input": [
+          "4",
+          "point",
+          "6"
+        ],
+        "before": [
+          "4.6█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "PRICE=4.60",
+          "[COST][PRICE][M%C][][][]"
+        ]
+      }
+    ],
+    "PRICE (MU%P)": [
+      {
+        "input": [
+          "4",
+          "point",
+          "6"
+        ],
+        "before": [
+          "4.6█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "PRICE=4.60",
+          "[COST][PRICE][M%P][][][]"
+        ]
+      }
+    ],
+    "PV": [
+      {
+        "input": [
+          "1",
+          "0",
+          "0",
+          "0",
+          "0"
+        ],
+        "before": [
+          "10,000█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "PV=10,000.00",
+          "[N][I%YR][PV][PMT][FV][OTHER]"
+        ]
+      }
+    ],
+    "RND": [
+      {
+        "input": [
+          "2",
+          "point",
+          "3",
+          "4",
+          "5",
+          "6"
+        ],
+        "before": [
+          "2.3456█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "2.35",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ],
+    "SALV": [
+      {
+        "input": [
+          "5",
+          "0",
+          "0"
+        ],
+        "before": [
+          "500█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "SALV=500.00",
+          "[BASIS][SALV][LIFE][ACRS%][ACRS][MORE]"
+        ]
+      }
+    ],
+    "SETT": [
+      {
+        "input": [
+          "1",
+          "point",
+          "0",
+          "3",
+          "1",
+          "9",
+          "9",
+          "1"
+        ],
+        "before": [
+          "1.031991█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "SETT=01/03/1991 THU",
+          "[TYPE][SETT][MAT][CPN%][CALL][MORE]"
+        ]
+      }
+    ],
+    "SL": [
+      {
+        "input": [
+          "a",
+          "e",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "a",
+          "5",
+          "0",
+          "0",
+          "b",
+          "5",
+          "c",
+          "f",
+          "1",
+          "a",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "FIN",
+          "DEPRC",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "BASIS",
+          "5",
+          "0",
+          "0",
+          "SALV",
+          "5",
+          "LIFE",
+          "MORE",
+          "1",
+          "YR#",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "1.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "SL=1,900.00",
+          "[YR#][FACT%][DB][SOYD][SL][MORE]"
+        ]
+      }
+    ],
+    "SOYD": [
+      {
+        "input": [
+          "a",
+          "e",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "a",
+          "5",
+          "0",
+          "0",
+          "b",
+          "5",
+          "c",
+          "f",
+          "1",
+          "a",
+          "shift",
+          "exit"
+        ],
+        "labels": [
+          "FIN",
+          "DEPRC",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "BASIS",
+          "5",
+          "0",
+          "0",
+          "SALV",
+          "5",
+          "LIFE",
+          "MORE",
+          "1",
+          "YR#",
+          "⇧",
+          "MAIN"
+        ],
+        "before": [
+          "1.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "SOYD=3,166.67",
+          "[YR#][FACT%][DB][SOYD][SL][MORE]"
+        ]
+      }
+    ],
+    "TOTAL (%TOTL)": [
+      {
+        "input": [
+          "2",
+          "0",
+          "0"
+        ],
+        "before": [
+          "200█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "TOTAL=200.00",
+          "[TOTAL][PART][%T][][][]"
+        ]
+      }
+    ],
+    "YR#": [
+      {
+        "input": [
+          "1"
+        ],
+        "before": [
+          "1█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "YR#=1.00",
+          "[YR#][FACT%][DB][SOYD][SL][MORE]"
+        ]
+      }
+    ],
+    "x²": [
+      {
+        "input": [
+          "1",
+          "2"
+        ],
+        "before": [
+          "12█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "144.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ],
+    "x≷y": [
+      {
+        "input": [
+          "1",
+          "equals",
+          "2"
+        ],
+        "before": [
+          "2█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "1.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ],
+    "√x": [
+      {
+        "input": [
+          "1",
+          "6"
+        ],
+        "before": [
+          "16█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "4.00",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ],
+    "⬅": [
+      {
+        "input": [
+          "1",
+          "2",
+          "3"
+        ],
+        "before": [
+          "123█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ],
+        "after": [
+          "12█",
+          "[FIN][BUS][SUM][TIME][SOLVE][]"
+        ]
+      }
+    ]
+  }
+}

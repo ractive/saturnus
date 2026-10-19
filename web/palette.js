@@ -2,10 +2,16 @@
 // rows, the selection, the command line's state (read from the host when
 // the palette opens and after every send) and what choosing a row does:
 // `insert` or `run` through the protocol's typing verbs (web/protocol.md,
-// "Typing"), an app action, or a menu to browse. `<sat-palette>` renders
-// it; `web/test/` drives it with a fake backend.
+// "Typing"), an app action, or a menu to browse. On a key-driven model
+// (the 42S, 27S, 17BII, 17B, 19BII; the 38G, 39G and 40G) a function is
+// pressed instead: its keys go to the key queue (`typeKeys`), after
+// leaving the menu the screen shows, if any, and (38G, 39G, 40G) going
+// to HOME. On the 28S, whose command line cannot be read, the text is
+// typed on its keys (keys28.js). `<sat-palette>` renders it; `web/test/`
+// drives it with a fake backend.
 
-import { buildIndex, enterPlan, enterVerb, exampleText, search } from "./reference.js";
+import { send28, settle } from "./keys28.js";
+import { buildIndex, cancelKeys, enterPlan, enterVerb, exampleSteps, exampleText, keyNames, keysText, menuShown, search } from "./reference.js";
 
 const message = (err) => String(err?.message ?? err);
 
@@ -144,7 +150,19 @@ export class PaletteModel {
     this.notice = null;
     /** A send is on its way. */
     this.sending = false;
+    /** How long `settle` (keys28.js) waits before and between its looks, in ms (tests set 0); also for the 28S's typing. */
+    this.pace = { first: 40, poll: 40, limit: 10_000 };
     this.onChange = () => {};
+  }
+
+  /** Whether the shown model is key-driven: its functions are pressed. */
+  get keyed() {
+    return Boolean(this.index?.keyed);
+  }
+
+  /** Whether a function of the shown key-driven model can be pressed now. */
+  get canPress() {
+    return this.keyed && this.store.state.booted === this.index.model;
   }
 
   changed() {
@@ -207,6 +225,13 @@ export class PaletteModel {
     if (!this.store.state.booted) {
       this.commandLine = null;
       this.noTyping = "no calculator is running";
+      return;
+    }
+    // The 28S's line cannot be read: its commands are typed on its keys
+    // (keys28.js), into the open line if there is one.
+    if (this.store.state.booted === "28s") {
+      this.commandLine = null;
+      this.noTyping = null;
       return;
     }
     try {
@@ -292,6 +317,7 @@ export class PaletteModel {
   async choose(row, { opposite = false } = {}) {
     const plan = enterPlan(row, this.commandLine, opposite);
     if (!plan) return { close: false };
+    if (plan.press) return this.press(plan.press.steps, { closeAfter: true });
     if (plan.action) {
       // An action that is off says why and stays (`off`, its reason).
       if (plan.action.off) {
@@ -313,9 +339,101 @@ export class PaletteModel {
     return this.send(plan.verb, plan.text, { closeAfter: true });
   }
 
-  /** "Try it": the example's setup, input and command, run. The palette stays open to show the next one. */
-  tryExample(example) {
+  /** "Try it": the example's setup, input and command, run (pressed, on a key-driven model). The palette stays open to show the next one. */
+  tryExample(example, command = this.row?.command) {
+    if (this.keyed && command) return this.press(exampleSteps(command, example), { closeAfter: false, fresh: true, label: example.then?.length ? `the example with ${command.keysText}` : null });
     return this.send("run", exampleText(example), { closeAfter: false });
+  }
+
+  /**
+   * Press `steps` on the running key-driven calculator: first out of
+   * the menu the screen shows (its `leave` keys, again while one
+   * shows), then the steps through the key queue, waiting until the
+   * calculator has played them. `fresh` (an example) also ends the
+   * entry in progress, so its numbers start new ones.
+   */
+  async press(steps, { closeAfter, fresh = false, label = null }) {
+    if (!this.canPress) {
+      this.notice = { text: this.store.state.booted ? `The calculator running is not the ${this.index?.model}.` : "Start the calculator to press this.", error: true };
+      this.changed();
+      return { close: false };
+    }
+    if (this.sending) return { close: false };
+    const text = label ?? keysText(steps);
+    this.sending = true;
+    this.notice = { text: `Pressing ${text}…`, error: false };
+    this.changed();
+    try {
+      // The 38G, 39G and 40G go to HOME first (`home`), and an example
+      // then clears the edit line with the leave keys (CANCEL).
+      const home = this.index.km?.home;
+      // A shift or ALPHA pending would change the first key: on the 42S
+      // a shifted EXIT is OFF, on the 38G-40G a shifted ON too.
+      await this.cancelPending();
+      await this.leaveMenus(fresh && !home);
+      if (home?.length) {
+        this.backend.typeKeys(keyNames(home));
+        await this.settle();
+        if (fresh) await this.leaveMenus(true);
+      }
+      this.backend.typeKeys(keyNames(steps));
+      await this.settle();
+    } catch (err) {
+      this.sending = false;
+      this.notice = { text: message(err), error: true };
+      this.changed();
+      return { close: false };
+    }
+    this.sending = false;
+    this.notice = closeAfter ? null : { text: `Pressed ${text}.`, error: false };
+    this.changed();
+    return { close: closeAfter };
+  }
+
+  /**
+   * Leave the menus the screen shows (at most six levels); with `always`, press the leave keys once even with none.
+   * A model without `leave.menuBox` always shows a menu (the 17BII's MAIN): its leave keys go back there from anywhere, once.
+   */
+  async leaveMenus(always = false) {
+    const leave = this.index.km?.leave;
+    if (!leave) return;
+    if (!leave.menuBox) {
+      this.backend.typeKeys(keyNames(leave.keys));
+      await this.settle();
+      return;
+    }
+    let pressed = 0;
+    while (pressed < 6 && menuShown(this.index.km, this.store.state.frame)) {
+      this.backend.typeKeys(keyNames(leave.keys));
+      pressed++;
+      await this.settle();
+    }
+    if (always && !pressed) {
+      this.backend.typeKeys(keyNames(leave.keys));
+      await this.settle();
+    }
+  }
+
+  /**
+   * Cancel a pending shift or ALPHA (their annunciators on the display)
+   * by pressing that key again, reading the annunciators after each
+   * press; an error if one stays, so no key runs shifted.
+   */
+  async cancelPending() {
+    for (let i = 0; i < 3; i++) {
+      const keys = cancelKeys(this.store.state.frame?.annunciators);
+      if (!keys.length) return;
+      this.backend.typeKeys(keys);
+      await this.settle();
+    }
+    if (cancelKeys(this.store.state.frame?.annunciators).length) {
+      throw new Error("A shift or ALPHA stays on. Press the shift key on the calculator to turn it off, then try again.");
+    }
+  }
+
+  /** Wait until the calculator has played the queued keys and sleeps (`settle` in keys28.js, at `pace`). */
+  settle() {
+    return settle(this.backend, this.store, this.pace);
   }
 
   async send(verb, text, { closeAfter }) {
@@ -330,7 +448,9 @@ export class PaletteModel {
     this.changed();
     let result;
     try {
-      result = await this.backend[verb](text);
+      result = this.store.state.booted === "28s"
+        ? await send28(this.backend, this.store, verb, text, this.pace)
+        : await this.backend[verb](text);
     } catch (err) {
       this.sending = false;
       this.notice = { text: sendFailure(err), error: true };

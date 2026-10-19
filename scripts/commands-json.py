@@ -20,11 +20,30 @@ PDF page) and `models`, one entry per model that has the command, with
 the ROM's `menus`, the manual's `key` (`category`, `manual`, `page`,
 `other` when it is another model's manual), the `examples` (`setup`,
 `input`, `run`, `before`, `display`, `effect`, `error`) and the `skip`
-reason where none was generated. `before` and `display` are the stack
+reason where none was generated, and the model's own `description`,
+`stack` and `name` where the command differs there (reference.json's
+`per_model`: the 28S's RND takes one argument). `before` and `display` are the stack
 before and after the command as the calculator displays it, level 1
 first. The typed stacks of the examples stay out: the page shows the
 calculator's own display text. The key legends that place a
 command no manual mentions come from the skins at run time.
+
+The key-driven models (the 42S, 27S, 17BII, 17B, 19BII; any
+`keys-<model>.json` in the folder)
+come under `keyModels`, one entry per model, with no command line: per
+model the manual, the keys under the menu boxes (`menuKeys`), how to
+leave a menu (`leave`: its keys and the dots that show a menu is open;
+without the dots, keys back to the top menu, pressed once), the keys
+that type each character (`alpha`, only with `xeq`) and run a name (`xeq`), the
+booted screen, and per function `long`, `description`, `stack`,
+`param`, `keys` (steps `{key, label}` from the normal state) or `xeq`
+(the name XEQ runs it by), `menu`, `inserts` (38G, 39G, 40G: what the
+keys put on HOME's edit line), `page` (the manual's PDF page) and
+the `examples` run on the emulator (`input` keys, the `then` keys after
+the function's, the `before` and `after` screens, upper line first).
+`home` (38G, 39G, 40G) are the keys pressed before every function. The format and its checks are
+`saturnus-refgen keys` (crates/saturnus-refgen/src/keyed.rs); adding a
+`keys-<model>.json` (and its examples) is all a model needs here.
 
 The output is read by `scripts/commands-json.py --check` in CI, which
 regenerates and compares, so the committed file never lags the data.
@@ -37,7 +56,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "crates" / "saturnus-cli" / "data" / "commands"
 OUT = REPO / "web" / "commands.json"
-MODELS = ["48sx", "48gx", "49g"]
+MODELS = ["48sx", "48gx", "49g", "28s"]
 EXAMPLE_FIELDS = ["setup", "input", "run", "before", "display", "effect", "error"]
 
 
@@ -78,6 +97,12 @@ def build():
                 ]
             elif name in examples[m]["skipped"]:
                 per["skip"] = examples[m]["skipped"][name]
+            # The model's own text where the command differs there.
+            own = reference.get(name, {}).get("per_model", {}).get(m)
+            if own:
+                for k in ("name", "description", "stack"):
+                    if own.get(k):
+                        per[k] = own[k]
             entry["models"][m] = per
 
     for name, entry in commands.items():
@@ -109,7 +134,47 @@ def build():
             for x in manuals["manuals"]
         },
         "commands": dict(sorted(commands.items())),
+        "keyModels": key_models(),
     }
+
+
+def key_models():
+    """The key-driven models' references, from every keys-<model>.json."""
+    out = {}
+    for path in sorted(DATA.glob("keys-*.json")):
+        model = path.stem[len("keys-"):]
+        src = load(path.name)
+        ex_path = DATA / f"examples-{model}.json"
+        ex = load(ex_path.name) if ex_path.exists() else {"examples": {}, "booted": []}
+        commands = {}
+        for c in src["commands"]:
+            entry = {k: c[k] for k in ("long", "description", "stack", "param", "keys", "xeq", "menu", "inserts", "page") if k in c}
+            runs = ex["examples"].get(c["name"])
+            if runs:
+                entry["examples"] = [{k: x[k] for k in ("input", "labels", "then", "before", "after") if k in x} for x in runs]
+            if c["name"] in commands:
+                raise SystemExit(f"{path.name}: {c['name']} is listed twice")
+            commands[c["name"]] = entry
+        km = {
+            "manual": src["manual"],
+            "menuKeys": src["menu_keys"],
+            "booted": ex.get("booted", []),
+            "commands": commands,
+        }
+        if "leave" in src:
+            km["leave"] = {"keys": src["leave"]["keys"]}
+            box = src["leave"].get("menu_box")
+            if box:
+                km["leave"]["menuBox"] = {"x": box["x"], "width": box["width"], "rows": box["rows"]}
+        # The characters' keys matter to the page only for running names.
+        if "alpha" in src and "xeq" in src:
+            km["alpha"] = src["alpha"]
+        if "home" in src:
+            km["home"] = src["home"]
+        if "xeq" in src:
+            km["xeq"] = {"start": src["xeq"]["start"], "end": src["xeq"]["end"]}
+        out[model] = km
+    return out
 
 
 def dump(data):
@@ -128,8 +193,10 @@ def main():
         print(f"{path}: current ({n} commands)")
         return
     OUT.write_text(text, encoding="utf-8")
-    n = len(json.loads(text)["commands"])
-    print(f"wrote {OUT} ({n} commands, {len(text.encode()) // 1024} KB)")
+    data = json.loads(text)
+    n = len(data["commands"])
+    keyed = ", ".join(f"{len(km['commands'])} {m} functions" for m, km in data["keyModels"].items())
+    print(f"wrote {OUT} ({n} commands, {keyed}, {len(text.encode()) // 1024} KB)")
 
 
 if __name__ == "__main__":

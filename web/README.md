@@ -608,10 +608,41 @@ key (see Paste above for how typing works and when the screen freezes).
 When a run leaves the command line open with an error
 the palette stays open and shows the calculator's message.
 
+On the 42S, 27S, 17BII, 17B and 19BII (the key-driven models: any model
+with a `keys-<model>.json` in the reference data) there is nothing to
+type: the rows are its functions, each showing the keys that run it
+(`⇧ CONVERT →POL`, `FIN TVM PMT`; `XEQ "SINH"` for one run by name), and
+its entry the keys, what it asks for after them (a register, a flag),
+the examples run on the emulator as the display showed them before and
+after, and the manual's page. Enter presses the keys on the running
+calculator through the key queue (`typeKeys`), as clicking them would.
+First it cancels a shift or ALPHA the annunciators show pending by
+pressing that key again (on every key-driven model, the 38G-40G too:
+a shifted EXIT or CANCEL is OFF), and stops with a message if one stays
+on. A key-driven model has no menu rows: a menu's name finds its
+functions. Then it leaves the menu the display shows, since the top row is then
+that menu's keys: on the 42S it presses EXIT until none shows; on the
+27S, 17BII, 17B and 19BII it presses ⇧ MAIN once (the 17BII, 17B and
+19BII always show a menu, MAIN at the top). Try it does that too (on
+the 42S EXIT once more, ending a number being typed), then the
+example's keys and the function's. The Solver's functions (`USPV(i%:n)`)
+are typed into an equation: their rows show no keys and Enter presses
+nothing.
+
+The 38G, 39G and 40G are key-driven too: HOME's edit line is algebraic
+(`SIN(45)`) and Search cannot type into it, so a function's keys put it
+there from HOME, as a person would: a key (SIN), or MATH (CMDS for a
+programming command), the category and the entry by their first letters
+or ▼, then ENTER (`MATH P P ▶ ENTER` puts `COMB(` on the edit line).
+Enter closes a choose box first (CANCEL, while one shows), presses HOME,
+then the keys; the person adds the arguments and presses ENTER. The
+entry shows what the keys put on the edit line. Try it also clears the
+edit line (CANCEL) and types the example's arguments and ENTER.
+
 Where it cannot do everything it says so under the input: no ROM running
 (the shown model's reference can be read, nothing sent), a model
-without a reference or a command line (38G, 39G, 40G, 42S: app actions
-only), and the 49G in algebraic mode, where the RPN text of the examples
+without a reference (only app actions are listed; every model has one
+today), and the 49G in algebraic mode, where the RPN text of the examples
 and command names does not parse (the action "Switch the HP 49G to RPN
 mode" runs `CF(-95)`). The editor does not show that notice: saving
 there sets the mode itself.

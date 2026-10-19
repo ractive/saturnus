@@ -167,7 +167,7 @@ pub fn from_catalog(model: Model, rom: &Path, cat: &Catalog) -> Result<Placement
     let roots = cat
         .menu_keys
         .iter()
-        .map(|k| (k.menu, k.key.clone()))
+        .filter_map(|k| Some((k.menu?, k.key.clone())))
         .collect();
     Ok(place(&defs, roots))
 }
@@ -180,7 +180,7 @@ pub fn apply(catalog: &mut Catalog, p: &Placement) {
         .roots
         .iter()
         .map(|(menu, key)| MenuKey {
-            menu: *menu,
+            menu: Some(*menu),
             key: key.clone(),
         })
         .collect();
@@ -330,7 +330,7 @@ mod tests {
         assert_eq!(
             cat.menu_keys,
             [MenuKey {
-                menu: 3,
+                menu: Some(3),
                 key: "MTH".into()
             }]
         );

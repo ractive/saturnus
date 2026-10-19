@@ -4,7 +4,7 @@
 // emulator (each with "Try it"), the deep links into the manuals. Shared by the palette's detail pane and the
 // explorer's Commands tab; it renders what web/reference.js reads.
 
-import { exampleBefore, exampleResult, exampleText, manualLinks, placement, stackVerified } from "../reference.js";
+import { exampleBefore, exampleResult, exampleText, legendText, manualLinks, placement, stackVerified } from "../reference.js";
 import { MODEL_TITLES } from "../norom.js";
 import { el } from "../shared/dom.js";
 
@@ -30,6 +30,7 @@ function stackBox(command) {
  * text, error}` of the last "try it", to show its outcome).
  */
 export function entryView(index, command, ctx = {}) {
+  if (index.keyed) return keyedEntryView(index, command, ctx);
   const data = index.data;
   const model = index.model;
   const where = placement(index, command, ctx.legends ?? null);
@@ -158,6 +159,91 @@ function exampleRow(x, i, ctx) {
       el("code", { class: "ex-run", text: x.run }),
       el("span", { class: "ex-arrow", "aria-hidden": "true", text: "→" })),
     after,
+    tryBtn,
+    tried ? el("p", { class: `ex-tried${tried.error ? " error" : ""}`, text: tried.text }) : null);
+}
+
+/**
+ * A key-driven model's function (the 42S; the 38G, 39G and 40G): name and
+ * long name, its keys (and what they put on HOME's edit line), stack
+ * effect, what it asks for, our description, its menu, the
+ * examples run on the emulator as the screen showed them before and
+ * after the keys (each with "Try it", which presses the example's keys
+ * and the function's), and the manual's page.
+ */
+function keyedEntryView(index, command, ctx) {
+  const entry = command.entry;
+  const km = index.km;
+  const model = index.model;
+  const head = el("div", { class: "entry-head" },
+    el("h3", { class: "entry-name" }, command.name,
+      command.longName ? el("span", { class: "entry-long" }, " ", el("span", { class: "sep", "aria-hidden": "true", text: "· " }), command.longName) : null),
+    el("div", { class: "entry-models", "aria-label": "Model" },
+      el("span", { class: "chip current", title: `${MODEL_TITLES[model] ?? model} (shown)`, text: shortTitle(model) })));
+  const keys = command.byName
+    ? el("dd", {}, el("kbd", { text: "XEQ" }), " ", el("code", { text: `"${entry.xeq}"` }),
+      el("span", { class: "muted", text: " · run by name: XEQ, then the name through the ALPHA menu, then ENTER" }))
+    : el("dd", { class: "entry-keys" }, ...(command.steps ?? []).map((s) => el("kbd", { text: s.label ?? (s.key === "shift" ? "⇧" : s.key.toUpperCase()) })));
+  // A function typed into an equation (the Solver's) has no keys.
+  const typed = !command.steps && !command.byName;
+  const where = typed ? [] : [el("dt", { text: "Keys" }), keys];
+  // The 38G, 39G and 40G: what the keys put on HOME's edit line.
+  if (entry.inserts) where.push(el("dt", { text: "Puts" }), el("dd", {}, el("code", { text: entry.inserts.trimEnd() }), el("span", { class: "muted", text: " on the edit line" })));
+  if (entry.param) where.push(el("dt", { text: "Asks for" }), el("dd", { text: entry.param }));
+  if (entry.menu) where.push(el("dt", { text: "Menu" }), el("dd", {}, el("span", { class: "menu-path", text: entry.menu })));
+  const manual = index.data.manuals?.[km.manual];
+  const examples = command.per.examples ?? [];
+  return el("div", { class: "entry" },
+    head,
+    command.stack ? el("div", { class: "entry-stack-wrap" }, el("pre", { class: "entry-stack", text: command.stack })) : null,
+    el("p", { class: "entry-desc", text: command.description }),
+    el("dl", { class: "entry-where" }, ...where),
+    el("h4", {}, "Examples", el("span", { class: "muted", text: examples.length ? `, run on the emulated ${MODEL_TITLES[model]}` : "" })),
+    examples.length
+      ? el("ol", { class: "entry-examples" }, ...examples.map((x, i) => keyedExampleRow(command, x, i, ctx, Boolean(km.home))))
+      : el("p", { class: "entry-skip", text: "No example for this function." }),
+    manual && entry.page
+      ? el("div", { class: "entry-manuals" }, el("h4", { text: "In the manual" }),
+        el("ul", {}, el("li", {}, link(`${manual.url}#page=${entry.page}`, `${manual.title}, p. ${entry.page}`))))
+      : null);
+}
+
+/** The display's lines as the example showed them. */
+function screenLines(lines, cls, label) {
+  return el("div", { class: `ex-stack ex-screen ${cls}`, role: "group", "aria-label": label },
+    ...lines.map((line) => el("div", { class: "ex-line" }, el("span", { class: "ex-text", text: line || " " }))));
+}
+
+/**
+ * One example of a key-driven model: the screen after its input keys, the
+ * function's keys (and the `then` keys after them: the arguments and
+ * ENTER in HOME), the screen after.
+ */
+function keyedExampleRow(command, x, i, ctx, home = false) {
+  // A menu key in the input reads as the label its box showed (the generator kept them).
+  const input = x.labels?.length ? x.labels.join(" ") : legendText(x.input, ctx.legends ?? null);
+  const then = x.then?.length ? ` ${legendText(x.then, ctx.legends ?? null)}` : "";
+  const tried = ctx.tried?.example === x ? ctx.tried : null;
+  let tryBtn = null;
+  if (ctx.onTry) {
+    tryBtn = el("button", { type: "button", class: "ex-try", title: `Press ${input ? `${input} ` : ""}${command.keysText}${then}`, text: "Try it" });
+    tryBtn.addEventListener("click", (e) => {
+      if (e.detail > 0) tryBtn.blur();
+      ctx.onTry(x);
+    });
+  } else if (ctx.whyNot) {
+    tryBtn = el("button", { type: "button", class: "ex-try", disabled: true, title: ctx.whyNot, text: "Try it" });
+  }
+  return el("li", { class: "ex", "data-example": i },
+    home && !input
+      ? el("p", { class: "ex-setup", text: "In HOME, with an empty edit line" })
+      : el("p", { class: "ex-setup" }, home ? "In HOME, after " : "After ", el("code", { text: input })),
+    // HOME with nothing on it has nothing to show before.
+    home && x.before.every((l) => !l.trim()) ? null : screenLines(x.before, "ex-before", "Display before"),
+    el("div", { class: "ex-cmd" },
+      el("code", { class: "ex-run", text: command.keysText + then }),
+      el("span", { class: "ex-arrow", "aria-hidden": "true", text: "→" })),
+    screenLines(x.after, "ex-after", "Display after"),
     tryBtn,
     tried ? el("p", { class: `ex-tried${tried.error ? " error" : ""}`, text: tried.text }) : null);
 }

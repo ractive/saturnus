@@ -29,7 +29,7 @@ import { ObjectLoader } from "../memory.js";
 import { dropRefusal, newDirectoryRefusal, pathText, screenNameRefusal } from "../writes.js";
 import { directoryAt, findVariables, flagRows } from "../objects.js";
 import { checksumText, previewOf, sizeText, summary, typeTitle } from "../shared/objects.js";
-import { NOT_IN_MENU, OTHER_MENUS, exampleText, findCommands, findMenu, flattenMenus, menuCommands, spaced } from "../reference.js";
+import { NOT_IN_MENU, OTHER_MENUS, commandsCoverage, exampleText, findCommands, findMenu, flattenMenus, menuCommands, spaced } from "../reference.js";
 import { IndexWatch } from "../palette.js";
 import { contextItems, subjectActions } from "../actions.js";
 import { exportScale, graphicBits, graphicDrawable, graphicFileName, graphicRgba, graphicScale, graphicSize, graphicText, graphicThumb } from "../shared/graphic.js";
@@ -579,15 +579,9 @@ export class SatExplorer extends HTMLElement {
   commandsEmptyState(s) {
     const shown = s.booted ?? s.model;
     if (!this.reference) return { title: "No command reference", text: "The command reference is not available here." };
-    if (shown && !["48sx", "48gx", "49g"].includes(shown)) {
-      return {
-        title: `No command reference for the ${MODEL_TITLES[shown] ?? shown}`,
-        text: "The reference covers the commands of the HP 48SX, 48GX and 49G, read from their ROMs.",
-      };
-    }
     const st = this.cmdWatch.state(shown);
     if (st.error) return { title: "The command reference could not be read", text: sentence(st.error), detail: "It is tried again when another model is shown or a calculator starts." };
-    return null;
+    return commandsCoverage(st.index, MODEL_TITLES[shown] ?? shown, MODEL_TITLES);
   }
 
   /** What the whole layer says instead of its tabs, or null. */

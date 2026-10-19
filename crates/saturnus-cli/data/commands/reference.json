@@ -25,9 +25,20 @@
           "input": "200. 15."
         },
         {
-          "input": "50._m 10."
+          "input": "50._m 10.",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Computes y percent of x, that is x·y/100.",
+          "stack": "x y → x·y/100; 'symb' y → '%(symb,y)'"
+        }
+      }
     },
     "%CH": {
       "name": "Percent change",
@@ -74,9 +85,20 @@
           "input": "[[ 1. 2. ][ 3. 4. ]] [ 1. 1. ]"
         },
         {
-          "input": "3._m 2._s"
+          "input": "3._m 2._s",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Multiplies two objects: numbers, binary integers, algebraics, and arrays including matrix by matrix or matrix by vector products.",
+          "stack": "x y → x*y; [[matrix]] [array] → [array]'; 'symb1' 'symb2' → 'symb1*symb2'"
+        }
+      }
     },
     "*H": {
       "name": "Multiply height",
@@ -86,7 +108,19 @@
       "examples": [
         {
           "input": "2.",
-          "run": "*H PPAR"
+          "run": "*H PPAR",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "input": "2.",
+          "run": "*H PPAR 1 2 SUB",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
@@ -98,7 +132,19 @@
       "examples": [
         {
           "input": "2.",
-          "run": "*W PPAR"
+          "run": "*W PPAR",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "input": "2.",
+          "run": "*W PPAR 1 2 SUB",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
@@ -117,7 +163,13 @@
         {
           "input": "{ 1. 2. } 3."
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Adds two objects: numbers, binary integers, arrays of equal size and algebraics. With strings it concatenates, and with a list it appends or joins lists.",
+          "stack": "x y → x+y; \"str1\" \"str2\" → \"str1str2\"; {list} obj → {list'}"
+        }
+      }
     },
     "-": {
       "name": "Subtract",
@@ -134,7 +186,13 @@
         {
           "input": "'A' 'B'"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Subtracts level 1 from level 2 for reals, complex numbers, binary integers, same-size arrays and algebraics.",
+          "stack": "x y → x-y; z1 z2 → z1-z2; 'symb1' 'symb2' → 'symb1-symb2'"
+        }
+      }
     },
     "/": {
       "name": "Divide",
@@ -146,12 +204,23 @@
           "input": "7. 2."
         },
         {
-          "input": "10._m 2._s"
+          "input": "10._m 2._s",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
           "input": "[ 5. 6. ] [[ 1. 0. ][ 0. 2. ]]"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Divides level 2 by level 1 for numbers, binary integers and algebraics; with a matrix in level 1 it solves the linear system for the array in level 2.",
+          "stack": "x y → x/y; [array] [[matrix]] → [array]'; 'symb1' 'symb2' → 'symb1/symb2'"
+        }
+      }
     },
     ";": {
       "description": "Separator token for function arguments and list items in algebraic entry; it does no work as a stand-alone command.",
@@ -171,9 +240,20 @@
           "input": "\"B\" \"A\""
         },
         {
-          "input": "1._m 50._cm"
+          "input": "1._m 50._cm",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Compares level 2 against level 1 and pushes 1 if it is smaller, else 0; accepts reals, binary integers and strings (compared by character code), and yields a symbolic comparison for names or algebraics.",
+          "stack": "x y → 0/1; \"s1\" \"s2\" → 0/1; 'symb' x → 'symb<x'"
+        }
+      }
     },
     "=": {
       "name": "Equation",
@@ -216,7 +296,13 @@
         {
           "input": "#10h #20h"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Compares level 2 against level 1 and pushes 1 if it is larger, else 0; accepts reals, binary integers and strings (compared by character code), and yields a symbolic comparison for names or algebraics.",
+          "stack": "x y → 0/1; \"s1\" \"s2\" → 0/1; 'symb' x → 'symb>x'"
+        }
+      }
     },
     "?": {
       "name": "Undefined",
@@ -242,9 +328,19 @@
         }
       ]
     },
+    "ABORT": {
+      "description": "Stops the running program at the point where it stands. The program cannot be resumed.",
+      "stack": "→",
+      "examples": [
+        {
+          "input": "1.",
+          "run": "« 2. ABORT 3. » EVAL"
+        }
+      ]
+    },
     "ABS": {
       "name": "Absolute value",
-      "description": "Gives the magnitude of a number: its value without sign, the modulus of a complex number, or the Frobenius (Euclidean) length of an array. Units are kept, and symbolic arguments give a symbolic result.",
+      "description": "Gives the size of a value: a real without its sign, a complex number's modulus, or an array's Frobenius (Euclidean) length. Units are kept, and symbolic arguments give a symbolic result.",
       "stack": "x → |x|; z → x; [array] → x; x_unit → x_unit; 'symb' → 'ABS(symb)'",
       "examples": [
         {
@@ -256,7 +352,13 @@
         {
           "input": "[ 3. 4. ]"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Gives the size of a value: a real without its sign, a complex number's modulus, or an array's Frobenius (Euclidean) length. Symbolic arguments give a symbolic result.",
+          "stack": "x → |x|; z → x; [array] → x; 'symb' → 'ABS(symb)'"
+        }
+      }
     },
     "ACK": {
       "name": "Acknowledge alarm",
@@ -456,7 +558,7 @@
     },
     "ARG": {
       "name": "Argument",
-      "description": "Gives the angle of a complex number in polar form, measured from the positive real axis in the current angle mode; for a real number the result is 0 or a half turn depending on the sign.",
+      "description": "Gives the angle of a complex value in polar form, measured from the positive real axis in the current angle mode; a real gives 0 or a half turn depending on its sign.",
       "stack": "z → θ; x → θ; 'symb' → 'ARG(symb)'",
       "examples": [
         {
@@ -496,9 +598,20 @@
           "input": "[ 1. 2. 3. ]"
         },
         {
-          "input": "[[ 1. 2. ][ 3. 4. ]]"
+          "input": "[[ 1. 2. ][ 3. 4. ]]",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Splits an array into its elements in row order, followed by a list of its dimensions. →ARRY builds the array again.",
+          "stack": "[array] → x1 ... xn {dims}"
+        }
+      }
     },
     "ASIN": {
       "name": "Arc sine",
@@ -591,7 +704,19 @@
           "input": "#8h"
         },
         {
-          "input": "#FFFFFFFFFFFFFFF0h"
+          "input": "#FFFFFFFFFFFFFFF0h",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "setup": "HEX",
+          "input": "#FFFFFFFFFFFFFFF0h",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
@@ -627,7 +752,7 @@
     },
     "ATANH": {
       "name": "Inverse hyperbolic tangent",
-      "description": "Computes the inverse hyperbolic tangent of its argument; reals outside -1..1 produce a complex result, while exactly ±1 is an infinite-result error.",
+      "description": "Computes the inverse hyperbolic tangent; reals outside -1..1 produce a complex result, while exactly ±1 is an infinite-result error.",
       "stack": "x → atanh x; z → atanh z; 'symb' → 'ATANH(symb)'",
       "examples": [
         {
@@ -794,7 +919,13 @@
     "BEEP": {
       "description": "Sounds a tone of the given frequency in hertz for the given duration in seconds, unless beeping has been turned off with flag -56.",
       "stack": "freq duration →",
-      "skip": "produces a sound and returns nothing to the stack"
+      "skip": "produces a sound and returns nothing to the stack",
+      "per_model": {
+        "28s": {
+          "description": "Sounds a tone of the given frequency in hertz for the given duration in seconds, unless flag 51 is set to silence the beeper.",
+          "stack": "freq duration →"
+        }
+      }
     },
     "BESTFIT": {
       "name": "Best-fitting model",
@@ -954,7 +1085,13 @@
         {
           "input": "-3.7"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Rounds a real number up to the nearest integer not less than it.",
+          "stack": "x → n; 'symb' → 'CEIL(symb)'"
+        }
+      }
     },
     "CENTR": {
       "name": "Center plot",
@@ -966,7 +1103,13 @@
           "input": "(1.,2.)",
           "run": "CENTR PPAR"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Moves the plot window so that the given point lies at its centre, keeping the current width and height.",
+          "stack": "(x,y) →"
+        }
+      }
     },
     "CF": {
       "name": "Clear flag",
@@ -978,7 +1121,13 @@
           "setup": "3. SF",
           "run": "3. CF 3. FS?"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Clears user flag n, from 1 to 64. Flags 31 to 64 control calculator settings such as the binary base and the beeper.",
+          "stack": "n →"
+        }
+      }
     },
     "CHINREM": {
       "name": "Chinese remainder (polynomials)",
@@ -1067,7 +1216,19 @@
       "name": "Clear display",
       "description": "Blanks the stack area of the screen, leaving the status line and menu labels; typically used before a program writes its own output with DISP.",
       "stack": "→",
-      "skip": "clears the screen and returns nothing to the stack"
+      "skip": "clears the screen and returns nothing to the stack",
+      "per_model": {
+        "28s": {
+          "description": "Blanks the whole display apart from the annunciators and sets the message flag, so the blank screen stays up after the program ends. Programs use it before writing their own output with DISP.",
+          "stack": "→"
+        }
+      }
+    },
+    "CLMF": {
+      "name": "Clear message flag",
+      "description": "Clears the message flag, which DRAW, DRWΣ, DRAX, PIXEL, DISP and CLLCD set, so the normal stack display comes back when the program ends.",
+      "stack": "→",
+      "skip": "changes only what the display shows after a program and returns nothing to the stack"
     },
     "CLOSEIO": {
       "name": "Close I/O port",
@@ -1085,6 +1246,18 @@
           "input": "",
           "setup": "'EXAMPLES' CRDIR",
           "run": "CLTEACH VARS"
+        }
+      ]
+    },
+    "CLUSR": {
+      "name": "Clear user variables",
+      "description": "Purges every variable and every empty subdirectory in the current directory.",
+      "stack": "→",
+      "examples": [
+        {
+          "input": "",
+          "setup": "1. 'A' STO 2. 'B' STO",
+          "run": "CLUSR VARS"
         }
       ]
     },
@@ -1232,7 +1405,13 @@
         {
           "input": "52. 5."
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Gives the number of ways to choose m out of n items when order does not matter: n!/(m!(n-m)!).",
+          "stack": "n m → C(n,m)"
+        }
+      }
     },
     "COMP→": {
       "name": "Composite to stack",
@@ -1293,7 +1472,7 @@
     },
     "CONJ": {
       "name": "Conjugate",
-      "description": "Returns the complex conjugate by flipping the sign of the imaginary part, for a complex number or each element of a complex array; real arguments come back unchanged.",
+      "description": "Returns the complex conjugate by flipping the sign of the imaginary part, for a complex number or for every element of a complex array; real arguments come back unchanged.",
       "stack": "z → z'; [array] → [array]'; x → x; 'symb' → 'CONJ(symb)'",
       "examples": [
         {
@@ -1345,19 +1524,58 @@
       "stack": "x1_u1 x2_u2 → x3_u2",
       "examples": [
         {
-          "input": "1._ft 1._m"
+          "input": "1._ft 1._m",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
-          "input": "100._km/h 1._m/s"
+          "input": "100._km/h 1._m/s",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
-          "input": "0._°C 1._°F"
+          "input": "0._°C 1._°F",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "input": "1. \"ft\" \"m\"",
+          "models": [
+            "28s"
+          ]
+        },
+        {
+          "input": "100. \"km/h\" \"m/s\"",
+          "models": [
+            "28s"
+          ]
+        },
+        {
+          "input": "0. \"°C\" \"°F\"",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Converts a real number from one unit to another, the units given as strings or names. It returns the converted number and the new unit string; both units must measure the same kind of quantity.",
+          "stack": "x \"old\" \"new\" → y \"new\""
+        }
+      }
     },
     "CORR": {
       "name": "Correlation",
-      "description": "Returns the correlation coefficient between the independent and dependent columns of ΣDAT, as chosen by XCOL and YCOL.",
+      "description": "Gives the correlation coefficient for the two ΣDAT columns that XCOL and YCOL choose.",
       "stack": "→ x",
       "examples": [
         {
@@ -1365,7 +1583,13 @@
           "run": "CORR",
           "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Returns the correlation coefficient between the two columns of ΣDAT chosen by COLΣ, columns 1 and 2 by default.",
+          "stack": "→ x"
+        }
+      }
     },
     "COS": {
       "name": "Cosine",
@@ -1401,7 +1625,7 @@
     },
     "COV": {
       "name": "Covariance",
-      "description": "Returns the sample covariance between the independent and dependent columns of ΣDAT.",
+      "description": "Gives the sample covariance for the two ΣDAT columns that XCOL and YCOL choose.",
       "stack": "→ x",
       "examples": [
         {
@@ -1815,6 +2039,12 @@
       "stack": "n →; :n_port:n →",
       "skip": "needs an attached library object"
     },
+    "DGTIZ": {
+      "name": "Digitise",
+      "description": "Lets a program hand the plot to the user, usually after DRAW or DRWΣ: the cursor can be moved and coordinates put on the stack. Pressing ON lets the program go on.",
+      "stack": "→",
+      "skip": "waits for the user to pick points on the plot"
+    },
     "DIAGMAP": {
       "name": "Matrix function by diagonalization",
       "description": "Applies a function of the current variable to a diagonalizable matrix by diagonalizing it, applying the function to the eigenvalues, and transforming back.",
@@ -1868,7 +2098,13 @@
       "name": "Display",
       "description": "Shows an object on a chosen line of the display (1 at the top through 7), formatting non-strings first; programs use it for messages and status output.",
       "stack": "obj n →",
-      "skip": "writes to the screen and returns nothing to the stack"
+      "skip": "writes to the screen and returns nothing to the stack",
+      "per_model": {
+        "28s": {
+          "description": "Shows an object on a chosen line of the display, 1 at the top through 4, with strings shown without quotes. It sets the message flag, so the output stays up after the program ends.",
+          "stack": "obj n →"
+        }
+      }
     },
     "DISPXY": {
       "name": "Display at pixel position",
@@ -2047,7 +2283,13 @@
     "DRAW": {
       "description": "Plots the current equation EQ into the graphics picture using the plot type and parameters in PPAR, without drawing axes or erasing first.",
       "stack": "→",
-      "skip": "draws into the graphics picture and returns nothing to the stack"
+      "skip": "draws into the graphics picture and returns nothing to the stack",
+      "per_model": {
+        "28s": {
+          "description": "Plots the current equation EQ on the display, drawing the axes first and using the plot parameters in PPAR. An equation with two sides plots as two curves.",
+          "stack": "→"
+        }
+      }
     },
     "DRAW3DMATRIX": {
       "name": "Draw 3D matrix",
@@ -2060,7 +2302,13 @@
       "name": "Draw axes",
       "description": "Draws the axes defined in PPAR into the graphics picture.",
       "stack": "→",
-      "skip": "draws into the graphics picture and returns nothing to the stack"
+      "skip": "draws into the graphics picture and returns nothing to the stack",
+      "per_model": {
+        "28s": {
+          "description": "Draws the plot axes on the display, crossing at the point set in PPAR, with a tick mark every 10 pixels.",
+          "stack": "→"
+        }
+      }
     },
     "DROITE": {
       "name": "Straight line",
@@ -2102,6 +2350,12 @@
           "input": "1. 2. 3. 4. 2."
         }
       ]
+    },
+    "DRWΣ": {
+      "name": "Draw statistics plot",
+      "description": "Draws the axes and then a scatter plot of the points in ΣDAT, taking the two columns chosen in ΣPAR.",
+      "stack": "→",
+      "skip": "draws on the display and returns nothing to the stack"
     },
     "DTAG": {
       "name": "Delete tag",
@@ -2155,7 +2409,18 @@
       "stack": "obj1 … objn n → obj1 … objn obj1 … objn",
       "examples": [
         {
-          "input": "1. 2. 3. 2."
+          "input": "1. 2. 3. 2.",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "input": "1. 2. 2.",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
@@ -2232,7 +2497,13 @@
     "END": {
       "description": "Closes an IF, IFERR, CASE, WHILE or DO structure (and each THEN clause inside CASE).",
       "stack": "→",
-      "skip": "closes a program structure and cannot run alone; see IF, CASE, DO, WHILE"
+      "skip": "closes a program structure and cannot run alone; see IF, CASE, DO, WHILE",
+      "per_model": {
+        "28s": {
+          "description": "Closes an IF, IFERR, WHILE or DO structure.",
+          "stack": "→"
+        }
+      }
     },
     "ENDSUB": {
       "name": "Ending sublist",
@@ -2247,7 +2518,7 @@
     },
     "ENG": {
       "name": "Engineering mode",
-      "description": "Sets engineering display: like scientific, but the exponent is a multiple of three; n gives the significant digits after the first.",
+      "description": "Sets engineering display: like scientific, but with exponents in steps of three; n gives the significant digits after the first.",
       "stack": "n →",
       "examples": [
         {
@@ -2256,7 +2527,19 @@
         },
         {
           "input": "3.",
-          "run": "ENG 0.0012345 →STR"
+          "run": "ENG 0.0012345 →STR",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "input": "3.",
+          "run": "ENG .0012345 →STR",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
@@ -2330,7 +2613,13 @@
           "input": "1. 0.",
           "run": "« IFERR / THEN ERRM END » EVAL"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Returns the message of the most recent error as a string. Handy for reporting a trapped error from an IFERR structure.",
+          "stack": "→ \"str\""
+        }
+      }
     },
     "ERRN": {
       "name": "Error number",
@@ -2341,7 +2630,13 @@
           "input": "1. 0.",
           "run": "« IFERR / THEN ERRN END » EVAL"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Returns the number of the most recent error as a binary integer. Mostly used in the THEN clause of an IFERR structure.",
+          "stack": "→ #n"
+        }
+      }
     },
     "EULER": {
       "name": "Euler's totient",
@@ -2371,6 +2666,22 @@
         },
         {
           "input": "{ 4. 5. + }"
+        }
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Evaluates an object: a program runs, a name is replaced by what its variable holds, and an algebraic is computed with the current variable values. Data objects such as reals and lists return themselves.",
+          "stack": "obj → result"
+        }
+      }
+    },
+    "EXGET": {
+      "name": "Get subexpression",
+      "description": "Returns the subexpression at position n of an algebraic: the object there together with its arguments. Positions count the objects from the left as written.",
+      "stack": "'symb1' n → 'symb2'",
+      "examples": [
+        {
+          "input": "'(A+B)*C' 2."
         }
       ]
     },
@@ -2505,6 +2816,16 @@
         }
       ]
     },
+    "EXSUB": {
+      "name": "Substitute subexpression",
+      "description": "Replaces the subexpression at position n of an algebraic, the object there with its arguments, by another algebraic or name.",
+      "stack": "'symb1' n 'symb2' → 'symb3'",
+      "examples": [
+        {
+          "input": "'(A+B)*C' 2. 'E^F'"
+        }
+      ]
+    },
     "EYEPT": {
       "name": "Eye point",
       "description": "Sets the eye position (x, y, z) of the viewer for perspective 3D plots, storing it in VPAR; the eye must sit in front of the view volume along y.",
@@ -2541,7 +2862,13 @@
         {
           "input": "0.5"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Factorial of a non-negative integer, or the gamma function Γ(x+1) for other reals. Symbolic arguments give a symbolic result.",
+          "stack": "n → n!; x → Γ(x+1); 'symb' → 'FACT(symb)'"
+        }
+      }
     },
     "FACTOR": {
       "description": "Splits a polynomial or rational expression into irreducible factors; given an integer, it returns its prime factorization.",
@@ -2738,7 +3065,13 @@
         {
           "input": "-3.2"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Rounds a real number down to the nearest integer not greater than it, so negative fractions move away from zero.",
+          "stack": "x → n; 'symb' → 'FLOOR(symb)'"
+        }
+      }
     },
     "FONT6": {
       "description": "Puts the built-in 6-pixel-high system font on the stack as a font object, for example to make it the current font with →FONT.",
@@ -2796,6 +3129,12 @@
         }
       ]
     },
+    "FORM": {
+      "name": "Form algebraic expression",
+      "description": "Opens an interactive editor for rearranging an algebraic or equation by identities, so its value does not change. Leaving with the EXGET menu key also returns a chosen subexpression and its position.",
+      "stack": "'symb1' → 'symb2'; 'symb1' → 'symb2' 'symb3' n",
+      "skip": "opens an interactive editor and waits for keys"
+    },
     "FOURIER": {
       "name": "Fourier coefficient",
       "description": "Computes the coefficient of index n of the complex Fourier series of an expression in the current variable; the period is read from the variable PERIOD and complex mode must be on.",
@@ -2812,7 +3151,7 @@
     },
     "FP": {
       "name": "Fractional part",
-      "description": "Returns the fractional part of a real number, i.e. the number minus its integer part, so the result keeps the argument's sign.",
+      "description": "Returns what follows the decimal point of a real: the number minus its integer part, so the result keeps the argument's sign.",
       "stack": "x → y; x_unit → y_unit; 'symb' → 'FP(symb)'",
       "examples": [
         {
@@ -2821,7 +3160,13 @@
         {
           "input": "-3.75"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Returns what follows the decimal point of a real: the number minus its integer part, so the result keeps the argument's sign.",
+          "stack": "x → y; 'symb' → 'FP(symb)'"
+        }
+      }
     },
     "FREE": {
       "name": "Free RAM card",
@@ -2994,8 +3339,21 @@
         },
         {
           "input": "{ 10. 20. 30. } 3."
+        },
+        {
+          "input": "{ 10. 20. 30. } 3.",
+          "run": "GETI 46 FS?",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Like GET, but leaves the array or list, then the position after the one fetched, on the stack below the element, ready for stepping through all elements. After the last element the position wraps to 1 and flag 46 is set.",
+          "stack": "[array] n → [array] n+1 x; {list} n → {list} n+1 obj; 'name' n → 'name' n+1 obj"
+        }
+      }
     },
     "GOR": {
       "name": "Graphics OR",
@@ -3431,7 +3789,7 @@
       ]
     },
     "IF": {
-      "description": "Opens a conditional structure IF test THEN true-clause [ELSE false-clause] END: the test clause runs and the nonzero or zero value it leaves decides which clause executes. Only valid inside programs.",
+      "description": "Opens a conditional structure, IF test THEN commands [ELSE other commands] END: the test runs, and the nonzero or zero value it leaves decides which commands execute. Only valid inside programs.",
       "stack": "→",
       "examples": [
         {
@@ -3446,7 +3804,7 @@
     },
     "IFERR": {
       "name": "If error",
-      "description": "Opens an error trap IFERR trap-clause THEN error-clause [ELSE normal-clause] END: if any command in the trap clause fails, the program continues with the THEN clause instead of stopping. ERRN and ERRM tell which error occurred.",
+      "description": "Opens an error trap, IFERR commands THEN on-error [ELSE on-success] END: if any command after IFERR fails, the program goes on with the THEN part instead of stopping. ERRN and ERRM tell which error occurred.",
       "stack": "→",
       "examples": [
         {
@@ -3519,7 +3877,7 @@
     },
     "IM": {
       "name": "Imaginary part",
-      "description": "Extracts the imaginary component of a complex number or of each element of a complex array; a real argument gives 0.",
+      "description": "Extracts the imaginary component of a complex value, or of every element of a complex array; a real argument gives 0.",
       "stack": "z → y; [array] → [real array]; x → 0; 'symb' → 'IM(symb)'",
       "examples": [
         {
@@ -3561,9 +3919,20 @@
         },
         {
           "input": "{ T 0. 5. }",
-          "run": "INDEP PPAR"
+          "run": "INDEP PPAR",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Sets the independent variable for plotting by storing a name as the third item of PPAR.",
+          "stack": "'name' →"
+        }
+      }
     },
     "INFORM": {
       "name": "Input form",
@@ -3621,7 +3990,13 @@
         {
           "input": "[[ 2. 0. ][ 0. 4. ]]"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Computes 1/x for a real or a complex number; for a square matrix it returns the matrix inverse.",
+          "stack": "x → 1/x; z → 1/z; [[matrix]] → [[matrix]]^-1; 'symb' → 'INV(symb)'"
+        }
+      }
     },
     "INVMOD": {
       "name": "Inverse modulo",
@@ -3649,7 +4024,13 @@
         {
           "input": "-3.75"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Truncates a real number to its whole-number part by dropping the fractional digits, keeping the sign.",
+          "stack": "x → n; 'symb' → 'IP(symb)'"
+        }
+      }
     },
     "IQUOT": {
       "name": "Integer quotient",
@@ -3688,7 +4069,13 @@
         {
           "input": "'A*X^2=B' 'X'"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Rearranges an equation or expression so that the variable's first appearance stands alone, and returns what that variable equals, not an equation; general solutions may bring in the s1 and n1 placeholders.",
+          "stack": "'symb' 'name' → 'symb''"
+        }
+      }
     },
     "ISOM": {
       "name": "Isometry",
@@ -3762,7 +4149,13 @@
         {
           "input": ""
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Checks the key buffer without waiting: if a key is waiting it removes it and returns a string naming the key and 1, otherwise only 0. Used in polling loops that react to keys.",
+          "stack": "→ 0; → \"key\" 1"
+        }
+      }
     },
     "KEYEVAL": {
       "name": "Evaluate key",
@@ -3849,6 +4242,17 @@
         }
       ]
     },
+    "LAST": {
+      "name": "Last arguments",
+      "description": "Puts back copies of what the last command with arguments took from the stack, at the levels they came from. Works only while LAST mode (flag 31) is on.",
+      "stack": "→ obj; → obj1 obj2; → obj1 obj2 obj3",
+      "examples": [
+        {
+          "input": "2. 3.",
+          "run": "+ LAST"
+        }
+      ]
+    },
     "LASTARG": {
       "name": "Last arguments",
       "description": "Puts back on the stack the arguments consumed by the most recent command that took any, which is handy after an operation used the wrong values. Works only while last-argument saving (flag -55 clear) is on.",
@@ -3875,9 +4279,21 @@
           "run": "LCD→ SIZE"
         },
         {
-          "input": ""
+          "input": "",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "name": "Display to string",
+          "description": "Returns the current display as a 548-character string, one character for each column of eight pixels; →LCD shows such a string again.",
+          "stack": "→ \"str\""
+        }
+      }
     },
     "LCM": {
       "name": "Least common multiple",
@@ -4048,7 +4464,13 @@
         {
           "input": "{ }"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Takes a list apart, pushing each element onto the stack followed by the element count.",
+          "stack": "{ obj1 ... objn } → obj1 ... objn n"
+        }
+      }
     },
     "LN": {
       "name": "Natural logarithm",
@@ -4154,7 +4576,7 @@
     },
     "LR": {
       "name": "Linear regression",
-      "description": "Fits a straight line to the independent and dependent columns of ΣDAT by least squares, returns its intercept and slope, and saves them in ΣPAR for PREDX, PREDY and ΣLINE.",
+      "description": "Fits a straight line by least squares to the two ΣDAT columns that XCOL and YCOL choose, returns its intercept and slope, and saves them in ΣPAR for PREDX, PREDY and ΣLINE.",
       "stack": "→ intercept slope",
       "examples": [
         {
@@ -4162,7 +4584,13 @@
           "run": "LR",
           "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Fits a straight line to two columns of ΣDAT (chosen with COLΣ, by default 1 and 2) by least squares, returns its intercept and slope, and stores them in ΣPAR for PREDV.",
+          "stack": "→ intercept slope"
+        }
+      }
     },
     "LR~R": {
       "name": "Long real conversion",
@@ -4236,7 +4664,7 @@
     },
     "MAIN": {
       "name": "CAS main menu",
-      "description": "Opens the top-level menu of the computer algebra system, from which its sub-menus are reached.",
+      "description": "Opens the computer algebra system's main menu, which leads to its sub-menus.",
       "stack": "→",
       "category": "CAS",
       "skip": "opens a menu screen"
@@ -4265,7 +4693,18 @@
           "input": "12345."
         },
         {
-          "input": "0.00042"
+          "input": "0.00042",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "input": ".00042",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
@@ -4369,7 +4808,13 @@
     "MENU": {
       "description": "Displays a menu: a number selects a built-in menu (its code from the menu table, a decimal part picking the page), a list defines a custom menu which is also stored as the CST variable.",
       "stack": "n →; {list} →",
-      "skip": "changes the soft-key menu on the screen and returns nothing to the stack"
+      "skip": "changes the soft-key menu on the screen and returns nothing to the stack",
+      "per_model": {
+        "28s": {
+          "description": "Shows a menu: a number from 1 to 24 selects a built-in menu, a list of commands and names makes a custom menu, and a list that starts with STO makes a menu whose keys store values into the named variables.",
+          "stack": "n →; {list} →"
+        }
+      }
     },
     "MENUXY": {
       "name": "CAS command menu by number",
@@ -4551,7 +4996,7 @@
     },
     "MSOLVR": {
       "name": "Multiple-equation solver",
-      "description": "Shows the Multiple-Equation Solver menu of variables for the equation set described by Mpar, ready for entering knowns and solving unknowns.",
+      "description": "Shows the Multiple-Equation Solver's variables menu for the equation set that Mpar describes, ready for entering knowns and solving unknowns.",
       "stack": "→",
       "skip": "installs an interactive solver menu; needs a prepared Mpar"
     },
@@ -4625,7 +5070,13 @@
         {
           "input": "'A+B'"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Changes the sign of its argument: reals, complex numbers, arrays and algebraics are negated element by element or symbolically.",
+          "stack": "x → -x; z → -z; [array] → [array]'; 'symb' → '-symb'"
+        }
+      }
     },
     "NEWOB": {
       "name": "New object",
@@ -4672,7 +5123,12 @@
       "stack": "#n1 → #n2; x → 0|1; 'symb' → 'NOT symb'",
       "examples": [
         {
-          "input": "#0h"
+          "input": "#0h",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
           "setup": "8. STWS",
@@ -4680,6 +5136,13 @@
         },
         {
           "input": "0."
+        },
+        {
+          "setup": "8. STWS",
+          "input": "#0h",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
@@ -4742,13 +5205,26 @@
     },
     "NΣ": {
       "name": "Number of data points",
-      "description": "Returns the number of data points (rows) in ΣDAT.",
+      "description": "Returns how many data points (rows) ΣDAT holds.",
       "stack": "→ n",
       "examples": [
         {
           "input": "",
           "run": "NΣ",
           "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ"
+        }
+      ]
+    },
+    "OBGET": {
+      "name": "Object get",
+      "description": "Returns the object at position n of an algebraic, inside a one-element list. Objects (names, numbers and functions) are counted from the left as the algebraic is written.",
+      "stack": "'symb' n → { obj }",
+      "examples": [
+        {
+          "input": "'(A+B)*C' 2."
+        },
+        {
+          "input": "'A*B' 3."
         }
       ]
     },
@@ -4765,6 +5241,19 @@
         },
         {
           "input": "\"2. 3. +\""
+        }
+      ]
+    },
+    "OBSUB": {
+      "name": "Object substitute",
+      "description": "Replaces the object at position n of an algebraic with the object in a one-element list, which may be a name, a number or a function. Positions are counted as for OBGET.",
+      "stack": "'symb' n { obj } → 'symb''",
+      "examples": [
+        {
+          "input": "'A*B' 3. { C }"
+        },
+        {
+          "input": "'A*B' 2. { + }"
         }
       ]
     },
@@ -4830,7 +5319,13 @@
           "run": "ORDER VARS",
           "setup": "1. 'A' STO 2. 'B' STO"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Moves the listed variables to the front of the directory you are in, in the order given, which also orders the USER menu.",
+          "stack": "{list} →"
+        }
+      }
     },
     "OVER": {
       "description": "Duplicates the second stack object onto the top of the stack.",
@@ -4932,7 +5427,7 @@
     },
     "PCAR": {
       "name": "Characteristic polynomial",
-      "description": "Computes the characteristic polynomial of a square matrix in the current CAS variable.",
+      "description": "Computes a square matrix's characteristic polynomial, written in the current CAS variable.",
       "stack": "[[matrix]] → 'symb'",
       "examples": [
         {
@@ -5119,6 +5614,11 @@
         }
       ]
     },
+    "PIXEL": {
+      "description": "Turns on the display pixel at the plot coordinates given as a complex number and sets the message flag, so the normal stack display does not replace it.",
+      "stack": "(x,y) →",
+      "skip": "draws into the display and returns nothing to the stack"
+    },
     "PIXOFF": {
       "name": "Pixel off",
       "description": "Turns off the pixel of the graphics picture at the given coordinate, in user units or pixels.",
@@ -5304,7 +5804,13 @@
           "input": "5.",
           "setup": "[[ 1. 2. ][ 2. 4. ][ 3. 6. ]] STOΣ LR"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Predicts the dependent value for a given independent value from the line LR last stored in ΣPAR: slope times x plus intercept. Without an earlier LR it returns 0.",
+          "stack": "x → y"
+        }
+      }
     },
     "PREDX": {
       "name": "Predicted x-value",
@@ -5362,6 +5868,12 @@
       "stack": "→",
       "skip": "prints to the infrared or serial printer"
     },
+    "PRMD": {
+      "name": "Print modes",
+      "description": "Shows and prints the current modes: display format, binary base, angle mode, radix mark, and which of UNDO, COMMAND, LAST and the multi-line display are on.",
+      "stack": "→",
+      "skip": "prints to the infrared printer"
+    },
     "PROMPT": {
       "description": "Shows a string in the status area, then suspends the program so the user can enter or edit values on the stack; CONT resumes execution.",
       "stack": "\"str\" →",
@@ -5414,6 +5926,12 @@
       "description": "Prints the whole stack in compact form, one line per level.",
       "stack": "→",
       "skip": "prints to the infrared or serial printer"
+    },
+    "PRUSR": {
+      "name": "Print user variables",
+      "description": "Prints the current directory's variable names, in USER menu order.",
+      "stack": "→",
+      "skip": "prints to the infrared printer"
     },
     "PRVAR": {
       "name": "Print variable",
@@ -5518,8 +6036,21 @@
         },
         {
           "input": "{ 1. 2. } 2. \"A\""
+        },
+        {
+          "input": "[ 1. 2. 3. ] 3. 9.",
+          "run": "PUTI 46. FS?",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Works like PUT but also returns the next position, so repeated calls fill an array or list in order; after the last element the index wraps to 1 and flag 46 is set.",
+          "stack": "[array] n x → [array'] n+1; {list} n obj → {list'} n+1; 'name' n obj → 'name' n+1"
+        }
+      }
     },
     "PVAR": {
       "name": "Population variance",
@@ -5591,6 +6122,21 @@
         }
       ]
     },
+    "P→R": {
+      "name": "Polar to rectangular",
+      "description": "Converts a complex number (r,θ) in polar form to rectangular form (x,y), reading θ in the current angle mode. For a vector, elements 1 and 2 are converted and the rest kept; a real r gives (r,0).",
+      "stack": "(r,θ) → (x,y); x → (x,0); [r θ ...] → [x y ...]; 'symb' → 'P→R(symb)'",
+      "examples": [
+        {
+          "setup": "DEG",
+          "input": "(2.,90.)"
+        },
+        {
+          "setup": "DEG",
+          "input": "[ 1. 90. 5. ]"
+        }
+      ]
+    },
     "QR": {
       "name": "QR factorization",
       "description": "Factors a rectangular matrix with column pivoting into an orthogonal Q, an upper-trapezoidal R and a permutation P, so that A·P = Q·R.",
@@ -5625,8 +6171,20 @@
           "models": [
             "49g"
           ]
+        },
+        {
+          "input": "'X^2+1' 'X'",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Solves an expression or equation for a variable from its second-order Taylor approximation, which is exact for a quadratic, and returns the solution with the sign placeholder s1.",
+          "stack": "'symb' 'name' → 'symb''"
+        }
+      }
     },
     "QUOT": {
       "name": "Quotient",
@@ -5778,7 +6336,7 @@
     },
     "RCL": {
       "name": "Recall",
-      "description": "Returns the contents of a variable without evaluating them, searching the current directory and then its parents.",
+      "description": "Puts a variable's value on the stack as it is, unevaluated, searching the current directory and then its parents.",
       "stack": "'name' → obj",
       "examples": [
         {
@@ -5808,14 +6366,38 @@
       "stack": "→ { #n_sys #n_user }",
       "examples": [
         {
-          "input": ""
+          "input": "",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
           "input": "",
           "run": "RCLF",
-          "setup": "1. SF 3. SF"
+          "setup": "1. SF 3. SF",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "setup": "1. SF 2. CF 3. SF",
+          "input": "",
+          "run": "RCLF # 7d AND",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Returns the 64 user flags as one binary integer, flag 1 in the lowest bit; with a smaller word size only the low flags come back.",
+          "stack": "→ #n"
+        }
+      }
     },
     "RCLKEYS": {
       "name": "Recall key assignments",
@@ -5916,7 +6498,7 @@
     },
     "RE": {
       "name": "Real part",
-      "description": "Returns the real part of a complex number or of each element of a complex array; a real argument is returned unchanged.",
+      "description": "Extracts the real component of a complex value, or of every element of a complex array; a real argument comes back unchanged.",
       "stack": "z → x; [array] → [real array]; x → x; 'symb' → 'RE(symb)'",
       "examples": [
         {
@@ -6017,13 +6599,36 @@
       "examples": [
         {
           "input": "0.5",
-          "run": "RES PPAR"
+          "run": "RES PPAR",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
           "input": "#2d",
-          "run": "RES PPAR"
+          "run": "RES PPAR",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "input": "2.",
+          "run": "RES PPAR",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Sets the plot resolution, the fourth item of PPAR: 1 plots a point in each pixel column, 2 in one column of two, and so on.",
+          "stack": "n →"
+        }
+      }
     },
     "RESTORE": {
       "description": "Replaces the whole HOME directory with what a backup object holds, given directly or as :n:name; the calculator then restarts.",
@@ -6141,19 +6746,56 @@
       "stack": "x n → y; z n → z'; [array] n → [array]'",
       "examples": [
         {
-          "input": "3.14159 2."
+          "input": "3.14159 2.",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
-          "input": "12345.678 -3."
+          "input": "12345.678 -3.",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
-          "input": "[ 1.234 5.678 ] 1."
+          "input": "[ 1.234 5.678 ] 1.",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "setup": "2. FIX",
+          "input": "3.14159",
+          "run": "RND STD",
+          "models": [
+            "28s"
+          ]
+        },
+        {
+          "setup": "1. SCI",
+          "input": "12345.678",
+          "run": "RND STD",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Rounds a number to the current display format: n FIX rounds to n decimal places, n SCI and n ENG to n+1 significant digits, and STD leaves it unchanged. Works element-wise on complex numbers and arrays.",
+          "stack": "x → y; z → z'; [array] → [array]'; 'symb' → 'RND(symb)'"
+        }
+      }
     },
     "RNRM": {
       "name": "Row norm",
-      "description": "Computes the row norm (infinity norm) of an array: the largest sum of absolute values across any row; for a vector it is the largest absolute element.",
+      "description": "Computes an array's row norm (also called the infinity norm): the largest sum of absolute values across any row; for a vector it is the largest absolute element.",
       "stack": "[array] → x",
       "examples": [
         {
@@ -6175,7 +6817,7 @@
     },
     "ROLLD": {
       "name": "Roll down",
-      "description": "Moves the object in level 1 down to the given stack level, shifting the objects in between up by one; the inverse of ROLL.",
+      "description": "Takes the object from level 1 down to the given stack level, shifting the objects in between up by one; the inverse of ROLL.",
       "stack": "objn … obj1 n → obj1 objn … obj2",
       "examples": [
         {
@@ -6273,7 +6915,19 @@
           "input": "#2h"
         },
         {
-          "input": "#1h"
+          "input": "#1h",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "setup": "8. STWS",
+          "input": "#1h",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
@@ -6283,10 +6937,28 @@
       "stack": "#n1 → #n2",
       "examples": [
         {
-          "input": "#1234h"
+          "input": "#1234h",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
-          "input": "#12h"
+          "input": "#12h",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "setup": "16. STWS",
+          "input": "#1234h",
+          "run": "RRB HEX →STR",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
@@ -6451,6 +7123,21 @@
         }
       ]
     },
+    "R→P": {
+      "name": "Rectangular to polar",
+      "description": "Converts a complex number from rectangular form (x,y) to polar form (r,θ), with the angle in the current angle mode. A real x becomes (x,0).",
+      "stack": "x → (x,0); (x,y) → (r,θ); 'symb' → 'R→P(symb)'",
+      "examples": [
+        {
+          "setup": "RAD",
+          "input": "(3.,4.)"
+        },
+        {
+          "setup": "DEG",
+          "input": "(0.,2.)"
+        }
+      ]
+    },
     "SAME": {
       "description": "Compares two objects of any type for identity and returns 1 or 0; unlike ==, it never produces a symbolic result.",
       "stack": "obj1 obj2 → 0/1",
@@ -6565,7 +7252,19 @@
         },
         {
           "input": "4.",
-          "run": "SCI 0.000123456 →STR"
+          "run": "SCI 0.000123456 →STR",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "input": "4.",
+          "run": "SCI .000123456 →STR",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
@@ -6578,13 +7277,26 @@
         {
           "input": "",
           "setup": "[[ 1. 2. ][ 3. 8. ][ 5. 4. ]] STOΣ",
-          "run": "SCLΣ PPAR"
+          "run": "SCLΣ PPAR",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "setup": "[[ 1. 2. ][ 3. 8. ][ 5. 4. ]] STOΣ",
+          "input": "",
+          "run": "SCLΣ PPAR 1 2 SUB",
+          "models": [
+            "28s"
+          ]
         }
       ]
     },
     "SCONJ": {
       "name": "Store conjugate",
-      "description": "Conjugates the value held in a named variable and stores the result back in place.",
+      "description": "Conjugates the value held in a named variable and keeps the result in that variable.",
       "stack": "'name' →",
       "examples": [
         {
@@ -6691,9 +7403,20 @@
         },
         {
           "input": "",
-          "run": "-40. SF -40. FS?"
+          "run": "-40. SF -40. FS?",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Sets one of the 64 flags. Programs may use flags 1 to 30 freely; flags 31 to 64 control modes such as angle units, number formats and the binary word size.",
+          "stack": "n →"
+        }
+      }
     },
     "SHOW": {
       "description": "Expands an expression by replacing names (except the ones listed) with their variable contents until the given name appears explicitly.",
@@ -6703,7 +7426,13 @@
           "input": "'A*B' 'X'",
           "setup": "'X+1' 'B' STO"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Expands an expression by replacing names with their variable contents until the given name appears explicitly.",
+          "stack": "'symb' 'name' → 'symb''"
+        }
+      }
     },
     "SIDENS": {
       "name": "Silicon intrinsic density",
@@ -6866,8 +7595,20 @@
         },
         {
           "input": "[[ 1. 2. 3. ][ 4. 5. 6. ]]"
+        },
+        {
+          "input": "'A+B*C'",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Measures an object: the character count of a string, the element count of a list, the dimensions of an array as a list, or the number of objects in an algebraic.",
+          "stack": "\"str\" → n; {list} → n; [array] → {dims}; 'symb' → n"
+        }
+      }
     },
     "SL": {
       "name": "Shift left",
@@ -6937,7 +7678,7 @@
       ]
     },
     "SOLVE": {
-      "description": "Solves an equation (or an expression set to zero) for a variable and returns a list of solutions; also accepts a vector of equations with a vector of variables. In exact mode it may return an empty list when only approximate roots exist.",
+      "description": "Finds the values of a variable that satisfy an equation (or make an expression zero) and returns them as a list; also accepts a vector of equations with a vector of variables. In exact mode it may return an empty list when only approximate roots exist.",
       "stack": "'eq' 'var' → {solutions}; [eqs] [vars] → {solutions}",
       "examples": [
         {
@@ -6969,7 +7710,7 @@
     },
     "SOLVEVX": {
       "name": "Solve for the current variable",
-      "description": "Solves an equation, or an expression taken as equal to zero, for the current CAS variable and returns the solutions.",
+      "description": "Finds the values of the current CAS variable that satisfy an equation, or make an expression zero, and returns them.",
       "stack": "'symb' → {solutions}",
       "examples": [
         {
@@ -7158,7 +7899,7 @@
     },
     "STO": {
       "name": "Store",
-      "description": "Stores an object in a variable of the current directory, creating the variable or replacing its contents.",
+      "description": "Puts an object into a variable of the current directory, creating the variable or replacing its contents.",
       "stack": "obj 'name' →",
       "category": "Keyboard",
       "examples": [
@@ -7174,7 +7915,7 @@
     },
     "STO*": {
       "name": "Store times",
-      "description": "Multiplies the contents of a variable by an object and stores the product back; the arguments may come in either order.",
+      "description": "Multiplies what a variable holds by an object and stores the product back; the arguments may come in either order.",
       "stack": "obj 'name' →; 'name' obj →",
       "examples": [
         {
@@ -7197,9 +7938,28 @@
         {
           "input": "'L' 3.",
           "run": "STO+ L",
-          "setup": "{ 1. 2. } 'L' STO"
+          "setup": "{ 1. 2. } 'L' STO",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "setup": "[ 1. 2. ] 'V' STO",
+          "input": "'V' [ 3. 4. ]",
+          "run": "STO+ V",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Adds a value (number or array) to what a variable holds and stores the sum back; the arguments may come in either order.",
+          "stack": "z 'name' →; 'name' z →; [array] 'name' →; 'name' [array] →"
+        }
+      }
     },
     "STO-": {
       "name": "Store minus",
@@ -7255,14 +8015,37 @@
       "examples": [
         {
           "input": "{ #0h #5h }",
-          "run": "STOF RCLF"
+          "run": "STOF RCLF",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
           "input": "#0h",
           "run": "STOF RCLF",
-          "setup": "1. SF"
+          "setup": "1. SF",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "input": "#5h",
+          "run": "STOF 1 FS? 2 FS? 3 FS?",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Sets all 64 flags from the bits of a binary integer, as RCLF returns it: the lowest bit is flag 1, and missing high bits clear their flags.",
+          "stack": "#n →"
+        }
+      }
     },
     "STOKEYS": {
       "name": "Store key assignments",
@@ -7339,7 +8122,13 @@
         {
           "input": "\"{ 1. 2. }\""
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Treats the string as command-line text: compiles it and evaluates the result, so it can create objects or run commands from text.",
+          "stack": "\"str\" → result"
+        }
+      }
     },
     "STURM": {
       "name": "Sturm sequence",
@@ -7377,7 +8166,13 @@
           "input": "8.",
           "run": "STWS #1FFh"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Sets the word size used for binary integer arithmetic and display, from 1 to 64 bits; values outside that range are clamped.",
+          "stack": "n →"
+        }
+      }
     },
     "SUB": {
       "name": "Subset",
@@ -7390,7 +8185,13 @@
         {
           "input": "{ 1. 2. 3. 4. 5. } 2. 3."
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Extracts the part of a string or list between two positions, both inclusive.",
+          "stack": "\"str\" n1 n2 → \"sub\"; {list} n1 n2 → {sub}"
+        }
+      }
     },
     "SUBST": {
       "name": "Substitute",
@@ -7722,7 +8523,13 @@
     "THEN": {
       "description": "Separates the test clause from the clause that runs when the test is true in IF, IFERR and CASE structures; it consumes the test value.",
       "stack": "test →",
-      "skip": "part of the IF / IFERR / CASE structures; see IF for an example"
+      "skip": "part of the IF / IFERR / CASE structures; see IF for an example",
+      "per_model": {
+        "28s": {
+          "description": "Ends the test clause of an IF structure and takes the test value from the stack, or ends the trap clause of an IFERR structure. The clause after it runs when the test is true or an error occurred.",
+          "stack": "test →"
+        }
+      }
     },
     "TI1M": {
       "name": "t interval, one mean",
@@ -7733,7 +8540,7 @@
     },
     "TI2M": {
       "name": "t interval, two means",
-      "description": "Internal routine of the statistics confidence-interval application; the name points to a Student t interval for the difference of two means. Not meant for direct use.",
+      "description": "Internal routine of the statistics confidence-interval application; the name points to a Student t interval for the gap between two means. Not meant for direct use.",
       "stack": "(undocumented)",
       "category": "STAT",
       "skip": "internal routine of the statistics interval forms with undocumented arguments"
@@ -8011,7 +8818,7 @@
     },
     "TVM": {
       "name": "Time value of money",
-      "description": "Opens the time-value-of-money solver menu, where loan and savings variables (N, I%YR, PV, PMT, FV, PYR) are entered and solved for.",
+      "description": "Opens the time-value-of-money solver menu, where loan and savings variables (PV, PMT, FV, N, I%YR, PYR) are entered and solved for.",
       "stack": "→",
       "category": "SOLVE TVM",
       "skip": "only displays the interactive TVM solver menu"
@@ -8362,7 +9169,13 @@
         {
           "input": "0.1"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Pauses a program for the given number of seconds.",
+          "stack": "x →"
+        }
+      }
     },
     "WHILE": {
       "description": "Opens a pre-tested loop WHILE test REPEAT body END: the test clause runs first and the body repeats for as long as the test leaves a nonzero value. Only valid inside programs.",
@@ -8666,14 +9479,14 @@
     },
     "ZI2M": {
       "name": "Z interval, two means",
-      "description": "Internal routine of the statistics confidence-interval application; the name points to a Z interval for the difference of two means. Not meant for direct use.",
+      "description": "Internal routine of the statistics confidence-interval application; the name points to a Z interval for the gap between two means. Not meant for direct use.",
       "stack": "(undocumented)",
       "category": "STAT",
       "skip": "internal routine of the statistics interval forms with undocumented arguments"
     },
     "ZI2P": {
       "name": "Z interval, two proportions",
-      "description": "Internal routine of the statistics confidence-interval application; the name points to a Z interval for the difference of two proportions. Not meant for direct use.",
+      "description": "Internal routine of the statistics confidence-interval application; the name points to a Z interval for the gap between two proportions. Not meant for direct use.",
       "stack": "(undocumented)",
       "category": "STAT",
       "skip": "internal routine of the statistics interval forms with undocumented arguments"
@@ -8948,7 +9761,7 @@
     },
     "Σ+": {
       "name": "Add data point",
-      "description": "Appends a data point to the statistics matrix ΣDAT, creating it if needed: a real for one-variable data, a vector or several reals for one row, or a matrix for several rows.",
+      "description": "Adds a row (or rows) to ΣDAT, creating it if needed: a real for one-variable data, a vector or several reals for one row, or a matrix for several rows.",
       "stack": "x →; [vector] →; [[matrix]] →",
       "examples": [
         {
@@ -8964,7 +9777,13 @@
           "run": "Σ+ NΣ",
           "setup": "[[ 1. 2. ][ 2. 4.1 ][ 3. 5.9 ]] STOΣ"
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Appends data to the statistics matrix ΣDAT, creating it if needed: a real for one-column data, a vector for one row, or a matrix for several rows.",
+          "stack": "x →; [vector] →; [[matrix]] →"
+        }
+      }
     },
     "Σ-": {
       "name": "Remove data point",
@@ -9040,7 +9859,7 @@
     },
     "ΣXY": {
       "name": "Sum of x times y",
-      "description": "Adds up, row by row, the products of the independent and dependent columns of the statistics matrix ΣDAT.",
+      "description": "Sums the products, row by row, of the two ΣDAT columns that XCOL and YCOL choose.",
       "stack": "→ x",
       "examples": [
         {
@@ -9323,7 +10142,14 @@
       "name": "Graphics object to display",
       "description": "Shows a graphics object on the screen, placing its top-left corner at the top-left of the display.",
       "stack": "grob →",
-      "skip": "writes to the screen and returns nothing to the stack"
+      "skip": "writes to the screen and returns nothing to the stack",
+      "per_model": {
+        "28s": {
+          "name": "String to display",
+          "description": "Shows a string as graphics: each character code becomes a column of eight pixels, drawn from the display's top-left corner. 548 characters fill the screen.",
+          "stack": "\"str\" →"
+        }
+      }
     },
     "→LIST": {
       "name": "Stack to list",
@@ -9601,9 +10427,20 @@
           "input": "-4."
         },
         {
-          "input": "9._m^2"
+          "input": "9._m^2",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Gives the principal square root. A negative real yields a complex result, and algebraics give a symbolic result.",
+          "stack": "x → √x; z → √z; 'symb' → '√symb'"
+        }
+      }
     },
     "∞": {
       "name": "Infinity",
@@ -9628,14 +10465,44 @@
       "examples": [
         {
           "input": "0. 1. 'X^2' 'X'",
-          "setup": "STD"
+          "setup": "STD",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
         },
         {
           "input": "0. 1. 'EXP(-X^2)' 'X'",
           "setup": "STD",
-          "run": "∫ →NUM"
+          "run": "∫ →NUM",
+          "models": [
+            "48sx",
+            "48gx",
+            "49g"
+          ]
+        },
+        {
+          "setup": "STD",
+          "input": "'X^2' 'X' 3.",
+          "models": [
+            "28s"
+          ]
+        },
+        {
+          "setup": "STD",
+          "input": "'EXP(-X^2)' { X 0. 1. } .00001",
+          "models": [
+            "28s"
+          ]
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Integrates an expression. With a variable name and a degree it returns a polynomial for the indefinite integral, through a Taylor series where needed. With a list of the variable and two limits plus an accuracy it integrates numerically and returns the integral and an error estimate.",
+          "stack": "'symb' 'name' n → 'symb''; 'symb' { name a b } x → integral error; «prog» { a b } x → integral error"
+        }
+      }
     },
     "≠": {
       "name": "Not equal",
@@ -9661,7 +10528,13 @@
         {
           "input": "4. 3."
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Compares level 2 against level 1 and pushes 1 if it is smaller or equal, else 0; accepts reals, binary integers and strings (compared by character code), and yields a symbolic comparison for names or algebraics.",
+          "stack": "x y → 0/1; \"s1\" \"s2\" → 0/1; 'symb' x → 'symb≤x'"
+        }
+      }
     },
     "≥": {
       "name": "Greater than or equal",
@@ -9674,7 +10547,13 @@
         {
           "input": "\"A\" \"B\""
         }
-      ]
+      ],
+      "per_model": {
+        "28s": {
+          "description": "Compares level 2 against level 1 and pushes 1 if it is larger or equal, else 0; accepts reals, binary integers and strings (compared by character code), and yields a symbolic comparison for names or algebraics.",
+          "stack": "x y → 0/1; \"s1\" \"s2\" → 0/1; 'symb' x → 'symb≥x'"
+        }
+      }
     },
     "▶": {
       "name": "Infix store",

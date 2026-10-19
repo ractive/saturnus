@@ -10,9 +10,13 @@
 //!   from the ROM's definitions with the root menus the catalog records
 //!   equals the catalog's (no keys pressed; the keyboard is observed in
 //!   the ignored test).
+//! - `the_28s_catalog_and_sample_examples_match`: the 28S's CATALOG read
+//!   off the display gives the catalog's names in its order, and a sample
+//!   of its examples, typed by keys, gives the same JSON (seconds).
 //! - `catalogs_and_examples_regenerate_byte_for_byte` (ignored, minutes in
 //!   a release build): every catalog (names, then menus with the keyboard
-//!   observed) and examples file regenerated in full equals the file. Run with
+//!   observed; the 28S's names, its menus kept from the file) and examples
+//!   file regenerated in full equals the file. Run with
 //!   `cargo test --release -p saturnus-refgen -- --ignored`.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -21,6 +25,7 @@ use std::path::{Path, PathBuf};
 use saturnus_core::Model;
 use saturnus_refgen::catalog::{self, Catalog, model_name};
 use saturnus_refgen::examples::{self, Examples};
+use saturnus_refgen::keyed::{self, KeyFile};
 use saturnus_refgen::menus;
 use saturnus_refgen::names;
 use saturnus_refgen::reference::Reference;
@@ -117,6 +122,25 @@ fn sample_examples_match() {
 }
 
 #[test]
+fn the_28s_catalog_and_sample_examples_match() {
+    let Some(rom) = rom("hp28s.rom") else { return };
+    let file: Catalog = read("28s.json");
+    let cat = catalog::generate_28s(&rom, Some(&file)).unwrap();
+    assert_eq!(cat, file);
+    let reference: Reference = read("reference.json");
+    let examples: Examples = read("examples-28s.json");
+    let only: Vec<String> = ["+", "SIN", "→LIST", "STO+", "RND", "DUP", "IF", "CHR"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let ex = examples::generate(Model::Hp28s, &rom, &file, &reference, Some(&only)).unwrap();
+    assert_eq!(ex.examples.len() + ex.skipped.len(), only.len());
+    for (name, list) in &ex.examples {
+        assert_eq!(Some(list), examples.examples.get(name), "{name}");
+    }
+}
+
+#[test]
 #[ignore = "minutes in a release build; run with --release --ignored"]
 fn catalogs_and_examples_regenerate_byte_for_byte() {
     let reference: Reference = read("reference.json");
@@ -138,4 +162,69 @@ fn catalogs_and_examples_regenerate_byte_for_byte() {
             "examples-{m}.json"
         );
     }
+    let Some(rom) = rom("hp28s.rom") else { return };
+    let file: Catalog = read("28s.json");
+    let cat = catalog::generate_28s(&rom, Some(&file)).unwrap();
+    assert_eq!(
+        catalog::to_file_text(&cat).unwrap(),
+        std::fs::read_to_string(data("28s.json")).unwrap(),
+        "28s.json"
+    );
+    let ex = examples::generate(Model::Hp28s, &rom, &cat, &reference, None).unwrap();
+    assert_eq!(
+        examples::to_file_text(&ex).unwrap(),
+        std::fs::read_to_string(data("examples-28s.json")).unwrap(),
+        "examples-28s.json"
+    );
+}
+
+/// Every key-driven model's reference (`keys-<model>.json`) checked on the
+/// emulator and its examples run again to the committed file, byte for
+/// byte (a second or two per Pioneer; the 38G, 39G and 40G take about
+/// 40 s each in a debug build). A model without its ROM in
+/// `SATURNUS_ROM_DIR` is skipped.
+#[test]
+fn keyed_references_regenerate_byte_for_byte() {
+    let Some(dir) = std::env::var_os("SATURNUS_ROM_DIR") else {
+        eprintln!("SATURNUS_ROM_DIR not set: skipping the key-driven references");
+        return;
+    };
+    for entry in std::fs::read_dir(data("")).unwrap() {
+        let path = entry.unwrap().path();
+        let file = path.file_name().unwrap().to_string_lossy().to_string();
+        let Some(m) = file
+            .strip_prefix("keys-")
+            .and_then(|f| f.strip_suffix(".json"))
+        else {
+            continue;
+        };
+        let model: Model = m.parse().unwrap();
+        // The file saturnus downloads (rom.39g for the 39G and 40G), else
+        // the owner's dump, hp<model>.rom.
+        let name = saturnus_host::romid::download(model)
+            .map_or_else(|| format!("hp{m}.rom"), |k| k.file.to_string());
+        let rom = Path::new(&dir).join(name);
+        if !rom.exists() {
+            eprintln!("{} missing: skipping {file}", rom.display());
+            continue;
+        }
+        let keys: KeyFile = read(&file);
+        let ex = keyed::generate(model, &rom, &keys, None).unwrap();
+        assert_eq!(
+            keyed::to_file_text(&ex).unwrap(),
+            std::fs::read_to_string(data(&format!("examples-{m}.json"))).unwrap(),
+            "examples-{m}.json"
+        );
+    }
+}
+
+/// The 40G runs the 39G's ROM with the same keyboard: its reference is the
+/// 39G's, function for function.
+#[test]
+fn the_40g_reference_is_the_39gs() {
+    let a: KeyFile = read("keys-39g.json");
+    let b: KeyFile = read("keys-40g.json");
+    assert_eq!((a.model.as_str(), b.model.as_str()), ("39g", "40g"));
+    assert_eq!(a.commands, b.commands);
+    assert_eq!((a.learn, a.home, a.ready), (b.learn, b.home, b.ready));
 }
