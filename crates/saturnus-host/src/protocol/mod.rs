@@ -1144,6 +1144,7 @@ impl Engine {
                 self.emu()?.object_at(address)?.into()
             }
             C::CommandLine => value_of(&self.emu()?.command_line()?)?.into(),
+            C::EntryModes => value_of(&crate::typing::entry_modes(self.emu()?.machine())?)?.into(),
             C::SerialOpen => {
                 let serial = self.serial;
                 let e = self.emu()?;
