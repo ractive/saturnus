@@ -1,0 +1,45 @@
+---
+title: "AI assistant: saturnus over MCP, with a saturnus skill and plugin"
+type: backlog
+date: 2026-10-19
+status: planned
+priority: medium
+tags:
+  - backlog
+  - saturnus
+  - mcp
+---
+
+# AI assistant: saturnus over MCP
+
+Owner's decisions, 2026-10-19 (discussion in [[research/ai-assistant-options]]):
+
+- **Desktop app**: serves MCP over Streamable HTTP on 127.0.0.1 while it
+  runs, behind a setting ("Allow AI assistants to control this calculator"),
+  with the control API's token and Host/Origin rules. Claude Code, Codex,
+  VS Code and Cursor connect to it by URL.
+- **Claude Desktop**: a `.mcpb` bundle with a small `saturnus mcp` stdio
+  forwarder to the running desktop app (Claude Desktop's custom connectors
+  connect from Anthropic's cloud and cannot reach localhost). If the app is
+  not running, the forwarder starts it. No headless calculator: an agent
+  only drives a calculator the user sees.
+- **Web app**: through tab-mcp (`~/devel/tab-mcp`, its own project): the tab
+  connects to a relay and gets an address for any AI app. While an agent is
+  connected, the calculator keeps running in a hidden tab (pacing option 1:
+  no `visibility` pause during a session).
+- **Only the stateless MCP revision (2026-07-28)**; OAuth with a pairing code
+  confirmed in the app.
+- **The saturnus skill and plugin** (owner, 2026-10-19): the core knowledge
+  goes into the MCP server itself (server instructions, tool descriptions, a
+  `lookup_command` tool on the existing reference), so it needs no install. On
+  top, an optional `saturnus` skill in the open Agent Skills format
+  (`SKILL.md`, for Claude Code, claude.ai, Codex and pi): RPL programming,
+  the stack, the models' differences (42S menus, the 38G's HOME line, shift
+  and ALPHA), known traps (NULL on long presses, the 28S's number entry, the
+  documented ROM bugs), "press, then read the display to verify", and
+  workflows (write, store and test a program). Packaged like hyalo's
+  (`plugins/hyalo`, `pi-package`): a Claude Code plugin with the skill, the
+  desktop app's MCP address and the `.mcpb`.
+
+Open for the plan: which calculators the tools address (the one shown in
+Calculator by default, others by id), and the tool set per model family.
