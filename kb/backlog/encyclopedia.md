@@ -36,7 +36,7 @@ What blocks it:
    wiki's rule that they are never opened; the Conn4x pages name a routine and quote code
    comments.
 4. Copied tables: the three system-flag pages, Intel datasheet tables, Mastracci's tables
-   (his terms say "no changes"), tables from the Saturn tutorial and Horn's Kermit notes.
+   (Mastracci's terms say "no changes"), tables from the Saturn tutorial and Horn's Kermit notes.
 5. 25 entries in sources/manifest.json have terms "not checked".
 
 No images or other media in the wiki, no e-mail addresses, no local paths.
@@ -46,7 +46,7 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
 - 2026-10-20: the owner's own photographs may stay as sources. The wiki's CLAUDE.md says
   so since then; the audit's photograph findings (category 5) need no fix.
 - 2026-10-20: the wiki no longer says who holds the ROM images it used (wiki commit
-  after 2a74a7d); the git history still does.
+  290e7dd); the git history still does.
 
 Open:
 
