@@ -44,8 +44,9 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
 ## Owner decisions
 
 - 2026-10-20: the owner's own photographs may stay as sources. The wiki's CLAUDE.md says
-  so since then; the audit's photograph findings (category 5) need no fix. Still open in
-  category 5: the mentions of unreleased ROM images the owner holds.
+  so since then; the audit's photograph findings (category 5) need no fix.
+- 2026-10-20: the wiki no longer says who holds the ROM images it used (wiki commit
+  after 2a74a7d); the git history still does.
 
 Open:
 
