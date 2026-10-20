@@ -8,7 +8,7 @@ AddType application/manifest+json .webmanifest
 # Content-Security-Policy (defence in depth): only this site's own files,
 # WebAssembly compiled from them (the Worker), no plugins, no framing.
 # connect-src adds tab-mcp's hosted relay (wss://relay.ractive.ch), the
-# WebSocket of "Connect your AI tool" (web/ai.js, iteration 55); no
+# WebSocket of "Connect your AI app" (web/ai.js, iteration 55); no
 # script comes from it.
 # The service worker (worker-src) and the manifest and its icons
 # (default-src, img-src) are the site's own files too.

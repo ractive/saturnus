@@ -212,7 +212,7 @@ button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background:
   .confirm-actions > button { flex: 1; }
 }
 
-/* "Connect your AI tool" (web/ai-dialog.js): the confirmation's look,
+/* "Connect your AI app" (web/ai-dialog.js): the confirmation's look,
    wider, with the address, the connected apps and the setting. */
 dialog.ai {
   width: min(520px, calc(100vw - 2 * var(--gutter)));
