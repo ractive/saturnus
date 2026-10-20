@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "origin": {
+    "base_url": "https://api.anthropic.com",
+    "organization_id": "0989a58e-c003-44b4-9061-9d30cd85e3fc",
+    "workspace_id": "wrkspc_01XJ17D48LhQJg1Bws4AeYUb"
+  },
+  "resources": {
+    "./agents/wiki-auditor.md": {
+      "kind": "agent",
+      "id": "agent_01MSRjp6W6gC5ZRe9Aec716N",
+      "version": "1",
+      "hash": "779d6d72c96e6c58205d2d6e2458ea5a",
+      "remote_hash": "69569661f618518c8a417ef38055f93f"
+    },
+    "./environments/wiki-audit.yaml": {
+      "kind": "environment",
+      "id": "env_014mLeZzAcqoXf6QHt3KYqzD",
+      "hash": "9a7c3e3f278df2064533651f6a024954",
+      "remote_hash": "9b63af0856039b5cc7fd68f460236312"
+    }
+  }
+}

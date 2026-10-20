@@ -1,0 +1,3 @@
+name: wiki-audit
+# No network at all: the repository is mounted at session start, the job needs nothing else.
+config: {type: cloud, networking: {type: limited}}
