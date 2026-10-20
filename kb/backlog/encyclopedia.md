@@ -41,10 +41,14 @@ What blocks it:
 
 No images or other media in the wiki, no e-mail addresses, no local paths.
 
-## Open owner decisions
+## Owner decisions
 
-- May the owner's own photographs stay as sources (then the wiki's CLAUDE.md changes
-  first), or are those facts re-sourced or dropped?
+- 2026-10-20: the owner's own photographs may stay as sources. The wiki's CLAUDE.md says
+  so since then; the audit's photograph findings (category 5) need no fix. Still open in
+  category 5: the mentions of unreleased ROM images the owner holds.
+
+Open:
+
 - Copied tables: rewrite as prose facts, or drop from the encyclopedia?
 - Form and URL of the encyclopedia below `/saturnus/`.
 
