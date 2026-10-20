@@ -16,8 +16,9 @@ const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /**
  * The relay AI access uses, or null for none: on a page served from this
- * computer (localhost) a development relay named in localStorage
- * (`saturnus.aiRelay`, e.g. `http://127.0.0.1:8787`), else the hosted one.
+ * computer (localhost) only a development relay named in localStorage
+ * (`saturnus.aiRelay`, e.g. `http://127.0.0.1:8787`), never the hosted one,
+ * so development pages put no traffic on it; elsewhere the hosted one.
  */
 export function relayUrl({ location = globalThis.location, storage = globalThis.localStorage } = {}) {
   if (LOOPBACK.has(location?.hostname)) {
@@ -27,6 +28,7 @@ export function relayUrl({ location = globalThis.location, storage = globalThis.
     } catch {
       // Storage blocked: no development relay.
     }
+    return null;
   }
   return HOSTED_RELAY;
 }
