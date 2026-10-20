@@ -1069,14 +1069,15 @@ through the relay while the tab is open. Nothing is installed.
 - **Where**: Search's action "Connect your AI app…" and the link of that
   name in Calculator's panel open its dialog (`ai-dialog.js`): the
   address with Copy, the state, the pairing code once the relay sends one
-  (tab-mcp's OAuth, still to come), the connected apps each with
+  (tab-mcp's OAuth pairing: the user types it on the relay's sign-in page), the connected apps each with
   Disconnect, **Keep AI access on** (connect again when the app opens,
   kept as `saturnus.aiKeepOn`), Turn off and New address (the apps of the
   old one lose access). While a session is on, the panel says "AI access
   on · 1 app · Show". Not in the desktop app.
-- **Relay** (`ai-relay.js`): the hosted one (`HOSTED_RELAY`, null until
-  tab-mcp's hosted relay runs at relay.ractive.ch; `connect-src` in
-  `site.htaccess` already admits it), or on a page served from localhost a
+- **Relay** (`ai-relay.js`): the hosted one (`HOSTED_RELAY`,
+  `https://tab-mcp.ractive.ch` since 2026-10-20, run from the ractive.ch
+  repository; `connect-src` in `site.htaccess` admits it; privacy notice
+  at <https://ractive.ch/tab-mcp/>, linked from the dialog), or on a page served from localhost a
   development relay named in localStorage: `localStorage.setItem("saturnus.aiRelay",
   "http://127.0.0.1:8787")` with `TAB_MCP_PUBLIC_URL=http://127.0.0.1:8787
   TAB_MCP_PORT=8787 TAB_MCP_ALLOWED_ORIGINS=http://127.0.0.1:4860

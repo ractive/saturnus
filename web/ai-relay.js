@@ -6,11 +6,11 @@
 import { KEYS } from "./shared/storage-names.js";
 
 /**
- * The hosted relay, once tab-mcp's runs (its iteration 6:
- * https://relay.ractive.ch, already in the CSP's connect-src). Null: AI
- * access is off on the published site.
+ * The hosted relay (ractive.ch's, since 2026-10-20; privacy notice at
+ * https://ractive.ch/tab-mcp/). Null would turn AI access off on the
+ * published site.
  */
-export const HOSTED_RELAY = null;
+export const HOSTED_RELAY = "https://tab-mcp.ractive.ch";
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
