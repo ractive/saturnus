@@ -7,7 +7,7 @@ AddType application/json .json
 AddType application/manifest+json .webmanifest
 # Content-Security-Policy (defence in depth): only this site's own files,
 # WebAssembly compiled from them (the Worker), no plugins, no framing.
-# connect-src adds tab-mcp's hosted relay (wss://relay.ractive.ch), the
+# connect-src adds tab-mcp's hosted relay (wss://tab-mcp.ractive.ch), the
 # WebSocket of "Connect your AI app" (web/ai.js, iteration 55); no
 # script comes from it.
 # The service worker (worker-src) and the manifest and its icons
@@ -24,5 +24,5 @@ AddType application/manifest+json .webmanifest
 <IfModule mod_headers.c>
 Header set Cache-Control "no-cache"
 Header unset Expires
-Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' wss://relay.ractive.ch; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' wss://tab-mcp.ractive.ch; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 </IfModule>

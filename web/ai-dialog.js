@@ -33,7 +33,7 @@ export async function openAiDialog(ai, doc = document) {
   const done = el("button", { type: "button", text: "Done" });
   dialog.append(el("div", { class: "ai-box" },
     el("h2", { id: "ai-title", text: "Connect your AI app" }),
-    el("p", { text: "Your AI app (Claude, ChatGPT, Claude Code, Cursor, …) can use the calculators in this tab: read the display, press keys, run programs and look up commands. Add this address to it as an MCP server, or custom connector." }),
+    el("p", { text: "Your AI app (Claude, ChatGPT, Claude Code, …) can use the calculators in this tab: read the display, press keys, run programs and look up commands. Add this address to it as an MCP server, or custom connector." }),
     addressRow,
     code,
     status,
@@ -41,6 +41,7 @@ export async function openAiDialog(ai, doc = document) {
     apps,
     appsNote,
     el("p", { class: "ai-note", text: "The AI app can press any key and run any command, as you can. Storing or purging a variable through its store and purge tools asks you here first. While an AI app is connected, the calculators keep running when this tab is in the background." }),
+    el("p", { class: "ai-note" }, "What passes through the relay, and what it keeps: ", el("a", { href: "https://ractive.ch/tab-mcp/", target: "_blank", rel: "noopener" }, "privacy notice"), "."),
     keepRow,
     el("div", { class: "ai-actions" }, fresh, el("span", { class: "ai-gap" }), off, connect, done),
   ));

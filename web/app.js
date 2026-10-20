@@ -302,7 +302,7 @@ function appActions(backend, store, memory, bindings, ai = null) {
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
     // Files, on this calculator when it can reach it (its route, web/router.js).
     // AI access (web/ai.js), where there is a relay; after the palette has closed.
-    ...(ai ? [{ id: "ai", title: "Connect your AI app…", description: "Let your AI app (Claude, ChatGPT, Claude Code, Cursor) use the calculators in this tab.", keywords: "ai assistant mcp claude chatgpt codex cursor agent connect llm tool", run: () => setTimeout(() => openAi(ai), 0) }] : []),
+    ...(ai ? [{ id: "ai", title: "Connect your AI app…", description: "Let your AI app (Claude, ChatGPT, Claude Code, …) use the calculators in this tab.", keywords: "ai assistant mcp claude chatgpt agent connect llm tool", run: () => setTimeout(() => openAi(ai), 0) }] : []),
     { id: "open-tx", title: "Open Files", description: "Move files between calculators, emulated or on a cable, and this computer.", keywords: "files tx transfer send receive kermit serial cable backup computer", run: () => { location.hash = filesHref(store); } },
     // The tour, and each chapter alone (found by a search).
     { id: "tour", title: "Show me around", description: "A short tour of the app. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },

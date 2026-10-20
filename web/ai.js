@@ -1,5 +1,5 @@
 // AI access (iteration 55): the app's calculators offered to the user's
-// AI app (Claude, ChatGPT, Claude Code, Cursor, …) through a tab-mcp relay
+// AI app (Claude, ChatGPT, Claude Code, …) through a tab-mcp relay
 // (https://github.com/ractive/tab-mcp). The tab connects to the relay and
 // gets an MCP address; the AI app calls the tools (web/ai-tools.js)
 // through the relay while the tab is open.
