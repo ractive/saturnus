@@ -2,7 +2,7 @@
 title: "HP calculator encyclopedia from the wiki, on ractive.ch/saturnus"
 type: backlog
 date: 2026-10-20
-status: planned
+status: active
 priority: medium
 tags:
   - backlog
@@ -60,13 +60,42 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
   and needs no clean-up pass. The encyclopedia is written for readers from the wiki's
   facts and takes no ROM code. The fix pass below is dropped.
 
-Open:
+- 2026-10-21, form and URL (owner):
+  - For both audiences: enthusiasts and collectors (models, history, moving files to a
+    real calculator) and developers (how the Saturn works).
+  - Under `/saturnus/docs/`, in strictly separate sections:
 
-- Form and URL of the encyclopedia below `/saturnus/` (discussed 2026-10-21: readers,
-  first version with model pages and the command reference, URL, review).
+    | Section | URL | Source |
+    |---|---|---|
+    | Models (12) | `/saturnus/docs/48gx` | written from the wiki, the owner's photos |
+    | Commands | `/saturnus/docs/48gx/commands/<slug>` | generated from `web/commands.json` |
+    | How the Saturn works | `/saturnus/docs/saturn/cpu`, `…/memory`, `…/display`, … | written from the wiki |
+    | Moving files to a real calculator | `/saturnus/docs/transfer/cables`, `…/kermit`, `…/satx`, … | written from the wiki and the satx docs |
+
+  - Every page also as Markdown beside its HTML (`/saturnus/docs/48gx` and
+    `/saturnus/docs/48gx.md`), and `/saturnus/llms.txt` in the llmstxt.org format
+    (title, summary, one link list per section; one command index per model rather than
+    every command).
+  - Sources are Markdown files in this repository; the site build renders HTML and
+    publishes the Markdown as is. The command pages (about 4,100 model-command pairs,
+    2,900 examples) are generated, not written: one page per model and command, because
+    the examples ran on each model's ROM. Readable slugs for names like `→LIST`, `%CH`,
+    `∫`, with the real name on the page.
+  - No "Run it" links on the pages: the examples show input, the stack before and the
+    display after, as the emulator gave them. Whoever runs a calculator uses Search
+    (Cmd-K) there.
+  - The app gets a ROM-free command reference: from the home page, every model's
+    commands can be searched and read without a ROM; running needs one.
+  - The encyclopedia takes no ROM code.
 
 ## Tasks
 
 - [-] Fix pass on the wiki (dropped by the owner, 2026-10-21: the wiki stays gathered material)
-- [ ] Decide form, structure and URL of the encyclopedia
-- [ ] Build and publish it
+- [x] Decide form, structure and URL of the encyclopedia
+- [ ] Site build: Markdown sources → HTML plus the `.md` beside it, `/saturnus/llms.txt`, a docs index, navigation, the site's style; deployed with pages.yml
+- [ ] Command pages generated from `web/commands.json`, per model, with slugs and a command index per model
+- [ ] ROM-free command reference in the app (home page)
+- [ ] Model pages (12): history, specifications, what is special, where a ROM comes from, photos
+- [ ] How the Saturn works: CPU, memory, display, keyboard, timers, interrupts
+- [ ] Moving files to a real calculator: cables, Kermit, XModem, satx, Files
+- [ ] Owner review of the written pages
