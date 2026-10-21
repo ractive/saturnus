@@ -88,6 +88,19 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
   - No "Run it" links: the examples show input, the stack before and the display
     after, as the emulator gave them. Whoever runs a calculator uses Search (Cmd-K)
     there.
+  - The command reference page shares the app's code: `web/reference.js` (lookup),
+    `web/components/entry-view.js` (one command) and `web/commands.json`; read-only on
+    the docs page, with "run" only in the app.
+  - Tone: human, plain technical English as in technical documentation, no walls of
+    text, no esoteric words. Model pages longer than the short ones on `/saturnus`, with
+    history and anecdotes. A sample (48GX) settles tone and look before the others.
+  - Look: the app's style; a model page takes that calculator's colours (as the logo and
+    the model cards); section pages keep the neutral colours.
+  - Build: a small script in the site build, no static site generator.
+  - Sources: each page lists the online sources it used (HP's manuals, other sites),
+    linked; no links into the wiki.
+  - The app links to the docs from the home page, the command palette and the About
+    panel. English only.
   - The encyclopedia takes no ROM code.
 
 ## Tasks
@@ -96,7 +109,8 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
 - [x] Decide form, structure and URL of the encyclopedia
 - [ ] Site build: Markdown sources → HTML plus the `.md` beside it, `/saturnus/llms.txt`, a docs index, navigation, the site's style; deployed with pages.yml
 - [ ] Command reference: one dynamic page from `web/commands.json` (model picker, search, links per command), linked from the app's home page; one generated `.md` per model for `llms.txt`
-- [ ] Model pages (12): history, specifications, what is special, where a ROM comes from, photos
+- [ ] Sample model page (48GX), reviewed by the owner for tone and look
+- [ ] The other model pages (11): history, specifications, what is special, where a ROM comes from, photos
 - [ ] How the Saturn works: CPU, memory, display, keyboard, timers, interrupts
 - [ ] Moving files to a real calculator: cables, Kermit, XModem, satx, Files
 - [ ] Owner review of the written pages
