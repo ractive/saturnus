@@ -416,13 +416,15 @@ button.ref-more:hover:not(:disabled) { background: var(--hover); border-color: t
 
 @media (min-width: 860px) {
   .ref-panes { grid-template-columns: var(--ref-side-w) minmax(0, 1fr); gap: var(--s5); align-items: start; }
+  /* Its height follows its top (page.js's fitSide); this is the stuck
+     case, before the script runs. The wheel goes on to the page at its
+     end: no overscroll-behavior here. */
   .ref-side {
     display: block;
     position: sticky;
     top: calc(var(--ref-bar-h) + var(--s2));
     max-height: calc(100vh - var(--ref-bar-h) - var(--s4));
     overflow: auto;
-    overscroll-behavior: contain;
     padding: 0 var(--s3) var(--s4) 0;
     border-right: 1px solid var(--rule-soft);
     scrollbar-width: thin;

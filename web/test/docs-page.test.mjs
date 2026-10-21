@@ -87,6 +87,22 @@ test("the command reference page: the addressed command read-only, suggestions a
   assert.equal(await ev(`document.querySelector('#ref-nav .ref-item[aria-current="true"] .ref-item-long').textContent`), "Hours-minutes-seconds minus");
   assert.ok(await ev(`(() => { const r = document.querySelector('#ref-nav .ref-item[aria-current="true"]').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()`), "the chosen row in view");
   assert.equal(await ev("scrollY"), 0, "the page itself did not scroll");
+  // The column ends above the viewport's bottom wherever the page is, so its last row can be reached:
+  // at page scroll 0 (its top low on the page) and once stuck under the bar; the wheel at its end moves the page.
+  const sideFits = () => ev(`(() => { const s = document.getElementById("ref-side"); s.scrollTop = s.scrollHeight; const r = s.getBoundingClientRect(); const last = [...s.querySelectorAll("summary, .ref-item")].filter((x) => x.checkVisibility()).at(-1).getBoundingClientRect(); return JSON.stringify({ bottom: Math.round(r.bottom), last: Math.round(last.bottom), h: innerHeight, top: Math.round(r.top) }); })()`).then(JSON.parse);
+  let fit = await sideFits();
+  assert.ok(fit.bottom <= fit.h && fit.last <= fit.h && fit.top > 100, `at page scroll 0 the column fits the screen: ${JSON.stringify(fit)}`);
+  await ev(`scrollTo(0, 500), true`);
+  await sleep(150);
+  fit = await sideFits();
+  assert.ok(fit.bottom <= fit.h && fit.last <= fit.h && fit.top < 100, `stuck under the bar the column fits the screen: ${JSON.stringify(fit)}`);
+  const before = await ev("scrollY");
+  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: 180, y: 500, deltaX: 0, deltaY: 300 });
+  await sleep(300);
+  assert.ok(await ev("scrollY") > before, "the wheel at the column's end scrolls the page");
+  await ev(`scrollTo(0, 0), true`);
+  await ev(`document.getElementById("ref-side").scrollTop = 0, true`);
+  await sleep(150);
   assert.match(await ev(`document.querySelector("#ref-nav .ref-nav-title").textContent`), /^The HP 48GX's 517 commands, by menu$/);
   assert.equal(await ev(`[...document.querySelectorAll("#ref-nav .ref-group")].find((d) => d.querySelector(".ref-group-name").textContent === "TIME (MENU 94)").querySelector(".ref-n").textContent`), "19");
   // The arrow keys walk the navigation's rows and groups.

@@ -268,10 +268,36 @@ function* ancestors(a) {
   for (let d = a.parentElement?.closest("details"); d; d = d.parentElement?.closest("details")) yield d;
 }
 
+/**
+ * The column's height on a desktop: from where its top is now (lower on
+ * the page before the page is scrolled, stuck under the bar after) to
+ * just above the viewport's bottom, so its last row can always be
+ * reached and it never hangs below the screen. Read on scroll and
+ * resize, once a frame.
+ */
+let fitting = 0;
+function fitSide() {
+  if (fitting) return;
+  fitting = requestAnimationFrame(() => {
+    fitting = 0;
+    if (narrow.matches || nav.parentElement !== side) {
+      side.style.maxHeight = "";
+      return;
+    }
+    const top = Math.max(side.getBoundingClientRect().top, 0);
+    side.style.maxHeight = `${Math.max(160, window.innerHeight - top - 16)}px`;
+  });
+}
+
+/** Whether `x` is on the screen: not in a folded group (whose content keeps its boxes in Chrome). */
+function onScreen(x) {
+  return x.checkVisibility ? x.checkVisibility() : x.getClientRects().length > 0;
+}
+
 /** The navigation's keys: the arrows move between its rows and groups, Home and End to the ends. */
 function navKeys(e) {
   if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
-  const items = [...nav.querySelectorAll("summary, a.ref-item")].filter((x) => x.getClientRects().length);
+  const items = [...nav.querySelectorAll("summary, a.ref-item")].filter(onScreen);
   if (!items.length) return;
   const i = items.indexOf(document.activeElement);
   let to;
@@ -411,7 +437,11 @@ async function start() {
     new IntersectionObserver(([e]) => bar.classList.toggle("stuck", !e.isIntersecting)).observe(sentinel);
   }
   window.addEventListener("hashchange", () => { fromAddress(); });
+  window.addEventListener("scroll", fitSide, { passive: true });
+  window.addEventListener("resize", fitSide);
+  narrow.addEventListener("change", fitSide);
   await fromAddress();
+  fitSide();
   document.body.dataset.ready = "true";
   // The other RPL models' slugs after the first render, for the entry's
   // pills (a name's slug differs where two names of a model share one:
