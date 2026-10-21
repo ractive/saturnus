@@ -48,15 +48,21 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
 - 2026-10-20: the wiki no longer says who holds the ROM images it used (wiki commit
   290e7dd); the git history still does.
 
+- 2026-10-21: copied tables: the rule is relaxed (wiki commit 67ffba3). Tables of plain
+  facts may follow a source's table with the source cited. Rewritten in our own structure
+  and words: Mastracci's tables (saturn-cpu, uart, timers, io-ram; his terms say "no
+  changes"), the Emu42 PROBLEMS.TXT list (sources/emu42-problems, GPL) and the 49G Pocket
+  Guide's flag list transcribed verbatim (system-flags-49g). The other category 3
+  findings need no fix.
+
 Open:
 
-- Copied tables: rewrite as prose facts, or drop from the encyclopedia?
 - Form and URL of the encyclopedia below `/saturnus/`.
 
 ## Tasks
 
 - [ ] Fix pass on the wiki in the order the audit suggests: listings, dumps and private
-  material; overview.md and the Conn4x pages; the copied tables (after the decision);
+  material; overview.md and the Conn4x pages; the tables named above;
   the source terms. As wiki PRs, then rerun the audit (`tools/wiki-audit/run.sh`)
 - [ ] Decide form, structure and URL of the encyclopedia
 - [ ] Build and publish it
