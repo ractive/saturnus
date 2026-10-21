@@ -159,3 +159,14 @@ test("AI access hands the calls and the connection's events to its log, never th
   const text = ai.log.text();
   assert.ok(!text.includes("abcdefsecret") && !text.includes("XKCD-4242"), text);
 });
+
+test("the drawer goes beside the calculator where the stage has room, else along the bottom", async () => {
+  const { besideBox, BESIDE_MIN } = await import("../ai-log.js");
+  const stage = (width, height) => ({ left: 320, top: 0, right: 320 + width, bottom: height, width, height });
+  // 1366x683 with the panel: the stage is 1046 wide.
+  assert.deepEqual(besideBox(stage(1046, 683), { below: 58 }), { left: 915, top: 70, width: 439, height: 601 });
+  // 1920x1080: at most 640 wide.
+  assert.equal(besideBox(stage(1600, 1080)).width, 640);
+  assert.equal(besideBox(stage(BESIDE_MIN - 1, 900)), null, "too narrow: a sheet");
+  assert.equal(besideBox(stage(1046, 683), { phone: true }), null);
+});

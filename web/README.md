@@ -1094,7 +1094,9 @@ through the relay while the tab is open. Nothing is installed.
   connection's events (connected, lost, the retries, apps paired and
   gone, turned off) in memory only; never the address, a token or a
   pairing code. `AiLogView` is the drawer `#ai-log` (the packets' look,
-  green on black), opened from Calls in the sidebar and "Show the AI's
+  green on black; beside the calculator in the stage's right part when
+  the stage is 820 px or wider, the stage padded so the calculator fits in
+  the rest, else a sheet along the bottom: `besideBox`), opened from Calls in the sidebar and "Show the AI's
   calls" in Search; open or closed kept as `saturnus.aiLog`. A pending
   call says "waiting for you" while tab-mcp's confirmation
   (`dialog.tab-mcp-confirm`) asks about it, else "running"; long values

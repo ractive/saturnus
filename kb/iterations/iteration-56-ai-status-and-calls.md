@@ -104,5 +104,10 @@ address secret, token or pairing code.
 - The drawer's copy button is "Copy log", as in the packets panel; a new
   token `--warn` colours the lost dot. `aiView` (the sidebar's states)
   lives in web/ai-log.js, so it is tested in Node without the page.
+- Placement (review): on a stage 820 px or wider the drawer sits beside
+  the calculator, in the stage's right part (42% of it, 360 to 640 px,
+  from under the stage's tools to the bottom), and the stage keeps that
+  part free so the calculator fits in the rest; narrower, and on phones,
+  a sheet along the bottom.
 - Screenshots (local, not committed): the sidebar connected with the
   drawer full of calls, and lost and reconnecting.

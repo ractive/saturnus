@@ -97,6 +97,25 @@ test("the sidebar says AI access's state; Calls opens the AI's calls, which foll
   assert.equal(await ev("localStorage.getItem('saturnus.aiLog')"), "open");
   assert.equal(await ev("document.querySelector('#ai-log h2').textContent"), "The AI's calls");
   assert.equal(await ev("document.querySelector('#ai-log .al-empty').hidden"), false, "nothing yet");
+  // Beside the calculator, not over it: the stage keeps the drawer's part free, the calculator fits in the rest.
+  const place = `(() => {
+    const st = document.getElementById("stage"), cs = getComputedStyle(st), d = document.getElementById("ai-log").getBoundingClientRect();
+    const r = st.getBoundingClientRect(), calc = document.querySelector("sat-calculator").getBoundingClientRect();
+    const skin = [...document.querySelectorAll("sat-calculator svg, sat-calculator .no-rom, sat-calculator [class*=norom]")].map((e) => e.getBoundingClientRect()).filter((x) => x.width);
+    return { beside: document.getElementById("calculator-view").classList.contains("ai-log-beside"), contentRight: r.right - parseFloat(cs.paddingRight),
+      left: d.left, right: d.right, top: d.top, bottom: d.bottom, w: innerWidth, h: innerHeight, skinRight: Math.max(0, ...skin.map((x) => x.right)), calcRight: calc.right };
+  })()`;
+  let at = await ev(place);
+  assert.equal(at.beside, true);
+  assert.ok(at.left >= at.contentRight, JSON.stringify(at));
+  assert.ok(at.skinRight <= at.left, `nothing of the calculator under the drawer: ${JSON.stringify(at)}`);
+  // A phone: a sheet along the bottom.
+  await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 800, deviceScaleFactor: 1, mobile: true });
+  await until(`!document.getElementById("calculator-view").classList.contains("ai-log-beside")`, "the sheet on a phone");
+  at = await ev(place);
+  assert.deepEqual([at.left, at.right, Math.round(at.bottom)], [0, 390, 800], JSON.stringify(at));
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
+  await until(`document.getElementById("calculator-view").classList.contains("ai-log-beside")`, "beside again");
 
   // A call that asks first: running, waiting for you while tab-mcp's confirmation asks about it, then its outcome.
   await ev(EMIT("note", { what: "connected", host: "127.0.0.1:9" }));

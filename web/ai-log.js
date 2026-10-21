@@ -197,6 +197,25 @@ export function entryItem(e, waiting = false) {
   return li;
 }
 
+/** The stage's width from which the drawer goes beside the calculator, not over it. */
+export const BESIDE_MIN = 820;
+/** The gap around the drawer beside the calculator, in CSS pixels. */
+const GAP = 12;
+
+/**
+ * Where the drawer goes on a stage of `stage` (a rect): beside the
+ * calculator, in the stage's right part (`width` 42% of the stage, 360
+ * to 640 px, its height from under the stage's tools, `below`, to the
+ * bottom), when the stage is at least `BESIDE_MIN` wide and the page not
+ * a phone's; else null (a sheet along the bottom, style.css).
+ */
+export function besideBox(stage, { phone = false, below = stage.top } = {}) {
+  if (phone || stage.width < BESIDE_MIN) return null;
+  const width = Math.round(Math.min(640, Math.max(360, stage.width * 0.42)));
+  const top = Math.round(Math.max(stage.top, below) + GAP);
+  return { left: Math.round(stage.right - width - GAP), top, width, height: Math.round(stage.bottom - GAP - top) };
+}
+
 /**
  * The drawer: `root` the section (index.html `#ai-log`), `log` the
  * AiLog, `say(text, {error})` a toast, `prefs` the page's preferences
@@ -224,6 +243,11 @@ export class AiLogView {
     });
     // tab-mcp's confirmation is a dialog of its own at the end of the body: watched while open.
     this.watch = typeof MutationObserver === "function" ? new MutationObserver(() => this.refreshPending()) : null;
+    // Beside the calculator where the stage has room: the stage keeps that part free (its padding), so the calculator fits in the rest.
+    this.view = root.closest("#calculator-view");
+    this.stage = this.view?.querySelector("#stage") ?? null;
+    if (this.stage && typeof ResizeObserver === "function") new ResizeObserver(() => this.place()).observe(this.stage, { box: "border-box" });
+    globalThis.addEventListener?.("resize", () => this.place());
   }
 
   get isOpen() { return !this.root.hidden; }
@@ -234,11 +258,30 @@ export class AiLogView {
     this.root.hidden = false;
     if (remember) this.prefs?.set("aiLog", "open");
     this.watch?.observe(this.doc.body, { childList: true });
+    this.place();
     this.render();
+  }
+
+  /** Beside the calculator or along the bottom (`besideBox`), as the stage's size says now. */
+  place() {
+    const tools = this.stage?.querySelector(".stage-tools")?.getBoundingClientRect();
+    const box = this.isOpen && this.stage ? besideBox(this.stage.getBoundingClientRect(), { phone: matchMedia("(max-width: 759px)").matches, below: tools?.height ? tools.bottom : undefined }) : null;
+    this.view?.classList.toggle("ai-log-beside", Boolean(box));
+    const s = this.root.style;
+    if (box) {
+      this.view.style.setProperty("--al-w", `${box.width + 2 * GAP}px`);
+      for (const k of ["left", "top", "width", "height"]) s.setProperty(k, `${box[k]}px`);
+      s.setProperty("right", "auto");
+      s.setProperty("bottom", "auto");
+    } else {
+      this.view?.style.removeProperty("--al-w");
+      for (const k of ["left", "top", "width", "height", "right", "bottom"]) s.removeProperty(k);
+    }
   }
 
   close() {
     this.root.hidden = true;
+    this.place();
     this.prefs?.remove("aiLog");
     this.watch?.disconnect();
     this.ui.list.replaceChildren();
