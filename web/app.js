@@ -42,7 +42,7 @@ import { prefs } from "./shared/prefs.js";
 import { watchLogo } from "./logo.js";
 import { CLOCK_MODELS, watchClockOnStart } from "./clock.js";
 import { setView, shown } from "./view.js";
-import { applySiteLinks, connectModel } from "./shared/site-links.js";
+import { applySiteLinks, connectModel, inDesktopApp, siteHref } from "./shared/site-links.js";
 
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform ?? "");
 
@@ -287,6 +287,8 @@ function appActions(backend, store, memory, bindings, ai = null) {
     { id: "stack", title: "Stack", description: "The calculator's stack, level by level.", keywords: "memory explorer stack levels", run: layerTab("stack") },
     { id: "flags", title: "Flags", description: "The calculator's flags, with what each one means.", keywords: "memory explorer flags toggle", run: layerTab("flags") },
     { id: "commands", title: "Browse the reference by menu", description: "The command reference, by the calculator's menus.", keywords: "commands reference menu browse help", run: layerTab("commands") },
+    // The docs' command reference (iteration 57), on this model, in a new tab; not in the desktop app, which has no docs.
+    ...(inDesktopApp() ? [] : [{ id: "docs-commands", title: "Command reference", description: "Every command of the 12 models with examples, in the docs. Opens a new tab.", keywords: "commands reference docs documentation manual help web page", run: () => window.open(`${siteHref("commands", location.pathname)}${s.booted ?? s.model ? `#${s.booted ?? s.model}` : ""}`, "_blank", "noopener") }]),
     { id: "layer", title: s.layer ? "Hide the memory view" : "Show the memory view", description: `The memory view beside the calculator${keyHint(bindings, "layer")}.`, keywords: "memory explorer toggle layer", run: () => setLayerOpen(memory, !s.layer) },
     ...["system", "light", "dark"].map((t) => ({
       id: `theme-${t}`,

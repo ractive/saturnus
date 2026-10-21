@@ -2,6 +2,8 @@
 // script in index.html's head, so no flash of the other theme); web/shared/theme.js
 // changes it later and says what the values mean. The logo's colours too
 // (web/logo.js).
+// The docs pages (web/docs/build.mjs) load it without models.js: the
+// theme alone, their logo colours are their own.
 (function () {
   var theme = null;
   try { theme = localStorage.getItem("saturnus.theme"); } catch (e) { /* storage blocked */ }

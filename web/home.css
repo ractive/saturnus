@@ -41,8 +41,8 @@ body > [data-view][hidden] { display: none; }
   .brand .logo { display: block; flex: none; }
   .brand .logo .planet { fill: var(--logo-planet-panel); }
   .brand .logo .ring { stroke: var(--logo-ring-panel); }
-  .home-landing { font-size: var(--fs-md); color: var(--accent-text); text-decoration: none; text-underline-offset: 3px; }
-  .home-landing:hover { text-decoration: underline; }
+  .home-landing, .home-docs { font-size: var(--fs-md); color: var(--accent-text); text-decoration: none; text-underline-offset: 3px; }
+  .home-landing:hover, .home-docs:hover { text-decoration: underline; }
 
   .home-main {
     width: 100%;

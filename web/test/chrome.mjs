@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 /** web/ as a filesystem path ending in a separator (no %20, no "/C:/" on Windows). */
 export const WEB = fileURLToPath(new URL("../", import.meta.url));
-const MIME = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".wasm": "application/wasm" };
+const MIME = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".wasm": "application/wasm", ".md": "text/markdown; charset=utf-8", ".txt": "text/plain; charset=utf-8" };
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** How long Chrome may take to start, and any one DevTools call to answer. */
@@ -35,9 +35,10 @@ export function findChrome() {
 /**
  * A static server for web/ on a free port; resolves to the server and
  * its port. `files` maps further URL paths to files on disk, served as
- * bytes (a ROM, say).
+ * bytes (a ROM, say); `dirs` maps a URL prefix ("/docs/") to a folder
+ * served in its place (a built site's, say), typed like web/'s files.
  */
-export function serve(files = {}) {
+export function serve(files = {}, dirs = {}) {
   const server = createServer((req, res) => {
     const path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname)).replace(/^(\.\.[/\\])+/, "");
     const extra = Object.hasOwn(files, path) ? files[path] : null;
@@ -47,8 +48,11 @@ export function serve(files = {}) {
       return;
     }
     // A folder's index.html, as any static server (the landing page, landing/).
-    const file = join(WEB, path.endsWith("/") || path.endsWith("\\") ? join(path, "index.html") : path);
-    if (!file.startsWith(WEB) || !existsSync(file) || !statSync(file).isFile()) {
+    const prefix = Object.keys(dirs).find((d) => path.startsWith(d));
+    const root = prefix ? join(dirs[prefix], "/") : WEB;
+    const rel = prefix ? path.slice(prefix.length) : path;
+    const file = join(root, rel === "" || rel.endsWith("/") || rel.endsWith("\\") ? join(rel, "index.html") : rel);
+    if (!file.startsWith(root) || !existsSync(file) || !statSync(file).isFile()) {
       res.writeHead(404).end();
       return;
     }
@@ -376,9 +380,9 @@ async function page(b) {
  * makes the skip a failure). The page is a fresh browser context of the
  * file's shared Chrome. Both are closed when the test ends, passed,
  * failed or timed out (the test's signal), so neither outlives it;
- * `close` may be called earlier too. `files` as for `serve`.
+ * `close` may be called earlier too. `files` and `dirs` as for `serve`.
  */
-export async function session(t, { files = {}, audit = false } = {}) {
+export async function session(t, { files = {}, dirs = {}, audit = false } = {}) {
   const binary = findChrome();
   const built = existsSync(join(WEB, "pkg", "saturnus_web_bg.wasm"));
   if (!binary || !built) {
@@ -387,7 +391,7 @@ export async function session(t, { files = {}, audit = false } = {}) {
     t.skip(why);
     return null;
   }
-  const { server, port } = await serve(files);
+  const { server, port } = await serve(files, dirs);
   const stop = () => {
     server.closeAllConnections();
     server.close();

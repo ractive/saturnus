@@ -27,6 +27,14 @@
 #                       manifest, the icons and the service worker, with
 #                       index.html given the manifest link and Apple's
 #                       tags (web/pwa/head.html).
+#   docs/, llms.txt     the docs (iteration 57): web/docs/build.mjs
+#                       renders web/docs/pages/*.md into docs/<page>/
+#                       index.html with the Markdown beside it as
+#                       docs/<page>.md, the command reference page
+#                       docs/commands/ (it runs the app's reference code
+#                       from app/), one Markdown file of commands per
+#                       model (docs/commands/<model>.md) and llms.txt at
+#                       the top; it checks the pages' links. Needs Node.
 #
 # Tests, READMEs and build scripts stay out. The app's service worker is
 # web/pwa/sw.js behind two constants written here: BUILD, a hash of every
@@ -151,6 +159,10 @@ cp "$here/pwa/manifest.webmanifest" "$app/"
 cp "$here"/pwa/icons/*.png "$app/icons/"
 install_sw "$app"
 
+# The docs, after the app: their pages load its code and styles.
+command -v node > /dev/null || { echo "web/site.sh: the docs need Node (web/docs/build.mjs)" >&2; exit 1; }
+node "$here/docs/build.mjs" "$out" --csp "$csp"
+
 # Every relative module reference of a page must resolve: `from "./x"`,
 # a side-effect `import "./x"`, a dynamic `import("./x")` and
 # `new URL("./x", ...)`, in double or single quotes. For the app and the
@@ -172,6 +184,7 @@ check_refs() {
 }
 check_refs "$out_abs"/app/*.js "$out_abs"/app/components/*.js "$out_abs"/app/tx/*.js "$out_abs"/app/shared/*.js "$out_abs"/app/shared/components/*.js
 check_refs "$out_abs"/*.js
+check_refs "$out_abs"/docs/commands/*.js
 # And the app's page's own `href` and `src` attributes (its
 # stylesheets, classic scripts, icons, manifest), but not other sites,
 # absolute paths, anchors or data: URLs; a folder ("./") must have its

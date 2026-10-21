@@ -1,0 +1,141 @@
+/* The docs pages (/saturnus/docs/, web/docs/build.mjs): the app's look
+   from its tokens (app/shared/tokens.css, loaded first) and its
+   stylesheet (app/style.css: the logo's colours per model through
+   `data-logo`, the reference entry as `.docs-ref`). A model page takes
+   its model's colours (`data-logo` on <html>); the section pages keep
+   the plain logo's. Only tokens. */
+
+body.docs {
+  height: auto;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+
+/* ------------------------------------------------------------------ bar */
+
+.docs-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  min-height: var(--bar-top);
+  padding: var(--safe-t) calc(var(--gutter) + var(--safe-r)) 0 calc(var(--gutter) + var(--safe-l));
+  border-bottom: 1px solid var(--rule);
+  box-sizing: border-box;
+}
+.docs-bar .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: inherit;
+  text-decoration: none;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.docs-bar .brand .logo { display: block; flex: none; }
+/* The header's and a model page's title logo with the panel's tints (style.css); the index's
+   model links in their own colours, as the app's model rows. */
+.docs-bar .brand .logo .planet, .docs-page h1 .logo .planet { fill: var(--logo-planet-panel); }
+.docs-bar .brand .logo .ring, .docs-page h1 .logo .ring { stroke: var(--logo-ring-panel); }
+.docs-brand-sub { font-weight: 400; color: var(--muted); }
+.docs-nav { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); margin-right: auto; font-size: var(--fs-md); }
+.docs-nav a, .docs-app, .docs-foot a { color: var(--accent-text); text-decoration: none; text-underline-offset: 3px; }
+.docs-nav a:hover, .docs-app:hover, .docs-foot a:hover { text-decoration: underline; }
+.docs-nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+.docs-app { font-size: var(--fs-md); }
+
+/* ---------------------------------------------------------------- page */
+
+.docs-main {
+  flex: 1;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--s6) calc(var(--gutter) + var(--safe-r)) var(--s6) calc(var(--gutter) + var(--safe-l));
+  box-sizing: border-box;
+}
+.docs-commands .docs-main { max-width: 1180px; }
+.docs-page { line-height: 1.6; }
+.docs-page > :first-child { margin-top: 0; }
+.docs-page h1 { display: flex; align-items: center; gap: var(--s3); font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.015em; line-height: var(--lh-tight); margin: 0 0 var(--s4); }
+.docs-page h1 .logo { flex: none; }
+.docs-page h2 { font-size: var(--fs-xl); line-height: var(--lh-tight); margin: var(--s6) 0 var(--s2); }
+.docs-page h3 { font-size: var(--fs-lg); margin: var(--s5) 0 var(--s2); }
+.docs-page h4 { font-size: var(--fs-base); margin: var(--s4) 0 var(--s1); }
+.docs-page p, .docs-page ul, .docs-page ol, .docs-page blockquote, .docs-page pre, .docs-page .table-wrap { margin: 0 0 var(--s3); }
+.docs-page ul, .docs-page ol { padding-left: 1.4em; }
+.docs-page a { color: var(--accent-text); text-underline-offset: 2px; }
+.docs-page code { font: 0.92em/1.4 var(--mono); }
+.docs-page pre { padding: 9px 12px; background: var(--paper); border: 1px solid var(--rule); border-radius: var(--r-md); overflow-x: auto; }
+.docs-page pre code { font-size: var(--fs-md); }
+.docs-page blockquote { padding: 0 0 0 var(--s3); border-left: 3px solid var(--rule); color: var(--muted); }
+.docs-page hr { border: 0; border-top: 1px solid var(--rule); margin: var(--s5) 0; }
+.docs-page img { max-width: 100%; height: auto; }
+.docs-page .table-wrap { overflow-x: auto; }
+.docs-page table { border-collapse: collapse; font-size: var(--fs-md); }
+.docs-page th, .docs-page td { padding: 5px 10px; border-bottom: 1px solid var(--rule-soft); text-align: left; vertical-align: top; }
+.docs-page th { border-bottom-color: var(--rule); }
+
+/* A model page: its title underlined in the model's colours. */
+.docs-model .docs-page h1 { padding-bottom: var(--s3); border-bottom: 3px solid var(--logo-ring-panel); }
+
+/* The index's models: a column of links, each with its logo. */
+.docs-index .docs-page ul:has(> .docs-model-link) { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s1) var(--s3); }
+.docs-model-link a { display: inline-flex; align-items: center; gap: var(--s2); }
+.docs-model-link .logo { flex: none; }
+
+.docs-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s4);
+  padding: var(--s3) calc(var(--gutter) + var(--safe-r)) calc(var(--s3) + var(--safe-b)) calc(var(--gutter) + var(--safe-l));
+  border-top: 1px solid var(--rule);
+  font-size: var(--fs-sm);
+}
+
+/* ------------------------------------------------ the command reference */
+
+.docs-ref-app { margin-top: var(--s4); }
+.ref-tools { display: flex; flex-wrap: wrap; align-items: end; gap: var(--s3); }
+.ref-field { display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-sm); color: var(--muted); }
+.ref-field select, .ref-field input { color: var(--ink); }
+.ref-search { flex: 1 1 260px; }
+.ref-search input { width: 100%; box-sizing: border-box; }
+.ref-count { margin: var(--s2) 0; font-size: var(--fs-sm); }
+.ref-count.error { color: var(--error); }
+.ref-split {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: var(--s4);
+  align-items: start;
+}
+.ref-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--s1) 0;
+  max-height: calc(100vh - 140px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  position: sticky;
+  top: var(--s3);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+}
+.ref-row { display: grid; grid-template-columns: auto 1fr; gap: 0 var(--s2); padding: 5px 12px; color: inherit; text-decoration: none; }
+.ref-row:hover { background: var(--hover); }
+.ref-row[aria-current="true"] { background: var(--accent-soft); }
+.ref-name { font: 600 var(--fs-md)/1.4 var(--mono); overflow-wrap: anywhere; }
+.ref-long { font-size: var(--fs-sm); color: var(--muted); align-self: baseline; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-stack { grid-column: 1 / -1; font: var(--fs-xs)/1.4 var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-entry { min-width: 0; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--r-md); }
+.ref-hint { margin: 0; padding: var(--s4) 20px; }
+
+/* A phone: the list above the entry, shorter. */
+@media (max-width: 759px) {
+  .ref-split { grid-template-columns: minmax(0, 1fr); }
+  .ref-list { position: static; max-height: 40vh; }
+}

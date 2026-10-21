@@ -388,7 +388,9 @@ package (`web/build.sh`), assembles the site with
 app under `app/`: the one document `index.html` with the views'
 modules (`tx/` is Files'), the components, the shared code, the one
 wasm package, the manifest, the icons and its own service worker with a
-build hash; `emulator/` and `transfer/` hold only the kill-switch
+build hash; the docs under `docs/` with `llms.txt` at the top,
+rendered from `web/docs/pages/` by `web/docs/build.mjs` with the
+runner's Node (iteration 57); `emulator/` and `transfer/` hold only the kill-switch
 `sw.js`; `web/README.md`, "The site"), and publishes
 it by FTP to the owner's site (<https://ractive.ch/saturnus/>, the
 app at <https://ractive.ch/saturnus/app/>, `httpdocs/saturnus/` on

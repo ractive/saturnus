@@ -5,6 +5,12 @@ AddType application/wasm .wasm
 AddType text/javascript .js
 AddType application/json .json
 AddType application/manifest+json .webmanifest
+# The docs (docs/, iteration 57): each page's Markdown beside it and
+# llms.txt, in UTF-8. A page is docs/<page>/index.html: Apache's own
+# DirectorySlash sends /saturnus/docs/48gx on to /saturnus/docs/48gx/
+# (the browser keeps the #48gx/hms- of an address).
+AddType text/markdown .md
+AddCharset utf-8 .md .txt
 # Content-Security-Policy (defence in depth): only this site's own files,
 # WebAssembly compiled from them (the Worker), no plugins, no framing.
 # connect-src adds tab-mcp's hosted relay (wss://tab-mcp.ractive.ch), the

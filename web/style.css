@@ -1323,19 +1323,20 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .editor-hints kbd { margin: 0 1px; }
 :where(#calculator-view) .editor-buttons { display: flex; gap: var(--s2); margin-left: auto; }
 
-/* The reference entry (palette detail and the explorer's Commands tab). */
-:where(#calculator-view) .entry { padding: var(--s4) 20px 20px; display: flex; flex-direction: column; gap: 10px; }
-:where(#calculator-view) .entry h3, :where(#calculator-view) .entry h4, :where(#calculator-view) .entry p, :where(#calculator-view) .entry dl { margin: 0; }
-:where(#calculator-view) .entry-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
-:where(#calculator-view) .entry-send { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s2); }
-:where(#calculator-view) .entry-sent { font-size: var(--fs-sm); color: var(--accent-text); }
-:where(#calculator-view) .entry-sent.error { color: var(--error); }
-:where(#calculator-view) .entry-name { font: 600 var(--fs-2xl)/1.2 var(--mono); overflow-wrap: anywhere; }
+/* The reference entry (palette detail and the explorer's Commands tab; the
+   docs' command reference page, web/docs/commands/, as `.docs-ref`). */
+:where(#calculator-view, .docs-ref) .entry { padding: var(--s4) 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+:where(#calculator-view, .docs-ref) .entry h3, :where(#calculator-view, .docs-ref) .entry h4, :where(#calculator-view, .docs-ref) .entry p, :where(#calculator-view, .docs-ref) .entry dl { margin: 0; }
+:where(#calculator-view, .docs-ref) .entry-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+:where(#calculator-view, .docs-ref) .entry-send { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s2); }
+:where(#calculator-view, .docs-ref) .entry-sent { font-size: var(--fs-sm); color: var(--accent-text); }
+:where(#calculator-view, .docs-ref) .entry-sent.error { color: var(--error); }
+:where(#calculator-view, .docs-ref) .entry-name { font: 600 var(--fs-2xl)/1.2 var(--mono); overflow-wrap: anywhere; }
 /* "RSD · Residual": the long name in the UI font, normal weight, muted. */
-:where(#calculator-view) .entry-long { font: 400 var(--fs-xl)/1.2 var(--font); color: var(--muted); }
-:where(#calculator-view) .entry-title { font-family: var(--font); font-size: var(--fs-xl); letter-spacing: -0.01em; }
-:where(#calculator-view) .entry-models { display: flex; gap: var(--s1); margin-left: auto; }
-:where(#calculator-view) .chip {
+:where(#calculator-view, .docs-ref) .entry-long { font: 400 var(--fs-xl)/1.2 var(--font); color: var(--muted); }
+:where(#calculator-view, .docs-ref) .entry-title { font-family: var(--font); font-size: var(--fs-xl); letter-spacing: -0.01em; }
+:where(#calculator-view, .docs-ref) .entry-models { display: flex; gap: var(--s1); margin-left: auto; }
+:where(#calculator-view, .docs-ref) .chip {
   padding: 1px 8px;
   border: 1px solid var(--control-border);
   border-radius: var(--r-pill);
@@ -1343,9 +1344,9 @@ body.resizing * { cursor: col-resize !important; }
   color: var(--ink);
   white-space: nowrap;
 }
-:where(#calculator-view) .chip.current { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-:where(#calculator-view) .chip.off { color: var(--muted); border-style: dashed; opacity: 0.6; text-decoration: line-through; }
-:where(#calculator-view) .entry-stack {
+:where(#calculator-view, .docs-ref) .chip.current { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+:where(#calculator-view, .docs-ref) .chip.off { color: var(--muted); border-style: dashed; opacity: 0.6; text-decoration: line-through; }
+:where(#calculator-view, .docs-ref) .entry-stack {
   margin: 0;
   padding: 9px 12px;
   background: var(--panel);
@@ -1355,20 +1356,20 @@ body.resizing * { cursor: col-resize !important; }
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-:where(#calculator-view) .entry-stack-wrap { display: flex; flex-direction: column; gap: var(--s1); }
-:where(#calculator-view) .entry-stack-note, :where(#calculator-view) .entry-skip { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; }
-:where(#calculator-view) .entry-desc, :where(#calculator-view) .entry-note { line-height: 1.5; max-width: 60ch; }
-:where(#calculator-view) .entry-where { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: var(--fs-sm); }
-:where(#calculator-view) .entry-where dt { color: var(--muted); }
-:where(#calculator-view) .entry-where dd { margin: 0; }
-:where(#calculator-view) .entry .menu-path { font: 600 var(--fs-sm)/1.5 var(--mono); }
-:where(#calculator-view) .entry .sep { color: var(--muted); }
-:where(#calculator-view) .entry h4 { margin-top: 6px; }
-:where(#calculator-view) .entry h4 .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
-:where(#calculator-view) .entry-examples { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; container: examples / inline-size; }
+:where(#calculator-view, .docs-ref) .entry-stack-wrap { display: flex; flex-direction: column; gap: var(--s1); }
+:where(#calculator-view, .docs-ref) .entry-stack-note, :where(#calculator-view, .docs-ref) .entry-skip { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; }
+:where(#calculator-view, .docs-ref) .entry-desc, :where(#calculator-view, .docs-ref) .entry-note { line-height: 1.5; max-width: 60ch; }
+:where(#calculator-view, .docs-ref) .entry-where { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: var(--fs-sm); }
+:where(#calculator-view, .docs-ref) .entry-where dt { color: var(--muted); }
+:where(#calculator-view, .docs-ref) .entry-where dd { margin: 0; }
+:where(#calculator-view, .docs-ref) .entry .menu-path { font: 600 var(--fs-sm)/1.5 var(--mono); }
+:where(#calculator-view, .docs-ref) .entry .sep { color: var(--muted); }
+:where(#calculator-view, .docs-ref) .entry h4 { margin-top: 6px; }
+:where(#calculator-view, .docs-ref) .entry h4 .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
+:where(#calculator-view, .docs-ref) .entry-examples { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; container: examples / inline-size; }
 /* An example as the calculator shows it: the stack before, the command,
    the stack after, "Try it" at the right edge; stacked when narrow. */
-:where(#calculator-view) .ex {
+:where(#calculator-view, .docs-ref) .ex {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
   align-items: center;
@@ -1378,9 +1379,9 @@ body.resizing * { cursor: col-resize !important; }
   border: 1px solid var(--rule);
   border-radius: var(--r-md);
 }
-:where(#calculator-view) .ex-setup { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--muted); overflow-wrap: anywhere; }
-:where(#calculator-view) .ex-setup code { font: var(--fs-sm)/1.4 var(--mono); color: var(--ink); }
-:where(#calculator-view) .ex-stack {
+:where(#calculator-view, .docs-ref) .ex-setup { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--muted); overflow-wrap: anywhere; }
+:where(#calculator-view, .docs-ref) .ex-setup code { font: var(--fs-sm)/1.4 var(--mono); color: var(--ink); }
+:where(#calculator-view, .docs-ref) .ex-stack {
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1390,40 +1391,40 @@ body.resizing * { cursor: col-resize !important; }
   border: 1px solid var(--rule-soft);
   border-radius: var(--r-sm);
 }
-:where(#calculator-view) .ex-line { display: flex; gap: 8px; align-items: baseline; }
+:where(#calculator-view, .docs-ref) .ex-line { display: flex; gap: 8px; align-items: baseline; }
 /* A key-driven model's example: the display's two lines, as shown. */
-:where(#calculator-view) .ex-screen .ex-text { margin-left: 0; white-space: pre; }
-:where(#calculator-view) .entry-keys { display: flex; flex-wrap: wrap; gap: 4px; }
-:where(#calculator-view) .ex-level { flex: none; font: var(--fs-xs)/1.4 var(--mono); color: var(--muted); min-width: 2ch; }
+:where(#calculator-view, .docs-ref) .ex-screen .ex-text { margin-left: 0; white-space: pre; }
+:where(#calculator-view, .docs-ref) .entry-keys { display: flex; flex-wrap: wrap; gap: 4px; }
+:where(#calculator-view, .docs-ref) .ex-level { flex: none; font: var(--fs-xs)/1.4 var(--mono); color: var(--muted); min-width: 2ch; }
 /* An object that fits on its line right-aligned, as on the calculator's
    stack; a longer one wraps left-aligned across the side's width. */
-:where(#calculator-view) .ex-text { flex: 0 1 auto; margin-left: auto; min-width: 0; font: var(--fs-md)/1.4 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
-:where(#calculator-view) .ex-empty { font-size: var(--fs-sm); text-align: center; }
-:where(#calculator-view) .ex-after.error { flex-direction: row; gap: 8px; align-items: baseline; border-color: var(--error); }
-:where(#calculator-view) .ex-after.error .ex-level { color: var(--error); min-width: 0; }
-:where(#calculator-view) .ex-after.error .ex-text { color: var(--error); margin-left: 0; }
-:where(#calculator-view) .ex-cmd { display: flex; align-items: center; gap: 6px; max-width: 24ch; min-width: 0; }
-:where(#calculator-view) .ex-run { font: 600 var(--fs-md)/1.4 var(--mono); color: var(--accent-text); text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; }
-:where(#calculator-view) .ex-arrow { color: var(--accent); font-size: var(--fs-lg); line-height: 1; }
-:where(#calculator-view) .ex-try { font-size: var(--fs-sm); white-space: nowrap; }
+:where(#calculator-view, .docs-ref) .ex-text { flex: 0 1 auto; margin-left: auto; min-width: 0; font: var(--fs-md)/1.4 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(#calculator-view, .docs-ref) .ex-empty { font-size: var(--fs-sm); text-align: center; }
+:where(#calculator-view, .docs-ref) .ex-after.error { flex-direction: row; gap: 8px; align-items: baseline; border-color: var(--error); }
+:where(#calculator-view, .docs-ref) .ex-after.error .ex-level { color: var(--error); min-width: 0; }
+:where(#calculator-view, .docs-ref) .ex-after.error .ex-text { color: var(--error); margin-left: 0; }
+:where(#calculator-view, .docs-ref) .ex-cmd { display: flex; align-items: center; gap: 6px; max-width: 24ch; min-width: 0; }
+:where(#calculator-view, .docs-ref) .ex-run { font: 600 var(--fs-md)/1.4 var(--mono); color: var(--accent-text); text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(#calculator-view, .docs-ref) .ex-arrow { color: var(--accent); font-size: var(--fs-lg); line-height: 1; }
+:where(#calculator-view, .docs-ref) .ex-try { font-size: var(--fs-sm); white-space: nowrap; }
 /* The example's comment: a short muted line under it. */
-:where(#calculator-view) .ex-comment { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
-:where(#calculator-view) .ex-tried { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--accent-text); }
-:where(#calculator-view) .ex-tried.error { color: var(--error); }
+:where(#calculator-view, .docs-ref) .ex-comment { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
+:where(#calculator-view, .docs-ref) .ex-tried { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--accent-text); }
+:where(#calculator-view, .docs-ref) .ex-tried.error { color: var(--error); }
 /* A narrow pane (a phone, the palette's detail): before, command, after
    one under the other, the arrow pointing down, "Try it" below. */
 @container examples (max-width: 470px) {
-  :where(#calculator-view) .ex { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-  :where(#calculator-view) .ex-cmd { justify-content: center; max-width: none; }
-  :where(#calculator-view) .ex-arrow { order: -1; transform: rotate(90deg); }
-  :where(#calculator-view) .ex-try { justify-self: start; margin-top: 2px; }
+  :where(#calculator-view, .docs-ref) .ex { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  :where(#calculator-view, .docs-ref) .ex-cmd { justify-content: center; max-width: none; }
+  :where(#calculator-view, .docs-ref) .ex-arrow { order: -1; transform: rotate(90deg); }
+  :where(#calculator-view, .docs-ref) .ex-try { justify-self: start; margin-top: 2px; }
 }
-:where(#calculator-view) .entry-manuals ul { margin: 0; padding-left: 18px; font-size: var(--fs-sm); line-height: 1.6; }
-:where(#calculator-view) .entry a { color: var(--accent-text); text-underline-offset: 2px; }
-:where(#calculator-view) .entry-names { font: var(--fs-sm)/1.7 var(--mono); overflow-wrap: anywhere; }
-:where(#calculator-view) .entry-enter { font-size: var(--fs-sm); color: var(--muted); line-height: 1.6; padding: 10px 20px 16px; border-top: 1px solid var(--rule-soft); }
-:where(#calculator-view) .palette-detail .entry { padding-bottom: 14px; }
-:where(#calculator-view) .entry-enter kbd { margin: 0 1px; }
+:where(#calculator-view, .docs-ref) .entry-manuals ul { margin: 0; padding-left: 18px; font-size: var(--fs-sm); line-height: 1.6; }
+:where(#calculator-view, .docs-ref) .entry a { color: var(--accent-text); text-underline-offset: 2px; }
+:where(#calculator-view, .docs-ref) .entry-names { font: var(--fs-sm)/1.7 var(--mono); overflow-wrap: anywhere; }
+:where(#calculator-view, .docs-ref) .entry-enter { font-size: var(--fs-sm); color: var(--muted); line-height: 1.6; padding: 10px 20px 16px; border-top: 1px solid var(--rule-soft); }
+:where(#calculator-view, .docs-ref) .palette-detail .entry { padding-bottom: 14px; }
+:where(#calculator-view, .docs-ref) .entry-enter kbd { margin: 0 1px; }
 
 /* ------------------------------------------------------ keyboard shortcuts */
 
