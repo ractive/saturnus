@@ -311,6 +311,22 @@ export class AiAccess extends EventTarget {
     this.changed();
   }
 
+  /**
+   * Try the waiting retry now (the tab came back to the front, or the
+   * network came back): a phone pauses a background tab, so its connection
+   * breaks while the user is in the AI app, and the backoff may still have
+   * a minute to go when they return.
+   */
+  retryNow() {
+    if (this.retryTimer === null) return;
+    this.timers.clear(this.retryTimer);
+    this.retryTimer = null;
+    this.retrying = null;
+    this.note("retrying", { attempt: this.attempt });
+    this.changed();
+    this.connect({ resume: true }).catch(() => {});
+  }
+
   /** No more retries: connected again, turned off, or refused. */
   stopRetrying() {
     if (this.retryTimer !== null) this.timers.clear(this.retryTimer);

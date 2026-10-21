@@ -225,6 +225,22 @@ test("a broken connection is tried again with growing waits until it is back, wi
   assert.equal(timers.waiting[0].ms, 5000);
 });
 
+test("retryNow: back in front, the waiting retry runs at once; nothing waiting, nothing happens", { timeout: 2000 }, async () => {
+  const { ai, timers, Mcp } = reconnecting([true, DOWN(), DOWN(), true]);
+  await ai.connect();
+  ai.retryNow();
+  assert.equal(timers.waiting.length, 0, "connected: no retry to run");
+  Mcp.last.drop("network");
+  await timers.fire();
+  await timers.fire();
+  assert.equal(timers.waiting[0].ms, 20000, "the third wait is 20 s");
+  ai.retryNow();
+  for (let i = 0; i < 5; i++) await turn();
+  assert.equal(ai.state, "connected", "tried at once, and back");
+  assert.equal(ai.lost, false);
+  assert.equal(timers.waiting.length, 0);
+});
+
 test("turning AI access off ends the retries; a refusal or another tab taking over ends them too", { timeout: 2000 }, async () => {
   {
     const { ai, timers, Mcp } = reconnecting([true]);

@@ -41,6 +41,7 @@ export async function openAiDialog(ai, doc = document) {
     apps,
     appsNote,
     el("p", { class: "ai-note", text: "The AI app can press any key and run any command, as you can. Storing or purging a variable through its store and purge tools asks you here first. While an AI app is connected, the calculators keep running when this tab is in the background." }),
+    el("p", { class: "ai-note ai-phone", hidden: !matchMedia("(pointer: coarse) and (max-width: 999px)").matches, text: "On a phone, keep this tab in front while your AI app uses it: the phone pauses tabs in the background. Open both apps in split screen, or use your AI app on another device." }),
     el("p", { class: "ai-note" }, "What passes through the relay, and what it keeps: ", el("a", { href: "https://ractive.ch/tab-mcp/", target: "_blank", rel: "noopener" }, "privacy notice"), "."),
     keepRow,
     el("div", { class: "ai-actions" }, fresh, el("span", { class: "ai-gap" }), off, connect, done),
