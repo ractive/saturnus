@@ -2,7 +2,7 @@
 title: "HP calculator encyclopedia from the wiki, on ractive.ch/saturnus"
 type: backlog
 date: 2026-10-20
-status: active
+status: in-progress
 priority: medium
 tags:
   - backlog
