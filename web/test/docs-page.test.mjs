@@ -106,7 +106,7 @@ test("the docs index: the sections, the models with their colours, the Markdown 
   await until(ev, `document.readyState === "complete"`, 10_000, "the index loaded");
   assert.equal(await ev("document.title"), "saturnus docs");
   assert.deepEqual(await ev(`[...document.querySelectorAll(".docs-nav a")].map((a) => a.textContent)`), ["Models", "Command reference", "How the Saturn works", "Moving files"]);
-  assert.deepEqual(await ev(`[...document.querySelectorAll(".docs-page h2")].map((h) => h.textContent)`), ["Models", "Command reference", "How the Saturn works", "Moving files to a real calculator"]);
+  assert.deepEqual(await ev(`[...document.querySelectorAll(".docs-page h2")].map((h) => h.textContent)`), ["Models", "Command reference", "How the Saturn works", "Moving files to a real calculator", "For AI apps"]);
   assert.equal(await ev(`document.querySelectorAll(".docs-model-link").length`), 12);
   // Each model's logo in its colours (style.css's table), the header's in the plain logo's.
   const fills = await ev(`[...document.querySelectorAll(".docs-model-link .planet")].map((p) => getComputedStyle(p).fill)`);

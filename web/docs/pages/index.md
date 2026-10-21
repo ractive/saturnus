@@ -4,7 +4,7 @@ description: The HP calculators saturnus runs, their commands, how the Saturn pr
 section: index
 ---
 
-About the HP calculators that saturnus runs in the browser: the models, their commands, how the Saturn processor inside them works, and how to move files between a computer and a real calculator. Every page is also Markdown; [llms.txt](../llms.txt) lists them for AI apps.
+About the HP calculators that saturnus runs in the browser: the models, their commands, how the Saturn processor inside them works, and how to move files between a computer and a real calculator.
 
 ## Models
 
@@ -34,3 +34,7 @@ The model pages are coming soon.
 ## Moving files to a real calculator
 
 [The cables, Kermit, XModem and the satx tool](transfer.md). Coming soon.
+
+## For AI apps
+
+Every page is also available as Markdown: `/saturnus/docs/48gx/` as `/saturnus/docs/48gx.md`. [llms.txt](../llms.txt) lists them.
