@@ -215,8 +215,11 @@ active one), or the left pane is joining it, nothing happens. For a model
 it cannot reach, Files says why (`refusalText`: an aplet model, no serial
 port, no kept ROM). The home page links the landing page
 (`data-site="landing"`: `../` on the site, `landing/` served from
-`web/`; `applySiteLinks`). In the desktop app the link to the landing
-page is hidden; the home page, the brands' links to it and the links
+`web/`; `applySiteLinks`) and the docs' command reference
+(`data-site="commands"`: `../docs/commands/` on the site, the site's
+own address served from `web/`, which has no docs); Search offers it as
+"Command reference", in a new tab on the model shown. In the desktop app the links to the landing
+page and the docs are hidden (and Search has no "Command reference"); the home page, the brands' links to it and the links
 between Calculator and Files are there as in the browser.
 Tests: `site-links.test.mjs` (the hrefs, the routes, the start),
 `nav-page.test.mjs` (the links, the home page, back and forward, no
@@ -1194,6 +1197,29 @@ leaves the app's build and caches untouched. `emulator/` and
 same kill switch (below). `web/site.sh --list` lists the app's page
 files, which the desktop app embeds (with the wasm package). `web/test/site.test.mjs` checks the
 layout.
+
+**The docs** (iteration 57). `web/docs/build.mjs`, run by `site.sh`
+after the app (with Node, no dependencies), renders the Markdown pages
+of `web/docs/pages/` (frontmatter: `title`, `description`, `section`,
+`model` on a model page, `status: placeholder` until written) into
+`docs/<page>/index.html` with the Markdown beside it as
+`docs/<page>.md` (the index: `docs/index.html`, `docs/index.md`), and
+writes `llms.txt` at the top (<https://llmstxt.org>). The renderer is
+`web/docs/markdown.mjs`, a small one for the subset the pages use;
+HTML in a page is escaped. A page links another by its `.md`; its HTML
+gets the page's address. The pages load the app's `shared/tokens.css`,
+`style.css` and `shared/theme-boot.js` from `app/` and add
+`docs/docs.css`; a model page takes its model's colours (`data-logo`).
+The command reference, `docs/commands/`, is one page: its script
+(`web/docs/commands/page.js`) imports the app's `palette.js`
+(`ReferenceLoader`), `reference.js` (`search`) and
+`components/entry-view.js` from `app/` and reads `app/commands.json`;
+the entry is read-only (no Run, Type or Try it), the address names the
+model and command (`#48gx/hms-`, `web/docs/commands/slug.js`). The
+build also writes every model's commands as one Markdown file
+(`docs/commands/<model>.md`) for `llms.txt`, and fails on a broken
+link or a link into the wiki. Tests: `docs.test.mjs`,
+`docs-page.test.mjs`.
 
 The calculator images in `web/landing/img/` are screenshots of the app
 with each model's ROM running, made by `web/landing/shots.mjs`

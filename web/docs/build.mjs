@@ -1,0 +1,442 @@
+#!/usr/bin/env node
+// The docs of https://ractive.ch/saturnus/docs/ (iteration 57), built
+// from the Markdown pages in web/docs/pages/ into a site directory
+// (web/site.sh runs it after the app is in place):
+//
+//   node web/docs/build.mjs OUT [--csp POLICY] [--base URL]
+//
+// writes, under OUT:
+//
+//   docs/index.html, docs/index.md   the docs index (pages/index.md)
+//   docs/<p>/index.html, docs/<p>.md every other page (pages/<p>.md):
+//                                    the HTML at /saturnus/docs/<p>/,
+//                                    its Markdown beside it, as written
+//   docs/commands/index.html         the command reference page
+//                                    (pages/commands.md, the page's
+//                                    script commands/page.js and
+//                                    commands/slug.js); it runs the app's
+//                                    reference code from app/
+//   docs/commands/<model>.md         every command of one model with its
+//                                    examples, for LLMs (12 files)
+//   docs/docs.css                    the pages' own styles
+//   llms.txt                         the llmstxt.org index of the .md files
+//
+// A page's frontmatter: `title`, `description`, `section` (index,
+// models, commands, saturn, transfer), `model` on a model page (the
+// page takes its colours), `status: placeholder` for a page not written
+// yet (llms.txt leaves it out). A page links others by their .md path
+// (`[48GX](48gx.md)`), which works in the Markdown as published; the
+// HTML gets the page's address. The pages look like the app: its
+// tokens, its stylesheet (the logo's colours per model, the reference
+// entry), its theme script, all from app/.
+//
+// Checks, failing the build: every relative link and source of the HTML
+// names a file of the site, no page links into the wiki, no file is
+// empty. Pure functions exported for web/test/docs.test.mjs.
+
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join, posix } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { escapeHtml, parseFrontmatter, renderMarkdown } from "./markdown.mjs";
+import { slugMap } from "./commands/slug.js";
+import { buildIndex, exampleBefore, exampleResult, exampleRun, keysText, legendText, manualLinks, placement } from "../reference.js";
+import { MODEL_ORDER, MODEL_TITLES } from "../norom.js";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const WEB = join(HERE, "..");
+export const PAGES = join(HERE, "pages");
+export const BASE = "https://ractive.ch/saturnus/";
+
+/** The sections, in the order the index and the header list them. */
+export const SECTIONS = [
+  { id: "models", title: "Models", href: "index.md#models" },
+  { id: "commands", title: "Command reference", href: "commands.md" },
+  { id: "saturn", title: "How the Saturn works", href: "saturn.md" },
+  { id: "transfer", title: "Moving files to a real calculator", short: "Moving files", href: "transfer.md" },
+];
+
+/** Links that must never appear: the hardware wiki (owner, 2026-10-21). */
+const WIKI = /calculator-knowledgebase|github\.com\/ractive\/calculator/i;
+
+/** Every page under `dir`: `{rel, meta, body, source}`, `rel` its path without `.md` ("index", "48gx", "saturn/cpu"). */
+export function loadPages(dir = PAGES) {
+  const out = [];
+  const walk = (d, prefix) => {
+    for (const name of readdirSync(d).sort()) {
+      const p = join(d, name);
+      if (statSync(p).isDirectory()) walk(p, `${prefix}${name}/`);
+      else if (name.endsWith(".md")) {
+        const source = readFileSync(p, "utf8");
+        const { meta, body } = parseFrontmatter(source);
+        const rel = `${prefix}${name.slice(0, -3)}`;
+        for (const k of ["title", "description", "section"]) if (!meta[k]) throw new Error(`docs: ${rel}.md has no ${k}`);
+        if (meta.model && !MODEL_ORDER.includes(meta.model)) throw new Error(`docs: ${rel}.md names the unknown model ${meta.model}`);
+        out.push({ rel, meta, body, source });
+      }
+    }
+  };
+  walk(dir, "");
+  return out;
+}
+
+/** The site path of a page's HTML folder ("docs/", "docs/48gx/") and of its Markdown ("docs/index.md", "docs/48gx.md"). */
+export function pagePaths(rel) {
+  return {
+    html: rel === "index" ? "docs/" : `docs/${rel}/`,
+    md: `docs/${rel}.md`,
+    mdDir: `docs/${posix.dirname(rel) === "." ? "" : `${posix.dirname(rel)}/`}`,
+  };
+}
+
+/** `to` (a site path; a folder ends in "/") relative to the folder `from`. */
+export function relative(from, to) {
+  const dir = to === "" || to.endsWith("/");
+  let r = posix.relative(`/${from}`, `/${to}`);
+  if (dir) r = r ? `${r}/` : "./";
+  return r || "./";
+}
+
+/**
+ * A link of page `rel`'s Markdown as its HTML needs it: relative links
+ * resolved against the Markdown's folder, a page's `.md` turned into its
+ * address, then made relative to the HTML's folder. Other sites,
+ * absolute paths and anchors stay as they are.
+ */
+export function htmlLink(rel, href, pageRels) {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("/") || href.startsWith("#")) return href;
+  const { html, mdDir } = pagePaths(rel);
+  const at = href.search(/[?#]/);
+  const path = at < 0 ? href : href.slice(0, at);
+  const rest = at < 0 ? "" : href.slice(at);
+  let target = posix.normalize(posix.join(mdDir, path));
+  if (path.endsWith("/") && !target.endsWith("/")) target += "/";
+  const m = target.match(/^docs\/(.+)\.md$/);
+  if (m && pageRels.has(m[1])) target = pagePaths(m[1]).html;
+  return relative(html, target) + rest;
+}
+
+/** The mark of logo.svg (web/logo.js's LOGO_PARTS), coloured by style.css through `data-logo`. */
+function logoSvg(size, model = null) {
+  return `<svg class="logo" viewBox="0 0 32 32" width="${size}" height="${size}" aria-hidden="true"${model ? ` data-logo="${model}"` : ""}><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg>`;
+}
+
+/** A heading's id: its words in lower case, joined by hyphens. */
+function headingId(text) {
+  return text.toLowerCase().replace(/[`*_[\]()]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+/** The page's HTML document: the header, the rendered body (and `extra` after it), the footer. */
+export function pageHtml(page, bodyHtml, { csp = null, extra = "", after = "" } = {}) {
+  const { html } = pagePaths(page.rel);
+  const root = relative(html, "");
+  const app = relative(html, "app/");
+  const docs = relative(html, "docs/");
+  const md = relative(html, pagePaths(page.rel).md);
+  const model = page.meta.model ?? null;
+  const nav = SECTIONS.map((s) => {
+    const [file, anchor] = s.href.split("#");
+    const href = relative(html, pagePaths(file.replace(/\.md$/, "")).html) + (anchor ? `#${anchor}` : "");
+    const current = page.meta.section === s.id && page.rel !== "index";
+    return `<a href="${escapeHtml(href)}"${current ? ' aria-current="page"' : ""}>${escapeHtml(s.short ?? s.title)}</a>`;
+  }).join("\n    ");
+  const title = page.rel === "index" ? page.meta.title : `${page.meta.title} · saturnus docs`;
+  return `<!doctype html>
+<html lang="en"${model ? ` data-logo="${model}"` : ""}>
+<head>
+<meta charset="utf-8">
+${csp ? `<meta http-equiv="Content-Security-Policy" content="${escapeHtml(csp)}">\n` : ""}<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>${escapeHtml(title)}</title>
+<meta name="description" content="${escapeHtml(page.meta.description)}">
+<link rel="icon" href="${root}favicon.svg" type="image/svg+xml">
+<link rel="alternate" type="text/markdown" href="${md}">
+<link rel="stylesheet" href="${app}shared/tokens.css">
+<link rel="stylesheet" href="${app}style.css">
+<link rel="stylesheet" href="${docs}docs.css">
+<script src="${app}shared/theme-boot.js"></script>
+</head>
+<body class="docs${model ? " docs-model" : ""} docs-${escapeHtml(page.meta.section)}">
+<header class="docs-bar">
+  <a class="brand" href="${docs}">${logoSvg(24)}<span>saturnus</span> <span class="docs-brand-sub">docs</span></a>
+  <nav class="docs-nav" aria-label="Sections">
+    ${nav}
+  </nav>
+  <a class="docs-app" href="${app}">Open the app</a>
+</header>
+<main class="docs-main">
+<article class="docs-page">
+<h1>${model ? logoSvg(36) : ""}<span>${escapeHtml(page.meta.title)}</span></h1>
+${bodyHtml}
+</article>
+${extra}${after ? `\n<div class="docs-page docs-after">\n${after}\n</div>` : ""}
+</main>
+<footer class="docs-foot">
+  <a href="${md}">This page as Markdown</a>
+  <a href="${root}llms.txt">llms.txt</a>
+</footer>
+</body>
+</html>
+`;
+}
+
+/** The command reference page's tools and panes, after its text (page.js fills them). */
+function commandsExtra() {
+  return `<section class="docs-ref-app" aria-label="Commands">
+<div class="ref-tools">
+  <label class="ref-field"><span>Model</span> <select id="ref-model"></select></label>
+  <label class="ref-field ref-search"><span>Search</span> <input id="ref-q" type="search" placeholder="A name, ->LIST, or words of what it does" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+</div>
+<p id="ref-count" class="ref-count muted" role="status">Loading the reference…</p>
+<div class="ref-split">
+  <ul id="ref-list" class="ref-list" aria-label="Commands found"></ul>
+  <div id="ref-entry" class="ref-entry docs-ref"></div>
+</div>
+<noscript><p>The page needs JavaScript. Each model's commands are also in its Markdown file, listed above.</p></noscript>
+</section>
+<script type="module" src="page.js"></script>`;
+}
+
+/** The manuals of `model` in `data` as Markdown links, for a Sources list. */
+function manualSources(data, models) {
+  return Object.values(data.manuals ?? {})
+    .filter((m) => m.models.some((x) => models.includes(x)))
+    .map((m) => `- [${m.title}](${m.url})`);
+}
+
+/** The models with a reference in `data`, in the app's order. */
+export function referenceModels(data) {
+  const has = new Set([...data.models, ...Object.keys(data.keyModels ?? {})]);
+  return MODEL_ORDER.filter((m) => has.has(m));
+}
+
+/** A stack (`levels`) or a display as lines in a code block; "(empty stack)" for none, a display without its blank lines above and below. */
+function block(lines, levels) {
+  if (!levels) {
+    const shown = [...lines];
+    while (shown.length && !shown[0].trim()) shown.shift();
+    while (shown.length && !shown.at(-1).trim()) shown.pop();
+    return shown.length ? shown.join("\n") : "(blank)";
+  }
+  if (!lines.length) return "(empty stack)";
+  return lines.map((l, j) => (levels ? `${lines.length - j}: ${l}` : l)).join("\n");
+}
+
+/**
+ * Every command of `model` as Markdown: its name and long name, its
+ * stack effect or keys, the description and note, where it is, its
+ * examples as the emulator showed them, the manuals' pages and its
+ * address on the page. The same data and helpers as the page
+ * (reference.js), in text.
+ */
+export function commandsMarkdown(data, model) {
+  const index = buildIndex(data, model);
+  const title = MODEL_TITLES[model] ?? model;
+  const slugs = slugMap(index.commands.map((c) => c.name));
+  const out = [
+    `# ${title} commands`,
+    "",
+    `Every command of the ${title} in saturnus's reference (${index.commands.length} ${index.keyed ? "functions" : "commands"}): ${index.keyed ? "the keys that run it" : "its stack effect"}, what it does, where it is on the calculator, and examples run on the emulated ${title}. The same reference as a page: [the command reference](./${`#${model}`}).`,
+    "",
+    index.keyed
+      ? `The ${title} has no command line: a function is pressed. An example shows the display before, the keys pressed, and the display after.`
+      : "A stack effect reads as the manuals write it: the arguments, an arrow, the results. An example shows the stack before the command and after it, level 1 last, as the calculator displayed it.",
+    "",
+  ];
+  for (const c of index.commands) {
+    out.push(`## ${c.name}${c.longName ? ` · ${c.longName}` : ""}`, "");
+    if (index.keyed) {
+      const e = c.entry;
+      if (c.byName) out.push(`Keys: XEQ, then \`"${e.xeq}"\` through the ALPHA menu, then ENTER`, "");
+      else if (c.steps) out.push(`Keys: ${c.keysText}`, "");
+      if (e.inserts) out.push(`Puts \`${e.inserts.trimEnd()}\` on the edit line`, "");
+      if (e.param) out.push(`Asks for: ${e.param}`, "");
+      if (c.stack) out.push("Stack:", "", "```", c.stack, "```", "");
+    } else {
+      out.push("Stack:", "", "```", c.stack || "—", "```", "");
+    }
+    out.push(c.description, "");
+    if (c.note) out.push(`Note: ${c.note}`, "");
+    if (index.keyed) {
+      if (c.entry.menu) out.push(`Menu: ${c.entry.menu}`, "");
+    } else {
+      const where = placement(index, c);
+      if (where.menus.length) out.push(`Menu: ${where.menus.join(" · ")}`, "");
+      if (where.key) out.push(`Key: ${where.key.category} (${where.key.title}${where.key.page ? `, p. ${where.key.page}` : ""}${where.key.other ? ", from another model's manual" : ""})`, "");
+      if (where.group) out.push(`Group: ${where.group} (our grouping, not a calculator menu)`, "");
+    }
+    const examples = c.per.examples ?? [];
+    examples.forEach((x, i) => {
+      out.push(`Example${examples.length > 1 ? ` ${i + 1}` : ""}:`, "", "```");
+      if (index.keyed) {
+        const input = x.labels?.length ? x.labels.join(" ") : legendText(x.input);
+        const then = x.then?.length ? ` ${legendText(x.then)}` : "";
+        const run = x.in_menu ? keysText(exampleRun(c, x)) : c.keysText;
+        if (input) out.push(`First:   ${input}`);
+        out.push("Display:", block(x.before, false), `Keys:    ${run}${then}`, "Display:", block(x.after, false));
+      } else {
+        const r = exampleResult(x);
+        if (x.setup) out.push(`After:   ${x.setup}`);
+        out.push("Before:", block(exampleBefore(x), true), `Run:     ${x.run}`);
+        out.push(r.error ? `Error:   ${r.error}` : `After:\n${block(r.lines, true)}`);
+      }
+      out.push("```", "");
+      if (x.comment) out.push(x.comment, "");
+    });
+    if (!examples.length && c.per.skip) out.push(`No example: ${c.per.skip}.`, "");
+    const links = index.keyed
+      ? (data.manuals?.[index.km.manual] && c.entry.page ? [{ title: data.manuals[index.km.manual].title, page: c.entry.page, url: `${data.manuals[index.km.manual].url}#page=${c.entry.page}` }] : [])
+      : manualLinks(index, c, [model]);
+    if (links.length) out.push(`In the manuals: ${links.map((l) => `[${l.title}, p. ${l.page}](${l.url})`).join("; ")}`, "");
+    out.push(`On the page: [${c.name}](./#${model}/${slugs.get(c.name)})`, "");
+  }
+  out.push("## Sources", "", ...manualSources(data, [model]), "");
+  return out.join("\n");
+}
+
+/**
+ * /saturnus/llms.txt (https://llmstxt.org): the title, a summary, then a
+ * list of links per section to the Markdown files: the written pages
+ * (no placeholders) and one command file per model.
+ */
+export function llmsTxt(pages, data, base = BASE) {
+  const models = referenceModels(data);
+  const titles = MODEL_ORDER.map((m) => MODEL_TITLES[m].replace(/^HP /, ""));
+  const list = `${titles.slice(0, -1).join(", ")} and ${titles.at(-1)}`;
+  const url = (p) => `${base}${p}`;
+  const written = pages.filter((p) => p.meta.status !== "placeholder");
+  const out = [
+    "# saturnus",
+    "",
+    `> saturnus runs classic HP calculators in the browser: the HP ${list}. These docs cover the models, their commands, how the Saturn processor works and how to move files to a real calculator.`,
+    "",
+    "Every docs page is also Markdown: its address with `.md` (`/saturnus/docs/48gx/` is `/saturnus/docs/48gx.md`). The command reference has one Markdown file per model with every command, its stack effect, a description and examples run on the emulator.",
+    "",
+  ];
+  const section = (heading, rows) => {
+    if (rows.length) out.push(`## ${heading}`, "", ...rows, "");
+  };
+  section("Docs", written.filter((p) => p.meta.section === "index").map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`));
+  section("Models", written.filter((p) => p.meta.section === "models").map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`));
+  section("Command reference", [
+    ...written.filter((p) => p.meta.section === "commands").map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`),
+    ...models.map((m) => {
+      const index = buildIndex(data, m);
+      return `- [${MODEL_TITLES[m]} commands](${url(`docs/commands/${m}.md`)}): ${index.commands.length} ${index.keyed ? "functions with their keys" : "commands with their stack effects"}, descriptions and examples`;
+    }),
+  ]);
+  section("How the Saturn works", written.filter((p) => p.meta.section === "saturn").map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`));
+  section("Moving files to a real calculator", written.filter((p) => p.meta.section === "transfer").map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`));
+  section("Optional", [`- [The app](${url("app/")}): the calculators in the browser, with the same reference in Search`]);
+  return `${out.join("\n").trimEnd()}\n`;
+}
+
+/** The index page's model links with each model's logo in its colours. */
+function modelLogos(html) {
+  return html.replace(/<li><a href="([a-z0-9]+)\/">/g, (all, m) => (MODEL_ORDER.includes(m) ? `<li class="docs-model-link"><a href="${m}/">${logoSvg(20, m)}` : all));
+}
+
+/** Every relative href and src of `html` (in the site folder `dir`) that names no file; `exists(path)` checks a site path. */
+export function brokenLinks(html, dir, exists) {
+  const out = [];
+  for (const [, ref] of html.matchAll(/(?:href|src)="([^"]*)"/g)) {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(ref) || ref.startsWith("/") || ref.startsWith("#")) continue;
+    const path = ref.replace(/[?#].*$/, "");
+    let target = posix.normalize(posix.join(dir, path));
+    if (path.endsWith("/") || path === "" || path === "." || path === "./") target = `${target.replace(/\/$/, "")}/index.html`.replace(/^\.\//, "");
+    if (target.startsWith("..")) { out.push(ref); continue; }
+    if (!exists(target)) out.push(ref);
+  }
+  return out;
+}
+
+/** Build the docs into the site folder `out`. */
+export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commandsJson = join(WEB, "commands.json") } = {}) {
+  const data = JSON.parse(readFileSync(commandsJson, "utf8"));
+  const pages = loadPages(pagesDir);
+  const pageRels = new Set(pages.map((p) => p.rel));
+  for (const s of SECTIONS) {
+    const target = s.href.replace(/#.*$/, "").replace(/\.md$/, "");
+    if (!pageRels.has(target)) throw new Error(`docs: no page for the section ${s.title} (${s.href})`);
+  }
+  const written = [];
+  const write = (path, text) => {
+    const file = join(out, path);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, text);
+    written.push(path);
+  };
+  const html = [];
+  for (const page of pages) {
+    const paths = pagePaths(page.rel);
+    let source = page.source;
+    let after = "";
+    const render = (md) => renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId });
+    if (page.rel === "commands") {
+      // The page's sources, after the reference: every manual it links to.
+      const sources = `## Sources\n\n${manualSources(data, referenceModels(data)).join("\n")}\n`;
+      source = `${source.trimEnd()}\n\n${sources}`;
+      after = render(sources);
+    }
+    let bodyHtml = render(page.body);
+    if (page.rel === "index") bodyHtml = modelLogos(bodyHtml);
+    const extra = page.rel === "commands" ? commandsExtra() : "";
+    const doc = pageHtml(page, bodyHtml, { csp, extra, after });
+    write(`${paths.html}index.html`, doc);
+    write(paths.md, source);
+    html.push({ dir: paths.html, doc });
+  }
+  for (const m of referenceModels(data)) write(`docs/commands/${m}.md`, commandsMarkdown(data, m));
+  write("llms.txt", llmsTxt(pages, data, base));
+  cpSync(join(HERE, "docs.css"), join(out, "docs", "docs.css"));
+  for (const f of ["page.js", "slug.js"]) cpSync(join(HERE, "commands", f), join(out, "docs", "commands", f));
+  written.push("docs/docs.css", "docs/commands/page.js", "docs/commands/slug.js");
+
+  // A site path exists in the site, or, for the app's files when the app
+  // is not built into `out` (the tests), in web/.
+  const exists = (p) => {
+    if (existsSync(join(out, p)) && statSync(join(out, p)).isFile()) return true;
+    if (p.startsWith("app/")) {
+      const rest = p.slice(4);
+      return existsSync(join(WEB, rest)) && statSync(join(WEB, rest)).isFile();
+    }
+    return p === "favicon.svg" && existsSync(join(WEB, "favicon.svg"));
+  };
+  const problems = [];
+  for (const { dir, doc } of html) {
+    for (const ref of brokenLinks(doc, dir, exists)) problems.push(`${dir}index.html refers to ${ref}, which is not in the site`);
+  }
+  for (const path of written) {
+    const text = readFileSync(join(out, path), "utf8");
+    if (!text.length) problems.push(`${path} is empty`);
+    if (WIKI.test(text)) problems.push(`${path} links into the wiki`);
+  }
+  if (problems.length) throw new Error(`docs:\n${problems.join("\n")}`);
+  return { pages, written: written.sort() };
+}
+
+// Run as a script (the path compared resolved: /var is /private/var on macOS).
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+  const args = process.argv.slice(2);
+  const opt = (name) => {
+    const i = args.indexOf(name);
+    if (i < 0) return null;
+    const v = args[i + 1];
+    args.splice(i, 2);
+    return v;
+  };
+  const csp = opt("--csp");
+  const base = opt("--base") ?? BASE;
+  const out = args[0];
+  if (!out) {
+    console.error("usage: node web/docs/build.mjs OUT [--csp POLICY] [--base URL]");
+    process.exit(2);
+  }
+  try {
+    const { pages, written } = build(out, { csp, base });
+    console.log(`web/docs/build.mjs: docs/ ${pages.length} pages, ${written.length} files`);
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+}

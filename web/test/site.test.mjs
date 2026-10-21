@@ -7,7 +7,8 @@
 // content's SHA-256; its build hash stays put for the same files, changes
 // with any of them, and ignores the landing page; the page links the
 // manifest, named as the one app; the desktop apps' file list has none of
-// it. Skipped without the wasm package (`just web`).
+// it; the docs under docs/ with llms.txt at the top (iteration 57).
+// Skipped without the wasm package (`just web`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -59,7 +60,7 @@ test("the service worker precaches exactly the app's files, and a new build is a
     // The top: the landing page, the favicon, the kill switch, the .htaccess and the marker; nothing else.
     const top = filesUnder(a.out).filter((f) => !f.includes("/") || f.startsWith("img/"));
     const landing = filesUnder(join(WEB, "landing")).filter((f) => !f.startsWith("raw/") && f !== "shots.mjs" && f !== "sw.js");
-    assert.deepEqual(top, [".htaccess", ".saturnus-site", "favicon.svg", ...landing, "sw.js"].sort());
+    assert.deepEqual(top, [".htaccess", ".saturnus-site", "favicon.svg", ...landing, "llms.txt", "sw.js"].sort());
     const kill = readFileSync(join(WEB, "landing", "sw.js"), "utf8");
     assert.match(kill, /self\.registration\.unregister\(\)/, "the top's sw.js is the kill switch");
     assert.equal(readFileSync(join(a.out, "sw.js"), "utf8"), kill);
@@ -68,7 +69,17 @@ test("the service worker precaches exactly the app's files, and a new build is a
       assert.deepEqual(filesUnder(join(a.out, old)), ["sw.js"], `${old}/ has only its kill switch`);
       assert.equal(readFileSync(join(a.out, old, "sw.js"), "utf8"), kill, `${old}/sw.js is the kill switch`);
     }
-    assert.deepEqual(readdirSync(a.out).filter((f) => statSync(join(a.out, f)).isDirectory()).sort(), ["app", "emulator", "img", "transfer"]);
+    assert.deepEqual(readdirSync(a.out).filter((f) => statSync(join(a.out, f)).isDirectory()).sort(), ["app", "docs", "emulator", "img", "transfer"]);
+    // The docs (iteration 57, web/docs/build.mjs): each page's HTML with its
+    // Markdown beside it, the reference page, a command file per model;
+    // outside the app, so not precached.
+    const docs = filesUnder(join(a.out, "docs"));
+    for (const f of ["index.html", "index.md", "48gx/index.html", "48gx.md", "commands/index.html", "commands.md", "commands/page.js", "commands/slug.js", "commands/48gx.md", "commands/19bii.md", "saturn/index.html", "transfer/index.html", "docs.css"]) {
+      assert.ok(docs.includes(f), `docs/${f}`);
+    }
+    assert.equal(docs.filter((f) => /^commands\/[a-z0-9]+\.md$/.test(f)).length, 12, "a command file per model");
+    assert.match(readFileSync(join(a.out, "docs", "commands", "index.html"), "utf8"), /http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'/, "the site's CSP");
+    assert.match(readFileSync(join(a.out, "llms.txt"), "utf8"), /^# saturnus\n\n> /);
     assert.ok(!existsSync(join(a.out, "app", ".htaccess")), "one .htaccess, at the top");
     const shipped = filesUnder(join(a.out, "app")).filter((f) => f !== "sw.js");
     assert.deepEqual(a.files, shipped);
@@ -92,6 +103,7 @@ test("the service worker precaches exactly the app's files, and a new build is a
     assert.match(index, /<a id="to-transfer"[^>]* href="#\/files"[^>]*>.*<span>Files<\/span><\/a>/);
     assert.match(index, /<a id="to-emulator"[^>]* href="#\/calculator"[^>]*>.*<span>Calculator<\/span><\/a>/);
     assert.match(index, /<a class="home-landing[^"]*" href="\.\.\/" data-site="landing"/, "the landing page, one up");
+    assert.match(index, /<a class="home-docs[^"]*" href="\.\.\/docs\/commands\/" data-site="commands"/, "the docs' command reference, beside the app");
     assert.doesNotMatch(index, /saturnus tx/, "the views are Calculator and Files");
     const landingIndex = readFileSync(join(a.out, "index.html"), "utf8");
     assert.doesNotMatch(landingIndex, /manifest|Content-Security-Policy/, "the landing page is copied as it is");
@@ -147,4 +159,7 @@ test("the .htaccess makes every file revalidate, so a deploy is never mixed with
   // Inside the mod_headers guard, so a host without it still serves.
   const guard = ht.slice(ht.indexOf("<IfModule mod_headers.c>"), ht.indexOf("</IfModule>"));
   assert.ok(guard.includes('Header set Cache-Control "no-cache"'));
+  // The docs' Markdown and llms.txt as UTF-8 text (iteration 57).
+  assert.match(ht, /^AddType text\/markdown \.md$/m);
+  assert.match(ht, /^AddCharset utf-8 \.md \.txt$/m);
 });

@@ -13,6 +13,9 @@ test("on the site the app sits in app/ under the landing page", () => {
   for (const path of ["/saturnus/app/", "/saturnus/app/index.html", "/app/"]) {
     assert.equal(siteHref("landing", path), "../", path);
     assert.equal(siteHref("app", path), "./", path);
+    // The docs beside the app (iteration 57).
+    assert.equal(siteHref("docs", path), "../docs/", path);
+    assert.equal(siteHref("commands", path), "../docs/commands/", path);
   }
 });
 
@@ -20,6 +23,8 @@ test("served from web/ the app is index.html, the landing page landing/", () => 
   for (const path of ["/", "/index.html"]) {
     assert.equal(siteHref("landing", path), "landing/");
     assert.equal(siteHref("app", path), "./");
+    // web/ has no docs: the site's.
+    assert.equal(siteHref("commands", path), "https://ractive.ch/saturnus/docs/commands/");
   }
   // A folder named like the app higher up is not the site.
   assert.equal(siteHref("landing", "/app/web/index.html"), "landing/");

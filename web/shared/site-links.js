@@ -1,5 +1,5 @@
-// The links between the site's two pages: the landing page and the app
-// (iteration 50d). On the site the app sits in app/ under the landing
+// The links between the site's pages: the landing page and the app
+// (iteration 50d), and the docs (iteration 57). On the site the app sits in app/ under the landing
 // page (/saturnus/, /saturnus/app/, web/site.sh); served from web/
 // (README, "Build and serve", and the tests' server) the app is
 // index.html and the landing page landing/. The app's HTML carries the
@@ -14,14 +14,19 @@
 
 import "./models.js";
 
+/** The docs on the site (iteration 57), for a page that is not on it (web/ served directly). */
+export const DOCS_URL = "https://ractive.ch/saturnus/docs/";
+
 /**
- * The href of page `to` ("landing", "app") from the page at `pathname`:
- * the site's layout when the page sits in app/, else web/'s.
+ * The href of page `to` ("landing", "app", "docs", "commands": the docs'
+ * command reference) from the page at `pathname`: the site's layout
+ * when the page sits in app/, else web/'s, which has no docs and links
+ * the site's.
  */
 export function siteHref(to, pathname) {
   const site = /\/app\/[^/]*$/.test(pathname);
-  if (site) return { landing: "../", app: "./" }[to] ?? null;
-  return { landing: "landing/", app: "./" }[to] ?? null;
+  if (site) return { landing: "../", app: "./", docs: "../docs/", commands: "../docs/commands/" }[to] ?? null;
+  return { landing: "landing/", app: "./", docs: DOCS_URL, commands: `${DOCS_URL}commands/` }[to] ?? null;
 }
 
 /**

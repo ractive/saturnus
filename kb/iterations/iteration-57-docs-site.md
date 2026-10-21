@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 57: the docs site and the command reference page"
 date: 2026-10-21
-status: planned
+status: in-progress
 tags:
   - iteration
   - web
