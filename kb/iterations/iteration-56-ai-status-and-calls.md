@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 56: AI access status, reconnecting, and the AI's calls"
 date: 2026-10-20
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
@@ -88,7 +88,7 @@ address secret, token or pairing code.
 - [x] `web/ai-log.js` and the drawer; palette entry; tests in `web/test/`
 - [x] Copy follows `kb/docs/writing-style.md`
 - [x] Screenshots: sidebar connected and lost, the drawer with calls (2 max)
-- [ ] `just gates`, PR, review, merge, deploy
+- [x] `just gates`, PR, review, merge, deploy
 
 ## Notes (implementation)
 
