@@ -68,7 +68,7 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
     | Section | URL | Source |
     |---|---|---|
     | Models (12) | `/saturnus/docs/48gx` | written from the wiki, the owner's photos |
-    | Commands | `/saturnus/docs/48gx/commands/<slug>` | generated from `web/commands.json` |
+    | Command reference | `/saturnus/docs/commands` (one dynamic page) | `web/commands.json` |
     | How the Saturn works | `/saturnus/docs/saturn/cpu`, `…/memory`, `…/display`, … | written from the wiki |
     | Moving files to a real calculator | `/saturnus/docs/transfer/cables`, `…/kermit`, `…/satx`, … | written from the wiki and the satx docs |
 
@@ -77,15 +77,17 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
     (title, summary, one link list per section; one command index per model rather than
     every command).
   - Sources are Markdown files in this repository; the site build renders HTML and
-    publishes the Markdown as is. The command pages (about 4,100 model-command pairs,
-    2,900 examples) are generated, not written: one page per model and command, because
-    the examples ran on each model's ROM. Readable slugs for names like `→LIST`, `%CH`,
-    `∫`, with the real name on the page.
-  - No "Run it" links on the pages: the examples show input, the stack before and the
-    display after, as the emulator gave them. Whoever runs a calculator uses Search
-    (Cmd-K) there.
-  - The app gets a ROM-free command reference: from the home page, every model's
-    commands can be searched and read without a ROM; running needs one.
+    publishes the Markdown as is.
+  - The command reference is one dynamic page, not a page per command (owner: few
+    people search for single commands): it reads `web/commands.json` in the browser,
+    with a model picker, search, and a link per command through the address
+    (`/saturnus/docs/commands#48gx/hms-`; readable slugs for names like `→LIST`, `%CH`,
+    `∫`). It is also the app's ROM-free reference: the home page links to it. For LLMs,
+    the build generates one Markdown file per model with all its commands and examples
+    (`/saturnus/docs/commands/48gx.md`, 12 files), and `llms.txt` lists those.
+  - No "Run it" links: the examples show input, the stack before and the display
+    after, as the emulator gave them. Whoever runs a calculator uses Search (Cmd-K)
+    there.
   - The encyclopedia takes no ROM code.
 
 ## Tasks
@@ -93,8 +95,7 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
 - [-] Fix pass on the wiki (dropped by the owner, 2026-10-21: the wiki stays gathered material)
 - [x] Decide form, structure and URL of the encyclopedia
 - [ ] Site build: Markdown sources → HTML plus the `.md` beside it, `/saturnus/llms.txt`, a docs index, navigation, the site's style; deployed with pages.yml
-- [ ] Command pages generated from `web/commands.json`, per model, with slugs and a command index per model
-- [ ] ROM-free command reference in the app (home page)
+- [ ] Command reference: one dynamic page from `web/commands.json` (model picker, search, links per command), linked from the app's home page; one generated `.md` per model for `llms.txt`
 - [ ] Model pages (12): history, specifications, what is special, where a ROM comes from, photos
 - [ ] How the Saturn works: CPU, memory, display, keyboard, timers, interrupts
 - [ ] Moving files to a real calculator: cables, Kermit, XModem, satx, Files
