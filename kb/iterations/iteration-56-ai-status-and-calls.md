@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 56: AI access status, reconnecting, and the AI's calls"
 date: 2026-10-20
-status: planned
+status: in-progress
 tags:
   - iteration
   - web
@@ -13,7 +13,7 @@ branch: iter-56/ai-status-and-calls
 # Iteration 56: AI access status, reconnecting, and the AI's calls
 
 Owner, 2026-10-20, after the first claude.ai run against the hosted relay
-https://tab-mcp.ractive.ch: a relay restart broke the page's connection,
+<https://tab-mcp.ractive.ch>: a relay restart broke the page's connection,
 and saturnus did not show it; Claude only said the calculator could not
 be reached. Three changes:
 
@@ -82,10 +82,27 @@ address secret, token or pairing code.
 
 ## Tasks
 
-- [ ] Vendor `@ractive-ch/tab-mcp-client` 0.2.0 (justfile version and integrity, `web/vendor/tab-mcp-client/`)
-- [ ] Sidebar entry with the states above, Disconnect, Calls; live region
-- [ ] Reconnect with backoff; `retrying` in `AiAccess`; tests in `web/test/`
-- [ ] `web/ai-log.js` and the drawer; palette entry; tests in `web/test/`
-- [ ] Copy follows `kb/docs/writing-style.md`
-- [ ] Screenshots: sidebar connected and lost, the drawer with calls (2 max)
+- [x] Vendor `@ractive-ch/tab-mcp-client` 0.2.0 (justfile version and integrity, `web/vendor/tab-mcp-client/`)
+- [x] Sidebar entry with the states above, Disconnect, Calls; live region
+- [x] Reconnect with backoff; `retrying` in `AiAccess`; tests in `web/test/`
+- [x] `web/ai-log.js` and the drawer; palette entry; tests in `web/test/`
+- [x] Copy follows `kb/docs/writing-style.md`
+- [x] Screenshots: sidebar connected and lost, the drawer with calls (2 max)
 - [ ] `just gates`, PR, review, merge, deploy
+
+## Notes (implementation)
+
+- Off after an error that is not retried (another tab took over, a
+  refused address) shows that error under "Connect your AI app…".
+- Which failed retries end the series is read from the client's messages
+  (`transientFailure` in web/ai.js): "The relay refused the connection",
+  a too small message limit, `replaced` and the browser's or the user's
+  refusals end it; an unreachable relay or no answer in time does not.
+  A connect on page load ("Keep AI access on") that fails is not retried.
+- While lost the dialog shows "… Reconnecting…", offers Turn off and
+  Connect (try now), and does not connect by itself on opening.
+- The drawer's copy button is "Copy log", as in the packets panel; a new
+  token `--warn` colours the lost dot. `aiView` (the sidebar's states)
+  lives in web/ai-log.js, so it is tested in Node without the page.
+- Screenshots (local, not committed): the sidebar connected with the
+  drawer full of calls, and lost and reconnecting.
