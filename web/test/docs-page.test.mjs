@@ -184,7 +184,18 @@ test("the docs index: the sections, the models with their colours, the Markdown 
       await until(ev, `document.readyState === "complete" && (!document.getElementById("ref-q") || document.body.dataset.ready === "true")`, 20_000, path);
       const over = await ev(`document.documentElement.scrollWidth - document.documentElement.clientWidth`);
       assert.equal(over, 0, `${path} at ${width} px is ${over} px too wide`);
+      // The header is one row: the brand, the section links scrolling sideways, the app as its icon.
+      const bar = await ev(`document.querySelector(".docs-bar").getBoundingClientRect().height`);
+      assert.ok(bar <= 56, `${path} at ${width} px: the header is ${bar} px tall`);
+      assert.ok(await ev(`(() => { const n = document.querySelector(".docs-nav"); return n.scrollWidth > n.clientWidth && getComputedStyle(n).overflowX === "auto"; })()`), `${path} at ${width} px: the links scroll`);
+      assert.equal(await ev(`getComputedStyle(document.querySelector(".docs-app-ic")).display`), "block");
+      assert.equal(await ev(`document.querySelector(".docs-app").textContent`), "Open the app", "the link keeps its name");
     }
   }
+  // On a desktop the header is as it was: the links wrapping, "Open the app" as text.
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/` });
+  await until(ev, `document.readyState === "complete"`, 10_000, "the index again");
+  assert.equal(await ev(`getComputedStyle(document.querySelector(".docs-app-ic")).display`), "none");
   assert.deepEqual(errors, [], "no uncaught errors");
 });

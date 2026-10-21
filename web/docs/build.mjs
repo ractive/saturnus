@@ -162,7 +162,7 @@ ${csp ? `<meta http-equiv="Content-Security-Policy" content="${escapeHtml(csp)}"
   <nav class="docs-nav" aria-label="Sections">
     ${nav}
   </nav>
-  <a class="docs-app" href="${app}">Open the app</a>
+  <a class="docs-app" href="${app}" title="Open the app"><svg class="ic docs-app-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8 6h8v4H8zM8.5 14h.01M12 14h.01M15.5 14h.01M8.5 17.5h.01M12 17.5h.01M15.5 17.5h.01"/></svg><span>Open the app</span></a>
 </header>
 <main class="docs-main">
 <article class="docs-page">

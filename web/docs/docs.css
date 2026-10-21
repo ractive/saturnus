@@ -45,7 +45,39 @@ body.docs {
 .docs-nav a, .docs-app, .docs-foot a { color: var(--accent-text); text-decoration: none; text-underline-offset: 3px; }
 .docs-nav a:hover, .docs-app:hover, .docs-foot a:hover { text-decoration: underline; }
 .docs-nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
-.docs-app { font-size: var(--fs-md); }
+.docs-app { display: inline-flex; align-items: center; gap: var(--s1); font-size: var(--fs-md); }
+.docs-app-ic { display: none; }
+
+/* A phone: one row. The brand smaller, the section links a row that
+   scrolls sideways (fading out at the right), the app as its icon. */
+@media (max-width: 559px) {
+  .docs-bar { flex-wrap: nowrap; gap: var(--s3); }
+  .docs-bar .brand { font-size: 17px; }
+  .docs-nav {
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    white-space: nowrap;
+    padding: var(--s2) var(--s4) var(--s2) 0;
+    margin: 0;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  }
+  .docs-nav::-webkit-scrollbar { display: none; }
+  .docs-app { flex: none; width: var(--tap); height: var(--tap); justify-content: center; border-radius: var(--r-md); }
+  .docs-app:hover { background: var(--hover); text-decoration: none; }
+  .docs-app-ic { display: block; }
+  .docs-app > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 
 /* ---------------------------------------------------------------- page */
 
