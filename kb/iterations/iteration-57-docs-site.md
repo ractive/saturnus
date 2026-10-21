@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 57: the docs site and the command reference page"
 date: 2026-10-21
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
@@ -61,7 +61,7 @@ next, after this is merged.
 - [x] Links from the home page and the command palette
 - [x] Tests in `web/test/` (build output, `llms.txt` format, the reference page in Chrome)
 - [x] Screenshots: the docs index and the command reference (2 max)
-- [ ] `just gates`, PR, review, merge, deploy
+- [x] `just gates`, PR, review, merge, deploy
 
 ## As built
 
