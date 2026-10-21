@@ -55,14 +55,18 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
   Guide's flag list transcribed verbatim (system-flags-49g). The other category 3
   findings need no fix.
 
+- 2026-10-21: the wiki is gathered material, not a published product: it stays as it is,
+  ROM excerpts (instruction sequences, the 8-byte dump, routine walk-throughs) included,
+  and needs no clean-up pass. The encyclopedia is written for readers from the wiki's
+  facts and takes no ROM code. The fix pass below is dropped.
+
 Open:
 
-- Form and URL of the encyclopedia below `/saturnus/`.
+- Form and URL of the encyclopedia below `/saturnus/` (discussed 2026-10-21: readers,
+  first version with model pages and the command reference, URL, review).
 
 ## Tasks
 
-- [ ] Fix pass on the wiki in the order the audit suggests: listings, dumps and private
-  material; overview.md and the Conn4x pages; the tables named above;
-  the source terms. As wiki PRs, then rerun the audit (`tools/wiki-audit/run.sh`)
+- [-] Fix pass on the wiki (dropped by the owner, 2026-10-21: the wiki stays gathered material)
 - [ ] Decide form, structure and URL of the encyclopedia
 - [ ] Build and publish it
