@@ -20,12 +20,31 @@ function noteLine(command) {
   return command.note ? el("p", { class: "entry-note", text: `Note: ${command.note}` }) : null;
 }
 
-/** The command's stack effect, with the calculator's arrow spaced as the data writes it. */
-function stackBox(command) {
-  const verified = stackVerified(command);
+/** Whether a stack effect says nothing goes in and nothing comes out: an arrow alone. */
+export function stackEmpty(stack) {
+  return /^\s*→\s*$/.test(stack ?? "");
+}
+
+/** What an empty stack effect means, as text. */
+export const STACK_NONE = "Takes nothing, returns nothing.";
+
+/**
+ * The command's stack effect, with the calculator's arrow spaced as the
+ * data writes it; an arrow alone (nothing in, nothing out) as a line of
+ * text instead of a box.
+ */
+function stackBox(command, keyed = false) {
+  if (stackEmpty(command.stack)) return el("p", { class: "entry-stack-none", text: STACK_NONE });
+  // A key-driven model's examples press keys, not a command line: no stack effect to check.
+  const verified = keyed || stackVerified(command);
   return el("div", { class: "entry-stack-wrap" },
     el("pre", { class: "entry-stack", text: command.stack || "—" }),
     verified ? null : el("p", { class: "entry-stack-note", text: "From the manuals; not checked by an example here." }));
+}
+
+/** The heading of the examples: "Examples" and, after it, where they come from (`ctx.examplesNote`, else the app's). */
+function examplesHeading(model, examples, ctx) {
+  return el("h4", {}, "Examples", el("span", { class: "muted", text: examples.length ? (ctx.examplesNote ?? `, run on the emulated ${MODEL_TITLES[model]}`) : "" }));
 }
 
 /**
@@ -34,7 +53,14 @@ function stackBox(command) {
  * (or null when nothing can be sent, with `whyNot`), `tried` (`{example,
  * text, error}` of the last "try it", to show its outcome), `modelHref(m)`
  * (the docs page: the address of the same command on model `m`, which
- * makes the model pills links; the app's pills say which models have it).
+ * makes the model pills links; the app's pills say which models have it),
+ * `examplesNote` (the docs page: the text after "Examples" in its heading,
+ * where nothing can be run; the app says they ran on the emulated model).
+ * One rule for where a command is: the Menu row whenever the data has
+ * menus for the model, the Key row the manual's key (its category only;
+ * the manuals' pages are all under "In the manuals", each tagged with
+ * its models where they are not the shown one), the skin's key where the
+ * app knows it; our own grouping is not a place and is left out.
  */
 export function entryView(index, command, ctx = {}) {
   if (index.keyed) return keyedEntryView(index, command, ctx);
@@ -65,20 +91,10 @@ export function entryView(index, command, ctx = {}) {
     whereRows.push(el("dt", { text: "Menu" }), el("dd", {},
       ...where.menus.flatMap((m, i) => [i ? el("span", { class: "sep", text: " · " }) : null, el("span", { class: "menu-path", text: m })])));
   }
-  if (where.key) {
-    const k = where.key;
-    const src = `${k.title}${k.page ? `, p. ${k.page}` : ""}`;
-    whereRows.push(el("dt", { text: "Key" }), el("dd", {},
-      el("span", { class: "menu-path", text: k.category }), " ",
-      el("span", { class: "muted" }, "· ", k.url ? link(k.url, src) : src, k.other ? " · from another model's manual" : "")));
-  }
+  if (where.key) whereRows.push(el("dt", { text: "Key" }), el("dd", {}, el("span", { class: "menu-path", text: where.key.category })));
   if (where.keyboard) {
     whereRows.push(el("dt", { text: "Key" }), el("dd", {}, el("span", { class: "menu-path", text: where.keyboard }), " ",
       el("span", { class: "muted", text: "(from the key labels)" })));
-  }
-  if (where.group) {
-    whereRows.push(el("dt", { text: "Group" }), el("dd", {}, where.group, " ",
-      el("span", { class: "muted", text: "(our grouping, not a calculator menu)" })));
   }
 
   const examples = command.per.examples ?? [];
@@ -96,7 +112,7 @@ export function entryView(index, command, ctx = {}) {
     el("p", { class: "entry-desc", text: command.description }),
     noteLine(command),
     whereRows.length ? el("dl", { class: "entry-where" }, ...whereRows) : null,
-    el("h4", {}, "Examples", el("span", { class: "muted", text: examples.length ? `, run on the emulated ${MODEL_TITLES[model]}` : "" })),
+    examplesHeading(model, examples, ctx),
     exList,
     skip,
     !examples.length && !skip ? el("p", { class: "entry-skip", text: "No example on this model." }) : null,
@@ -212,11 +228,11 @@ function keyedEntryView(index, command, ctx) {
   const examples = command.per.examples ?? [];
   return el("div", { class: "entry" },
     head,
-    command.stack ? el("div", { class: "entry-stack-wrap" }, el("pre", { class: "entry-stack", text: command.stack })) : null,
+    command.stack ? stackBox(command, true) : null,
     el("p", { class: "entry-desc", text: command.description }),
     noteLine(command),
     el("dl", { class: "entry-where" }, ...where),
-    el("h4", {}, "Examples", el("span", { class: "muted", text: examples.length ? `, run on the emulated ${MODEL_TITLES[model]}` : "" })),
+    examplesHeading(model, examples, ctx),
     examples.length
       ? el("ol", { class: "entry-examples" }, ...examples.map((x, i) => keyedExampleRow(command, x, i, ctx, Boolean(km.home))))
       : el("p", { class: "entry-skip", text: "No example for this function." }),

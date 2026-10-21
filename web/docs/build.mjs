@@ -41,6 +41,7 @@ import { fileURLToPath } from "node:url";
 import { escapeHtml, parseFrontmatter, renderMarkdown } from "./markdown.mjs";
 import { slugMap } from "./commands/slug.js";
 import { buildIndex, exampleBefore, exampleResult, exampleRun, keysText, legendText, manualLinks, placement } from "../reference.js";
+import { STACK_NONE, stackEmpty } from "../components/entry-view.js";
 import { MODEL_ORDER, MODEL_TITLES } from "../norom.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -241,6 +242,11 @@ function block(lines, levels) {
   return lines.map((l, j) => (levels ? `${lines.length - j}: ${l}` : l)).join("\n");
 }
 
+/** The stack effect as Markdown lines: a code block, or the text for an arrow alone (entry-view.js). */
+function stackLines(stack) {
+  return stackEmpty(stack) ? [`Stack: ${STACK_NONE}`, ""] : ["Stack:", "", "```", stack || "—", "```", ""];
+}
+
 /**
  * Every command of `model` as Markdown: its name and long name, its
  * stack effect or keys, the description and note, where it is, its
@@ -255,7 +261,7 @@ export function commandsMarkdown(data, model) {
   const out = [
     `# ${title} commands`,
     "",
-    `Every command of the ${title} in saturnus's reference (${index.commands.length} ${index.keyed ? "functions" : "commands"}): ${index.keyed ? "the keys that run it" : "its stack effect"}, what it does, where it is on the calculator, and examples run on the emulated ${title}. The same reference as a page: [the command reference](./${`#${model}`}).`,
+    `Every command of the ${title} in saturnus's reference (${index.commands.length} ${index.keyed ? "functions" : "commands"}): ${index.keyed ? "the keys that run it" : "its stack effect"}, what it does, where it is on the calculator, and examples with their results from saturnus's emulated ${title}. The same reference as a page: [the command reference](./${`#${model}`}).`,
     "",
     index.keyed
       ? `The ${title} has no command line: a function is pressed. An example shows the display before, the keys pressed, and the display after.`
@@ -270,9 +276,9 @@ export function commandsMarkdown(data, model) {
       else if (c.steps) out.push(`Keys: ${c.keysText}`, "");
       if (e.inserts) out.push(`Puts \`${e.inserts.trimEnd()}\` on the edit line`, "");
       if (e.param) out.push(`Asks for: ${e.param}`, "");
-      if (c.stack) out.push("Stack:", "", "```", c.stack, "```", "");
+      if (c.stack) out.push(...stackLines(c.stack));
     } else {
-      out.push("Stack:", "", "```", c.stack || "—", "```", "");
+      out.push(...stackLines(c.stack));
     }
     out.push(c.description, "");
     if (c.note) out.push(`Note: ${c.note}`, "");
@@ -281,8 +287,7 @@ export function commandsMarkdown(data, model) {
     } else {
       const where = placement(index, c);
       if (where.menus.length) out.push(`Menu: ${where.menus.join(" · ")}`, "");
-      if (where.key) out.push(`Key: ${where.key.category} (${where.key.title}${where.key.page ? `, p. ${where.key.page}` : ""}${where.key.other ? ", from another model's manual" : ""})`, "");
-      if (where.group) out.push(`Group: ${where.group} (our grouping, not a calculator menu)`, "");
+      if (where.key) out.push(`Key: ${where.key.category}`, "");
     }
     const examples = c.per.examples ?? [];
     examples.forEach((x, i) => {
@@ -329,7 +334,7 @@ export function llmsTxt(pages, data, base = BASE) {
     "",
     `> saturnus runs classic HP calculators in the browser: the HP ${list}. These docs cover the models, their commands, how the Saturn processor works and how to move files to a real calculator.`,
     "",
-    "Every docs page is also Markdown: its address with `.md` (`/saturnus/docs/48gx/` is `/saturnus/docs/48gx.md`). The command reference has one Markdown file per model with every command, its stack effect, a description and examples run on the emulator.",
+    "Every docs page is also Markdown: its address with `.md` (`/saturnus/docs/48gx/` is `/saturnus/docs/48gx.md`). The command reference has one Markdown file per model with every command, its stack effect, a description and examples with their results from the emulated calculator.",
     "",
   ];
   const section = (heading, rows) => {

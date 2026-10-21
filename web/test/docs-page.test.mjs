@@ -97,8 +97,10 @@ test("the command reference page: the addressed command read-only, suggestions a
   fit = await sideFits();
   assert.ok(fit.bottom <= fit.h && fit.last <= fit.h && fit.top < 100, `stuck under the bar the column fits the screen: ${JSON.stringify(fit)}`);
   const before = await ev("scrollY");
-  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: 180, y: 500, deltaX: 0, deltaY: 300 });
-  await sleep(300);
+  for (let i = 0; i < 10 && !(await ev("scrollY") > before); i++) {
+    await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: 180, y: 500, deltaX: 0, deltaY: 300 });
+    await sleep(200);
+  }
   assert.ok(await ev("scrollY") > before, "the wheel at the column's end scrolls the page");
   await ev(`scrollTo(0, 0), true`);
   await ev(`document.getElementById("ref-side").scrollTop = 0, true`);
@@ -194,6 +196,25 @@ test("the command reference page: the addressed command read-only, suggestions a
   await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "DROP"`, 5_000, "DROP shown");
   await sleep(200);
   assert.ok(await ev(`(() => { const top = document.getElementById("ref-entry").getBoundingClientRect().top; const bar = document.getElementById("ref-bar").getBoundingClientRect().bottom; return top >= bar && top < bar + 40; })()`), "the entry's top under the bar");
+
+  // Where a command is, one rule for every model (BAR): the Menu row where the data has menus, the Key
+  // row the manual's key alone, no "Group" row, the manuals' pages only under "In the manuals", tagged
+  // with their models where those are not the shown one; an arrow alone as text, not a box; the
+  // examples' heading says they are results, since nothing runs here.
+  const rows = () => ev(`[...document.querySelectorAll("#ref-entry .entry-where dt")].map((dt) => dt.textContent + ": " + dt.nextElementSibling.textContent)`);
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/#48sx/bar` });
+  await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "BAR" && document.querySelector("#ref-entry .chip.current")?.textContent === "48SX"`, 10_000, "BAR on the 48SX");
+  assert.deepEqual(await rows(), ["Menu: PLOT PTYPE", "Key: PLOT"]);
+  assert.equal(await ev(`document.querySelectorAll("#ref-entry .entry-where a").length`), 0, "no manual link in the rows");
+  assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-manuals li")].map((li) => li.textContent)`), ["HP 48G Series Advanced User's Reference Manual, p. 198"]);
+  assert.equal(await ev(`document.querySelector("#ref-entry .entry-stack-none").textContent`), "Takes nothing, returns nothing.");
+  assert.equal(await ev(`document.querySelectorAll("#ref-entry .entry-stack").length`), 0, "no box for an arrow alone");
+  assert.equal(await ev(`document.querySelector("#ref-entry .entry h4").textContent`), "Examples · results from saturnus's emulated HP 48SX");
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/#49g/bar` });
+  await until(ev, `document.querySelector("#ref-entry .chip.current")?.textContent === "49G"`, 10_000, "BAR on the 49G");
+  assert.deepEqual(await rows(), [], "no Group row: our grouping is not a place on the calculator");
+  assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-manuals li")].map((li) => li.textContent)`), ["HP 48G Series Advanced User's Reference Manual, p. 198 (48SX, 48GX)"]);
+  assert.equal(await ev(`document.querySelector("#ref-entry .entry-stack-none").textContent`), "Takes nothing, returns nothing.");
 
   // A model without the command: its pill is no link.
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/#48gx/fft` });

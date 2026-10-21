@@ -1,10 +1,10 @@
 ---
 title: Command reference
-description: Every command of the 12 calculators saturnus runs, with its stack effect, what it does and examples run on the emulator.
+description: Every command of the 12 calculators saturnus runs, with its stack effect, what it does and examples with their results from the emulated calculator.
 section: commands
 ---
 
-Every command of the 12 calculators, with its stack effect, what it does and examples run on the emulator. Search by name or by what a command does; `->LIST` finds `→LIST`, `SIGMA+` finds `Σ+`. Or browse a model's commands by menu.
+Every command of the 12 calculators, with its stack effect, what it does and examples with their results from the emulated calculator. Search by name or by what a command does; `->LIST` finds `→LIST`, `SIGMA+` finds `Σ+`. Or browse a model's commands by menu.
 
 ## Reading an example
 

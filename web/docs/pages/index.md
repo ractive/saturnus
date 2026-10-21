@@ -25,7 +25,7 @@ The model pages are coming soon.
 
 ## Command reference
 
-[Every command of the 12 models](commands.md), with its stack effect, what it does and examples run on the emulator. Search a model's commands by name or by what they do.
+[Every command of the 12 models](commands.md), with its stack effect, what it does and examples with their results from the emulated calculator. Search a model's commands by name or by what they do.
 
 ## How the Saturn works
 

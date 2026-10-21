@@ -272,20 +272,23 @@ function* ancestors(a) {
  * The column's height on a desktop: from where its top is now (lower on
  * the page before the page is scrolled, stuck under the bar after) to
  * just above the viewport's bottom, so its last row can always be
- * reached and it never hangs below the screen. Read on scroll and
- * resize, once a frame.
+ * reached and it never hangs below the screen. Read on resize, and on
+ * scroll once a frame.
  */
-let fitting = 0;
 function fitSide() {
-  if (fitting) return;
-  fitting = requestAnimationFrame(() => {
-    fitting = 0;
-    if (narrow.matches || nav.parentElement !== side) {
-      side.style.maxHeight = "";
-      return;
-    }
-    const top = Math.max(side.getBoundingClientRect().top, 0);
-    side.style.maxHeight = `${Math.max(160, window.innerHeight - top - 16)}px`;
+  if (narrow.matches || nav.parentElement !== side) {
+    side.style.maxHeight = "";
+    return;
+  }
+  const top = Math.max(side.getBoundingClientRect().top, 0);
+  side.style.maxHeight = `${Math.max(160, window.innerHeight - top - 16)}px`;
+}
+let fitQueued = 0;
+function queueFit() {
+  if (fitQueued) return;
+  fitQueued = requestAnimationFrame(() => {
+    fitQueued = 0;
+    fitSide();
   });
 }
 
@@ -345,7 +348,10 @@ function renderEntry(name, slug) {
     return;
   }
   // The pills lead to the same command on the other models.
-  pane.replaceChildren(entryView(shown.index, command, { modelHref: (m) => hrefOf(m, command.name) }));
+  pane.replaceChildren(entryView(shown.index, command, {
+    modelHref: (m) => hrefOf(m, command.name),
+    examplesNote: ` · results from saturnus's emulated ${title()}`,
+  }));
   delete pane.dataset.empty;
   document.title = `${command.name} on the ${title()} · ${baseTitle}`;
 }
@@ -437,7 +443,7 @@ async function start() {
     new IntersectionObserver(([e]) => bar.classList.toggle("stuck", !e.isIntersecting)).observe(sentinel);
   }
   window.addEventListener("hashchange", () => { fromAddress(); });
-  window.addEventListener("scroll", fitSide, { passive: true });
+  window.addEventListener("scroll", queueFit, { passive: true });
   window.addEventListener("resize", fitSide);
   narrow.addEventListener("change", fitSide);
   await fromAddress();
