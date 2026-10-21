@@ -1072,8 +1072,34 @@ through the relay while the tab is open. Nothing is installed.
   (tab-mcp's OAuth pairing: the user types it on the relay's sign-in page), the connected apps each with
   Disconnect, **Keep AI access on** (connect again when the app opens,
   kept as `saturnus.aiKeepOn`), Turn off and New address (the apps of the
-  old one lose access). While a session is on, the panel says "AI access
-  on · 1 app · Show". Not in the desktop app.
+  old one lose access). Not in the desktop app.
+- **The sidebar entry** (`app.js` `watchAi`, `ai-log.js` `aiView`,
+  iteration 56) says the state: "Connect your AI app…" (off; why it went
+  off below it), "AI access: connecting…", "AI access on · no app yet"
+  (Show), "Claude is connected" or "2 AI apps are connected" with a dot in
+  the accent (Calls · Disconnect), "AI access lost · reconnecting…" with a
+  dot in `--warn` (Calls · Turn off). Disconnect turns AI access off in
+  this tab; the apps stay paired. A visually hidden `aria-live` line
+  (`#ai-live`) reads the state out.
+- **Reconnecting** (`ai.js`): a session that ended with `network`,
+  `heartbeat` or `shutdown` is connected again after 5, 10, 20, 40 s,
+  then every 60 s (`retryDelay`), with or without Keep AI access on,
+  until it is back, the user turns it off, or a retry is refused for good
+  (`transientFailure`: the relay refused the address, another tab took
+  over). `lost`, `retrying` (the next try's time) and `attempt` are on
+  `AiAccess`; a connect resets them.
+- **The AI's calls** (`ai-log.js`): `AiLog`, made with `AiAccess`, keeps
+  the last 200 tool calls (tab-mcp 0.2.0's `toolcall` and `toolcallend`:
+  app, tool title, arguments, outcome, result, duration) and the
+  connection's events (connected, lost, the retries, apps paired and
+  gone, turned off) in memory only; never the address, a token or a
+  pairing code. `AiLogView` is the drawer `#ai-log` (the packets' look,
+  green on black), opened from Calls in the sidebar and "Show the AI's
+  calls" in Search; open or closed kept as `saturnus.aiLog`. A pending
+  call says "waiting for you" while tab-mcp's confirmation
+  (`dialog.tab-mcp-confirm`) asks about it, else "running"; long values
+  and results are folded behind "n more lines". Copy log copies it all
+  as text.
 - **Relay** (`ai-relay.js`): the hosted one (`HOSTED_RELAY`,
   `https://tab-mcp.ractive.ch` since 2026-10-20, run from the ractive.ch
   repository; `connect-src` in `site.htaccess` admits it; privacy notice
@@ -1121,12 +1147,15 @@ through the relay while the tab is open. Nothing is installed.
   AI access."
 - Tests: `test/ai.test.mjs` (the session on a fake hub: one attach per
   calculator, every connection closed again, when the calculators keep
-  running), `test/vendor.test.mjs` (the vendored files against
+  running; the retries with fake timers), `test/ai-log.test.mjs` (the
+  log's entries, its text, the sidebar's states), `test/ai-log-page.test.mjs`
+  (the sidebar and the drawer in the page, states and events played in), `test/vendor.test.mjs` (the vendored files against
   `vendor.json`: each SHA-256, no file more or less, the entry's chunks),
   `test/ai-tools.test.mjs` (the tools on fake calculators),
   `test/hub.test.mjs` (`who: "ai"`), `test/ai-page.test.mjs` (a local
   relay, the page connected by a click, the MCP SDK client on a booted
-  48GX and 42S; needs Bun and the tab-mcp checkout, `TAB_MCP_DIR`,
+  48GX and 42S, the calls in the drawer, the relay restarted and
+  connected again by itself; needs Bun and the tab-mcp checkout, `TAB_MCP_DIR`,
   default `~/devel/tab-mcp`).
 
 ## Stored data

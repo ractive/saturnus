@@ -54,6 +54,8 @@
   --error-soft: #f6e4dd;
   /* Text on a solid error-coloured button (confirm.js): 5.5:1. */
   --error-ink: #ffffff;
+  /* Something that is being put right by itself (AI access reconnecting): a dot, not text. */
+  --warn: #b7791f;
   /* A calculator object shown as text: tinted and sunk, like a display. */
   --display: #dde1d3;
   --display-ink: #23271f;
@@ -180,6 +182,7 @@
   --error: #e58b6a;
   --error-soft: #3d2a23;
   --error-ink: #1c120d;
+  --warn: #e3a94b;
   --display: #2b3029;
   --display-ink: #dfe5d6;
   --folder-fill: #8a6a2e;
@@ -231,6 +234,7 @@
     --error: #e58b6a;
     --error-soft: #3d2a23;
     --error-ink: #1c120d;
+    --warn: #e3a94b;
     --display: #2b3029;
     --display-ink: #dfe5d6;
     --folder-fill: #8a6a2e;

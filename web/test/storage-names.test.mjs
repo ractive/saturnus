@@ -63,7 +63,7 @@ test("the names keep the values the two pages had: the kept ROMs, states, settin
     panelWidth: "saturnus.panelWidth", layerWidth: "saturnus.layerWidth", treeWidth: "saturnus.treeWidth", keys: "saturnus.keys",
     storageAsk: "saturnus.storageAsk", screenLook: "saturnus.screenLook", theme: "saturnus.theme", clockOnStart: "saturnus.clockOnStart",
     sent: "saturnus.sent", tour: "saturnus.tour", view: "saturnus.view",
-    aiKeepOn: "saturnus.aiKeepOn", aiRelay: "saturnus.aiRelay",
+    aiKeepOn: "saturnus.aiKeepOn", aiRelay: "saturnus.aiRelay", aiLog: "saturnus.aiLog",
   });
   // AI access's address secret, one per relay (tab-mcp DEC-052).
   assert.equal(aiSecretKey("https://relay.ractive.ch"), "saturnus.aiSecret:https://relay.ractive.ch");

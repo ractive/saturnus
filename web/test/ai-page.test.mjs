@@ -62,9 +62,9 @@ function freePort() {
 }
 
 /** The relay as tab-mcp ships it, for the page at `pageOrigin`; stopped by the test. */
-async function startRelay(t, pageOrigin) {
-  const port = await freePort();
-  const tmp = mkdtempSync(join(tmpdir(), "saturnus-relay-"));
+async function startRelay(t, pageOrigin, again = null) {
+  const port = again?.port ?? (await freePort());
+  const tmp = again?.tmp ?? mkdtempSync(join(tmpdir(), "saturnus-relay-"));
   const db = join(tmp, "tab-mcp.db");
   const relay = spawn("bun", [RELAY_MAIN], {
     env: {
@@ -81,9 +81,10 @@ async function startRelay(t, pageOrigin) {
     stdio: ["ignore", "pipe", "pipe"],
   });
   relay.stderr.on("data", (d) => t.diagnostic(`relay: ${String(d).trim()}`));
+  const exited = new Promise((r) => relay.once("exit", r));
   t.after(() => {
     relay.kill("SIGTERM");
-    rmSync(tmp, { recursive: true, force: true });
+    if (!again) rmSync(tmp, { recursive: true, force: true });
   });
   const url = `http://127.0.0.1:${port}`;
   for (let i = 0; ; i++) {
@@ -95,7 +96,12 @@ async function startRelay(t, pageOrigin) {
     if (i > 100) assert.fail("the relay did not start");
     await sleep(100);
   }
-  return { url, db };
+  /** Stopped (a restart: the same port and store afterwards with `startRelay(t, origin, relay)`). */
+  const stop = () => {
+    relay.kill("SIGTERM");
+    return exited;
+  };
+  return { url, db, port, tmp, stop };
 }
 
 /** An access token for `address`, put into the relay's store as tab-mcp's tests do. */
@@ -204,7 +210,7 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   assert.equal(await ev("window.saturnusApp.ai.then((a) => a.keepsRunning)"), false, "no AI app yet: a hidden tab would pause");
   assert.equal(await ev("window.saturnusApp.ai.then(async (a) => { a.disconnect(); await a.connect({ resume: true }); return a.mcp.grants.length; })"), 1);
   assert.equal(await ev("window.saturnusApp.ai.then((a) => a.keepsRunning)"), true);
-  await until(ev, "document.getElementById('ai-chip').textContent.includes('1 app')", 5_000, "the panel counts the app");
+  await until(ev, "document.querySelector('#ai-connect .ai-label').textContent === 'Test client is connected'", 5_000, "the panel names the app");
   const client = await mcpClient(address, token);
   t.after(() => client.close());
   const names = (await client.listTools()).tools.map((x) => x.name);
@@ -237,6 +243,15 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   await answer(ev, false);
   assert.equal((await purge).error, true);
   assert.ok((await use(client, "list_variables")).json.home.some((v) => v.name === "AIT"));
+
+  // The AI's calls: both, with how they ended.
+  await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => b.textContent === 'Calls').click(), true");
+  await until(ev, "!document.getElementById('ai-log').hidden", 5_000, "the AI's calls open");
+  const outs = await ev("[...document.querySelectorAll('#ai-log .al-call')].map((li) => li.querySelector('.al-tool').textContent + ': ' + li.querySelector('.al-out').textContent.split(' · ')[0])");
+  assert.ok(outs.some((o) => /^Store .*: done$/i.test(o) || o.startsWith("store_variable: done")), outs.join("\n"));
+  assert.ok(outs.some((o) => /^Purge .*: declined$/i.test(o) || o.startsWith("purge_variable: declined")), outs.join("\n"));
+  assert.equal(await ev(`document.getElementById('ai-log').textContent.includes(${JSON.stringify(address.split("/a/")[1].split("/")[0])})`), false, "never the address");
+  await ev("document.querySelector('#ai-log .al-close').click(), true");
 
   const look = await use(client, "lookup_command", { name: "->LIST" });
   assert.equal(look.json.name, "→LIST");
@@ -291,6 +306,16 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   assert.notDeepEqual(after.slice(8), (await use(client, "press_keys", { keys: ["9"], display: "text" }), (await use(client, "read_display", { format: "text", pixels: true })).json.pixels.slice(8)));
   const shot = await use(client, "read_display", { format: "image" });
   assert.equal(shot.image?.mimeType, "image/png");
+
+  // The relay restarts: AI access is lost, tried again, and back by itself (without "Keep AI access on").
+  await relay.stop();
+  await until(ev, "document.querySelector('#ai-connect .ai-label').textContent === 'AI access lost · reconnecting…'", 15_000, "the panel says it is lost");
+  await startRelay(t, origin, relay);
+  await until(ev, "window.saturnusApp.ai.then((a) => a.state === 'connected' && !a.lost)", 30_000, "connected again by itself");
+  assert.equal(await ev("window.saturnusApp.ai.then((a) => a.keepOn)"), false);
+  const back = await mcpClient(address, token);
+  t.after(() => back.close());
+  assert.equal((await use(back, "list_calculators")).error, false, "the same address works again");
 
   // Turned off in the page: the calculator is told about the hidden tab again.
   await ev("window.saturnusApp.ai.then((a) => (a.disconnect(), true))");

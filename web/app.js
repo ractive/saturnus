@@ -302,7 +302,10 @@ function appActions(backend, store, memory, bindings, ai = null) {
     { id: "about", title: "About saturnus", description: "What saturnus is, what it was built from, and the manuals.", keywords: "about sources manuals licence", run: () => ui.about.open() },
     // Files, on this calculator when it can reach it (its route, web/router.js).
     // AI access (web/ai.js), where there is a relay; after the palette has closed.
-    ...(ai ? [{ id: "ai", title: "Connect your AI app…", description: "Let your AI app (Claude, ChatGPT, Claude Code, …) use the calculators in this tab.", keywords: "ai assistant mcp claude chatgpt agent connect llm tool", run: () => setTimeout(() => openAi(ai), 0) }] : []),
+    ...(ai ? [
+      { id: "ai", title: "Connect your AI app…", description: "Let your AI app (Claude, ChatGPT, Claude Code, …) use the calculators in this tab.", keywords: "ai assistant mcp claude chatgpt agent connect llm tool", run: () => setTimeout(() => openAi(ai), 0) },
+      { id: "ai-calls", title: aiLogView?.isOpen ? "Hide the AI's calls" : "Show the AI's calls", description: "Every call your AI app makes here, with its arguments and result, and the connection's events.", keywords: "ai calls log mcp tool history claude chatgpt debug", run: () => setTimeout(() => toggleAiLog(ai), 0) },
+    ] : []),
     { id: "open-tx", title: "Open Files", description: "Move files between calculators, emulated or on a cable, and this computer.", keywords: "files tx transfer send receive kermit serial cable backup computer", run: () => { location.hash = filesHref(store); } },
     // The tour, and each chapter alone (found by a search).
     { id: "tour", title: "Show me around", description: "A short tour of the app. Esc ends it.", keywords: "tour help guide introduction tutorial show around new start", run: () => startTour("start") },
@@ -370,34 +373,67 @@ function openAi(ai) {
 }
 
 /**
- * The panel's "Connect your AI app…" and, while AI access is on, its
- * status line ("AI access on · 1 app · Show"); and while an AI app is
- * connected the calculator keeps running in a hidden tab (`keepRunning`,
- * web/ai.js `keepsRunning`). The client is loaded as soon as the entry
- * shows, so the click's activation is not spent on loading it.
+ * Show or hide "The AI's calls" (web/ai-log.js) for AI access `ai` (a
+ * promise); `from` gets the focus back when it closes. `restore`: open
+ * it as this browser left it.
  */
-function watchAi(ai) {
+function toggleAiLog(ai, from = null, { restore = false } = {}) {
+  Promise.all([ai, import("./ai-log.js")]).then(([a, { AiLogView }]) => {
+    aiLogView ??= new AiLogView($("ai-log"), { log: a.log, say: (text, { error = false } = {}) => say(aiStore, text, error), prefs });
+    if (restore) aiLogView.open({ remember: false });
+    else aiLogView.toggle({ from });
+  }, (err) => console.error("saturnus: AI access did not load", err));
+}
+
+/**
+ * The sidebar's AI access entry (iteration 56): it says the state, opens
+ * "Connect your AI app" on a click, and the line below it offers what to
+ * do (Show; Calls and Disconnect; Calls and Turn off), read out by a live
+ * region. While an AI app is connected the calculator keeps running in a
+ * hidden tab (`keepRunning`, web/ai.js `keepsRunning`). The client is
+ * loaded as soon as the entry shows, so the click's activation is not
+ * spent on loading it.
+ */
+function watchAi(ai, store) {
   const button = $("ai-connect");
+  const label = button.querySelector(".ai-label");
+  const dot = button.querySelector(".ai-dot");
   const chip = $("ai-chip");
+  const live = $("ai-live");
+  aiStore = store;
   button.hidden = false;
   button.addEventListener("click", () => openAi(ai));
-  ai.then((a) => {
+  const link = (text, run) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "link";
+    b.textContent = text;
+    b.addEventListener("click", run);
+    return b;
+  };
+  Promise.all([ai, import("./ai-log.js")]).then(([a, { aiView }]) => {
     a.load().catch(() => {});
+    // Open as it was left in this browser.
+    if (prefs.get("aiLog") === "open") toggleAiLog(ai, null, { restore: true });
     const render = () => {
-      const on = a.state === "connected";
       if (keepRunning !== a.keepsRunning) {
         keepRunning = a.keepsRunning;
         visibility?.(document.hidden);
       }
-      chip.hidden = a.state === "disconnected";
-      if (chip.hidden) return;
-      const n = on ? a.mcp.grants.length : 0;
-      const show = document.createElement("button");
-      show.type = "button";
-      show.className = "link";
-      show.textContent = "Show";
-      show.addEventListener("click", () => openAi(ai));
-      chip.replaceChildren(on ? `AI access on · ${n === 1 ? "1 app" : `${n} apps`} · ` : "AI access: connecting… · ", show);
+      const v = aiView(a);
+      label.textContent = v.entry;
+      dot.hidden = !v.dot;
+      dot.dataset.tone = v.dot ?? "";
+      const calls = () => link("Calls", (e) => toggleAiLog(ai, e.currentTarget));
+      const actions = {
+        show: () => [link("Show", () => openAi(ai))],
+        connected: () => [calls(), " · ", link("Disconnect", () => a.disconnect())],
+        lost: () => [calls(), " · ", link("Turn off", () => a.disconnect())],
+      }[v.actions];
+      const line = actions ? actions() : v.note ? [v.note] : [];
+      chip.replaceChildren(...line);
+      chip.hidden = line.length === 0;
+      if (live.textContent !== v.said) live.textContent = v.said;
     };
     a.addEventListener("change", render);
     render();
@@ -941,7 +977,7 @@ async function main({ model = null, pwa: installed = null, onModel = null, ai = 
   if (onModel) store.watch(["booted"], (s) => onModel(s.booted));
   watchTxLink(store);
   watchTxPeer(backend, store);
-  if (ai) watchAi(ai);
+  if (ai) watchAi(ai, store);
 
   // The tour offered once, after the first start, until taken or dismissed;
   // put away for this visit at the first key pressed on the calculator.
@@ -1000,6 +1036,9 @@ async function main({ model = null, pwa: installed = null, onModel = null, ai = 
 let viewHidden = false;
 /** Whether an AI app's session keeps the calculator running in a hidden page (`watchAi`). */
 let keepRunning = false;
+/** "The AI's calls" drawer (web/ai-log.js), once opened; the store its toasts go to. */
+let aiLogView = null;
+let aiStore = null;
 /** What an AI app's tools use of the view: `{backend, store, reference}` (set in `main`). */
 let aiParts = null;
 /** `backend.visibility` with the view's part (set in `main`). */

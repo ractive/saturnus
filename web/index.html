@@ -81,9 +81,11 @@
   <nav class="site-links" aria-label="Pages">
     <a id="to-transfer" class="site-link" href="#/files" title="Files: move files between calculators and this computer" hidden><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-copy-to"/></svg><span>Files</span></a>
     <a id="switch-calc" class="site-link" href="#/" title="Home: start, add or remove a calculator"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-grid"/></svg><span>Switch calculator</span></a>
-    <button id="ai-connect" class="site-link" type="button" title="Let your AI app use the calculators in this tab" hidden><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-plug"/></svg><span>Connect your AI app…</span></button>
+    <button id="ai-connect" class="site-link" type="button" title="Let your AI app use the calculators in this tab" hidden><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-plug"/></svg><span class="ai-dot" aria-hidden="true" hidden></span><span class="ai-label">Connect your AI app…</span></button>
   </nav>
-  <p id="ai-chip" class="tx-chip ai-chip" role="status" hidden></p>
+  <!-- AI access's state (app.js watchAi): the entry above says it; this line offers what to do; the live region reads it out. -->
+  <p id="ai-chip" class="tx-chip ai-chip" hidden></p>
+  <p id="ai-live" class="visually-hidden" aria-live="polite"></p>
 
   <p id="unshared-note" class="panel-note" role="status" hidden></p>
 
@@ -110,6 +112,21 @@
 <sat-palette></sat-palette>
 <sat-shortcuts></sat-shortcuts>
 <sat-tour></sat-tour>
+<!-- "The AI's calls" (ai-log.js AiLogView): what the AI apps do through AI access, newest last. -->
+<section id="ai-log" class="ai-log" aria-labelledby="ai-log-title" hidden>
+  <div class="al-headbar">
+    <h2 id="ai-log-title">The AI's calls</h2>
+    <div class="al-actions">
+      <button class="al-clear" type="button">Clear</button>
+      <button class="al-copy" type="button">Copy log</button>
+      <button class="al-close icon" type="button" title="Hide the AI's calls" aria-label="Hide the AI's calls"><svg class="ic" aria-hidden="true"><use href="#ic-close"/></svg></button>
+    </div>
+  </div>
+  <div class="al-scroll" role="region" tabindex="0" aria-label="The AI's calls, newest last">
+    <p class="al-empty">Nothing yet. The calls of your AI app and the connection's events show here.</p>
+    <ol class="al-list"></ol>
+  </div>
+</section>
 </div>
 
 <!-- Files (tx/app.js mountFiles, mounted by main.js on #/files). -->
