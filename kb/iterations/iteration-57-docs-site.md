@@ -55,10 +55,24 @@ next, after this is merged.
 
 ## Tasks
 
-- [ ] Build script, sources folder, docs index, `.md` beside each page, `llms.txt`, in the site build and pages.yml
-- [ ] Command reference page sharing `reference.js`, `entry-view.js` and `commands.json`; model picker, search, links per command
-- [ ] The 12 generated command `.md` files
-- [ ] Links from the home page and the command palette
-- [ ] Tests in `web/test/` (build output, `llms.txt` format, the reference page in Chrome)
-- [ ] Screenshots: the docs index and the command reference (2 max)
+- [x] Build script, sources folder, docs index, `.md` beside each page, `llms.txt`, in the site build and pages.yml
+- [x] Command reference page sharing `reference.js`, `entry-view.js` and `commands.json`; model picker, search, links per command
+- [x] The 12 generated command `.md` files
+- [x] Links from the home page and the command palette
+- [x] Tests in `web/test/` (build output, `llms.txt` format, the reference page in Chrome)
+- [x] Screenshots: the docs index and the command reference (2 max)
 - [ ] `just gates`, PR, review, merge, deploy
+
+## As built
+
+- Sources in `web/docs/pages/` (the site build reads `web/`), the build `web/docs/build.mjs`
+  (Node, no dependencies) with its own small Markdown renderer (`web/docs/markdown.mjs`):
+  the project has no JavaScript package manager to pin a library with.
+- A page is `docs/<page>/index.html` beside `docs/<page>.md`; Apache's DirectorySlash
+  sends `/saturnus/docs/48gx` to `/saturnus/docs/48gx/` (no rewrite rules), and the
+  browser keeps the `#48gx/hms-` of an address across that redirect. The site links
+  the slash form.
+- The reference page imports the app's modules from `app/` beside `docs/` (one copy of
+  each on the site); the entry's rules in `style.css` are scoped for `.docs-ref` too.
+- Placeholders: the 12 model pages and the two unwritten sections; `llms.txt` leaves
+  them out until written.
