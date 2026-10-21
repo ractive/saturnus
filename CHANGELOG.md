@@ -5,6 +5,28 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## 0.9.0 (2026-10-21)
+
+- **AI access on the web page.** Your AI app (Claude, ChatGPT, Claude
+  Code) can use the calculators in your browser tab: read the display and
+  the stack, press keys, run RPL, store and read variables, look up
+  commands. Connect it from the sidebar or the command palette ("Connect
+  your AI app…"): add the address shown as a custom connector or MCP
+  server and type the 6-digit code when your AI app asks for it. It goes
+  through the relay https://tab-mcp.ractive.ch (privacy notice:
+  https://ractive.ch/tab-mcp/). Storing or purging a variable asks you
+  first ("Allow", "Always allow" or "Don't allow"). Web page only; the
+  desktop app has no AI access.
+- **The sidebar says AI access's state** ("Claude is connected",
+  "AI access lost · reconnecting…") with Disconnect; a broken connection
+  is tried again by itself until it is back.
+- **The AI's calls**: for those who want to watch, a panel beside the
+  calculator lists every call an AI app makes, with its arguments and
+  how it ended, and the connection's events. Closed by default; open it
+  from "Calls" in the sidebar or the command palette.
+- The libraries, the CLIs and the desktop app are unchanged apart from
+  the version.
+
 ## 0.8.1 (2026-10-19)
 
 - **The desktop app for ARM**: installers for Windows on ARM (`.msi` and
