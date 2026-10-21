@@ -32,6 +32,13 @@ test("the renderer covers the pages' Markdown and escapes HTML", () => {
   assert.equal(renderInline("[a *b*](x.md#y) <https://e.org/> ![p](i.png)"), '<a href="x.md#y">a <em>b</em></a> <a href="https://e.org/">https://e.org/</a> <img src="i.png" alt="p">');
   assert.equal(renderInline("snake_case_name and 2*3*4"), "snake_case_name and 2<em>3</em>4");
   assert.equal(renderInline("\\*not\\* [x](a\"b)"), '*not* <a href="a&quot;b">x</a>');
+  // Review of PR 206: only relative, fragment, http(s) and mailto targets; a closing # needs a space.
+  for (const bad of ["[x](javascript:alert(1))", "[x]( JavaScript:alert(1))", "![p](data:image/png;base64,AA)", "[x](vbscript:x)"]) {
+    assert.throws(() => renderInline(bad), /link to a /, bad);
+  }
+  assert.equal(renderInline("[m](mailto:a@b.c) [h](#top)"), '<a href="mailto:a@b.c">m</a> <a href="#top">h</a>');
+  assert.match(renderMarkdown("## C#"), />C#<\/h2>/);
+  assert.match(renderMarkdown("## Title ##"), />Title<\/h2>/);
   assert.equal(renderInline("[x](u)", (h) => `../${h}`), '<a href="../u">x</a>');
   assert.equal(renderMarkdown("## Two words", { headingId: (t) => t.toLowerCase().replace(/ /g, "-") }), '<h2 id="two-words">Two words</h2>');
   assert.throws(() => renderMarkdown("```\nopen"), /not closed/);

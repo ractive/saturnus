@@ -39,8 +39,20 @@ export function parseFrontmatter(text) {
   return { meta, body: src.slice(m[0].length) };
 }
 
+/**
+ * A link or image target the pages may use: relative, a fragment, http:,
+ * https: or mailto:. Anything else (javascript:, data:, …) fails the build
+ * rather than reaching the HTML.
+ */
+export function safeHref(href) {
+  const scheme = href.trim().match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+  if (scheme && !["http", "https", "mailto"].includes(scheme)) throw new Error(`link to a ${scheme}: URL: ${href}`);
+  return href;
+}
+
 /** Inline Markdown of `text` as HTML; `link(href)` rewrites each link's target. */
-export function renderInline(text, link = (h) => h) {
+export function renderInline(text, rewrite = (h) => h) {
+  const link = (h) => rewrite(safeHref(h));
   let out = "";
   let i = 0;
   const s = text;
@@ -140,7 +152,7 @@ function cells(line) {
   return line.trim().replace(/^\|/, "").replace(/\|$/, "").split(/(?<!\\)\|/).map((c) => c.trim());
 }
 
-const HEADING = /^(#{1,4})\s+(.*?)\s*#*\s*$/;
+const HEADING = /^(#{1,4})\s+(.*?)(?:\s+#+)?\s*$/;
 const BULLET = /^[-*]\s+(.*)$/;
 const NUMBER = /^\d+[.)]\s+(.*)$/;
 const FENCE = /^```\s*([\w-]*)\s*$/;
