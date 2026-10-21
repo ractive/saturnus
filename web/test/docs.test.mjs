@@ -163,6 +163,11 @@ test("the build: each page's HTML and its Markdown as written, the command files
     assert.match(ref, /<script type="module" src="page\.js"><\/script>/);
     assert.match(ref, /<select id="ref-model" aria-label="Model">/);
     assert.match(ref, /<input id="ref-q" type="search" role="combobox"/);
+    // The two panes: the navigation (a skeleton until the data is there) and the entry; the sheet for a phone.
+    assert.match(ref, /<nav id="ref-nav" class="ref-nav" aria-label="Commands by menu"><div class="ref-skeleton" aria-hidden="true">(<span><\/span>){6}<\/div><\/nav>/);
+    assert.match(ref, /<aside id="ref-side"[^>]*>[\s\S]*<\/aside>\s*<div id="ref-entry" class="ref-entry docs-ref"><\/div>/);
+    assert.match(ref, /<button id="ref-browse" type="button" class="ref-browse"[^>]* aria-haspopup="dialog" aria-controls="ref-sheet">/);
+    assert.match(ref, /<dialog id="ref-sheet" class="ref-sheet" aria-labelledby="ref-sheet-title">/);
     assert.match(ref, /<a href="48gx\.md">48GX<\/a>/, "the page links each model's file");
     // The lead before the tool, the page's sections and the sources after it.
     assert.ok(ref.indexOf("<p>Every command of the 12 calculators") < ref.indexOf('<section class="docs-ref-app"'), "the lead first");

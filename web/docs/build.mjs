@@ -182,20 +182,35 @@ ${extra}${after ? `\n<div class="docs-page docs-after">\n${after}\n</div>` : ""}
 
 /**
  * The command reference page's tool, after its lead (page.js fills it):
- * the search field with the model beside it and its suggestions, the
- * count line, the entry, the commands to browse.
+ * the bar with the search field (the model beside it, its suggestions
+ * under it) and, on a phone, the Browse button; the count line; the two
+ * panes, the navigation by menu (a skeleton until the data is there)
+ * and the entry; the sheet the navigation moves into on a phone.
  */
 function commandsExtra() {
+  const bars = "<span></span>".repeat(6);
   return `<section class="docs-ref-app" aria-label="Commands">
-<div class="ref-search" role="search">
-  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16 16"/></svg>
-  <input id="ref-q" type="search" role="combobox" aria-label="Search the commands" aria-expanded="false" aria-controls="ref-suggest" aria-autocomplete="list" placeholder="A name, ->LIST, or what it does" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
-  <select id="ref-model" aria-label="Model"></select>
-  <ul id="ref-suggest" class="ref-suggest" role="listbox" aria-label="Commands found" hidden></ul>
+<div id="ref-top" class="ref-top"></div>
+<div id="ref-bar" class="ref-bar">
+  <div class="ref-search" role="search">
+    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16 16"/></svg>
+    <input id="ref-q" type="search" role="combobox" aria-label="Search the commands" aria-expanded="false" aria-controls="ref-suggest" aria-autocomplete="list" placeholder="A name, ->LIST, or what it does" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+    <select id="ref-model" aria-label="Model"></select>
+    <ul id="ref-suggest" class="ref-suggest" role="listbox" aria-label="Commands found" hidden></ul>
+  </div>
+  <button id="ref-browse" type="button" class="ref-browse" title="Browse the commands by menu" aria-haspopup="dialog" aria-controls="ref-sheet"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg><span>Browse</span></button>
 </div>
 <p id="ref-count" class="ref-count muted" role="status">Loading the reference…</p>
-<div id="ref-entry" class="ref-entry docs-ref" hidden></div>
-<div id="ref-browse" class="ref-browse"></div>
+<div class="ref-panes">
+  <aside id="ref-side" class="ref-side">
+    <nav id="ref-nav" class="ref-nav" aria-label="Commands by menu"><div class="ref-skeleton" aria-hidden="true">${bars}</div></nav>
+  </aside>
+  <div id="ref-entry" class="ref-entry docs-ref"></div>
+</div>
+<dialog id="ref-sheet" class="ref-sheet" aria-labelledby="ref-sheet-title">
+  <div class="ref-sheet-head"><h2 id="ref-sheet-title" class="ref-sheet-title">Browse</h2><button type="button" class="icon ref-sheet-close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="ref-sheet-body"></div>
+</dialog>
 <noscript><p>The page needs JavaScript. Each model's commands are also in its Markdown file, listed below.</p></noscript>
 </section>
 <script type="module" src="page.js"></script>`;

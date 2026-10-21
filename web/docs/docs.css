@@ -130,16 +130,47 @@ body.docs {
 
 /* ------------------------------------------------ the command reference */
 
-/* One column: the search field with the model beside it, the entry,
-   the commands to browse by menu. A page, not a split pane. */
-.docs-commands .docs-main { max-width: 820px; }
-.docs-ref-app { margin-top: var(--s4); }
+/* Two panes on a desktop: the commands by menu on the left, a sticky
+   column that scrolls on its own, the chosen command's entry on the
+   right; the search bar above both, stuck to the top while the page
+   scrolls. On a phone (below 860 px) one column: the entry under the
+   bar, the navigation in a sheet that Browse opens. */
+.docs-commands .docs-main { max-width: 1240px; }
+.docs-commands .docs-page, .docs-commands .docs-after { max-width: 760px; }
+.docs-commands .docs-after { margin-top: var(--s6); padding-top: var(--s4); border-top: 1px solid var(--rule); }
+.docs-ref-app {
+  --ref-bar-h: 64px;
+  --ref-side-w: 296px;
+  margin-top: var(--s4);
+}
+.ref-top { height: 1px; margin-top: -1px; }
+
+/* The bar: the search field with the model in it, Browse on a phone. */
+.ref-bar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--ref-bar-h);
+  padding: var(--s2) 0;
+  margin: 0 calc(-1 * var(--gutter));
+  padding-inline: var(--gutter);
+  background: var(--panel);
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--t);
+}
+.ref-bar.stuck { border-bottom-color: var(--rule-soft); }
 
 /* The search field, as the app's Search: an icon, a borderless input,
    the model at the right, in one framed box that lights up when
    focused; the suggestions drop from it. */
 .ref-search {
   position: relative;
+  flex: 1 1 320px;
+  min-width: 0;
+  max-width: 640px;
   display: flex;
   align-items: center;
   gap: var(--s2);
@@ -177,6 +208,7 @@ body.docs {
 }
 .ref-search select:hover { border-color: transparent; background-color: var(--hover); }
 .ref-search select:focus-visible { outline-offset: 0; }
+button.ref-browse { display: none; flex: none; min-height: 44px; border-radius: var(--r-lg); font-weight: 500; }
 
 .ref-suggest {
   position: absolute;
@@ -190,7 +222,7 @@ body.docs {
   max-height: min(60vh, 440px);
   overflow: auto;
   overscroll-behavior: contain;
-  background: var(--panel);
+  background: var(--card);
   border: 1px solid var(--rule);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-2);
@@ -215,6 +247,8 @@ body.docs {
 }
 .ref-row:hover { background: var(--hover); }
 .ref-suggest [aria-selected="true"] .ref-row { background: var(--accent-soft); border-left-color: var(--accent); }
+/* The chosen row's muted text in --ink: --muted on the soft accent is 4.3:1, under AA. */
+.ref-suggest [aria-selected="true"] :is(.ref-long, .ref-stack) { color: var(--ink); }
 .ref-name { font: 600 var(--fs-base)/1.4 var(--mono); overflow-wrap: anywhere; }
 .ref-long { font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ref-stack { grid-column: 1 / -1; font: var(--fs-xs)/1.4 var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -223,82 +257,178 @@ body.docs {
   .ref-row { grid-template-columns: auto minmax(0, 1fr) minmax(0, 42%); }
   .ref-stack { grid-column: auto; text-align: right; }
 }
-.ref-suggest .ref-none { padding: var(--s2) 13px; font-size: var(--fs-md); }
 button.ref-more { display: block; min-height: 0; font-size: var(--fs-md); color: var(--accent-text); font-weight: 600; cursor: pointer; }
 button.ref-more:hover:not(:disabled) { background: var(--hover); border-color: transparent; border-left-color: transparent; }
 .ref-suggest [aria-selected="true"] button.ref-more { background: var(--accent-soft); border-left-color: var(--accent); }
 
-.ref-count { margin: var(--s2) var(--s1); font-size: var(--fs-sm); }
+.ref-count { margin: var(--s1) var(--s1) 0; font-size: var(--fs-sm); }
 .ref-count.error { color: var(--error); }
 
-/* The entry: the app's (style.css), on a card. */
-.ref-entry { margin-top: var(--s2); min-width: 0; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--r-lg); box-shadow: var(--shadow-card); }
-.ref-hint { margin: 0; padding: var(--s4) 20px; }
-.docs-ref a.chip { color: inherit; text-decoration: none; transition: background-color var(--t-fast), border-color var(--t-fast); }
-.docs-ref a.chip:hover { border-color: var(--control-border-hover); background: var(--control-hover); }
-.docs-ref a.chip.current:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
-.docs-ref a.chip:focus-visible { outline-offset: 1px; }
+/* ---- the panes */
 
-/* The commands to browse: a folded group per menu of the calculator
-   (its count at the right), each command a chip; sub-menus indented. */
-.ref-browse { margin-top: var(--s5); }
-.ref-browse-title { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; line-height: var(--lh-tight); margin: 0 0 var(--s2); }
-.ref-browse-note { margin: var(--s2) 0 0; font-size: var(--fs-sm); }
-.ref-heading { margin: var(--s4) 0 0; padding: 0 0 var(--s1); font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
-.ref-group { border-top: 1px solid var(--rule-soft); }
-.ref-group:last-child { border-bottom: 1px solid var(--rule-soft); }
-.ref-all { margin-top: var(--s4); border-top-color: var(--rule); }
+.ref-panes { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); margin-top: var(--s3); }
+.ref-side { display: none; }
+
+/* The navigation: a folded group per menu of the calculator (its count
+   at the right), every command a row with its long name; sub-menus
+   as groups inside, the headings in small caps between. */
+.ref-nav { font-size: var(--fs-md); }
+.ref-nav-title { margin: 0 0 var(--s2); padding: 0 var(--s2); font-size: var(--fs-sm); font-weight: 600; line-height: var(--lh-tight); color: var(--muted); }
+.ref-nav-note { margin: var(--s3) 0 0; padding: 0 var(--s2); font-size: var(--fs-sm); line-height: 1.5; }
+.ref-heading { margin: var(--s4) 0 var(--s1); padding: 0 var(--s2); font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+.ref-group { border-radius: var(--r-md); }
 .ref-group summary {
   display: flex;
   align-items: center;
   gap: var(--s2);
   min-height: var(--tap);
-  padding: var(--s1) var(--s1);
+  padding: var(--s1) var(--s2);
   list-style: none;
   cursor: pointer;
   font-weight: 600;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   transition: background-color var(--t-fast);
 }
 .ref-group summary::-webkit-details-marker { display: none; }
 .ref-group summary:hover { background: var(--hover); }
+.ref-group summary:focus-visible { outline-offset: -2px; }
 .ref-group summary::before {
   content: "";
   flex: none;
-  width: 7px;
-  height: 7px;
-  margin: 0 3px 0 2px;
+  width: 6px;
+  height: 6px;
+  margin: 0 4px 0 2px;
   border-right: 1.75px solid var(--muted);
   border-bottom: 1.75px solid var(--muted);
   transform: rotate(-45deg);
   transition: transform var(--t-fast);
 }
 .ref-group[open] > summary::before { transform: rotate(45deg); }
-.ref-group-name { font-family: var(--mono); font-size: var(--fs-base); }
+.ref-group[open] > summary { color: var(--ink); }
+.ref-group-name { font-family: var(--mono); font-size: var(--fs-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-all { margin-top: var(--s3); padding-top: var(--s2); border-top: 1px solid var(--rule-soft); border-radius: 0; }
 .ref-all .ref-group-name { font-family: var(--font); }
-.ref-n { margin-left: auto; padding: 0 7px; border-radius: var(--r-pill); background: var(--track); color: var(--muted); font-size: var(--fs-xs); font-weight: 600; line-height: 1.6; }
-.ref-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: var(--s1) var(--s1) var(--s3); }
-.ref-chip {
-  display: inline-block;
-  padding: 2px 9px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--r-pill);
-  background: var(--control);
+/* The count in --ink: --muted on the track is 4.2:1, under AA for 11 px text. */
+.ref-n { flex: none; margin-left: auto; padding: 0 7px; border-radius: var(--r-pill); background: var(--track); color: var(--ink); font-size: var(--fs-xs); font-weight: 500; line-height: 1.6; font-variant-numeric: tabular-nums; }
+.ref-group[open] > summary .ref-n { background: var(--accent-soft); color: var(--accent-text); }
+.ref-list { margin: 0 0 var(--s1); padding: 0; list-style: none; }
+.ref-group > .ref-list { padding-left: var(--s4); }
+.ref-sub { margin-left: var(--s4); }
+.ref-sub > summary { min-height: var(--row); font-weight: 500; }
+.ref-sub > summary .ref-group-name { color: var(--muted); }
+.ref-sub[open] > summary .ref-group-name { color: var(--ink); }
+.ref-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  min-height: var(--row);
+  padding: 3px var(--s2) 3px 10px;
+  border-left: 2px solid var(--rule-soft);
   color: var(--ink);
-  font: 500 var(--fs-md)/1.5 var(--mono);
   text-decoration: none;
-  overflow-wrap: anywhere;
   transition: background-color var(--t-fast), border-color var(--t-fast);
 }
-.ref-chip:hover { border-color: var(--control-border-hover); background: var(--control-hover); }
-.ref-chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.ref-sub { margin: 0 0 var(--s2) var(--s2); padding-left: var(--s3); border-left: 2px solid var(--rule-soft); }
-.ref-sub h4 { margin: 0; font: 600 var(--fs-sm)/1.6 var(--mono); color: var(--muted); }
-.ref-sub .ref-chips { padding-top: 2px; padding-bottom: var(--s2); }
+.ref-item:hover { background: var(--hover); border-left-color: var(--rule); }
+.ref-item:focus-visible { outline-offset: -2px; border-radius: var(--r-sm); }
+.ref-item[aria-current="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
+.ref-item[aria-current="true"] .ref-item-name { font-weight: 700; color: var(--accent-text); }
+.ref-item-name { flex: none; font: 500 var(--fs-md)/1.5 var(--mono); overflow-wrap: anywhere; }
+.ref-item-long { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); line-height: 1.5; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-item[aria-current="true"] .ref-item-long { color: var(--ink); }
+/* The matches: a plain list, no group around it. */
+.ref-nav > .ref-list .ref-item { border-left-width: 2px; }
 
-/* A phone: the field's text at the size the keyboard does not zoom for. */
+/* Loading: six bars where the menus will be. */
+.ref-skeleton { display: flex; flex-direction: column; gap: 10px; padding: var(--s2); }
+.ref-skeleton span { display: block; height: 14px; border-radius: var(--r-pill); background: var(--track); }
+.ref-skeleton span:nth-child(1) { width: 72%; }
+.ref-skeleton span:nth-child(2) { width: 48%; }
+.ref-skeleton span:nth-child(3) { width: 60%; }
+.ref-skeleton span:nth-child(4) { width: 40%; }
+.ref-skeleton span:nth-child(5) { width: 66%; }
+.ref-skeleton span:nth-child(6) { width: 52%; }
+@media (prefers-reduced-motion: no-preference) {
+  .ref-skeleton span { animation: ref-pulse 1.4s ease-in-out infinite; }
+  @keyframes ref-pulse { 50% { opacity: 0.45; } }
+}
+
+/* The entry: the app's (style.css), on a card. Nothing chosen: a line in its place. */
+.ref-entry { min-width: 0; scroll-margin-top: calc(var(--ref-bar-h) + var(--s2)); background: var(--card); border: 1px solid var(--card-border); border-radius: var(--r-lg); box-shadow: var(--shadow-card); }
+.ref-empty { padding: var(--s6) 20px; text-align: center; }
+.ref-empty p { margin: 0; line-height: 1.5; }
+.ref-empty-title { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; margin-bottom: var(--s1) !important; }
+.ref-empty .ref-wide { display: none; }
+.docs-ref a.chip { color: inherit; text-decoration: none; transition: background-color var(--t-fast), border-color var(--t-fast); }
+.docs-ref a.chip:hover { border-color: var(--control-border-hover); background: var(--control-hover); }
+.docs-ref a.chip.current:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
+.docs-ref a.chip:focus-visible { outline-offset: 1px; }
+
+/* ---- the sheet (a phone): the navigation, slid up from the bottom */
+
+.ref-sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  width: 100%;
+  max-width: none;
+  height: min(86dvh, 86vh);
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow-3);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ref-sheet[open] { display: flex; }
+.ref-sheet::backdrop { background: var(--backdrop); }
+@media (prefers-reduced-motion: no-preference) {
+  .ref-sheet[open] { animation: ref-sheet-in var(--t) var(--ease); }
+  @keyframes ref-sheet-in { from { transform: translateY(24px); opacity: 0; } }
+}
+.ref-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s2) var(--s2) var(--s4);
+  border-bottom: 1px solid var(--rule);
+}
+.ref-sheet-title { flex: 1; margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+.ref-sheet-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: var(--s2) var(--s2) calc(var(--s4) + var(--safe-b)); }
+
+/* ---- a phone: the field's text at the size the keyboard does not zoom for */
+
 @media (max-width: 559px) {
   .ref-search { padding-left: var(--s2); }
-  .ref-search input { font-size: 16px; }
+  .ref-search input { flex-basis: 60px; width: 60px; font-size: 16px; }
   .ref-search select { font-size: var(--fs-sm); padding-left: 6px; }
+  button.ref-browse { padding: 0 var(--s3); }
+  button.ref-browse > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (max-width: 859px) {
+  button.ref-browse { display: inline-flex; }
+}
+
+/* ---- a desktop: the two panes */
+
+@media (min-width: 860px) {
+  .ref-panes { grid-template-columns: var(--ref-side-w) minmax(0, 1fr); gap: var(--s5); align-items: start; }
+  .ref-side {
+    display: block;
+    position: sticky;
+    top: calc(var(--ref-bar-h) + var(--s2));
+    max-height: calc(100vh - var(--ref-bar-h) - var(--s4));
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 0 var(--s3) var(--s4) 0;
+    border-right: 1px solid var(--rule-soft);
+    scrollbar-width: thin;
+  }
+  .ref-entry { min-height: 240px; }
+  .ref-empty { padding: 72px 20px; }
+  .ref-empty .ref-wide { display: inline; }
+  .ref-empty .ref-narrow { display: none; }
 }

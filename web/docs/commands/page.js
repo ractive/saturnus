@@ -1,10 +1,12 @@
 // The command reference page of the docs (/saturnus/docs/commands/,
-// iteration 57, redesigned after the owner's review): one search field
-// with the model beside it, its suggestions as you type (the ten best
-// by the app's ranking), the chosen command's entry under it, and the
-// model's commands to browse by menu (one folded group per menu of the
-// calculator, every command a chip) with the whole list A to Z last.
-// It runs the app's own code from app/ beside it on the site: the data
+// iteration 57, redesigned twice after the owner's reviews): a search
+// field with the model beside it and its suggestions as you type (the
+// ten best by the app's ranking), then two panes on a desktop: the
+// model's commands by menu on the left (a sticky navigation, one folded
+// group per menu of the calculator, every command a row) and the chosen
+// command's entry on the right. On a phone one column: the entry under
+// the search, the navigation in a sheet that "Browse" opens. It runs
+// the app's own code from app/ beside it on the site: the data
 // (commands.json) and its loader (palette.js's ReferenceLoader), the
 // lookup and ranking (reference.js's `search`) and the entry
 // (components/entry-view.js), read-only: no Run, Type or Try it, which
@@ -24,13 +26,20 @@ import { commandOfSlug, parseRefHash, refHash, slugBase, slugMap } from "./slug.
 const SUGGESTIONS = 10;
 
 const loader = new ReferenceLoader(new URL("../../app/commands.json", import.meta.url));
+const bar = document.getElementById("ref-bar");
 const picker = document.getElementById("ref-model");
 const query = document.getElementById("ref-q");
 const suggest = document.getElementById("ref-suggest");
 const pane = document.getElementById("ref-entry");
-const browse = document.getElementById("ref-browse");
+const side = document.getElementById("ref-side");
+const nav = document.getElementById("ref-nav");
 const count = document.getElementById("ref-count");
+const browse = document.getElementById("ref-browse");
+const sheet = document.getElementById("ref-sheet");
+const sheetBody = sheet.querySelector(".ref-sheet-body");
 const baseTitle = document.title;
+/** One column (a phone): the navigation lives in the sheet. */
+const narrow = matchMedia("(max-width: 859px)");
 
 /** The models with a reference, in the app's order. */
 let models = [];
@@ -40,7 +49,7 @@ let shown = { model: null, index: null, slugs: null };
 const slugsOf = new Map();
 /** The suggestions shown: the rows and the selected one's position. */
 let listed = { rows: [], total: 0, selected: -1 };
-/** What the browse area shows: the model's menus, or every match of a query. */
+/** What the navigation shows: the model's menus (null), or every match of a query. */
 let matches = null;
 
 /** The model the app last showed (the same site keeps it), else the first. */
@@ -62,12 +71,13 @@ function hrefOf(model, name) {
 }
 
 const title = () => MODEL_TITLES[shown.model] ?? shown.model;
+const noun = () => (shown.index.keyed ? "functions" : "commands");
 
 /** The count line: how many commands the model has, or how many (`total`) match the query. */
 function renderCount(q = "", total = 0) {
   count.textContent = q
-    ? `${total} of ${shown.index.commands.length} ${title()} commands match “${q}”.`
-    : `${shown.index.commands.length} commands on the ${title()}.`;
+    ? `${total} of ${shown.index.commands.length} ${title()} ${noun()} match “${q}”.`
+    : `${shown.index.commands.length} ${noun()} on the ${title()}.`;
 }
 
 // ------------------------------------------------------------ suggestions
@@ -130,7 +140,7 @@ function renderSuggestions() {
     const more = el("li", { role: "option", id: `ref-opt-${rows.length}`, "aria-selected": "false" },
       el("button", { type: "button", class: "ref-row ref-more", tabindex: "-1", text: `All ${all.length} matches` }));
     more.addEventListener("mousedown", (e) => e.preventDefault());
-    more.querySelector("button").addEventListener("click", () => showMatches(q, all));
+    more.querySelector("button").addEventListener("click", () => showMatches(q, all, true));
     items.push(more);
   }
   suggest.replaceChildren(...items);
@@ -142,7 +152,7 @@ function renderSuggestions() {
 function choose(i) {
   const q = query.value.trim();
   if (i >= listed.rows.length) {
-    if (listed.total > listed.rows.length) showMatches(q, found(q));
+    if (listed.total > listed.rows.length) showMatches(q, found(q), true);
     return;
   }
   const command = listed.rows[Math.max(0, i)];
@@ -151,30 +161,35 @@ function choose(i) {
   location.hash = hrefOf(shown.model, command.name);
 }
 
-// ------------------------------------------------------------------ browse
+// -------------------------------------------------------------- navigation
 
-/** A command as a chip: its name, a link to its address, the long name on hover. */
-function chip(command, current) {
-  return el("a", {
-    href: hrefOf(shown.model, command.name), class: "ref-chip", title: command.longName || null, "aria-current": current ? "true" : null, text: command.name,
-  });
+/** A command as a row of the navigation: its name and long name, a link to its address. */
+function item(command) {
+  return el("li", {}, el("a", { href: hrefOf(shown.model, command.name), class: "ref-item", "data-name": command.name },
+    el("span", { class: "ref-item-name", text: command.name }),
+    command.longName ? el("span", { class: "ref-item-long", text: command.longName }) : null));
 }
 
-function chips(commands, current) {
-  return el("div", { class: "ref-chips" }, ...commands.map((c) => chip(c, c.name === current)));
+function list(commands) {
+  return el("ul", { class: "ref-list" }, ...commands.map(item));
 }
 
-/** A menu of the tree as a folded group: its own commands, then each menu under it. */
-function group(menu, current) {
-  const all = menuCommands(menu);
-  const body = [];
-  if (menu.commands.length) body.push(chips(menu.commands, current));
-  for (const sub of menu.children) {
-    body.push(el("div", { class: "ref-sub" }, el("h4", { text: sub.title }), chips(menuCommands(sub), current)));
-  }
-  return el("details", { class: "ref-group" },
-    el("summary", {}, el("span", { class: "ref-group-name", text: menu.title }), el("span", { class: "ref-n", text: String(all.length) })),
+/** A folded group: its name and count in the summary, `body` under it. */
+function fold(name, n, cls, ...body) {
+  return el("details", { class: `ref-group${cls ? ` ${cls}` : ""}` },
+    el("summary", {}, el("span", { class: "ref-group-name", text: name }), el("span", { class: "ref-n", text: String(n) })),
     ...body);
+}
+
+/** A menu of the tree as a group: its own commands, then each menu under it as a group of its own. */
+function group(menu) {
+  const body = [];
+  if (menu.commands.length) body.push(list(menu.commands));
+  for (const sub of menu.children) {
+    const all = menuCommands(sub);
+    body.push(fold(sub.title, all.length, "ref-sub", list(all)));
+  }
+  return fold(menu.title, menuCommands(menu).length, null, ...body);
 }
 
 /** Names A to Z: letters before operators, then as the locale sorts. */
@@ -183,53 +198,129 @@ function byName(a, b) {
   return op(a) - op(b) || a.name.localeCompare(b.name);
 }
 
-/** The model's commands to browse: a group per menu (the headings' menus as groups of their own), all of them A to Z last. */
-function renderBrowse(current) {
+/** The model's commands by menu: a group per menu (the headings' menus as groups of their own), all of them A to Z last. */
+function renderNav() {
   matches = null;
   const groups = [];
   for (const node of shown.index.menus) {
     if (node.kind === "heading") {
       groups.push(el("h3", { class: "ref-heading", text: node.title }));
-      for (const sub of node.children) groups.push(group(sub, current));
-    } else groups.push(group(node, current));
+      for (const sub of node.children) groups.push(group(sub));
+    } else groups.push(group(node));
   }
   const all = [...shown.index.commands].sort(byName);
-  browse.replaceChildren(
-    el("h2", { class: "ref-browse-title", text: `The ${title()}'s ${all.length} ${shown.index.keyed ? "functions" : "commands"}, by menu` }),
+  nav.replaceChildren(
+    el("p", { class: "ref-nav-title", text: `The ${title()}'s ${all.length} ${noun()}, by menu` }),
     ...groups,
-    el("details", { class: "ref-group ref-all" },
-      el("summary", {}, el("span", { class: "ref-group-name", text: "All of them, A to Z" }), el("span", { class: "ref-n", text: String(all.length) })),
-      chips(all, current)));
+    fold("All of them, A to Z", all.length, "ref-all", list(all)));
+  nav.dataset.shows = "menus";
 }
 
-/** Every command matching `q` in the browse area, best first; the field keeps its text. */
-function showMatches(q, commands) {
+/**
+ * Every command matching `q` in the navigation, best first; the field
+ * keeps its text. `open`: on a phone, the sheet opens to show them.
+ */
+function showMatches(q, commands, open = false) {
   matches = q;
   closeSuggestions();
   renderCount(q, commands.length);
-  const current = addressed();
-  browse.replaceChildren(
-    el("h2", { class: "ref-browse-title", text: `${commands.length} ${title()} commands match “${q}”` }),
-    chips(commands, current),
-    el("p", { class: "ref-browse-note muted", text: "Best first: names, then long names, then descriptions and examples. Clear the search to browse by menu." }));
+  nav.replaceChildren(
+    el("p", { class: "ref-nav-title", text: `${commands.length} ${title()} ${noun()} match “${q}”` }),
+    list(commands),
+    el("p", { class: "ref-nav-note muted", text: "Best first: names, then long names, then descriptions and examples. Clear the search to browse by menu." }));
+  nav.dataset.shows = "matches";
+  markCurrent(addressed());
+  if (open && narrow.matches) openSheet();
+}
+
+/**
+ * The rows of `name` marked as the current one, the group of the first
+ * unfolded and the row brought into view (the one in a menu before the
+ * one in the A to Z list, an unfolded group's before a folded one's).
+ */
+function markCurrent(name) {
+  let target = null;
+  for (const a of nav.querySelectorAll(".ref-item")) {
+    const on = Boolean(name) && a.dataset.name === name;
+    if (on) a.setAttribute("aria-current", "true");
+    else a.removeAttribute("aria-current");
+    if (!on) continue;
+    const inAll = Boolean(a.closest(".ref-all"));
+    const visible = [...ancestors(a)].every((d) => d.open);
+    const rank = (inAll ? 2 : 0) + (visible ? 0 : 1);
+    if (!target || rank < target.rank) target = { a, rank };
+  }
+  if (!target) return;
+  for (const d of ancestors(target.a)) d.open = true;
+  // The column scrolls on its own on a desktop (the page stays where it
+  // is); in the sheet it is about to close.
+  if (narrow.matches || nav.parentElement !== side) return;
+  const r = target.a.getBoundingClientRect();
+  const s = side.getBoundingClientRect();
+  const top = Math.max(s.top, 0);
+  const bottom = Math.min(s.bottom, window.innerHeight);
+  if (r.top < top) side.scrollTop += r.top - top - 8;
+  else if (r.bottom > bottom) side.scrollTop += r.bottom - bottom + 8;
+}
+
+/** The groups around `a`, innermost first. */
+function* ancestors(a) {
+  for (let d = a.parentElement?.closest("details"); d; d = d.parentElement?.closest("details")) yield d;
+}
+
+/** The navigation's keys: the arrows move between its rows and groups, Home and End to the ends. */
+function navKeys(e) {
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+  const items = [...nav.querySelectorAll("summary, a.ref-item")].filter((x) => x.getClientRects().length);
+  if (!items.length) return;
+  const i = items.indexOf(document.activeElement);
+  let to;
+  if (e.key === "Home") to = 0;
+  else if (e.key === "End") to = items.length - 1;
+  else if (e.key === "ArrowDown") to = i < 0 ? 0 : Math.min(i + 1, items.length - 1);
+  else to = i < 0 ? 0 : Math.max(i - 1, 0);
+  e.preventDefault();
+  items[to].focus();
+}
+
+// ------------------------------------------------------------------- sheet
+
+/** The navigation in the sheet, open (a phone), the current row in view and focused. */
+function openSheet() {
+  if (sheet.open) return;
+  sheetBody.append(nav);
+  sheet.showModal();
+  const current = nav.querySelector('.ref-item[aria-current="true"]');
+  if (current) {
+    current.scrollIntoView({ block: "center" });
+    current.focus({ preventScroll: true });
+  }
+}
+
+/** The sheet closed: the navigation back in its column; a command chosen there is what to see. */
+function sheetClosed() {
+  side.append(nav);
+  if (pane.querySelector(".entry")) showEntry();
 }
 
 // ------------------------------------------------------------------ entry
 
-/** The entry of `name` on the shown model; the pane hides without one. */
+/** The entry of `name` on the shown model; nothing chosen or nothing at the address: a line saying so. */
 function renderEntry(name, slug) {
   const command = name ? shown.index.byName.get(name) : null;
   if (!command) {
-    pane.replaceChildren(slug
-      ? el("p", { class: "ref-hint muted", text: `The ${title()} has no command at this address. Search for it above, or browse by menu below.` })
-      : null);
-    pane.hidden = !slug;
+    pane.replaceChildren(el("div", { class: "ref-empty" },
+      el("p", { class: `ref-empty-title${slug ? " ref-hint" : ""}`, text: slug ? `The ${title()} has no command at this address.` : "Pick a command" }),
+      el("p", { class: "muted" }, "Search above, or ",
+        el("span", { class: "ref-wide", text: "open a menu on the left." }),
+        el("span", { class: "ref-narrow", text: "browse the menus." }))));
+    pane.dataset.empty = "true";
     document.title = baseTitle;
     return;
   }
   // The pills lead to the same command on the other models.
   pane.replaceChildren(entryView(shown.index, command, { modelHref: (m) => hrefOf(m, command.name) }));
-  pane.hidden = false;
+  delete pane.dataset.empty;
   document.title = `${command.name} on the ${title()} · ${baseTitle}`;
 }
 
@@ -255,19 +346,25 @@ async function fromAddress() {
   renderEntry(name, slug);
   const q = query.value.trim();
   if (matches !== null && q) showMatches(q, found(q));
-  else if (changed || matches !== null || !browse.childElementCount) renderBrowse(name);
   else {
-    for (const a of browse.querySelectorAll(".ref-chip")) {
-      if (a.textContent === name) a.setAttribute("aria-current", "true");
-      else a.removeAttribute("aria-current");
-    }
+    if (changed || matches !== null || !nav.dataset.shows) renderNav();
+    markCurrent(name);
   }
   if (changed && matches === null) renderCount();
-  // A chip far down the page: bring the entry into view.
-  if (name && !pane.hidden) {
-    const top = pane.getBoundingClientRect().top;
-    if (top < 0 || top > window.innerHeight * 0.6) pane.scrollIntoView({ block: "start" });
-  }
+  // A command chosen in the sheet: the sheet closes, the entry is what to see.
+  if (sheet.open) sheet.close();
+  else if (name) showEntry();
+}
+
+/**
+ * The entry's top in view under the bar: on a desktop when the page was
+ * scrolled into the entry before (the panes' top is what to see), on a
+ * phone when the entry is off the screen.
+ */
+function showEntry() {
+  const top = pane.getBoundingClientRect().top;
+  const under = bar.getBoundingClientRect().bottom;
+  if (top < under || (narrow.matches && top > window.innerHeight * 0.6)) pane.scrollIntoView({ block: "start" });
 }
 
 async function start() {
@@ -283,7 +380,10 @@ async function start() {
   query.addEventListener("input", () => {
     renderSuggestions();
     // The search cleared: back to the menus.
-    if (!query.value.trim() && matches !== null) renderBrowse(addressed());
+    if (!query.value.trim() && matches !== null) {
+      renderNav();
+      markCurrent(addressed());
+    }
   });
   query.addEventListener("focus", () => { if (query.value.trim() && suggest.hidden) renderSuggestions(); });
   query.addEventListener("keydown", (e) => {
@@ -298,6 +398,18 @@ async function start() {
   });
   query.addEventListener("blur", () => closeSuggestions());
   suggest.addEventListener("click", (e) => { if (e.target.closest("a")) closeSuggestions(); });
+  nav.addEventListener("keydown", navKeys);
+  browse.addEventListener("click", openSheet);
+  sheet.querySelector(".ref-sheet-close").addEventListener("click", () => sheet.close());
+  // A tap on the backdrop closes the sheet (the dialog itself is the target there).
+  sheet.addEventListener("click", (e) => { if (e.target === sheet) sheet.close(); });
+  sheet.addEventListener("close", sheetClosed);
+  narrow.addEventListener("change", () => { if (!narrow.matches && sheet.open) sheet.close(); });
+  // The bar stuck at the top takes a hairline under it.
+  const sentinel = document.getElementById("ref-top");
+  if (sentinel && "IntersectionObserver" in window) {
+    new IntersectionObserver(([e]) => bar.classList.toggle("stuck", !e.isIntersecting)).observe(sentinel);
+  }
   window.addEventListener("hashchange", () => { fromAddress(); });
   await fromAddress();
   document.body.dataset.ready = "true";
@@ -309,7 +421,7 @@ async function start() {
     const index = await loader.index(m);
     slugsOf.set(m, slugMap(index.commands.map((c) => c.name)));
   }));
-  if (others.length && !pane.hidden) {
+  if (others.length && pane.querySelector(".entry")) {
     const { slug } = parseRefHash(location.hash);
     renderEntry(addressed(), slug);
   }
@@ -319,4 +431,5 @@ async function start() {
 start().catch((err) => {
   count.textContent = `The command reference could not be loaded (${err?.message ?? err}). Reload the page to try again.`;
   count.classList.add("error");
+  nav.replaceChildren();
 });
