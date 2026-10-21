@@ -162,7 +162,7 @@ ${csp ? `<meta http-equiv="Content-Security-Policy" content="${escapeHtml(csp)}"
   <nav class="docs-nav" aria-label="Sections">
     ${nav}
   </nav>
-  <a class="docs-app" href="${app}">Open the app</a>
+  <a class="docs-app" href="${app}" title="Open the app"><svg class="ic docs-app-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8 6h8v4H8zM8.5 14h.01M12 14h.01M15.5 14h.01M8.5 17.5h.01M12 17.5h.01M15.5 17.5h.01"/></svg><span>Open the app</span></a>
 </header>
 <main class="docs-main">
 <article class="docs-page">
@@ -180,19 +180,23 @@ ${extra}${after ? `\n<div class="docs-page docs-after">\n${after}\n</div>` : ""}
 `;
 }
 
-/** The command reference page's tools and panes, after its text (page.js fills them). */
+/**
+ * The command reference page's tool, after its lead (page.js fills it):
+ * the search field with the model beside it and its suggestions, the
+ * count line, the entry, the commands to browse.
+ */
 function commandsExtra() {
   return `<section class="docs-ref-app" aria-label="Commands">
-<div class="ref-tools">
-  <label class="ref-field"><span>Model</span> <select id="ref-model"></select></label>
-  <label class="ref-field ref-search"><span>Search</span> <input id="ref-q" type="search" placeholder="A name, ->LIST, or words of what it does" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<div class="ref-search" role="search">
+  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16 16"/></svg>
+  <input id="ref-q" type="search" role="combobox" aria-label="Search the commands" aria-expanded="false" aria-controls="ref-suggest" aria-autocomplete="list" placeholder="A name, ->LIST, or what it does" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+  <select id="ref-model" aria-label="Model"></select>
+  <ul id="ref-suggest" class="ref-suggest" role="listbox" aria-label="Commands found" hidden></ul>
 </div>
 <p id="ref-count" class="ref-count muted" role="status">Loading the reference…</p>
-<div class="ref-split">
-  <ul id="ref-list" class="ref-list" aria-label="Commands found"></ul>
-  <div id="ref-entry" class="ref-entry docs-ref"></div>
-</div>
-<noscript><p>The page needs JavaScript. Each model's commands are also in its Markdown file, listed above.</p></noscript>
+<div id="ref-entry" class="ref-entry docs-ref" hidden></div>
+<div id="ref-browse" class="ref-browse"></div>
+<noscript><p>The page needs JavaScript. Each model's commands are also in its Markdown file, listed below.</p></noscript>
 </section>
 <script type="module" src="page.js"></script>`;
 }
@@ -370,15 +374,20 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
   for (const page of pages) {
     const paths = pagePaths(page.rel);
     let source = page.source;
+    let body = page.body;
     let after = "";
     const render = (md) => renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId });
     if (page.rel === "commands") {
-      // The page's sources, after the reference: every manual it links to.
+      // The lead above the reference; its sections and the sources
+      // (every manual it links to) after it.
+      const at = body.search(/^## /m);
+      const rest = at < 0 ? "" : body.slice(at);
+      if (at >= 0) body = body.slice(0, at);
       const sources = `## Sources\n\n${manualSources(data, referenceModels(data)).join("\n")}\n`;
       source = `${source.trimEnd()}\n\n${sources}`;
-      after = render(sources);
+      after = render(`${rest.trimEnd()}\n\n${sources}`);
     }
-    let bodyHtml = render(page.body);
+    let bodyHtml = render(body);
     if (page.rel === "index") bodyHtml = modelLogos(bodyHtml);
     const extra = page.rel === "commands" ? commandsExtra() : "";
     const doc = pageHtml(page, bodyHtml, { csp, extra, after });

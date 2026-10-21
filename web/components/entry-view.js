@@ -32,7 +32,9 @@ function stackBox(command) {
  * The entry of `command` from `index` (the shown model's). `ctx`:
  * `legends` (the skin's keys, for the keyboard placement), `onTry(example)`
  * (or null when nothing can be sent, with `whyNot`), `tried` (`{example,
- * text, error}` of the last "try it", to show its outcome).
+ * text, error}` of the last "try it", to show its outcome), `modelHref(m)`
+ * (the docs page: the address of the same command on model `m`, which
+ * makes the model pills links; the app's pills say which models have it).
  */
 export function entryView(index, command, ctx = {}) {
   if (index.keyed) return keyedEntryView(index, command, ctx);
@@ -48,9 +50,12 @@ export function entryView(index, command, ctx = {}) {
     el("div", { class: "entry-models", "aria-label": "Models with this command" },
       ...data.models.map((m) => {
         const has = Boolean(command.entry.models[m]);
-        return el("span", {
+        const href = has && ctx.modelHref ? ctx.modelHref(m) : null;
+        return el(href ? "a" : "span", {
           class: `chip${m === model ? " current" : ""}${has ? "" : " off"}`,
-          title: has ? (m === model ? `${MODEL_TITLES[m]} (shown)` : MODEL_TITLES[m]) : `Not on the ${MODEL_TITLES[m]}`,
+          href,
+          "aria-current": href && m === model ? "true" : null,
+          title: has ? (m === model ? `${MODEL_TITLES[m]} (shown)` : (href ? `${command.name} on the ${MODEL_TITLES[m]}` : MODEL_TITLES[m])) : `Not on the ${MODEL_TITLES[m]}`,
           text: shortTitle(m),
         });
       })));

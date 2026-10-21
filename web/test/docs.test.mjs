@@ -161,9 +161,13 @@ test("the build: each page's HTML and its Markdown as written, the command files
     assert.ok(existsSync(join(out, "llms.txt")));
     const ref = readFileSync(join(out, "docs", "commands", "index.html"), "utf8");
     assert.match(ref, /<script type="module" src="page\.js"><\/script>/);
-    assert.match(ref, /<select id="ref-model">/);
-    assert.match(ref, /<input id="ref-q" type="search"/);
+    assert.match(ref, /<select id="ref-model" aria-label="Model">/);
+    assert.match(ref, /<input id="ref-q" type="search" role="combobox"/);
     assert.match(ref, /<a href="48gx\.md">48GX<\/a>/, "the page links each model's file");
+    // The lead before the tool, the page's sections and the sources after it.
+    assert.ok(ref.indexOf("<p>Every command of the 12 calculators") < ref.indexOf('<section class="docs-ref-app"'), "the lead first");
+    assert.ok(ref.indexOf('<h2 id="reading-an-example">') > ref.indexOf('<script type="module" src="page.js">'), "the sections after the tool");
+    assert.ok(ref.indexOf('<h2 id="sources">') > ref.indexOf('<h2 id="each-model-as-markdown">'), "the sources last");
     assert.match(readFileSync(join(out, "docs", "commands.md"), "utf8"), /\n## Sources\n\n- \[/, "the reference lists its manuals");
     const home = readFileSync(join(out, "docs", "index.html"), "utf8");
     assert.match(home, /<h2 id="models">Models<\/h2>/);

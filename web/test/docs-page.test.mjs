@@ -1,13 +1,16 @@
-// The docs' command reference page in headless Chrome (iteration 57):
-// built by web/docs/build.mjs and served as on the site, docs/ beside
-// the app's files (app/ is web/), it runs the app's own reference code
-// with no ROM and no calculator: the address picks the model and the
-// command (`#48gx/hms-`), the entry is the app's, read-only (no Run,
-// Type or Try it), the search ranks as Search does (`->list` is →LIST),
-// choosing a row or another model updates the address, a key-driven
-// model's function shows its keys. The docs index loads with its model
-// links in their colours, a model page in its own; nothing is wider than
-// a phone. Skipped without Chrome or the wasm package.
+// The docs' command reference page in headless Chrome (iteration 57,
+// redesigned after the owner's review): built by web/docs/build.mjs and
+// served as on the site, docs/ beside the app's files (app/ is web/),
+// it runs the app's own reference code with no ROM and no calculator:
+// the address picks the model and the command (`#48gx/hms-`), the
+// entry is the app's, read-only (no Run, Type or Try it), its model
+// pills lead to the same command on the other models, the search
+// suggests as Search ranks (`->list` is →LIST; the ten best, then "All
+// n matches"), the commands to browse are grouped by menu with every
+// one a chip, choosing a chip or another model updates the address, a
+// key-driven model's function shows its keys. The docs index loads with
+// its model links in their colours, a model page in its own; nothing is
+// wider than a phone. Skipped without Chrome or the wasm package.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -34,7 +37,7 @@ function builtDocs(t) {
   return out;
 }
 
-test("the command reference page shows the addressed command read-only, searches as Search does and keeps the address", { timeout: 90_000 }, async (t) => {
+test("the command reference page shows the addressed command read-only, suggests as Search ranks, browses by menu and keeps the address", { timeout: 90_000 }, async (t) => {
   const out = builtDocs(t);
   const s = await session(t, { dirs: { "/docs/": join(out, "docs"), "/app/": WEB } });
   if (!s) return;
@@ -45,6 +48,9 @@ test("the command reference page shows the addressed command read-only, searches
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/#48gx/hms-` });
   await until(ev, `document.body.dataset.ready === "true"`, 20_000, "the reference loaded");
 
+  // The page starts with the search, not with text: one lead paragraph before it, the rest after.
+  assert.equal(await ev(`document.querySelectorAll("article.docs-page > p").length`), 1, "one paragraph before the tool");
+  assert.ok(await ev(`document.querySelector(".docs-after h2#reading-an-example") !== null`), "the sections after the tool");
   // The addressed command on the addressed model, as the app's entry shows it.
   assert.equal(await ev(`document.getElementById("ref-model").value`), "48gx");
   assert.equal(await ev(`document.querySelectorAll("#ref-model option").length`), 12);
@@ -53,45 +59,115 @@ test("the command reference page shows the addressed command read-only, searches
   assert.ok(await ev(`document.querySelectorAll("#ref-entry .ex").length`) >= 1, "its examples");
   // Read-only: nothing to send to a calculator.
   assert.equal(await ev(`document.querySelectorAll("#ref-entry button").length`), 0, "no Run, Type or Try it");
-  assert.equal(await ev(`document.querySelector('#ref-list [aria-current="true"] .ref-name').textContent`), "HMS-");
   assert.match(await ev("document.title"), /^HMS- on the HP 48GX · Command reference/);
   assert.match(await ev(`document.getElementById("ref-count").textContent`), /^517 commands on the HP 48GX\.$/);
   // The entry has the app's look (style.css's rules, scoped for the docs too).
   assert.equal(await ev(`getComputedStyle(document.querySelector("#ref-entry .ex")).display`), "grid");
+  // The model pills are links to the same command on the other models, the shown one marked
+  // (drawn again once the other models' slugs are built, after the first render).
+  await until(ev, `document.body.dataset.slugs === "true"`, 10_000, "the other models' slugs");
+  assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-models .chip")].map((c) => [c.tagName, c.getAttribute("href"), c.getAttribute("aria-current")])`),
+    [["A", "#48sx/hms-", null], ["A", "#48gx/hms-", "true"], ["A", "#49g/hms-", null], ["A", "#28s/hms-", null]]);
+  // The commands to browse: a folded group per menu, every command a chip, the shown one marked; all of them A to Z last.
+  assert.ok(await ev(`document.querySelectorAll("#ref-browse details.ref-group").length`) >= 16, "the 48GX's menus");
+  assert.equal(await ev(`document.querySelectorAll("#ref-browse details[open]").length`), 0, "folded");
+  assert.equal(await ev(`document.querySelectorAll("#ref-browse .ref-all .ref-chip").length`), 517);
+  assert.equal(await ev(`document.querySelector('#ref-browse .ref-all .ref-chip[aria-current="true"]').textContent`), "HMS-");
+  assert.match(await ev(`document.querySelector("#ref-browse .ref-browse-title").textContent`), /^The HP 48GX's 517 commands, by menu$/);
+  assert.equal(await ev(`[...document.querySelectorAll("#ref-browse .ref-group")].find((d) => d.querySelector(".ref-group-name").textContent === "TIME (MENU 94)").querySelector(".ref-n").textContent`), "19");
 
-  // Search ranks as the app's Search: a friendly spelling finds the name first.
-  await ev(`(() => { const q = document.getElementById("ref-q"); q.value = "->list"; q.dispatchEvent(new Event("input")); return true; })()`);
-  assert.equal(await ev(`document.querySelector("#ref-list .ref-name").textContent`), "→LIST");
+  // Search suggests as the app's Search ranks: a friendly spelling finds the name first; the ten best, then all of them.
+  const type = (text) => ev(`(() => { const q = document.getElementById("ref-q"); q.focus(); q.value = ${JSON.stringify(text)}; q.dispatchEvent(new Event("input")); return true; })()`);
+  await type("->list");
+  assert.equal(await ev(`document.querySelector("#ref-suggest .ref-name").textContent`), "→LIST");
+  assert.equal(await ev(`document.getElementById("ref-q").getAttribute("aria-expanded")`), "true");
   assert.match(await ev(`document.getElementById("ref-count").textContent`), /of 517 HP 48GX commands match “->list”\.$/);
-  // Enter opens the first one: its readable address.
-  await ev(`document.getElementById("ref-q").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })), true`);
+  await type("sto");
+  assert.equal(await ev(`document.querySelectorAll('#ref-suggest [role="option"] a').length`), 10, "the ten best");
+  assert.equal(await ev(`document.querySelector("#ref-suggest .ref-name").textContent`), "STO");
+  assert.match(await ev(`document.querySelector("#ref-suggest .ref-more").textContent`), /^All \d+ matches$/);
+  assert.equal(await ev(`document.getElementById("ref-q").hasAttribute("aria-activedescendant")`), false, "nothing active yet");
+  // Nothing found: the list stays closed, the count line says so.
+  await type("zzzzqq");
+  assert.equal(await ev(`document.getElementById("ref-suggest").hidden`), true);
+  assert.equal(await ev(`document.getElementById("ref-q").getAttribute("aria-expanded")`), "false");
+  assert.match(await ev(`document.getElementById("ref-count").textContent`), /^0 of 517 HP 48GX commands match “zzzzqq”\.$/);
+  await type("sto");
+  // The arrow keys choose a suggestion; Enter opens it at its readable address.
+  const key = (k) => ev(`document.getElementById("ref-q").dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, bubbles: true, cancelable: true })), true`);
+  await key("ArrowDown");
+  await key("ArrowDown");
+  assert.equal(await ev(`document.querySelector('#ref-suggest [aria-selected="true"] .ref-name').textContent`), "STO-");
+  assert.equal(await ev(`document.getElementById("ref-q").getAttribute("aria-activedescendant")`), "ref-opt-1");
+  await key("Enter");
+  await until(ev, `location.hash === "#48gx/sto-"`, 5_000, "the address of STO-");
+  await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "STO-"`, 5_000, "STO- shown");
+  assert.equal(await ev(`document.getElementById("ref-suggest").hidden`), true, "the suggestions close");
+  // Enter with nothing chosen opens the first.
+  await type("->list");
+  await key("Enter");
   await until(ev, `location.hash === "#48gx/to-list"`, 5_000, "the address of →LIST");
   await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "→LIST"`, 5_000, "→LIST shown");
-
-  // Another model keeps the command where it has it.
+  // "All n matches" lists every match in the browse area, best first; clearing the search brings the menus back.
+  await type("sto");
+  await ev(`document.querySelector("#ref-suggest .ref-more").click(), true`);
+  assert.match(await ev(`document.querySelector("#ref-browse .ref-browse-title").textContent`), /^\d+ HP 48GX commands match “sto”$/);
+  assert.equal(await ev(`document.querySelector("#ref-browse .ref-chip").textContent`), "STO");
+  assert.equal(await ev(`document.querySelectorAll("#ref-browse .ref-group").length`), 0);
+  const all = await ev(`document.querySelectorAll("#ref-browse .ref-chip").length`);
+  assert.equal(await ev(`document.getElementById("ref-count").textContent`), `${all} of 517 HP 48GX commands match “sto”.`, "the count after All n matches");
+  // Another model while the matches show: its matches, its count.
   await ev(`(() => { const p = document.getElementById("ref-model"); p.value = "49g"; p.dispatchEvent(new Event("change")); return true; })()`);
+  await until(ev, `document.getElementById("ref-model").value === "49g" && /HP 49G commands match/.test(document.querySelector("#ref-browse .ref-browse-title").textContent)`, 10_000, "the 49G's matches");
+  assert.match(await ev(`document.getElementById("ref-count").textContent`), /^[1-9]\d* of \d+ HP 49G commands match “sto”\.$/);
+  await ev(`(() => { const p = document.getElementById("ref-model"); p.value = "48gx"; p.dispatchEvent(new Event("change")); return true; })()`);
+  await until(ev, `document.getElementById("ref-model").value === "48gx" && /HP 48GX commands match/.test(document.querySelector("#ref-browse .ref-browse-title").textContent)`, 10_000, "the 48GX's matches again");
+  await type("");
+  assert.ok(await ev(`document.querySelectorAll("#ref-browse details.ref-group").length`) >= 16, "the menus again");
+  assert.equal(await ev(`document.getElementById("ref-suggest").hidden`), true);
+
+  // A pill: the same command on another model.
+  await ev(`document.querySelector('#ref-entry .chip[href="#49g/to-list"]').click(), true`);
   await until(ev, `location.hash === "#49g/to-list"`, 5_000, "the 49G's address");
   await until(ev, `document.querySelector("#ref-entry .chip.current")?.textContent === "49G"`, 10_000, "the 49G's entry");
+  assert.equal(await ev(`document.getElementById("ref-model").value`), "49g");
+  // The model picker too.
+  await ev(`(() => { const p = document.getElementById("ref-model"); p.value = "48sx"; p.dispatchEvent(new Event("change")); return true; })()`);
+  await until(ev, `location.hash === "#48sx/to-list"`, 5_000, "the 48SX's address");
+  await until(ev, `document.querySelector("#ref-entry .chip.current")?.textContent === "48SX"`, 10_000, "the 48SX's entry");
 
-  // A row is a link to its address.
-  await ev(`(() => { const q = document.getElementById("ref-q"); q.value = ""; q.dispatchEvent(new Event("input")); return true; })()`);
-  const dup = await ev(`(() => { const a = [...document.querySelectorAll("#ref-list a.ref-row")].find((x) => x.querySelector(".ref-name").textContent === "DUP"); a.click(); return a.getAttribute("href"); })()`);
-  assert.equal(dup, "#49g/dup");
+  // A chip is a link to its address.
+  const dup = await ev(`(() => { const a = [...document.querySelectorAll("#ref-browse .ref-all .ref-chip")].find((x) => x.textContent === "DUP"); a.click(); return a.getAttribute("href"); })()`);
+  assert.equal(dup, "#48sx/dup");
   await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "DUP"`, 5_000, "DUP shown");
+  // The same model: the groups stay, the highlighted chip moves.
+  assert.deepEqual(await ev(`[...document.querySelectorAll('#ref-browse .ref-all .ref-chip[aria-current="true"]')].map((a) => a.textContent)`), ["DUP"]);
+  assert.equal(await ev(`document.querySelectorAll('#ref-browse .ref-chip[aria-current]').length`), await ev(`document.querySelectorAll('#ref-browse .ref-chip[aria-current="true"]').length`), "aria-current is true, never empty");
 
-  // A key-driven model: its function's keys, no command line.
+  // A model without the command: its pill is no link.
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/#48gx/fft` });
+  await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "FFT"`, 5_000, "FFT shown");
+  assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-models .chip")].map((c) => c.tagName + (c.classList.contains("off") ? " off" : ""))`), ["SPAN off", "A", "A", "SPAN off"], "the 48SX and the 28S have no FFT");
+
+  // A key-driven model: its function's keys, no command line; its menus to browse.
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/#42s/pct` });
   await until(ev, `document.body.dataset.ready === "true" && document.querySelector("#ref-entry .entry-name")`, 20_000, "the 42S's %");
   assert.equal(await ev(`document.querySelector("#ref-entry .entry-name").firstChild.textContent`), "%");
   assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-keys kbd")].map((k) => k.textContent)`), ["⇧", "%"]);
   assert.equal(await ev(`document.querySelectorAll("#ref-entry button").length`), 0);
+  assert.match(await ev(`document.querySelector("#ref-browse .ref-browse-title").textContent`), /^The HP 42S's 277 functions, by menu$/);
 
-  // No model in the address: the one the app last showed (same site, same storage).
+  // No model in the address: the one the app last showed (same site, same storage); no entry, the menus.
   await ev(`localStorage.setItem("saturnus.model", "28s"), true`);
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/` });
   await until(ev, `document.body.dataset.ready === "true"`, 20_000, "the reference loaded");
   assert.equal(await ev(`document.getElementById("ref-model").value`), "28s");
-  assert.match(await ev(`document.querySelector("#ref-entry .ref-hint").textContent`), /^Choose a command/);
+  assert.equal(await ev(`document.getElementById("ref-entry").hidden`), true);
+  assert.ok(await ev(`document.querySelectorAll("#ref-browse details.ref-group").length`) >= 20, "the 28S's menus");
+  // An address the model has no command at says so.
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/#28s/no-such` });
+  await until(ev, `document.body.dataset.ready === "true" && document.querySelector("#ref-entry .ref-hint")`, 20_000, "the hint");
+  assert.match(await ev(`document.querySelector("#ref-entry .ref-hint").textContent`), /^The HP 28S has no command at this address/);
   assert.deepEqual(errors, [], "no uncaught errors");
 });
 
@@ -125,10 +201,21 @@ test("the docs index: the sections, the models with their colours, the Markdown 
     await send("Emulation.setDeviceMetricsOverride", { width, height: 800, deviceScaleFactor: 1, mobile: true });
     for (const path of ["docs/", "docs/48gx/", "docs/commands/#49g/to-list"]) {
       await send("Page.navigate", { url: `http://127.0.0.1:${port}/${path}` });
-      await until(ev, `document.readyState === "complete" && (!document.getElementById("ref-list") || document.body.dataset.ready === "true")`, 20_000, path);
+      await until(ev, `document.readyState === "complete" && (!document.getElementById("ref-q") || document.body.dataset.ready === "true")`, 20_000, path);
       const over = await ev(`document.documentElement.scrollWidth - document.documentElement.clientWidth`);
       assert.equal(over, 0, `${path} at ${width} px is ${over} px too wide`);
+      // The header is one row: the brand, the section links scrolling sideways, the app as its icon.
+      const bar = await ev(`document.querySelector(".docs-bar").getBoundingClientRect().height`);
+      assert.ok(bar <= 56, `${path} at ${width} px: the header is ${bar} px tall`);
+      assert.ok(await ev(`(() => { const n = document.querySelector(".docs-nav"); return n.scrollWidth > n.clientWidth && getComputedStyle(n).overflowX === "auto"; })()`), `${path} at ${width} px: the links scroll`);
+      assert.equal(await ev(`getComputedStyle(document.querySelector(".docs-app-ic")).display`), "block");
+      assert.equal(await ev(`document.querySelector(".docs-app").textContent`), "Open the app", "the link keeps its name");
     }
   }
+  // On a desktop the header is as it was: the links wrapping, "Open the app" as text.
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/` });
+  await until(ev, `document.readyState === "complete"`, 10_000, "the index again");
+  assert.equal(await ev(`getComputedStyle(document.querySelector(".docs-app-ic")).display`), "none");
   assert.deepEqual(errors, [], "no uncaught errors");
 });
