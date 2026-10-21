@@ -63,10 +63,10 @@ function hrefOf(model, name) {
 
 const title = () => MODEL_TITLES[shown.model] ?? shown.model;
 
-/** The count line: how many commands the model has, or how many match the query. */
-function renderCount(q = "") {
+/** The count line: how many commands the model has, or how many (`total`) match the query. */
+function renderCount(q = "", total = 0) {
   count.textContent = q
-    ? `${listed.total} of ${shown.index.commands.length} ${title()} commands match “${q}”.`
+    ? `${total} of ${shown.index.commands.length} ${title()} commands match “${q}”.`
     : `${shown.index.commands.length} commands on the ${title()}.`;
 }
 
@@ -92,7 +92,8 @@ function select(i) {
     li.setAttribute("aria-selected", on ? "true" : "false");
     if (on) li.scrollIntoView({ block: "nearest" });
   }
-  query.setAttribute("aria-activedescendant", i >= 0 ? `ref-opt-${i}` : "");
+  if (i >= 0) query.setAttribute("aria-activedescendant", `ref-opt-${i}`);
+  else query.removeAttribute("aria-activedescendant");
 }
 
 function closeSuggestions() {
@@ -100,10 +101,14 @@ function closeSuggestions() {
   suggest.replaceChildren();
   listed = { rows: [], total: 0, selected: -1 };
   query.setAttribute("aria-expanded", "false");
-  query.setAttribute("aria-activedescendant", "");
+  query.removeAttribute("aria-activedescendant");
 }
 
-/** The suggestions for the field's text: the best ten, and a row for all of them when there are more. */
+/**
+ * The suggestions for the field's text: the best ten, and a row for all
+ * of them when there are more. Nothing found: the list stays closed and
+ * the count line says so.
+ */
 function renderSuggestions() {
   const q = query.value.trim();
   if (!q) {
@@ -113,10 +118,14 @@ function renderSuggestions() {
   }
   const all = found(q);
   const rows = all.slice(0, SUGGESTIONS);
+  if (!rows.length) {
+    closeSuggestions();
+    renderCount(q, 0);
+    return;
+  }
   listed = { rows, total: all.length, selected: -1 };
-  renderCount(q);
+  renderCount(q, all.length);
   const items = rows.map(suggestion);
-  if (!rows.length) items.push(el("li", { class: "ref-none muted", text: `Nothing on the ${title()} is called or described like that.` }));
   if (all.length > rows.length) {
     const more = el("li", { role: "option", id: `ref-opt-${rows.length}`, "aria-selected": "false" },
       el("button", { type: "button", class: "ref-row ref-more", tabindex: "-1", text: `All ${all.length} matches` }));
@@ -197,7 +206,7 @@ function renderBrowse(current) {
 function showMatches(q, commands) {
   matches = q;
   closeSuggestions();
-  renderCount(q);
+  renderCount(q, commands.length);
   const current = addressed();
   browse.replaceChildren(
     el("h2", { class: "ref-browse-title", text: `${commands.length} ${title()} commands match “${q}”` }),
@@ -247,8 +256,13 @@ async function fromAddress() {
   const q = query.value.trim();
   if (matches !== null && q) showMatches(q, found(q));
   else if (changed || matches !== null || !browse.childElementCount) renderBrowse(name);
-  else for (const a of browse.querySelectorAll(".ref-chip")) a.toggleAttribute("aria-current", a.textContent === name);
-  if (changed) renderCount(suggest.hidden ? "" : q);
+  else {
+    for (const a of browse.querySelectorAll(".ref-chip")) {
+      if (a.textContent === name) a.setAttribute("aria-current", "true");
+      else a.removeAttribute("aria-current");
+    }
+  }
+  if (changed && matches === null) renderCount();
   // A chip far down the page: bring the entry into view.
   if (name && !pane.hidden) {
     const top = pane.getBoundingClientRect().top;
@@ -285,11 +299,21 @@ async function start() {
   query.addEventListener("blur", () => closeSuggestions());
   suggest.addEventListener("click", (e) => { if (e.target.closest("a")) closeSuggestions(); });
   window.addEventListener("hashchange", () => { fromAddress(); });
-  // Every RPL model's slugs first, for the entry's pills (a name's slug
-  // differs where two names of a model share one: the 49G's QR and qr).
-  for (const m of data.models) slugsOf.set(m, slugMap((await loader.index(m)).commands.map((c) => c.name)));
   await fromAddress();
   document.body.dataset.ready = "true";
+  // The other RPL models' slugs after the first render, for the entry's
+  // pills (a name's slug differs where two names of a model share one:
+  // the 49G's QR and qr); the pills shown are drawn again with them.
+  const others = data.models.filter((m) => !slugsOf.has(m));
+  await Promise.all(others.map(async (m) => {
+    const index = await loader.index(m);
+    slugsOf.set(m, slugMap(index.commands.map((c) => c.name)));
+  }));
+  if (others.length && !pane.hidden) {
+    const { slug } = parseRefHash(location.hash);
+    renderEntry(addressed(), slug);
+  }
+  document.body.dataset.slugs = "true";
 }
 
 start().catch((err) => {

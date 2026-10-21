@@ -63,7 +63,9 @@ test("the command reference page shows the addressed command read-only, suggests
   assert.match(await ev(`document.getElementById("ref-count").textContent`), /^517 commands on the HP 48GX\.$/);
   // The entry has the app's look (style.css's rules, scoped for the docs too).
   assert.equal(await ev(`getComputedStyle(document.querySelector("#ref-entry .ex")).display`), "grid");
-  // The model pills are links to the same command on the other models, the shown one marked.
+  // The model pills are links to the same command on the other models, the shown one marked
+  // (drawn again once the other models' slugs are built, after the first render).
+  await until(ev, `document.body.dataset.slugs === "true"`, 10_000, "the other models' slugs");
   assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-models .chip")].map((c) => [c.tagName, c.getAttribute("href"), c.getAttribute("aria-current")])`),
     [["A", "#48sx/hms-", null], ["A", "#48gx/hms-", "true"], ["A", "#49g/hms-", null], ["A", "#28s/hms-", null]]);
   // The commands to browse: a folded group per menu, every command a chip, the shown one marked; all of them A to Z last.
@@ -84,6 +86,13 @@ test("the command reference page shows the addressed command read-only, suggests
   assert.equal(await ev(`document.querySelectorAll('#ref-suggest [role="option"] a').length`), 10, "the ten best");
   assert.equal(await ev(`document.querySelector("#ref-suggest .ref-name").textContent`), "STO");
   assert.match(await ev(`document.querySelector("#ref-suggest .ref-more").textContent`), /^All \d+ matches$/);
+  assert.equal(await ev(`document.getElementById("ref-q").hasAttribute("aria-activedescendant")`), false, "nothing active yet");
+  // Nothing found: the list stays closed, the count line says so.
+  await type("zzzzqq");
+  assert.equal(await ev(`document.getElementById("ref-suggest").hidden`), true);
+  assert.equal(await ev(`document.getElementById("ref-q").getAttribute("aria-expanded")`), "false");
+  assert.match(await ev(`document.getElementById("ref-count").textContent`), /^0 of 517 HP 48GX commands match “zzzzqq”\.$/);
+  await type("sto");
   // The arrow keys choose a suggestion; Enter opens it at its readable address.
   const key = (k) => ev(`document.getElementById("ref-q").dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, bubbles: true, cancelable: true })), true`);
   await key("ArrowDown");
@@ -105,6 +114,14 @@ test("the command reference page shows the addressed command read-only, suggests
   assert.match(await ev(`document.querySelector("#ref-browse .ref-browse-title").textContent`), /^\d+ HP 48GX commands match “sto”$/);
   assert.equal(await ev(`document.querySelector("#ref-browse .ref-chip").textContent`), "STO");
   assert.equal(await ev(`document.querySelectorAll("#ref-browse .ref-group").length`), 0);
+  const all = await ev(`document.querySelectorAll("#ref-browse .ref-chip").length`);
+  assert.equal(await ev(`document.getElementById("ref-count").textContent`), `${all} of 517 HP 48GX commands match “sto”.`, "the count after All n matches");
+  // Another model while the matches show: its matches, its count.
+  await ev(`(() => { const p = document.getElementById("ref-model"); p.value = "49g"; p.dispatchEvent(new Event("change")); return true; })()`);
+  await until(ev, `document.getElementById("ref-model").value === "49g" && /HP 49G commands match/.test(document.querySelector("#ref-browse .ref-browse-title").textContent)`, 10_000, "the 49G's matches");
+  assert.match(await ev(`document.getElementById("ref-count").textContent`), /^[1-9]\d* of \d+ HP 49G commands match “sto”\.$/);
+  await ev(`(() => { const p = document.getElementById("ref-model"); p.value = "48gx"; p.dispatchEvent(new Event("change")); return true; })()`);
+  await until(ev, `document.getElementById("ref-model").value === "48gx" && /HP 48GX commands match/.test(document.querySelector("#ref-browse .ref-browse-title").textContent)`, 10_000, "the 48GX's matches again");
   await type("");
   assert.ok(await ev(`document.querySelectorAll("#ref-browse details.ref-group").length`) >= 16, "the menus again");
   assert.equal(await ev(`document.getElementById("ref-suggest").hidden`), true);
@@ -123,6 +140,9 @@ test("the command reference page shows the addressed command read-only, suggests
   const dup = await ev(`(() => { const a = [...document.querySelectorAll("#ref-browse .ref-all .ref-chip")].find((x) => x.textContent === "DUP"); a.click(); return a.getAttribute("href"); })()`);
   assert.equal(dup, "#48sx/dup");
   await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "DUP"`, 5_000, "DUP shown");
+  // The same model: the groups stay, the highlighted chip moves.
+  assert.deepEqual(await ev(`[...document.querySelectorAll('#ref-browse .ref-all .ref-chip[aria-current="true"]')].map((a) => a.textContent)`), ["DUP"]);
+  assert.equal(await ev(`document.querySelectorAll('#ref-browse .ref-chip[aria-current]').length`), await ev(`document.querySelectorAll('#ref-browse .ref-chip[aria-current="true"]').length`), "aria-current is true, never empty");
 
   // A model without the command: its pill is no link.
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/#48gx/fft` });
