@@ -83,8 +83,8 @@ wasm: web
 # copied into web/vendor/tab-mcp-client/ (committed) from the published npm
 # package, its tarball checked against the pinned integrity. A new version:
 # change both values here, run it, commit the files and vendor.json.
-tab_mcp_client_version := "0.1.0"
-tab_mcp_client_integrity := "sha512-Wsis+/T7RtIm/iSardqsZNGypbK+0N6iXf+yQA9vGk13zffMtGS0kmqR8SCExzgeQmBGDDov75RFiJYQNfv/CA=="
+tab_mcp_client_version := "0.2.0"
+tab_mcp_client_integrity := "sha512-EbG9jLBtJym7uXTpSa/HF8a/T9x81qRg4eDGZh1F3V0CZKEexIxbLCDEn+2bZJr1Dv+s7Y8ZcMrBZ6npL4mTHQ=="
 
 vendor-tab-mcp:
     scripts/vendor-tab-mcp-client.sh --from-npm "{{tab_mcp_client_version}}" --integrity "{{tab_mcp_client_integrity}}"

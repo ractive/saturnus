@@ -54,8 +54,11 @@ export async function openAiDialog(ai, doc = document) {
     const pc = mcp?.pairingCode;
     code.hidden = !pc;
     if (pc) code.textContent = `When your AI app asks for a code, enter ${pc.code}.`;
-    status.classList.toggle("error", Boolean(ai.error));
-    status.textContent = ai.error ?? (state === "connected" ? "AI access is on. Your AI app can connect now." : state === "connecting" ? "Connecting…" : "AI access is off.");
+    // Lost: why, and that it connects again by itself (web/ai.js retries).
+    status.classList.toggle("error", Boolean(ai.error) && !ai.lost);
+    status.textContent = ai.lost
+      ? `${ai.error ?? "The connection to the relay broke."} Reconnecting…`
+      : ai.error ?? (state === "connected" ? "AI access is on. Your AI app can connect now." : state === "connecting" ? "Connecting…" : "AI access is off.");
     const grants = state === "connected" ? mcp.grants : [];
     apps.replaceChildren(...grants.map((g) => {
       const b = el("button", { type: "button", class: "small", text: "Disconnect" });
@@ -71,7 +74,7 @@ export async function openAiDialog(ai, doc = document) {
     appsNote.hidden = grants.length > 0;
     keep.checked = ai.keepOn;
     connect.hidden = state !== "disconnected";
-    off.hidden = state === "disconnected";
+    off.hidden = state === "disconnected" && !ai.lost;
     fresh.hidden = state !== "connected";
   };
 
@@ -111,7 +114,7 @@ export async function openAiDialog(ai, doc = document) {
   render();
   dialog.showModal();
   const closed = new Promise((resolve) => dialog.addEventListener("close", resolve, { once: true }));
-  if (ai.state === "disconnected") {
+  if (ai.state === "disconnected" && !ai.lost) {
     try {
       await ai.connect();
     } catch {

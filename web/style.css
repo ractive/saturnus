@@ -177,6 +177,86 @@
   color: var(--muted);
 }
 :where(#calculator-view) .tx-chip a, :where(#calculator-view) .ai-chip button { color: var(--accent-text); text-underline-offset: 2px; font: inherit; min-height: 0; display: inline; }
+/* AI access's entry says its state (app.js watchAi, iteration 56): a dot
+   in the accent while an AI app is connected, in the warning colour while
+   it reconnects. */
+:where(#calculator-view) .ai-dot { flex: none; width: 8px; height: 8px; margin-left: -2px; border-radius: 50%; background: var(--accent); }
+:where(#calculator-view) .ai-dot[data-tone="lost"] { background: var(--warn); }
+:where(#calculator-view) .ai-dot[hidden] { display: none; }
+:where(#calculator-view) .ai-chip { margin-top: calc(-1 * var(--s3)); padding-left: 28px; }
+
+/* "The AI's calls" (web/ai-log.js): a drawer over the stage's lower
+   right, a sheet on a phone. The packets' look in Files (tx/style.css
+   "the cable"): green monospace on black in both themes. Contrast: the
+   green on the black about 14:1, the dim green about 6:1, the amber and
+   the red about 7:1. */
+:where(#calculator-view) .ai-log {
+  --al-bg: #040805;
+  --al-ink: #4dff7a;
+  --al-dim: #46b062;
+  --al-rule: #173322;
+  --al-bad: #ff6b6b;
+  --al-wait: #ffc85a;
+  position: fixed;
+  right: calc(var(--s3) + var(--safe-r));
+  bottom: calc(var(--s3) + var(--safe-b));
+  z-index: 3;
+  width: min(720px, calc(100vw - var(--panel-w) - 2 * var(--s3)));
+  height: min(46vh, 520px);
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  background: var(--al-bg);
+  color: var(--al-ink);
+  border: 1px solid var(--al-rule);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+  color-scheme: dark;
+}
+#calculator-view.panel-hidden .ai-log { width: min(720px, calc(100vw - 2 * var(--s3))); }
+/* Beside the calculator (ai-log.js `besideBox`, a stage of 820 px or more):
+   the drawer takes the stage's right part, placed by the script, and the
+   stage keeps it free so the calculator fits in the rest. Fullscreen
+   covers both. */
+#calculator-view.ai-log-beside .stage:not(.fs) { padding-right: calc(var(--al-w) + var(--safe-r)); }
+#calculator-view.ai-log-beside .ai-log { min-height: 0; }
+:where(#calculator-view) .ai-log[hidden] { display: none; }
+:where(#calculator-view) .al-headbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s1) var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s4); border-bottom: 1px solid var(--al-rule); }
+:where(#calculator-view) .al-headbar h2 { margin: 0 auto 0 0; font: 600 var(--fs-md)/1.2 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 0 6px rgb(77 255 122 / 0.45); }
+:where(#calculator-view) .al-actions { display: flex; flex-wrap: wrap; gap: var(--s1); }
+:where(#calculator-view) .al-actions button { background: transparent; color: var(--al-ink); border-color: #2c5c3a; font-family: var(--mono); font-size: var(--fs-sm); }
+:where(#calculator-view) .al-actions button:hover:not(:disabled) { background: #0d2414; border-color: #3f8a55; }
+:where(#calculator-view) .al-actions button:focus-visible { outline: 2px solid var(--al-ink); outline-offset: 1px; }
+:where(#calculator-view) .al-actions .ic { color: var(--al-ink); }
+:where(#calculator-view) .al-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+:where(#calculator-view) .al-scroll:focus-visible { outline: 2px solid var(--al-ink); outline-offset: -2px; }
+:where(#calculator-view) .al-empty { margin: 0; padding: var(--s3) var(--s4); font: var(--fs-sm)/1.5 var(--mono); color: var(--al-dim); }
+:where(#calculator-view) .al-empty[hidden] { display: none; }
+:where(#calculator-view) .al-list { list-style: none; margin: 0; padding: var(--s1) 0 var(--s2); font: 12.5px/1.5 var(--mono); }
+:where(#calculator-view) .al-entry {
+  display: grid;
+  grid-template-columns: 8ch auto minmax(0, 1fr) auto;
+  grid-template-areas: "t app tool out" ". args args args" ". res res res";
+  column-gap: 1.5ch;
+  padding: 1px var(--s4);
+}
+:where(#calculator-view) .al-entry + .al-entry { border-top: 1px solid rgb(23 51 34 / 0.6); }
+:where(#calculator-view) .al-t { grid-area: t; color: var(--al-dim); font-variant-numeric: tabular-nums; }
+:where(#calculator-view) .al-event .al-text { grid-column: 2 / -1; color: #a6f5bb; font-style: italic; overflow-wrap: anywhere; }
+:where(#calculator-view) .al-app { grid-area: app; color: var(--al-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 18ch; }
+:where(#calculator-view) .al-tool { grid-area: tool; font-weight: 700; overflow-wrap: anywhere; }
+:where(#calculator-view) .al-out { grid-area: out; color: var(--al-dim); white-space: nowrap; }
+:where(#calculator-view) .al-out.waiting { color: var(--al-wait); }
+:where(#calculator-view) .al-args { grid-area: args; display: flex; flex-direction: column; min-width: 0; }
+:where(#calculator-view) .al-key { color: var(--al-dim); }
+:where(#calculator-view) .al-val, :where(#calculator-view) .al-result { white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(#calculator-view) .al-result { grid-area: res; color: #c4ffd3; }
+:where(#calculator-view) .al-result::before { content: "→ "; color: var(--al-dim); }
+:where(#calculator-view) .al-more { display: inline; min-height: 0; margin-left: 1ch; padding: 0; border: 0; background: none; box-shadow: none; font: inherit; color: var(--al-dim); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+:where(#calculator-view) .al-more:hover:not(:disabled) { background: none; color: var(--al-ink); }
+:where(#calculator-view) .al-more:focus-visible { outline: 2px solid var(--al-ink); outline-offset: 1px; }
+:where(#calculator-view) .al-entry.bad .al-out, :where(#calculator-view) .al-entry.bad .al-result, :where(#calculator-view) .al-event.bad .al-text { color: var(--al-bad); }
 
 :where(#calculator-view) button.floating {
   position: fixed;
@@ -1423,6 +1503,10 @@ body.resizing * { cursor: col-resize !important; }
     box-shadow: var(--shadow-2);
   }
   #calculator-view.sheet-open .panel { display: flex; }
+  /* "The AI's calls" as a sheet along the bottom. */
+  :where(#calculator-view) .ai-log, #calculator-view.panel-hidden .ai-log { left: 0; right: 0; bottom: 0; width: auto; height: 50vh; border-width: 1px 0 0; border-radius: var(--r-lg) var(--r-lg) 0 0; padding-bottom: var(--safe-b); }
+  :where(#calculator-view) .al-headbar { padding-left: var(--gutter); }
+  :where(#calculator-view) .al-entry { grid-template-columns: 8ch minmax(0, 1fr) auto; grid-template-areas: "t tool out" ". app app" ". args args" ". res res"; padding-inline: var(--gutter); }
   @media (prefers-reduced-motion: no-preference) {
     #calculator-view.sheet-open .panel { animation: sheet-in var(--t) var(--ease); }
     @keyframes sheet-in { from { opacity: 0; transform: translateY(-8px); } }

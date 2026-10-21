@@ -40,6 +40,8 @@ export const KEYS = {
   aiKeepOn: "saturnus.aiKeepOn",
   /** A development relay for AI access, honoured on a localhost page only (web/ai.js). */
   aiRelay: "saturnus.aiRelay",
+  /** "The AI's calls" open ("open") or closed (web/ai-log.js); the calls themselves are never stored. */
+  aiLog: "saturnus.aiLog",
 };
 
 /**

@@ -15,8 +15,15 @@
 // ROM's bytes, as Files does), which never says hidden. While a session is
 // connected a hidden tab keeps its calculators running (owner, option 1):
 // Calculator stops sending `visibility` hidden (app.js, on `change`).
+//
+// A broken connection (the relay restarted, the network went) is tried
+// again with a growing wait, 5 s up to every 60 s, until it is back, the
+// user turns AI access off, or the relay refuses it (iteration 56). The
+// calls and the connection's events go to `log` (web/ai-log.js, "The AI's
+// calls"); never the address, a token or a pairing code.
 
 import { aiTools, INSTRUCTIONS, titleOf } from "./ai-tools.js";
+import { AiLog, appLabel } from "./ai-log.js";
 import { HubClient, hubRunning } from "./shared/calc-hub.js";
 import { KEYS, aiSecretKey } from "./shared/storage-names.js";
 import { relayUrl } from "./ai-relay.js";
@@ -26,6 +33,29 @@ import "./shared/models.js";
 
 /** The app's version for the MCP server's info. */
 const VERSION = "1";
+
+/** Why a session ended that is worth connecting again for: the relay or the network went away for a while. */
+const TRANSIENT = new Set(["network", "heartbeat", "shutdown"]);
+
+/** The wait before retry `attempt` (1, 2, …) after a broken connection: 5, 10, 20, 40 s, then every 60 s. */
+export function retryDelay(attempt) {
+  return [5000, 10000, 20000, 40000][attempt - 1] ?? 60000;
+}
+
+/**
+ * Whether a failed connect may work later (the relay down or restarting,
+ * no answer in time), not refused for good: the relay said no (an
+ * address it refuses, its message limit), the browser said no, or it was
+ * cancelled. The client gives no codes, so its messages are read.
+ */
+export function transientFailure(err) {
+  if (!err || err.name === "NotAllowedError" || err.name === "AbortError") return false;
+  const m = String(err.message ?? "");
+  if (m.startsWith("The relay refused the connection") || m.includes("message limit")) return false;
+  const ended = /^The relay ended the connection: (\w+)/.exec(m);
+  if (ended) return TRANSIENT.has(ended[1]);
+  return true;
+}
 
 /** The display as a PNG (base64), black on white at 3× (web/screenshot.js). */
 function screenPng(frame, model) {
@@ -92,8 +122,23 @@ export class AiAccess extends EventTarget {
     hub = { running: hubRunning, client: (who) => new HubClient({ who }) },
     roms = { kept: (models) => keptRoms(undefined, models), bytes: (sha256) => keptRomBytes(sha256) },
     client = () => import("./vendor/tab-mcp-client/tab-mcp-client.min.js"),
+    timers = { set: (fn, ms) => setTimeout(fn, ms), clear: (t) => clearTimeout(t), now: () => Date.now() },
   } = {}) {
     super();
+    /** The clock and timers of the retries (tests give fakes). */
+    this.timers = timers;
+    /** The connection broke and is being tried again (`retrying` the next try's time, or null while it runs). */
+    this.lost = false;
+    this.retrying = null;
+    /** The retries since the connection broke. */
+    this.attempt = 0;
+    this.retryTimer = null;
+    /** Counts the user's Turn offs: a connect that outlived one says nothing. */
+    this.offs = 0;
+    /** The tools that ask the user first (`consequentialHint`). */
+    this.consequential = new Set();
+    /** The connected apps of the live session, by grant id (their names), to say who came and went. */
+    this.apps = null;
     this.calculatorView = calculatorView;
     /** The calculators' hub (tests give a fake): whether it runs, a new connection. */
     this.hub = hub;
@@ -112,6 +157,22 @@ export class AiAccess extends EventTarget {
     this.attached = new Map();
     this.lobby = null;
     this.error = null;
+    /** "The AI's calls" (web/ai-log.js): from now on, in memory only. */
+    this.log = new AiLog(this, { now: () => this.timers.now() });
+  }
+
+  /** The relay's host name, for the log. */
+  get relayHost() {
+    try {
+      return new URL(this.relay.replace(/^ws/, "http")).host;
+    } catch {
+      return "";
+    }
+  }
+
+  /** Something for the log (`what`: connected, lost, retrying, wait, paired, unpaired, off). */
+  note(what, detail = {}) {
+    this.dispatchEvent(new CustomEvent("note", { detail: { what, ...detail } }));
   }
 
   /** Whether AI access can be offered here (a relay). */
@@ -163,19 +224,40 @@ export class AiAccess extends EventTarget {
       });
       for (const tool of aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, png: screenPng })) {
         await mcp.registerTool(tool);
+        if (tool.annotations?.consequentialHint) this.consequential.add(tool.name);
       }
-      for (const type of ["statechange", "grantschange", "pairingcode", "connected"]) mcp.addEventListener(type, () => this.changed());
+      for (const type of ["statechange", "pairingcode"]) mcp.addEventListener(type, () => this.changed());
+      for (const type of ["toolcall", "toolcallend"]) mcp.addEventListener(type, (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail })));
+      mcp.addEventListener("grantschange", () => {
+        this.noteApps(mcp.grants);
+        this.changed();
+      });
+      mcp.addEventListener("connected", () => {
+        this.stopRetrying();
+        this.error = null;
+        this.apps = new Map(mcp.grants.map((g) => [g.grantId, appLabel(g.client)]));
+        this.note("connected", { host: this.relayHost, apps: mcp.grants.length });
+        this.changed();
+      });
       mcp.addEventListener("error", (e) => {
         this.error = e.detail?.error?.message ?? null;
         this.changed();
       });
       mcp.addEventListener("disconnected", (e) => {
         this.release();
+        this.apps = null;
         const reason = e.detail?.reason;
-        this.error = reason && reason !== "user" && reason !== "new_address" ? disconnectText(reason) : null;
+        if (reason !== "user" && reason !== "new_address") this.note("lost", { reason, text: lostText(reason) });
+        if (TRANSIENT.has(reason)) {
+          // Tried again until it is back, whether or not "Keep AI access on" is set: the user had it on.
+          this.lost = true;
+          this.error = lostText(reason);
+          this.attempt = 0;
+          this.scheduleRetry();
+        } else {
+          this.error = reason && reason !== "user" && reason !== "new_address" ? disconnectText(reason) : null;
+        }
         this.changed();
-        // "Keep AI access on": once more after a broken connection (never in a loop: a failed connect ends it).
-        if (["network", "heartbeat", "shutdown"].includes(reason)) setTimeout(() => this.resume(), 5000);
       });
       this.mcp = mcp;
       return mcp;
@@ -184,18 +266,67 @@ export class AiAccess extends EventTarget {
     return this.loading;
   }
 
-  /** Connect to the relay (from a click, or `resume` for "Keep AI access on"). */
+  /**
+   * Connect to the relay (from a click, `resume` for "Keep AI access on",
+   * or a retry). After a broken connection a failure that may pass
+   * (`transientFailure`) schedules the next retry; any other ends them.
+   */
   async connect({ resume = false } = {}) {
-    this.error = null;
+    if (this.retryTimer !== null) this.timers.clear(this.retryTimer);
+    this.retryTimer = null;
+    this.retrying = null;
+    if (!this.lost) this.error = null;
+    const offs = this.offs;
     try {
       const mcp = await this.load();
       return await mcp.connect({ resume });
     } catch (err) {
+      // Turned off meanwhile: that is what happened, not an error.
+      if (offs !== this.offs) throw err;
+      if (this.lost && transientFailure(err)) {
+        this.scheduleRetry();
+        throw err;
+      }
+      this.stopRetrying();
       // Refused without a click (the click's activation ran out while the client loaded): say what to do.
       this.error = err?.name === "NotAllowedError" ? "Press Connect to turn on AI access." : `Could not connect to the relay: ${err?.message ?? err}`;
       this.changed();
       throw err;
     }
+  }
+
+  /** The next retry after a broken connection, `retryDelay` from now. */
+  scheduleRetry() {
+    this.attempt++;
+    const ms = retryDelay(this.attempt);
+    this.retrying = this.timers.now() + ms;
+    this.note("wait", { seconds: Math.round(ms / 1000) });
+    this.retryTimer = this.timers.set(() => {
+      this.retryTimer = null;
+      this.retrying = null;
+      this.note("retrying", { attempt: this.attempt });
+      this.changed();
+      this.connect({ resume: true }).catch(() => {});
+    }, ms);
+    this.changed();
+  }
+
+  /** No more retries: connected again, turned off, or refused. */
+  stopRetrying() {
+    if (this.retryTimer !== null) this.timers.clear(this.retryTimer);
+    this.retryTimer = null;
+    this.retrying = null;
+    this.lost = false;
+    this.attempt = 0;
+  }
+
+  /** Who came and went among the connected apps of the live session (the first list on connecting is not news). */
+  noteApps(grants) {
+    if (!this.apps || this.state !== "connected") return;
+    const now = new Map(grants.map((g) => [g.grantId, appLabel(g.client)]));
+    for (const [id, name] of now) if (!this.apps.has(id)) this.note("paired", { app: name });
+    for (const [id, name] of this.apps) if (!now.has(id)) this.note("unpaired", { app: name });
+    this.apps = now;
   }
 
   /** On load, with "Keep AI access on": connect without a click. */
@@ -204,9 +335,16 @@ export class AiAccess extends EventTarget {
     this.connect({ resume: true }).catch(() => {});
   }
 
+  /** Turn AI access off in this tab (the connected apps stay paired; Connect brings it back). Ends the retries. */
   disconnect() {
+    const on = this.lost || this.state !== "disconnected";
+    this.offs++;
+    this.stopRetrying();
+    this.error = null;
     this.mcp?.disconnect();
     this.release();
+    if (on) this.note("off");
+    this.changed();
   }
 
   /** A new address: the apps connected to the old one lose access. */
@@ -319,14 +457,20 @@ export function keepsRunning(ai) {
   return ai.state === "connected" && (ai.mcp?.grants?.length ?? 0) > 0;
 }
 
-/** Why a session ended, in the dialog's words. */
-export function disconnectText(reason) {
+/** Why a session ended, without what to do: the log's words, and the dialog's while it reconnects. */
+export function lostText(reason) {
   switch (reason) {
     case "replaced": return "Another tab took over this address. AI access is on there now.";
-    case "expired": return "The session reached its time limit. Connect again.";
-    case "idle": return "No AI app used the calculators for a long time, so the session ended. Connect again.";
-    case "shutdown": return "The relay restarted. Connect again.";
-    case "network": case "heartbeat": return "The connection to the relay broke. Connect again.";
-    default: return "The relay ended the session. Connect again.";
+    case "expired": return "The session reached its time limit.";
+    case "idle": return "No AI app used the calculators for a long time, so the session ended.";
+    case "shutdown": return "The relay restarted.";
+    case "network": case "heartbeat": return "The connection to the relay broke.";
+    case "user": return "AI access was turned off.";
+    default: return "The relay ended the session.";
   }
+}
+
+/** Why a session ended, in the dialog's words: what to do as well. */
+export function disconnectText(reason) {
+  return reason === "replaced" ? lostText(reason) : `${lostText(reason)} Connect again.`;
 }
