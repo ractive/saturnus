@@ -6,7 +6,7 @@
 // events to the log. The drawer itself: ai-log-page.test.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AiLog, aiView, argPairs, durationText, noteText, resultText } from "../ai-log.js";
+import { AiLog, aiView, argPairs, durationText, foldOf, noteText, resultText } from "../ai-log.js";
 import { AiAccess } from "../ai.js";
 
 const CLIENT = { grantId: "g1", id: "https://claude.ai/cimd.json", host: "claude.ai", name: "Claude" };
@@ -68,6 +68,22 @@ test("the last 200 entries are kept; Clear empties the log", () => {
   log.clear();
   assert.equal(log.entries.length, 0);
   assert.equal(log.text(), "");
+});
+
+test("a long outage's connection events go before the calls", () => {
+  const ai = fakeAi();
+  const log = new AiLog(ai);
+  for (let i = 0; i < 10; i++) ai.emit("toolcall", { id: i, tool: "read_stack", arguments: {}, client: CLIENT });
+  for (let i = 1; i <= 300; i++) ai.emit("note", { what: "retrying", attempt: i });
+  assert.equal(log.entries.length, 200);
+  assert.equal(log.entries.filter((e) => e.kind === "call").length, 10, "every call kept");
+  assert.match(log.entries.at(-1).text, /300/);
+});
+
+test("folded: whole hidden lines are counted; a head cut inside a line says more", () => {
+  assert.equal(foldOf(["a", "b", "c", "d", "e", "f"].join("\n")).more, "3 more lines");
+  assert.equal(foldOf(["y".repeat(500), "b", "c", "d", "e"].join("\n")).more, "more");
+  assert.equal(foldOf("a\nb").rest, "");
 });
 
 test("Copy log's text: every entry in full, nothing folded", () => {

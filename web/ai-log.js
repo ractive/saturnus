@@ -115,11 +115,15 @@ export class AiLog extends EventTarget {
     entry.n = this.seq++;
     entry.t = this.now();
     this.entries.push(entry);
+    // The oldest connection event goes first, so a long outage's retries do not push the calls out.
+    const dropped = [];
     while (this.entries.length > this.limit) {
-      const gone = this.entries.shift();
+      const i = this.entries.findIndex((e, j) => e.kind === "event" && j < this.entries.length - 1);
+      const [gone] = this.entries.splice(i < 0 ? 0 : i, 1);
       if (gone.kind === "call") this.pending.delete(gone.id);
+      dropped.push(gone.n);
     }
-    this.dispatchEvent(new CustomEvent("change", { detail: { entry } }));
+    this.dispatchEvent(new CustomEvent("change", { detail: { entry, dropped } }));
   }
 
   call(d) {
@@ -158,16 +162,26 @@ export class AiLog extends EventTarget {
   }
 }
 
-/** `text` with its first lines shown and the rest folded behind a button ("12 more lines"), or as it is when short. */
-export function folded(text, cls) {
+/**
+ * How `folded` splits `text`: the head shown, the rest folded, and the
+ * button's label. Whole hidden lines are counted only when the head ends at
+ * a line break; a head cut inside a long line says just "more".
+ */
+export function foldOf(text) {
   const lines = text.split("\n");
   let head = lines.slice(0, HEAD_LINES).join("\n");
-  if (head.length > HEAD_CHARS) head = head.slice(0, HEAD_CHARS);
-  const rest = text.slice(head.length);
+  const cut = head.length > HEAD_CHARS;
+  if (cut) head = head.slice(0, HEAD_CHARS);
+  const n = cut ? 0 : lines.length - HEAD_LINES;
+  return { head, rest: text.slice(head.length), more: n > 0 ? `${n} more ${n === 1 ? "line" : "lines"}` : "more" };
+}
+
+/** `text` with its first lines shown and the rest folded behind a button ("12 more lines"), or as it is when short. */
+export function folded(text, cls) {
+  const { head, rest, more: label } = foldOf(text);
   const box = el("span", { class: cls }, el("span", { class: "al-head", text: head }));
   if (!rest) return box;
-  const n = lines.length - HEAD_LINES;
-  const more = el("button", { type: "button", class: "al-more", text: n > 0 ? `${n} more ${n === 1 ? "line" : "lines"}` : "more" });
+  const more = el("button", { type: "button", class: "al-more", text: label });
   more.addEventListener("click", () => {
     const shown = el("span", { class: "al-rest", text: rest });
     more.replaceWith(shown);
@@ -316,7 +330,7 @@ export class AiLogView {
   }
 
   /** A new entry appended (and the ones the log dropped removed), an ended call redrawn in place, or all again. */
-  update({ entry, ended, cleared } = {}) {
+  update({ entry, ended, cleared, dropped } = {}) {
     if (cleared || !entry) return this.render();
     const sc = this.ui.scroll;
     const atEnd = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 24;
@@ -326,8 +340,7 @@ export class AiLogView {
       this.refreshPending();
     } else {
       list.append(entryItem(entry, this.waiting(entry)));
-      const first = this.log.entries[0]?.n ?? Infinity;
-      while (list.firstElementChild && Number(list.firstElementChild.dataset.n) < first) list.firstElementChild.remove();
+      for (const n of dropped ?? []) list.querySelector(`[data-n="${n}"]`)?.remove();
     }
     this.ui.empty.hidden = this.log.entries.length > 0;
     if (atEnd) sc.scrollTop = sc.scrollHeight;
