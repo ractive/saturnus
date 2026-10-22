@@ -14,7 +14,7 @@ import { join } from "node:path";
 
 import { escapeHtml, parseFrontmatter, renderInline, renderMarkdown } from "../docs/markdown.mjs";
 import { commandOfSlug, hashEncode, parseRefHash, refHash, slugBase, slugMap } from "../docs/commands/slug.js";
-import { brokenLinks, build, sizeImages, commandsMarkdown, htmlLink, llmsTxt, loadPages, pagePaths, referenceModels, relative, sectionPages } from "../docs/build.mjs";
+import { brokenLinks, build, sitemapXml, sizeImages, commandsMarkdown, htmlLink, llmsTxt, loadPages, pagePaths, referenceModels, relative, sectionPages } from "../docs/build.mjs";
 import { buildIndex } from "../reference.js";
 import { MODEL_ORDER } from "../norom.js";
 
@@ -290,4 +290,15 @@ test("a model page's numbers of commands and examples are those of the reference
 test("a model's drawing takes its size from the landing page, other images stay as they are", () => {
   assert.equal(sizeImages('<img src="../img/48gx-640.webp" alt="x">'), '<img src="../img/48gx-640.webp" width="1248" height="2721" decoding="async" alt="x">');
   assert.equal(sizeImages('<img src="photo.png" alt="x">'), '<img src="photo.png" alt="x">');
+});
+
+test("sitemap.xml: the landing page, the app and every written docs page, by their HTML addresses", () => {
+  const pages = loadPages();
+  const xml = sitemapXml(pages, "https://ractive.ch/saturnus/");
+  const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'));
+  assert.deepEqual(locs.slice(0, 3), ["https://ractive.ch/saturnus/", "https://ractive.ch/saturnus/app/", "https://ractive.ch/saturnus/docs/"]);
+  for (const u of ["docs/48gx/", "docs/commands/", "docs/saturn/cpu/", "docs/transfer/satx/"]) assert.ok(locs.includes(`https://ractive.ch/saturnus/${u}`), u);
+  assert.equal(locs.length, 2 + pages.filter((p) => p.meta.status !== "placeholder").length);
+  assert.ok(locs.every((u) => u.endsWith("/")), "HTML addresses, no .md");
 });

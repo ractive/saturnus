@@ -20,6 +20,8 @@
 //                                    examples, for LLMs (12 files)
 //   docs/docs.css                    the pages' own styles
 //   llms.txt                         the llmstxt.org index of the .md files
+//   sitemap.xml                      the landing page, the app and the docs
+//                                    pages, for search engines
 //
 // A page's frontmatter: `title`, `description`, `section` (index,
 // models, commands, saturn, transfer), `model` on a model page (the
@@ -367,6 +369,19 @@ export function sectionPages(pages, id) {
 }
 
 /**
+ * /saturnus/sitemap.xml (https://www.sitemaps.org): the landing page, the
+ * app and every written docs page (no placeholders), by their HTML
+ * addresses. ractive.ch's robots.txt names it beside the site's own.
+ */
+export function sitemapXml(pages, base = BASE) {
+  const written = pages.filter((p) => p.meta.status !== "placeholder");
+  const docs = [...written.filter((p) => p.rel === "index"), ...written.filter((p) => p.rel !== "index")];
+  const paths = ["", "app/", ...docs.map((p) => pagePaths(p.rel).html)];
+  const urls = paths.map((p) => `  <url>\n    <loc>${escapeHtml(`${base}${p}`)}</loc>\n  </url>`);
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`;
+}
+
+/**
  * /saturnus/llms.txt (https://llmstxt.org): the title, a summary, then a
  * list of links per section to the Markdown files: the written pages
  * (no placeholders) and one command file per model.
@@ -466,6 +481,7 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
   }
   for (const m of referenceModels(data)) write(`docs/commands/${m}.md`, commandsMarkdown(data, m));
   write("llms.txt", llmsTxt(pages, data, base));
+  write("sitemap.xml", sitemapXml(pages, base));
   cpSync(join(HERE, "docs.css"), join(out, "docs", "docs.css"));
   for (const f of ["page.js", "slug.js"]) cpSync(join(HERE, "commands", f), join(out, "docs", "commands", f));
   written.push("docs/docs.css", "docs/commands/page.js", "docs/commands/slug.js");
