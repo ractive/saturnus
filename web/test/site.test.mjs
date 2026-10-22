@@ -7,7 +7,8 @@
 // content's SHA-256; its build hash stays put for the same files, changes
 // with any of them, and ignores the landing page; the page links the
 // manifest, named as the one app; the desktop apps' file list has none of
-// it; the docs under docs/ with llms.txt at the top (iteration 57).
+// it; the docs under docs/ with llms.txt and sitemap.xml at the top
+// (iteration 57).
 // Skipped without the wasm package (`just web`).
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -57,10 +58,12 @@ test("the service worker precaches exactly the app's files, and a new build is a
   try {
     const a = site(WEB);
     tmp.push(a.out);
-    // The top: the landing page, the favicon, the kill switch, the .htaccess and the marker; nothing else.
+    // The top: the landing page, the favicon, the kill switch, the .htaccess, the marker, llms.txt
+    // and sitemap.xml; nothing else.
     const top = filesUnder(a.out).filter((f) => !f.includes("/") || f.startsWith("img/"));
     const landing = filesUnder(join(WEB, "landing")).filter((f) => !f.startsWith("raw/") && f !== "shots.mjs" && f !== "sw.js");
-    assert.deepEqual(top, [".htaccess", ".saturnus-site", "favicon.svg", ...landing, "llms.txt", "sw.js"].sort());
+    assert.deepEqual(top, [".htaccess", ".saturnus-site", "favicon.svg", ...landing, "llms.txt", "sitemap.xml", "sw.js"].sort());
+    assert.match(readFileSync(join(a.out, "sitemap.xml"), "utf8"), /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
     const kill = readFileSync(join(WEB, "landing", "sw.js"), "utf8");
     assert.match(kill, /self\.registration\.unregister\(\)/, "the top's sw.js is the kill switch");
     assert.equal(readFileSync(join(a.out, "sw.js"), "utf8"), kill);

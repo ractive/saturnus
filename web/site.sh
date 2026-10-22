@@ -27,7 +27,8 @@
 #                       manifest, the icons and the service worker, with
 #                       index.html given the manifest link and Apple's
 #                       tags (web/pwa/head.html).
-#   docs/, llms.txt     the docs (iteration 57): web/docs/build.mjs
+#   docs/, llms.txt,    the docs
+#   sitemap.xml         (iteration 57): web/docs/build.mjs
 #                       renders web/docs/pages/*.md into docs/<page>/
 #                       index.html with the Markdown beside it as
 #                       docs/<page>.md, the command reference page
