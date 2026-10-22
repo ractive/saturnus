@@ -60,7 +60,7 @@ HP's Graphing Calculator PC Connectivity Kit of 1999 had one cable for the 48 se
 
 The 39G and 40G are built on the 49G's hardware. The 40G, which has no infrared, came with a PC adapter and a cable from calculator to calculator. This page could not confirm from HP's documents that the 39G's and 40G's connector is the 49G's, so check the plug before you buy a cable for one.
 
-Early 49Gs, with a serial number below 94xxxxxx, have a weak transmitter that some PC ports cannot read. Two community circuits fix it: one patches the calculator, the other is a small buffer in the cable, powered from the PC's RTS and DTR lines. The program on the computer then has to raise RTS and DTR; HP's own HPComm did.
+Early 49Gs, with a serial number below 94xxxxxx, have a weak transmitter that some PC ports cannot read. Two community circuits fix it: one patches the calculator, the other is a small buffer in the cable, powered from the PC's RTS and DTR lines. The program on the computer then has to raise RTS and DTR; [HPComm](kermit-xmodem.md#hpcomm-and-hpgcomm), the program of HP's Connectivity Kit, did.
 
 ## USB serial adapters
 
