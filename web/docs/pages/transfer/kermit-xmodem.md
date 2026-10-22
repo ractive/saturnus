@@ -142,7 +142,7 @@ For the 38G, HPComm38 split off at the end of 1999 and shipped in HP's HP38G PC 
 
 The dog on the splash screen and the program icon is Spot, drawn by [ishadyn](https://ishadyn.ch/illustrationen/) ([@ishadyn_comic](https://www.instagram.com/ishadyn_comic/) on Instagram).
 
-The source code, the help and the hpcomm.org website are archived [on GitHub](https://github.com/ractive/hpcomm). HPComm 2.4 and HPGComm 2.01 are still on hpcalc.org.
+The source code, the help and the hpcomm.org website are archived [on GitHub](https://github.com/ractive/hpcomm). HPComm 3.0r4, the kit's version, as well as HPComm 2.4 and HPGComm 2.0 are still on hpcalc.org.
 
 ## Sources
 
@@ -158,5 +158,5 @@ The source code, the help and the hpcomm.org website are archived [on GitHub](ht
 - [HP 49G User's Manual](https://literature.hpcalc.org/official/hp49g-um-en.pdf): transfers between a 49G and a 48 in ASCII (A-2).
 - [HP Graphing Calculator PC Connectivity Kit User Guide](https://literature.hpcalc.org/community/hp-graph-calc-connectivity.pdf): the 38G's transfers started and controlled from the calculator.
 - [HPComm, the archive on GitHub](https://github.com/ractive/hpcomm): HPComm's and HPGComm's history, versions and dates, HP's Connectivity Kit, the GPL, Spot.
-- [HPComm 2.4](https://www.hpcalc.org/details/3717) and [HPGComm 2.01](https://www.hpcalc.org/details/3715) on hpcalc.org: the PC programs for the 48 and 49G, and for the 38G, 39G and 40G; binary aplets by XModem on the 39G and 40G.
+- [HPComm 3.0r4](https://www.hpcalc.org/details/3713), the version of HP's kit for the 48 and the 49G, [HPComm 2.4](https://www.hpcalc.org/details/3717), the 48's from before the kit, and [HPGComm 2.0](https://www.hpcalc.org/details/3715) for the 38G, 39G and 40G, on hpcalc.org: binary aplets by XModem on the 39G and 40G.
 - [ishadyn, illustrations](https://ishadyn.ch/illustrationen/): the drawing of Spot.
