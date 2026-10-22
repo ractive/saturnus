@@ -443,6 +443,15 @@ async function start() {
   query.addEventListener("blur", () => closeSuggestions());
   suggest.addEventListener("click", (e) => { if (e.target.closest("a")) closeSuggestions(); });
   nav.addEventListener("keydown", navKeys);
+  // Cmd-K (Ctrl-K off a Mac) starts a search, as in the app.
+  query.setAttribute("aria-keyshortcuts", "Meta+K Control+K");
+  document.addEventListener("keydown", (e) => {
+    if (e.key.toLowerCase() !== "k" || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+    e.preventDefault();
+    if (sheet.open) sheet.close();
+    query.focus();
+    query.select();
+  });
   browse.addEventListener("click", openSheet);
   sheet.querySelector(".ref-sheet-close").addEventListener("click", () => sheet.close());
   // A tap on the backdrop closes the sheet (the dialog itself is the target there).

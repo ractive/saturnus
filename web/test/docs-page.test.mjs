@@ -138,6 +138,12 @@ test("the command reference page: the addressed command read-only, suggestions a
   await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "HMS-"`, 5_000, "HMS- shown again");
   await sleep(150);
   assert.equal(await ev("scrollY"), dock, "docked again");
+  // Cmd-K (or Ctrl-K) starts a search from anywhere on the page.
+  await ev(`document.activeElement.blur(), document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true, cancelable: true })), true`);
+  assert.equal(await ev(`document.activeElement.id`), "ref-q", "Cmd-K focuses the search");
+  await ev(`document.activeElement.blur(), document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "K", ctrlKey: true, bubbles: true, cancelable: true })), true`);
+  assert.equal(await ev(`document.activeElement.id`), "ref-q", "Ctrl-K focuses the search");
+  await ev(`document.activeElement.blur(), true`);
   await ev(`scrollTo(0, 0), true`);
   await ev(`document.getElementById("ref-side").scrollTop = 0, true`);
   await sleep(150);
