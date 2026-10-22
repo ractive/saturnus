@@ -60,7 +60,7 @@ The G series has 512 KB of ROM, as much as the whole address space. HP solved it
 
 - The ROM's top address line shares a pin of the Yorke chip with NCE3, the select line of card port 2. A bit in the hardware registers chooses which one the pin carries. So the upper half of the ROM and port 2 cannot be seen at the same time.
 - CE1 drives an external latch, a 74HC174. Reading any address in CE1's window stores the low address bits in the latch. Those bits become the upper address lines of port 2 and a bank-enable bit, so a read at the right address picks one of 32 banks of 128 KB, up to 4 MB.
-- Christoph Gießelink found that a read of the latch reads one nibble too many, which latches the next bank. Data still comes back as written, since reads and writes are off by the same amount. But the last bank of a full 4 MB card latches an address with the enable bit clear, which is why a 4 MB card always gives "Invalid Card Data".
+- Christoph Gießelink found that a read of the latch reads one nibble too many, which latches the next bank. Data still comes back as written, since reads and writes are off by the same amount. But the last bank of a full 4 MB card latches an address with the enable bit clear, which is why a full 4 MB card always gives "Invalid Card Data": the firmware does not work around it.
 - On the 48SX, a card's write-protect switch blocks writes in the Clarke chip. On the GX, slot 2's write-protect line goes to the bank switcher instead.
 
 Since every access to the upper ROM or to port 2 may need a bank switch first, the G series runs more slowly than its clock suggests (see [The CPU](cpu.md)). The [48GX page](../48gx.md) tells how the ports appear to the user.

@@ -69,7 +69,7 @@ INTOFF and INTON turn off and on the keyboard's interrupt, the 1 ms scan. They d
 
 The system has its own way to turn off everything, ON included. It keeps a bit in the CPU's status register (ST bit 15) that says whether interrupts are allowed. When that bit is clear, the handler returns at once with an ordinary return instead of RTI, notes in ST bit 14 that an interrupt was missed, and leaves the CPU "in service". No further interrupt is taken until the system allows them again: it sets the bit, executes RSI, which makes the CPU look again at what is pending, and then RTI.
 
-The handler needs one or two levels of the eight-level return stack. A machine-language program that calls subroutines six or seven deep while interrupts are on loses its oldest return address, returns to address 0 and warm-starts the calculator.
+The handler needs one or two levels of the eight-level return stack. A machine-language program that calls subroutines seven or eight deep while interrupts are on (six is safe) loses its oldest return address, returns to address 0 and warm-starts the calculator.
 
 ## The handler's checks
 

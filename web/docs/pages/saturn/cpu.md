@@ -46,7 +46,7 @@ The other registers:
 | IN | 16 bits | an input port, read only: the keyboard's columns |
 | OUT | 12 bits | an output port, write only: the keyboard's rows and the beeper |
 
-The return stack holds eight return addresses. A ninth call drops the oldest one, and a return from an empty stack reads zero, which sends the program to address 0. The interrupt system needs one or two levels of it, so a program that calls subroutines eight deep while interrupts are on loses its oldest return address.
+The return stack holds eight return addresses. A ninth call drops the oldest one, and a return from an empty stack reads zero, which sends the program to address 0. The interrupt system needs one or two levels of it, so a program that calls subroutines seven or eight deep while interrupts are on loses its oldest return address. Six levels deep is safe.
 
 OUT cannot be read back. Software that changes it keeps a copy in RAM, so that the interrupt handler can put it back afterwards.
 
@@ -92,7 +92,7 @@ The 48SX's clock is about 2 MHz, the 48G series and the 49G run at about 4 MHz, 
 - An instruction takes several cycles, more for memory access and jumps. HP's assembler manual gives approximate counts, and the counts in the Meta Kernel documentation for the 48G are higher. A register add on the A field takes about 7 to 8 cycles, a jump about 11 to 14.
 - Some instructions take a cycle more or less depending on whether they start at an odd or an even address.
 - The display controller reads its rows from RAM and stops the CPU while it does (see [The display](display.md)). Turning the display off makes the 48G about 13% faster.
-- On the 48G series, every memory access goes through bank switching, and the bus is still 4 bits wide. The clock doubled from the 48SX, but programs run only about 40% faster.
+- On the 48G series, the upper half of the ROM and the cards in port 2 are reached through bank switching, and the bus is still 4 bits wide. The clock doubled from the 48SX, but programs run only about 40% faster.
 
 A benchmark on the HP Museum forum times the same sum of 1,000 terms on real calculators: 95.5 s on a 48SX, about 55 s on a 48GX and about 48 to 51 s on a 49G, whose ROM was tuned for speed.
 
@@ -105,7 +105,7 @@ A benchmark on the HP Museum forum times the same sum of 1,000 terms on real cal
 | HP 49G | about 4 MHz | Yorke |
 | HP 42S, 27S, 17B, 17BII | about 1 MHz | Lewis |
 
-saturnus times every instruction with the published cycle counts and the display's stalls, then scales each model by a factor measured against that benchmark, so that programs take as long as on the real calculators. See [the HP 48GX page](../48gx.md) for how that looks in the app.
+saturnus times every instruction with the published cycle counts and the display's stalls, then scales the 48SX, 48GX and 49G by factors measured against that benchmark, so that programs take as long as on those calculators. The 38G takes the 48GX's factor and the 39G and 40G the 49G's, and the other models run at an assumed speed: none of them was timed against a real calculator. See [the HP 48GX page](../48gx.md) for how that looks in the app.
 
 ## Sources
 
