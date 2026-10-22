@@ -371,7 +371,8 @@ export function sectionPages(pages, id) {
 /**
  * /saturnus/sitemap.xml (https://www.sitemaps.org): the landing page, the
  * app and every written docs page (no placeholders), by their HTML
- * addresses. ractive.ch's robots.txt names it beside the site's own.
+ * addresses. ractive.ch's robots.txt names it beside the site's own
+ * (ractive/ractive.ch#17).
  */
 export function sitemapXml(pages, base = BASE) {
   const written = pages.filter((p) => p.meta.status !== "placeholder");

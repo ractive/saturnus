@@ -1,7 +1,7 @@
 name: Web page
 
 # Builds the site of /saturnus/ (the landing page, the app under app/,
-# the docs under docs/ with llms.txt, the kill switch sw.js, also as
+# the docs under docs/ with llms.txt and sitemap.xml, the kill switch sw.js, also as
 # emulator/sw.js and transfer/sw.js for the subsites the app replaced;
 # web/site.sh) and publishes it to the
 # owner's site ractive.ch (the `ractive` job: FTPS into httpdocs/saturnus/,
