@@ -696,7 +696,12 @@ export function keyLegend(keys, name) {
   return null;
 }
 
-/** Deep links into the manuals for `command`, those of `models` (default: all). */
+/**
+ * Deep links into the manuals for `command`, those of `models` (default:
+ * all). Where `models` holds the index's model, the page that states the
+ * command's key on it (`per.key`) is one of them too, when the command's
+ * pages do not already give that manual's page.
+ */
 export function manualLinks(index, command, models = null) {
   const pages = command.entry.pages ?? {};
   const out = [];
@@ -704,6 +709,11 @@ export function manualLinks(index, command, models = null) {
     if (models && !m.models.some((x) => models.includes(x))) continue;
     const page = pages[id];
     if (page) out.push({ id, title: m.title, page, url: `${m.url}#page=${page}`, models: m.models });
+  }
+  const key = command.per?.key;
+  const m = key?.page ? index.data.manuals[key.manual] : null;
+  if (m && (!models || models.includes(index.model)) && !out.some((l) => l.id === key.manual && String(l.page) === String(key.page))) {
+    out.push({ id: key.manual, title: m.title, page: key.page, url: `${m.url}#page=${key.page}`, models: m.models });
   }
   return out;
 }

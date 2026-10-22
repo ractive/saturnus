@@ -58,8 +58,9 @@ function examplesHeading(model, examples, ctx) {
  * where nothing can be run; the app says they ran on the emulated model).
  * One rule for where a command is: the Menu row whenever the data has
  * menus for the model, the Key row the manual's key (its category only;
- * the manuals' pages are all under "In the manuals", each tagged with
- * its models where they are not the shown one), the skin's key where the
+ * the manuals' pages, the one stating the key among them, are all under
+ * "In the manuals", each tagged with its models where they are not the
+ * shown one), the skin's key where the
  * app knows it; our own grouping is not a place and is left out.
  */
 export function entryView(index, command, ctx = {}) {

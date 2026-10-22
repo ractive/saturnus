@@ -14,7 +14,7 @@ import { join } from "node:path";
 
 import { escapeHtml, parseFrontmatter, renderInline, renderMarkdown } from "../docs/markdown.mjs";
 import { commandOfSlug, hashEncode, parseRefHash, refHash, slugBase, slugMap } from "../docs/commands/slug.js";
-import { brokenLinks, build, commandsMarkdown, htmlLink, llmsTxt, loadPages, pagePaths, referenceModels, relative } from "../docs/build.mjs";
+import { brokenLinks, build, sizeImages, commandsMarkdown, htmlLink, llmsTxt, loadPages, pagePaths, referenceModels, relative } from "../docs/build.mjs";
 import { buildIndex } from "../reference.js";
 import { MODEL_ORDER } from "../norom.js";
 
@@ -199,7 +199,7 @@ test("the build: each page's HTML and its Markdown as written, the command files
     for (const s of ["commands/", "saturn/", "transfer/"]) assert.ok(home.includes(`href="${s}"`), s);
     // The 48GX page: its picture from the landing page's images (saturnus's drawing) with a caption, its facts table, its links into the app and the reference, its sources last.
     const gx = readFileSync(join(out, "docs", "48gx", "index.html"), "utf8");
-    assert.match(gx, /<figure><img src="\.\.\/\.\.\/img\/48gx-640\.webp" alt="HP 48GX"><figcaption>[^<]+<\/figcaption><\/figure>/);
+    assert.match(gx, /<figure><img src="\.\.\/\.\.\/img\/48gx-640\.webp" width="1248" height="2721" decoding="async" alt="HP 48GX"><figcaption>[^<]+<\/figcaption><\/figure>/);
     assert.match(gx, /<h2 id="at-a-glance">At a glance<\/h2>\n<div class="table-wrap"><table>\n<tbody>/, "the facts without a header row");
     assert.ok(gx.includes('href="../../app/#/calculator/48gx"') && gx.includes('href="../commands/#48gx"'));
     assert.match(gx, /<h2 id="sources">Sources<\/h2>\n<ul>\n(<li><a href="https:\/\/[^"]+">[\s\S]*?<\/li>\n)+<\/ul>\n<\/article>/, "the sources last, each linked");
@@ -237,4 +237,23 @@ test("a broken link or a link into the wiki fails the build", () => {
     rmSync(pages, { recursive: true, force: true });
     rmSync(out, { recursive: true, force: true });
   }
+});
+
+test("a model page's numbers of commands and examples are those of the reference", () => {
+  const pages = new URL("../docs/pages/", import.meta.url);
+  for (const model of MODEL_ORDER) {
+    const file = new URL(`${model}.md`, pages);
+    if (!existsSync(file)) continue;
+    const text = readFileSync(file, "utf8").replace(/\s+/g, " ");
+    const commands = buildIndex(data, model).commands;
+    const n = text.match(/\b(\d[\d,]*) (commands|functions)\b/);
+    if (n) assert.equal(Number(n[1].replace(/,/g, "")), commands.length, `${model}.md: the number of ${n[2]}`);
+    const ex = text.match(/examples for (\d[\d,]*) of them/);
+    if (ex) assert.equal(Number(ex[1].replace(/,/g, "")), commands.filter((c) => (c.per.examples ?? []).length).length, `${model}.md: the number with examples`);
+  }
+});
+
+test("a model's drawing takes its size from the landing page, other images stay as they are", () => {
+  assert.equal(sizeImages('<img src="../img/48gx-640.webp" alt="x">'), '<img src="../img/48gx-640.webp" width="1248" height="2721" decoding="async" alt="x">');
+  assert.equal(sizeImages('<img src="photo.png" alt="x">'), '<img src="photo.png" alt="x">');
 });

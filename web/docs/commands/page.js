@@ -373,8 +373,9 @@ async function fromAddress() {
 
 /**
  * The entry in view. On a desktop the page docks: the bar at the top of
- * the screen, the two cards filling the rest of it (docs.css), wherever
- * the page was (above, reading the lead, or below, in the notes). On a
+ * the screen, the two cards under it (docs.css, or fitted: `fitPanes`),
+ * wherever the page was (below, in the notes, or above with cards that
+ * do not fit the first view). On a
  * phone the entry scrolls into view under the bar when it is off the
  * screen.
  */
@@ -396,7 +397,10 @@ function showEntry() {
  * from where they start under the title, the lead and the bar, so the
  * first view shows them whole. A window too short for that (under
  * `FIT_MIN` px left) keeps the docked height of docs.css: the bar at the
- * top, the cards under it, after a choice.
+ * top, the cards under it, after a choice. Fitted cards keep their height
+ * when the page docks from further down: they then end above the bottom
+ * of the screen, with the notes under them, rather than growing while
+ * the page scrolls.
  */
 const FIT_MIN = 480;
 function fitPanes() {

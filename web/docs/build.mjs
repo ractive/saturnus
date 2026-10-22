@@ -132,6 +132,24 @@ function appIcon(href) {
   return model ? logoSvg(18, model) : "";
 }
 
+/**
+ * The drawings' sizes, from the landing page's <img> tags (img/48gx-320.webp
+ * … width="1248" height="2721"): a model page's picture takes its own, so
+ * the text does not move when it loads.
+ */
+let drawingSizes = null;
+export function sizeImages(html) {
+  if (!drawingSizes) {
+    drawingSizes = new Map();
+    const landing = readFileSync(join(WEB, "landing", "index.html"), "utf8");
+    for (const m of landing.matchAll(/<img [^>]*src="img\/([a-z0-9]+)-320\.webp"[^>]*width="(\d+)" height="(\d+)"/g)) drawingSizes.set(m[1], [m[2], m[3]]);
+  }
+  return html.replace(/<img src="([^"]*\bimg\/([a-z0-9]+)-\d+\.webp)"/g, (all, src, model) => {
+    const size = drawingSizes.get(model);
+    return size ? `<img src="${src}" width="${size[0]}" height="${size[1]}" decoding="async"` : all;
+  });
+}
+
 /** A heading's id: its words in lower case, joined by hyphens. */
 function headingId(text) {
   return text.toLowerCase().replace(/[`*_[\]()]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -412,7 +430,7 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
     let source = page.source;
     let body = page.body;
     let after = "";
-    const render = (md) => renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId, appIcon });
+    const render = (md) => sizeImages(renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId, appIcon }));
     if (page.rel === "commands") {
       // The lead above the reference; its sections (the notes) and the
       // sources (every manual it links to) after it, each in a column
