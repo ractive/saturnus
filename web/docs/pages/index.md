@@ -21,7 +21,7 @@ About the HP calculators that saturnus runs in the browser: the models, their co
 - [HP 28S](28s.md)
 - [HP 19BII](19bii.md)
 
-The other model pages are coming soon.
+Each page tells the model's history, what makes it special and how saturnus runs it.
 
 ## Command reference
 
@@ -29,11 +29,23 @@ The other model pages are coming soon.
 
 ## How the Saturn works
 
-[The processor, its memory, the display and the keyboard](saturn.md), for developers. Coming soon.
+[The hardware inside these calculators](saturn.md), for developers:
+
+- [The CPU](saturn/cpu.md)
+- [Memory](saturn/memory.md)
+- [The display](saturn/display.md)
+- [The keyboard](saturn/keyboard.md)
+- [Timers and interrupts](saturn/timers.md)
+- [The serial port and infrared](saturn/serial.md)
 
 ## Moving files to a real calculator
 
-[The cables, Kermit, XModem and the satx tool](transfer.md). Coming soon.
+[For owners of a real HP calculator](transfer.md):
+
+- [Cables](transfer/cables.md)
+- [Kermit and XModem](transfer/kermit-xmodem.md)
+- [satx](transfer/satx.md), the command-line tool
+- [Files in the app](transfer/files.md)
 
 ## For AI apps
 

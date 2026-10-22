@@ -23,8 +23,10 @@
 //
 // A page's frontmatter: `title`, `description`, `section` (index,
 // models, commands, saturn, transfer), `model` on a model page (the
-// page takes its colours), `status: placeholder` for a page not written
-// yet (llms.txt leaves it out). A page links others by their .md path
+// page takes its colours), `order` (a number) on a section's sub-page
+// (`pages/saturn/cpu.md`: its place in llms.txt after the section's
+// overview, `pages/saturn.md`), `status: placeholder` for a page not
+// written yet (llms.txt leaves it out). A page links others by their .md path
 // (`[48GX](48gx.md)`), which works in the Markdown as published; the
 // HTML gets the page's address. The pages look like the app: its
 // tokens, its stylesheet (the logo's colours per model, the reference
@@ -353,6 +355,18 @@ export function commandsMarkdown(data, model) {
 }
 
 /**
+ * The written pages (no placeholders) of the section `id` in reading
+ * order: the section's overview (the page named like the section,
+ * "saturn"), then its sub-pages by `order`, then by path.
+ */
+export function sectionPages(pages, id) {
+  const rank = (p) => (p.rel === id ? -Infinity : Number.isFinite(Number(p.meta.order)) && p.meta.order !== "" ? Number(p.meta.order) : Infinity);
+  return pages
+    .filter((p) => p.meta.section === id && p.meta.status !== "placeholder")
+    .sort((a, b) => rank(a) - rank(b) || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+}
+
+/**
  * /saturnus/llms.txt (https://llmstxt.org): the title, a summary, then a
  * list of links per section to the Markdown files: the written pages
  * (no placeholders) and one command file per model.
@@ -362,7 +376,6 @@ export function llmsTxt(pages, data, base = BASE) {
   const titles = MODEL_ORDER.map((m) => MODEL_TITLES[m].replace(/^HP /, ""));
   const list = `${titles.slice(0, -1).join(", ")} and ${titles.at(-1)}`;
   const url = (p) => `${base}${p}`;
-  const written = pages.filter((p) => p.meta.status !== "placeholder");
   const out = [
     "# saturnus",
     "",
@@ -374,17 +387,18 @@ export function llmsTxt(pages, data, base = BASE) {
   const section = (heading, rows) => {
     if (rows.length) out.push(`## ${heading}`, "", ...rows, "");
   };
-  section("Docs", written.filter((p) => p.meta.section === "index").map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`));
-  section("Models", written.filter((p) => p.meta.section === "models").map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`));
+  const links = (id) => sectionPages(pages, id).map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`);
+  section("Docs", links("index"));
+  section("Models", links("models"));
   section("Command reference", [
-    ...written.filter((p) => p.meta.section === "commands").map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`),
+    ...links("commands"),
     ...models.map((m) => {
       const index = buildIndex(data, m);
       return `- [${MODEL_TITLES[m]} commands](${url(`docs/commands/${m}.md`)}): ${index.commands.length} ${index.keyed ? "functions with their keys" : "commands with their stack effects"}, descriptions and examples`;
     }),
   ]);
-  section("How the Saturn works", written.filter((p) => p.meta.section === "saturn").map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`));
-  section("Moving files to a real calculator", written.filter((p) => p.meta.section === "transfer").map((p) => `- [${p.meta.title}](${url(pagePaths(p.rel).md)}): ${p.meta.description}`));
+  section("How the Saturn works", links("saturn"));
+  section("Moving files to a real calculator", links("transfer"));
   section("Optional", [`- [The app](${url("app/")}): the calculators in the browser, with the same reference in Search`]);
   return `${out.join("\n").trimEnd()}\n`;
 }

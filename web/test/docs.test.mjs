@@ -14,7 +14,7 @@ import { join } from "node:path";
 
 import { escapeHtml, parseFrontmatter, renderInline, renderMarkdown } from "../docs/markdown.mjs";
 import { commandOfSlug, hashEncode, parseRefHash, refHash, slugBase, slugMap } from "../docs/commands/slug.js";
-import { brokenLinks, build, sizeImages, commandsMarkdown, htmlLink, llmsTxt, loadPages, pagePaths, referenceModels, relative } from "../docs/build.mjs";
+import { brokenLinks, build, sizeImages, commandsMarkdown, htmlLink, llmsTxt, loadPages, pagePaths, referenceModels, relative, sectionPages } from "../docs/build.mjs";
 import { buildIndex } from "../reference.js";
 import { MODEL_ORDER } from "../norom.js";
 
@@ -26,6 +26,8 @@ test("the renderer covers the pages' Markdown and escapes HTML", () => {
   // A link into the app alone in its paragraph is the app's button; elsewhere a link.
   assert.equal(renderMarkdown("[Open it](../app/#/calculator/48gx)", { appIcon: (h) => `<i>${h.split("/").at(-1)}</i>` }), '<p class="docs-action"><a class="button primary" href="../app/#/calculator/48gx"><i>48gx</i><span>Open it</span></a></p>');
   assert.equal(renderMarkdown("See [it](../app/) here."), '<p>See <a href="../app/">it</a> here.</p>');
+  // From a sub-page (saturn/cpu.md) the app is a folder further up: still the button.
+  assert.match(renderMarkdown("[Open Files](../../app/#/files)"), /^<p class="docs-action"><a class="button primary" href="\.\.\/\.\.\/app\/#\/files"><span>Open Files<\/span><\/a><\/p>$/);
   assert.equal(renderMarkdown("[Other](commands.md)"), '<p><a href="commands.md">Other</a></p>');
   assert.equal(renderMarkdown("- one\n- two\n  more\n\n1. first\n2. second"), "<ul>\n<li>one</li>\n<li>two more</li>\n</ul>\n<ol>\n<li>first</li>\n<li>second</li>\n</ol>");
   assert.equal(renderMarkdown("```text\n<b>\n  kept\n```"), '<pre><code class="language-text">&lt;b&gt;\n  kept</code></pre>');
@@ -128,6 +130,30 @@ test("one command file per model: every command, its stack or keys, examples, ma
   assert.match(s42, /Keys: {4}⇧ %\nDisplay:\ny:200\.0000\nx:30\.0000/);
 });
 
+test("a section's pages in reading order: the overview, then the sub-pages by order, then by path; no placeholders", () => {
+  const page = (rel, meta) => ({ rel, meta: { title: rel, description: "d", ...meta }, body: "", source: "" });
+  const pages = [
+    page("saturn/b", { section: "saturn" }),
+    page("saturn/z", { section: "saturn", order: "1" }),
+    page("saturn/a", { section: "saturn" }),
+    page("saturn", { section: "saturn" }),
+    page("saturn/y", { section: "saturn", order: "2" }),
+    page("saturn/x", { section: "saturn", order: "3", status: "placeholder" }),
+    page("transfer", { section: "transfer" }),
+  ];
+  assert.deepEqual(sectionPages(pages, "saturn").map((p) => p.rel), ["saturn", "saturn/z", "saturn/y", "saturn/a", "saturn/b"]);
+  assert.deepEqual(sectionPages(pages, "models"), []);
+  // In llms.txt the written sub-pages follow their overview in that order.
+  const txt = llmsTxt(loadPages(), data);
+  for (const s of ["saturn", "transfer"]) {
+    const want = sectionPages(loadPages(), s).map((p) => `(https://ractive.ch/saturnus/docs/${p.rel}.md)`);
+    assert.ok(want.length > 1, `${s} has sub-pages`);
+    const at = want.map((u) => txt.indexOf(u));
+    assert.ok(at.every((i) => i > 0), `${s}: every page listed`);
+    assert.deepEqual([...at].sort((a, b) => a - b), at, `${s}: in order`);
+  }
+});
+
 test("llms.txt: the title, a summary, link lists per section to the Markdown files; no placeholders", () => {
   const pages = loadPages();
   const txt = llmsTxt(pages, data);
@@ -136,12 +162,12 @@ test("llms.txt: the title, a summary, link lists per section to the Markdown fil
   assert.match(lines[2], /^> saturnus runs classic HP calculators in the browser/, "a summary as a blockquote");
   assert.ok(!/^#{3,} /m.test(txt), "sections are H2");
   const sections = lines.filter((l) => l.startsWith("## "));
-  assert.deepEqual(sections, ["## Docs", "## Models", "## Command reference", "## Optional"]);
+  assert.deepEqual(sections, ["## Docs", "## Models", "## Command reference", "## How the Saturn works", "## Moving files to a real calculator", "## Optional"]);
   // Every list item is a link with a description.
   for (const l of lines.filter((x) => x.startsWith("- "))) assert.match(l, /^- \[[^\]]+\]\(https:\/\/ractive\.ch\/saturnus\/[^)]+\)(: .+)?$/, l);
   for (const m of MODEL_ORDER) assert.ok(txt.includes(`(https://ractive.ch/saturnus/docs/commands/${m}.md)`), `${m}'s command file`);
   assert.ok(txt.includes("- [HP 48GX](https://ractive.ch/saturnus/docs/48gx.md): "), "a written model page is listed");
-  assert.ok(!txt.includes("(https://ractive.ch/saturnus/docs/48sx.md)"), "a placeholder is left out");
+  for (const p of pages.filter((x) => x.meta.status === "placeholder")) assert.ok(!txt.includes(`(https://ractive.ch/saturnus/docs/${p.rel}.md)`), `the placeholder ${p.rel} is left out`);
   assert.ok(txt.includes("(https://ractive.ch/saturnus/docs/index.md)"));
   assert.ok(txt.endsWith("\n") && !txt.endsWith("\n\n"));
 });
@@ -151,7 +177,9 @@ test("the build: each page's HTML and its Markdown as written, the command files
   try {
     const { pages, written } = build(out, { csp: "default-src 'self'" });
     const rels = pages.map((p) => p.rel).sort();
-    assert.deepEqual(rels, [...MODEL_ORDER, "commands", "index", "saturn", "transfer"].sort());
+    const sub = rels.filter((r) => r.includes("/"));
+    assert.deepEqual(rels.filter((r) => !r.includes("/")), [...MODEL_ORDER, "commands", "index", "saturn", "transfer"].sort());
+    assert.ok(sub.length && sub.every((r) => /^(saturn|transfer)\//.test(r)), "sub-pages only under the two sections");
     for (const p of pages) {
       const { html, md } = pagePaths(p.rel);
       assert.ok(written.includes(`${html}index.html`), `${p.rel}'s HTML`);
@@ -197,6 +225,12 @@ test("the build: each page's HTML and its Markdown as written, the command files
     assert.match(home, /<h2 id="models">Models<\/h2>/);
     assert.match(home, /<li class="docs-model-link"><a href="48gx\/"><svg class="logo"[^>]* data-logo="48gx">/);
     for (const s of ["commands/", "saturn/", "transfer/"]) assert.ok(home.includes(`href="${s}"`), s);
+    // A section's sub-page: its section current in the header, its links resolved from its folder.
+    const cpu = readFileSync(join(out, "docs", "saturn", "cpu", "index.html"), "utf8");
+    assert.match(cpu, /<a href="\.\.\/" aria-current="page">How the Saturn works<\/a>/);
+    assert.match(cpu, /<a href="\.\.\/\.\.\/commands\/">Command reference<\/a>/, "another section is not current");
+    assert.ok(cpu.includes('href="../memory/"') && cpu.includes('href="../../48gx/"'), "links to a sibling and to a page above");
+    assert.ok(readFileSync(join(out, "docs", "saturn", "index.html"), "utf8").includes('href="cpu/"'), "the overview links its sub-pages");
     // The 48GX page: its picture from the landing page's images (saturnus's drawing) with a caption, its facts table, its links into the app and the reference, its sources last.
     const gx = readFileSync(join(out, "docs", "48gx", "index.html"), "utf8");
     assert.match(gx, /<figure><img src="\.\.\/\.\.\/img\/48gx-640\.webp" width="1248" height="2721" decoding="async" alt="HP 48GX"><figcaption>[^<]+<\/figcaption><\/figure>/);

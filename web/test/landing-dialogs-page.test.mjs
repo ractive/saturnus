@@ -71,6 +71,7 @@ test("each model card opens its dialog; Esc, a click outside and × close it", {
       assert.ok(await open(id), `${m}: modal`);
       assert.match(await ev(`document.activeElement.closest("dialog")?.id ?? ""`), new RegExp(`^${id}$`), `${m}: focus in the dialog`);
       assert.equal(await ev(`document.querySelector("#${id} .dlg-actions a.primary").getAttribute("href")`), `app/#/calculator/${m}`);
+      assert.equal(await ev(`document.querySelector('#${id} .dlg-actions a[href^="docs/"]').getAttribute("href")`), `docs/${m}/`, "the model's docs page");
       await esc();
       await until(ev, `!document.getElementById("${id}").open`, 3_000, `${m}: Esc closes it`);
     }

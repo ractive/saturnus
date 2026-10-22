@@ -107,10 +107,10 @@ No images or other media in the wiki, no e-mail addresses, no local paths.
 
 - [-] Fix pass on the wiki (dropped by the owner, 2026-10-21: the wiki stays gathered material)
 - [x] Decide form, structure and URL of the encyclopedia
-- [ ] Site build: Markdown sources → HTML plus the `.md` beside it, `/saturnus/llms.txt`, a docs index, navigation, the site's style; deployed with pages.yml
-- [ ] Command reference: one dynamic page from `web/commands.json` (model picker, search, links per command), linked from the app's home page; one generated `.md` per model for `llms.txt`
-- [ ] Sample model page (48GX), reviewed by the owner for tone and look
-- [ ] The other model pages (11): history, specifications, what is special, how saturnus runs it, photos (no ROM section: the app's home page says where to get one, owner 2026-10-22)
-- [ ] How the Saturn works: CPU, memory, display, keyboard, timers, interrupts
-- [ ] Moving files to a real calculator: cables, Kermit, XModem, satx, Files
+- [x] Site build: Markdown sources → HTML plus the `.md` beside it, `/saturnus/llms.txt`, a docs index, navigation, the site's style; deployed with pages.yml
+- [x] Command reference: one dynamic page from `web/commands.json` (model picker, search, links per command), linked from the app's home page; one generated `.md` per model for `llms.txt`
+- [x] Sample model page (48GX), reviewed by the owner for tone and look
+- [x] The other model pages (11): history, specifications, what is special, how saturnus runs it, photos (no ROM section: the app's home page says where to get one, owner 2026-10-22)
+- [x] How the Saturn works: CPU, memory, display, keyboard, timers, interrupts
+- [x] Moving files to a real calculator: cables, Kermit, XModem, satx, Files
 - [ ] Owner review of the written pages

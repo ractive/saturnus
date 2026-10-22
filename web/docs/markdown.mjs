@@ -13,7 +13,7 @@
 // an image alone on its line is a <figure>, the paragraph's other lines
 // its caption; a table whose header cells are all empty (`| | |`) has
 // no header row (a list of facts, a label and a value per row).
-// A paragraph that is one link into the app (`../app/...`) alone is
+// A paragraph that is one link into the app (`../app/...`, `../../app/...` from a sub-page) alone is
 // its button, as the app's own, `appIcon(href)` before its text (the
 // model's mark, from the build): "[Open the HP 48GX in saturnus](../app/#/calculator/48gx)".
 //
@@ -251,7 +251,7 @@ export function renderMarkdown(markdown, { link = (h) => h, headingId = null, ap
     const para = [];
     while (i < lines.length && lines[i].trim() && !(para.length && isBlockStart(lines[i]))) para.push(lines[i++].trim());
     const only = para.length === 1 && para[0].startsWith("[") ? linkAt(para[0], 0) : null;
-    if (only && only.end === para[0].length && only.href.startsWith("../app/")) {
+    if (only && only.end === para[0].length && /^(\.\.\/)+app\//.test(only.href)) {
       const a = inline(para[0]).replace(/^<a ([^>]*)>(.*)<\/a>$/, `<a class="button primary" $1>${appIcon(only.href)}<span>$2</span></a>`);
       out.push(`<p class="docs-action">${a}</p>`);
       continue;

@@ -4,9 +4,11 @@
 // and the manuals the command reference links into (commands.json). Its
 // first line says which saturnus this is: the release (`hello`'s
 // `version`) and the build (the service worker's), or the desktop app.
+// It links the docs on the site (also from the desktop app).
 // "Show me around" closes it and asks the page for the tour (`sat-tour`).
 
 import { icon } from "../shared/components/icons.js";
+import { siteHref } from "../shared/site-links.js";
 
 const TEMPLATE = `
   <dialog class="about" aria-labelledby="about-title">
@@ -21,6 +23,7 @@ const TEMPLATE = `
     </div>
     <div class="about-body">
       <p class="about-version"></p>
+      <p class="about-docs"><a class="about-docs-link" target="_blank" rel="noopener noreferrer">The docs</a> <span class="hint">The 12 models and their history, every command, how the Saturn works, moving files to a real calculator.</span></p>
       <p class="about-tour"><button type="button" class="tour-start">Show me around</button> <span class="hint">A short tour of the app.</span></p>
       <div class="about-statement"></div>
       <h3>Checked against</h3>
@@ -60,6 +63,8 @@ export class SatAbout extends HTMLElement {
     if (this.dialog) return;
     this.innerHTML = TEMPLATE;
     this.dialog = this.querySelector("dialog");
+    // This site's docs, or the published ones (web/ served directly, the desktop app).
+    this.querySelector(".about-docs-link").href = siteHref("docs", location.pathname);
     this.querySelector(".about-close").addEventListener("click", () => this.dialog.close());
     // The tour starts once About has closed (app.js, `sat-tour`).
     this.querySelector(".tour-start").addEventListener("click", () => {
