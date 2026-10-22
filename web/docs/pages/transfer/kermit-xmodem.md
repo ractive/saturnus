@@ -136,7 +136,7 @@ Set the program's file type to binary or text to match the calculator's flag −
 
 HPComm is a Windows program by Jean-Pierre "James" Bergamin, the author of saturnus, for moving files between a PC and an HP 48 or 49G. It shows the calculator's directories beside the PC's folders, as Windows Explorer does, and files move between them by drag and drop, over Kermit. Version 2.4 came out as open source in February 1999.
 
-HP then approached the project. HPComm 3.0, written by James and Mitch Davis of HP, became the software of HP's Graphing Calculator PC Connectivity Kit (F1897A) in 1999, for the 48 series and the new 49G, and HP agreed to release it under the GNU GPL. The last version, 3.0r4, came out in June 2000.
+HP then approached the project. HPComm 3.0, written by James Bergamin and Mitch Davis of HP, became the software of HP's Graphing Calculator PC Connectivity Kit (F1897A) in 1999, for the 48 series and the new 49G, and HP agreed to release it under the GNU GPL. The last version, 3.0r4, came out in June 2000.
 
 For the 38G, HPComm38 split off at the end of 1999 and shipped in HP's HP38G PC Connectivity Kit. Reworked for the 39G and 40G, it became HPGComm: version 2.0 in June 2001, 2.01 in July. It serves a folder as the calculator's "disk drive", shows the calculator's screen on the PC, and sends binary aplets to the 39G and 40G by XModem.
 
