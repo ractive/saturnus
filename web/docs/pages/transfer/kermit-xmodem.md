@@ -132,6 +132,18 @@ SET BLOCK 3
 
 Set the program's file type to binary or text to match the calculator's flag −35. Then `REMOTE DIRECTORY`, `GET` and `SEND` talk to the calculator's server, and `FINISH` ends it. The project's own tool does all of this for you: see [satx](satx.md).
 
+## HPComm and HPGComm
+
+HPComm is a Windows program by Jean-Pierre "James" Bergamin, the author of saturnus, for moving files between a PC and an HP 48 or 49G. It shows the calculator's directories beside the PC's folders, as Windows Explorer does, and files move between them by drag and drop, over Kermit. Version 2.4 came out as open source in February 1999.
+
+HP then approached the project. HPComm 3.0, written by Bergamin and Mitch Davis of HP, became the software of HP's Graphing Calculator PC Connectivity Kit (F1897A) in 1999, for the 48 series and the new 49G, and HP agreed to release it under the GNU GPL. The last version, 3.0r4, came out in June 2000.
+
+For the 38G, HPComm38 split off at the end of 1999 and shipped in HP's HP38G PC Connectivity Kit. Reworked for the 39G and 40G, it became HPGComm: version 2.0 in June 2001, 2.01 in July. It serves a folder as the calculator's "disk drive", shows the calculator's screen on the PC, and sends binary aplets to the 39G and 40G by XModem.
+
+The dog on the splash screen and the program icon is Spot, drawn by [ishadyn](https://ishadyn.ch/illustrationen/) ([@ishadyn_comic](https://www.instagram.com/ishadyn_comic/) on Instagram).
+
+The source code, the help and the hpcomm.org website are archived [on GitHub](https://github.com/ractive/hpcomm). HPComm 2.4 and HPGComm 2.01 are still on hpcalc.org.
+
 ## Sources
 
 - [Kermit Protocol Manual, 6th edition, by Frank da Cruz](https://www.kermitproject.org/kproto.pdf): Kermit's origin and design, the packet and its fields, the check types, prefixing, server mode.
@@ -145,4 +157,6 @@ Set the program's file type to binary or text to match the calculator's flag −
 - [HP 38G User's Guide](https://literature.hpcalc.org/official/hp38g-ug-en.pdf) and [HP 39G/40G User's Guide](https://literature.hpcalc.org/official/hp39g40g-ug-en.pdf): sending and receiving aplets from the calculator, the disk drive (1-26, 16-5).
 - [HP 49G User's Manual](https://literature.hpcalc.org/official/hp49g-um-en.pdf): transfers between a 49G and a 48 in ASCII (A-2).
 - [HP Graphing Calculator PC Connectivity Kit User Guide](https://literature.hpcalc.org/community/hp-graph-calc-connectivity.pdf): the 38G's transfers started and controlled from the calculator.
-- [HPGComm 2.01](https://www.hpcalc.org/details/3715), the PC program for the 38G, 39G and 40G: binary aplets by XModem on the 39G and 40G.
+- [HPComm, the archive on GitHub](https://github.com/ractive/hpcomm): HPComm's and HPGComm's history, versions and dates, HP's Connectivity Kit, the GPL, Spot.
+- [HPComm 2.4](https://www.hpcalc.org/details/3717) and [HPGComm 2.01](https://www.hpcalc.org/details/3715) on hpcalc.org: the PC programs for the 48 and 49G, and for the 38G, 39G and 40G; binary aplets by XModem on the 39G and 40G.
+- [ishadyn, illustrations](https://ishadyn.ch/illustrationen/): the drawing of Spot.
