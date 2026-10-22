@@ -21,7 +21,8 @@
 //   docs/docs.css                    the pages' own styles
 //   llms.txt                         the llmstxt.org index of the .md files
 //   sitemap.xml                      the landing page, the app and the docs
-//                                    pages, for search engines
+//                                    pages, for search engines, each with
+//                                    its lastmod from git (sitemapXml)
 //
 // A page's frontmatter: `title`, `description`, `section` (index,
 // models, commands, saturn, transfer), `model` on a model page (the
@@ -42,6 +43,7 @@
 // names a file of the site, no page links into the wiki, no file is
 // empty. Pure functions exported for web/test/docs.test.mjs.
 
+import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -369,16 +371,70 @@ export function sectionPages(pages, id) {
 }
 
 /**
+ * The repository files a sitemap address is made from, as git pathspecs
+ * relative to the repository's root, for its lastmod:
+ *
+ * - the landing page "": web/landing/;
+ * - the app "app/": web/ but the docs, the landing page and the tests
+ *   (what web/site.sh puts under app/, with web/pwa/ and the .htaccess,
+ *   plus a few READMEs and build scripts, which change rarely), and the
+ *   crates the wasm package is built from (crates/saturnus-web and its
+ *   dependencies in the workspace): an emulator change is a change of
+ *   the app;
+ * - a docs page: its own web/docs/pages/<rel>.md. Not the shared docs
+ *   code (build.mjs, markdown.mjs, docs.css): a change there touches
+ *   every page's markup, not what a page says, and would mark all of
+ *   them changed at once, which is what a crawler should not be told;
+ * - the command reference page also web/commands.json (its data) and
+ *   web/docs/commands/ (its script).
+ */
+export const APP_CRATES = ["saturnus-web", "saturnus-core", "saturnus-host", "saturnus-objects", "saturnus-tx", "satx-core", "kermit-proto", "xmodem-proto"];
+export function sitemapSources(path) {
+  if (path === "") return ["web/landing"];
+  if (path === "app/") return ["web", ":(exclude)web/docs", ":(exclude)web/landing", ":(exclude)web/test", ...APP_CRATES.map((c) => `crates/${c}`)];
+  const rel = path === "docs/" ? "index" : path.replace(/^docs\//, "").replace(/\/$/, "");
+  const page = [`web/docs/pages/${rel}.md`];
+  return rel === "commands" ? [...page, "web/commands.json", "web/docs/commands"] : page;
+}
+
+let shallow;
+/**
+ * The date (YYYY-MM-DD) of the last commit touching `paths` (git
+ * pathspecs relative to the repository's root), or null: no git, no
+ * repository, no commit touches them, or a shallow clone (its one
+ * commit's date would stand for every file; pages.yml checks out the
+ * whole history).
+ */
+export function gitLastmod(paths) {
+  const git = (...args) => execFileSync("git", ["-C", join(WEB, ".."), ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  try {
+    shallow ??= git("rev-parse", "--is-shallow-repository") === "true";
+    if (shallow) return null;
+    const date = git("log", "-1", "--format=%cs", "--", ...paths);
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * /saturnus/sitemap.xml (https://www.sitemaps.org): the landing page, the
  * app and every written docs page (no placeholders), by their HTML
- * addresses. ractive.ch's robots.txt names it beside the site's own
- * (ractive/ractive.ch#17).
+ * addresses, each with its lastmod: `lastmod(sitemapSources(path))`, by
+ * default the date of the last commit touching them (gitLastmod); a
+ * null leaves the address without one. ractive.ch's robots.txt names it
+ * beside the site's own (ractive/ractive.ch#17); after a deploy,
+ * scripts/indexnow.mjs tells IndexNow the addresses that are new or got
+ * a new lastmod.
  */
-export function sitemapXml(pages, base = BASE) {
+export function sitemapXml(pages, base = BASE, lastmod = gitLastmod) {
   const written = pages.filter((p) => p.meta.status !== "placeholder");
   const docs = [...written.filter((p) => p.rel === "index"), ...written.filter((p) => p.rel !== "index")];
   const paths = ["", "app/", ...docs.map((p) => pagePaths(p.rel).html)];
-  const urls = paths.map((p) => `  <url>\n    <loc>${escapeHtml(`${base}${p}`)}</loc>\n  </url>`);
+  const urls = paths.map((p) => {
+    const date = lastmod(sitemapSources(p));
+    return `  <url>\n    <loc>${escapeHtml(`${base}${p}`)}</loc>\n${date ? `    <lastmod>${date}</lastmod>\n` : ""}  </url>`;
+  });
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`;
 }
 

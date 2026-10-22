@@ -144,7 +144,7 @@ depend on it for nothing).
 | Workflow | Trigger | What |
 | --- | --- | --- |
 | `desktop.yml` | `release.yml` succeeded on a published release (`workflow_run`, its tag); manual (`workflow_dispatch`) | for the desktop app (one since iteration 51; a matrix of systems, the page's wasm built first) Tauri's official action builds the installers on macOS (aarch64: `.app`, `.dmg`), Windows (`.msi`, NSIS `.exe`) and Linux (ubuntu-22.04: `.deb`, `.rpm`, `.AppImage`) and uploads them as workflow artifacts (`contents: read`); with a release tag (the release's, or the `release-tag` input) the build checks out that tag and a separate job with `contents: write` attaches the installers to that existing release, never overwriting assets (no `--clobber`). |
-| `pages.yml` | manual | Builds the wasm package, assembles the page with `web/site.sh` (which fails when a module the page imports is missing) and publishes it by FTPS to ractive.ch (no GitHub Pages since 2026-10-08) ([[docs/releasing]]). |
+| `pages.yml` | manual | Builds the wasm package, assembles the page with `web/site.sh` (which fails when a module the page imports is missing) and publishes it by FTPS to ractive.ch (no GitHub Pages since 2026-10-08), then sends the new or changed sitemap addresses to IndexNow ([[docs/releasing]]). |
 | `release.yml` | release published, manual dry run | The CLI's release pipeline, see [[docs/releasing]]. |
 | `publish-crates.yml` | manual | The crates.io recovery path: publishes the crates of `release.yml`'s list from a given ref, skipping those already up ([[docs/releasing]]). |
 

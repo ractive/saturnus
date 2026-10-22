@@ -11,10 +11,11 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync as writeFile } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { escapeHtml, parseFrontmatter, renderInline, renderMarkdown } from "../docs/markdown.mjs";
 import { commandOfSlug, hashEncode, parseRefHash, refHash, slugBase, slugMap } from "../docs/commands/slug.js";
-import { brokenLinks, build, sitemapXml, sizeImages, commandsMarkdown, htmlLink, llmsTxt, loadPages, pagePaths, referenceModels, relative, sectionPages } from "../docs/build.mjs";
+import { brokenLinks, build, gitLastmod, sitemapSources, sitemapXml, sizeImages, commandsMarkdown, htmlLink, llmsTxt, loadPages, pagePaths, referenceModels, relative, sectionPages } from "../docs/build.mjs";
 import { buildIndex } from "../reference.js";
 import { MODEL_ORDER } from "../norom.js";
 
@@ -294,11 +295,54 @@ test("a model's drawing takes its size from the landing page, other images stay 
 
 test("sitemap.xml: the landing page, the app and every written docs page, by their HTML addresses", () => {
   const pages = loadPages();
-  const xml = sitemapXml(pages, "https://ractive.ch/saturnus/");
+  const xml = sitemapXml(pages, "https://ractive.ch/saturnus/", () => null);
   const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
   assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'));
   assert.deepEqual(locs.slice(0, 3), ["https://ractive.ch/saturnus/", "https://ractive.ch/saturnus/app/", "https://ractive.ch/saturnus/docs/"]);
   for (const u of ["docs/48gx/", "docs/commands/", "docs/saturn/cpu/", "docs/transfer/satx/"]) assert.ok(locs.includes(`https://ractive.ch/saturnus/${u}`), u);
   assert.equal(locs.length, 2 + pages.filter((p) => p.meta.status !== "placeholder").length);
   assert.ok(locs.every((u) => u.endsWith("/")), "HTML addresses, no .md");
+  assert.ok(!xml.includes("<lastmod>"), "no date, no lastmod");
+});
+
+test("sitemap.xml: each address's lastmod comes from the files it is made of", () => {
+  const pages = loadPages();
+  const asked = [];
+  const fake = (paths) => {
+    asked.push(paths);
+    if (paths[0] === "web/landing") return "2026-01-02";
+    if (paths[0] === "web") return "2026-03-04";
+    if (paths[0] === "web/docs/pages/commands.md") return "2026-05-06";
+    if (paths[0] === "web/docs/pages/48gx.md") return null;
+    return "2026-07-08";
+  };
+  const xml = sitemapXml(pages, "https://ractive.ch/saturnus/", fake);
+  const entries = Object.fromEntries([...xml.matchAll(/<url>\n {4}<loc>([^<]+)<\/loc>\n(?: {4}<lastmod>([^<]+)<\/lastmod>\n)? {2}<\/url>/g)].map((m) => [m[1].replace("https://ractive.ch/saturnus/", ""), m[2] ?? null]));
+  assert.equal(Object.keys(entries).length, 2 + pages.filter((p) => p.meta.status !== "placeholder").length, "every address in the expected shape");
+  assert.equal(entries[""], "2026-01-02");
+  assert.equal(entries["app/"], "2026-03-04");
+  assert.equal(entries["docs/commands/"], "2026-05-06");
+  assert.equal(entries["docs/48gx/"], null, "no date, no lastmod");
+  assert.equal(entries["docs/saturn/cpu/"], "2026-07-08");
+  assert.equal(asked.length, Object.keys(entries).length);
+});
+
+test("sitemap.xml: the sources of an address", () => {
+  assert.deepEqual(sitemapSources(""), ["web/landing"]);
+  const app = sitemapSources("app/");
+  assert.equal(app[0], "web");
+  for (const p of [":(exclude)web/docs", ":(exclude)web/landing", ":(exclude)web/test", "crates/saturnus-web", "crates/saturnus-core"]) assert.ok(app.includes(p), p);
+  assert.deepEqual(sitemapSources("docs/"), ["web/docs/pages/index.md"]);
+  assert.deepEqual(sitemapSources("docs/saturn/cpu/"), ["web/docs/pages/saturn/cpu.md"]);
+  assert.deepEqual(sitemapSources("docs/commands/"), ["web/docs/pages/commands.md", "web/commands.json", "web/docs/commands"]);
+  // Every page and every app crate exists, so a rename cannot leave a
+  // date stuck at the old path's last commit.
+  for (const p of loadPages()) for (const f of sitemapSources(pagePaths(p.rel).html)) assert.ok(existsSync(fileURLToPath(new URL(`../../${f}`, import.meta.url))), f);
+  for (const f of app.filter((x) => x.startsWith("crates/"))) assert.ok(existsSync(fileURLToPath(new URL(`../../${f}`, import.meta.url))), f);
+});
+
+test("sitemap.xml: gitLastmod gives a date or null", () => {
+  const date = gitLastmod(["web/docs/build.mjs"]);
+  assert.ok(date === null || /^\d{4}-\d{2}-\d{2}$/.test(date), String(date));
+  assert.equal(gitLastmod(["web/no-such-file-anywhere.txt"]), null);
 });
