@@ -28,6 +28,11 @@ test("the renderer covers the pages' Markdown and escapes HTML", () => {
   assert.equal(renderMarkdown("> quoted\n> on"), "<blockquote>\n<p>quoted on</p>\n</blockquote>");
   assert.equal(renderMarkdown("| A | B |\n|---|--:|\n| 1 | 2 |"), '<div class="table-wrap"><table>\n<thead><tr><th>A</th><th style="text-align: right">B</th></tr></thead>\n<tbody>\n<tr><td>1</td><td style="text-align: right">2</td></tr>\n</tbody>\n</table></div>');
   assert.equal(renderMarkdown("---"), "<hr>");
+  // A model page's forms: an image starting a paragraph is a figure, the other lines its caption; a header of empty cells is no header.
+  assert.equal(renderMarkdown("![HP 48GX](a.webp)\nThe *48GX*\nin saturnus.\n\nText"), '<figure><img src="a.webp" alt="HP 48GX"><figcaption>The <em>48GX</em> in saturnus.</figcaption></figure>\n<p>Text</p>');
+  assert.equal(renderMarkdown("![p](a.png)"), '<figure><img src="a.png" alt="p"></figure>');
+  assert.equal(renderMarkdown("Text ![p](a.png) inline"), '<p>Text <img src="a.png" alt="p"> inline</p>', "an image within text stays inline");
+  assert.equal(renderMarkdown("| | |\n|---|---|\n| RAM | 128 KB |"), '<div class="table-wrap"><table>\n<tbody>\n<tr><td>RAM</td><td>128 KB</td></tr>\n</tbody>\n</table></div>');
   assert.equal(renderMarkdown("<script>alert(1)</script>"), "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>");
   assert.equal(renderInline("[a *b*](x.md#y) <https://e.org/> ![p](i.png)"), '<a href="x.md#y">a <em>b</em></a> <a href="https://e.org/">https://e.org/</a> <img src="i.png" alt="p">');
   assert.equal(renderInline("snake_case_name and 2*3*4"), "snake_case_name and 2<em>3</em>4");
@@ -127,11 +132,12 @@ test("llms.txt: the title, a summary, link lists per section to the Markdown fil
   assert.match(lines[2], /^> saturnus runs classic HP calculators in the browser/, "a summary as a blockquote");
   assert.ok(!/^#{3,} /m.test(txt), "sections are H2");
   const sections = lines.filter((l) => l.startsWith("## "));
-  assert.deepEqual(sections, ["## Docs", "## Command reference", "## Optional"]);
+  assert.deepEqual(sections, ["## Docs", "## Models", "## Command reference", "## Optional"]);
   // Every list item is a link with a description.
   for (const l of lines.filter((x) => x.startsWith("- "))) assert.match(l, /^- \[[^\]]+\]\(https:\/\/ractive\.ch\/saturnus\/[^)]+\)(: .+)?$/, l);
   for (const m of MODEL_ORDER) assert.ok(txt.includes(`(https://ractive.ch/saturnus/docs/commands/${m}.md)`), `${m}'s command file`);
-  assert.ok(!txt.includes("(https://ractive.ch/saturnus/docs/48gx.md)"), "a placeholder is left out");
+  assert.ok(txt.includes("- [HP 48GX](https://ractive.ch/saturnus/docs/48gx.md): "), "a written model page is listed");
+  assert.ok(!txt.includes("(https://ractive.ch/saturnus/docs/48sx.md)"), "a placeholder is left out");
   assert.ok(txt.includes("(https://ractive.ch/saturnus/docs/index.md)"));
   assert.ok(txt.endsWith("\n") && !txt.endsWith("\n\n"));
 });
@@ -187,6 +193,13 @@ test("the build: each page's HTML and its Markdown as written, the command files
     assert.match(home, /<h2 id="models">Models<\/h2>/);
     assert.match(home, /<li class="docs-model-link"><a href="48gx\/"><svg class="logo"[^>]* data-logo="48gx">/);
     for (const s of ["commands/", "saturn/", "transfer/"]) assert.ok(home.includes(`href="${s}"`), s);
+    // The 48GX page: its picture from the landing page's images (saturnus's drawing) with a caption, its facts table, its links into the app and the reference, its sources last.
+    const gx = readFileSync(join(out, "docs", "48gx", "index.html"), "utf8");
+    assert.match(gx, /<figure><img src="\.\.\/\.\.\/img\/48gx-640\.webp" alt="HP 48GX"><figcaption>[^<]+<\/figcaption><\/figure>/);
+    assert.match(gx, /<h2 id="at-a-glance">At a glance<\/h2>\n<div class="table-wrap"><table>\n<tbody>/, "the facts without a header row");
+    assert.ok(gx.includes('href="../../app/#/calculator/48gx"') && gx.includes('href="../commands/#48gx"'));
+    assert.match(gx, /<h2 id="sources">Sources<\/h2>\n<ul>\n(<li><a href="https:\/\/[^"]+">[\s\S]*?<\/li>\n)+<\/ul>\n<\/article>/, "the sources last, each linked");
+    assert.doesNotMatch(readFileSync(join(out, "docs", "48gx.md"), "utf8"), /status: placeholder|coming soon/);
     // The page's own modules import the app's from app/ beside docs/.
     const page = readFileSync(join(out, "docs", "commands", "page.js"), "utf8");
     for (const m of ["palette.js", "reference.js", "components/entry-view.js"]) assert.ok(page.includes(`"../../app/${m}"`), m);

@@ -340,7 +340,7 @@ test("on a phone the command reference is one column: Browse opens the navigatio
 
 test("the docs index: the sections, the models with their colours, the Markdown beside it", { timeout: 60_000 }, async (t) => {
   const out = builtDocs(t);
-  const s = await session(t, { dirs: { "/docs/": join(out, "docs"), "/app/": WEB } });
+  const s = await session(t, { dirs: { "/docs/": join(out, "docs"), "/app/": WEB, "/img/": join(WEB, "landing", "img") } });
   if (!s) return;
   const { send, ev, port, errors } = s;
   await send("Page.enable");
@@ -360,10 +360,14 @@ test("the docs index: the sections, the models with their colours, the Markdown 
   assert.equal(await ev(`document.querySelector('link[rel="alternate"]').getAttribute("href")`), "index.md");
   const md = await ev(`fetch("index.md").then((r) => r.text())`);
   assert.match(md, /^---\ntitle: saturnus docs\n/);
-  // A model page: the model's colours.
+  // A model page: the model's colours; its picture loaded and beside the text on a desktop.
+  await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/48gx/` });
   await until(ev, `document.readyState === "complete"`, 10_000, "the 48GX page loaded");
   assert.equal(await ev(`document.documentElement.dataset.logo`), "48gx");
+  await until(ev, `document.querySelector(".docs-page figure img")?.naturalWidth > 0`, 10_000, "the 48GX's picture");
+  const fig = await ev(`(() => { const f = document.querySelector(".docs-page figure").getBoundingClientRect(), a = document.querySelector(".docs-page").getBoundingClientRect(), h = document.getElementById("at-a-glance").getBoundingClientRect(); return { w: f.width, beside: f.right >= a.right - 1 && f.top < h.top }; })()`);
+  assert.ok(fig.w > 100 && fig.w <= 200 && fig.beside, `the figure at the right of the text: ${JSON.stringify(fig)}`);
   assert.equal(await ev(`getComputedStyle(document.querySelector(".docs-page h1 .planet")).fill`), "rgb(140, 134, 204)");
   // On a phone nothing is wider than the window: the index, a model page, the reference.
   for (const width of [360, 390]) {

@@ -21,7 +21,7 @@ About the HP calculators that saturnus runs in the browser: the models, their co
 - [HP 28S](28s.md)
 - [HP 19BII](19bii.md)
 
-The model pages are coming soon.
+The other model pages are coming soon.
 
 ## Command reference
 

@@ -122,6 +122,16 @@ body.docs {
 /* A model page: its title underlined in the model's colours. */
 .docs-model .docs-page h1 { padding-bottom: var(--s3); border-bottom: 3px solid var(--logo-ring-panel); }
 
+/* A figure (an image alone at the start of a paragraph, markdown.mjs):
+   the calculator at the right of the text, its caption under it. */
+.docs-page figure { float: right; width: min(36%, 200px); margin: var(--s1) 0 var(--s3) var(--s5); }
+.docs-page figure img { display: block; width: 100%; height: auto; }
+.docs-page figcaption { margin-top: var(--s2); font-size: var(--fs-sm); line-height: 1.4; color: var(--muted); }
+
+/* A table without a header row is a list of facts: a label and a value per row. */
+.docs-page table:not(:has(thead)) td:first-child { padding-left: 0; color: var(--muted); white-space: nowrap; }
+.docs-page table:not(:has(thead)) tr:first-child td { border-top: 1px solid var(--rule); }
+
 /* The index's models: a column of links, each with its logo. */
 .docs-index .docs-page ul:has(> .docs-model-link) { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s1) var(--s3); }
 .docs-model-link a { display: inline-flex; align-items: center; gap: var(--s2); }

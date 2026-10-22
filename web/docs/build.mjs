@@ -30,6 +30,10 @@
 // tokens, its stylesheet (the logo's colours per model, the reference
 // entry), its theme script, all from app/.
 //
+// A model page may show a picture of its calculator from the landing
+// page's images (`../img/<model>-640.webp`, saturnus's own drawing),
+// as a figure with its caption (markdown.mjs).
+//
 // Checks, failing the build: every relative link and source of the HTML
 // names a file of the site, no page links into the wiki, no file is
 // empty. Pure functions exported for web/test/docs.test.mjs.
@@ -428,15 +432,16 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
   for (const f of ["page.js", "slug.js"]) cpSync(join(HERE, "commands", f), join(out, "docs", "commands", f));
   written.push("docs/docs.css", "docs/commands/page.js", "docs/commands/slug.js");
 
-  // A site path exists in the site, or, for the app's files and the
-  // landing page when they are not built into `out` (the tests), in web/.
+  // A site path exists in the site, or, when the app and the landing
+  // page are not built into `out` (the tests), in web/: the app's files,
+  // the landing page, and its images (img/, from web/landing/img/), which a
+  // model page may show (`![HP 48GX](../img/48gx-640.webp)`).
+  const isFile = (f) => existsSync(f) && statSync(f).isFile();
   const exists = (p) => {
-    if (existsSync(join(out, p)) && statSync(join(out, p)).isFile()) return true;
-    if (p.startsWith("app/")) {
-      const rest = p.slice(4);
-      return existsSync(join(WEB, rest)) && statSync(join(WEB, rest)).isFile();
-    }
-    if (p === "index.html") return existsSync(join(WEB, "landing", "index.html"));
+    if (isFile(join(out, p))) return true;
+    if (p.startsWith("app/")) return isFile(join(WEB, p.slice(4)));
+    if (p.startsWith("img/")) return isFile(join(WEB, "landing", p));
+    if (p === "index.html") return isFile(join(WEB, "landing", "index.html"));
     return p === "favicon.svg" && existsSync(join(WEB, "favicon.svg"));
   };
   const problems = [];
