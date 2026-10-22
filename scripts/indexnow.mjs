@@ -5,8 +5,9 @@
 //
 //   node scripts/indexnow.mjs OLD_SITEMAP NEW_SITEMAP
 //
-// An address is sent when it is new or its lastmod differs (web/docs/
-// build.mjs writes them from git). A missing or unreadable OLD_SITEMAP
+// An address is sent when it is new, its lastmod differs (web/docs/
+// build.mjs writes them from git) or it left the sitemap (a deleted page,
+// which then answers 404: IndexNow takes those too). A missing or unreadable OLD_SITEMAP
 // (the first deploy, ractive.ch down) counts as empty: every address is
 // sent. The key's file is served at the top of ractive.ch by that site's
 // own repository (keyLocation below); saturnus publishes none.
@@ -39,10 +40,15 @@ function unescapeXml(s) {
   return s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
 }
 
-/** The addresses of `newXml` that `oldXml` lacks or lists with another lastmod, in `newXml`'s order. */
+/**
+ * The addresses of `newXml` that `oldXml` lacks or lists with another
+ * lastmod, in `newXml`'s order, then those of `oldXml` that `newXml` lacks.
+ */
 export function changedUrls(oldXml, newXml) {
   const before = parseSitemap(oldXml);
-  return [...parseSitemap(newXml)].filter(([loc, lastmod]) => !before.has(loc) || before.get(loc) !== lastmod).map(([loc]) => loc);
+  const after = parseSitemap(newXml);
+  const changed = [...after].filter(([loc, lastmod]) => !before.has(loc) || before.get(loc) !== lastmod).map(([loc]) => loc);
+  return [...changed, ...[...before.keys()].filter((loc) => !after.has(loc))];
 }
 
 /** The IndexNow request body for `urls` (all on one host). */
@@ -73,7 +79,7 @@ async function main(argv) {
   if (!parseSitemap(oldXml).size) console.log(`indexnow: no earlier sitemap in ${oldFile}; every address counts as new`);
   const urls = changedUrls(oldXml, newXml);
   if (!urls.length) {
-    console.log("indexnow: no new or changed address; nothing sent");
+    console.log("indexnow: no new, changed or removed address; nothing sent");
     return 0;
   }
   console.log(`indexnow: sending ${urls.length} address(es):\n${urls.map((u) => `  ${u}`).join("\n")}`);

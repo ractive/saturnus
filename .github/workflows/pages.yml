@@ -78,8 +78,10 @@ jobs:
       - name: The site has its .htaccess
         run: test -f site/.htaccess && ls -la site
       # The IndexNow script alone, beside site/ (a checkout into the
-      # workspace itself would clear it).
+      # workspace itself would clear it). It only feeds IndexNow: a failure
+      # here must not stop the upload.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        continue-on-error: true
         with:
           path: indexnow
           sparse-checkout: scripts/indexnow.mjs
@@ -115,4 +117,5 @@ jobs:
       # IndexNow (key file at ractive.ch's top, from that site's
       # repository). It only warns on an error: never fails the deploy.
       - name: IndexNow
+        continue-on-error: true
         run: node indexnow/scripts/indexnow.mjs "$RUNNER_TEMP/sitemap-old.xml" site/sitemap.xml

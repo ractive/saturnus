@@ -409,12 +409,15 @@ Dispatch it after every merge to `main` that changes `web/` or the
 bindings. Around the upload the `ractive` job tells IndexNow
 (<https://www.indexnow.org>) what changed: before it, it fetches the
 live `sitemap.xml`; after it, `scripts/indexnow.mjs` (a sparse checkout
-of that one file) POSTs the addresses that are new or have a new
-`lastmod` to `api.indexnow.org` with the key whose file
+of that one file) POSTs the addresses that are new, have a new
+`lastmod` (the date a change landed on `main`: `git log --first-parent`)
+or left the sitemap to `api.indexnow.org` with the key whose file
 `https://ractive.ch/3d159b02864628aba0cf93708a000930.txt` the
 ractive.ch repository serves (saturnus publishes no key file). Nothing
-to send, an error answer or no network only log a warning: it never
-fails the deploy. The FTP step uses explicit TLS (`protocol: ftps`). The action
+to send, an error answer or no network only log a warning, and both
+IndexNow steps `continue-on-error`: they never fail or stop the deploy.
+The key file must be live before this job first runs with a new
+sitemap, or that one submission is lost (it was, from ractive.ch PR 18). The FTP step uses explicit TLS (`protocol: ftps`). The action
 (SamKirkland/FTP-Deploy-Action v4.4.0) keeps `.ftp-deploy-sync-state.json`
 in `httpdocs/saturnus/` and syncs against it: a file it deployed earlier
 that is no longer in `site/` is deleted on the next run (its log reads
