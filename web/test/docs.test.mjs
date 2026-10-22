@@ -23,6 +23,10 @@ const data = JSON.parse(readFileSync(new URL("../commands.json", import.meta.url
 test("the renderer covers the pages' Markdown and escapes HTML", () => {
   assert.equal(renderMarkdown("# Title\n\nOne *two* **three** `x<y`."), "<h1>Title</h1>\n<p>One <em>two</em> <strong>three</strong> <code>x&lt;y</code>.</p>");
   assert.equal(renderMarkdown("a\nb\n\nc"), "<p>a b</p>\n<p>c</p>");
+  // A link into the app alone in its paragraph is the app's button; elsewhere a link.
+  assert.equal(renderMarkdown("[Open it](../app/#/calculator/48gx)"), '<p class="docs-action"><a class="button primary" href="../app/#/calculator/48gx">Open it</a></p>');
+  assert.equal(renderMarkdown("See [it](../app/) here."), '<p>See <a href="../app/">it</a> here.</p>');
+  assert.equal(renderMarkdown("[Other](commands.md)"), '<p><a href="commands.md">Other</a></p>');
   assert.equal(renderMarkdown("- one\n- two\n  more\n\n1. first\n2. second"), "<ul>\n<li>one</li>\n<li>two more</li>\n</ul>\n<ol>\n<li>first</li>\n<li>second</li>\n</ol>");
   assert.equal(renderMarkdown("```text\n<b>\n  kept\n```"), '<pre><code class="language-text">&lt;b&gt;\n  kept</code></pre>');
   assert.equal(renderMarkdown("> quoted\n> on"), "<blockquote>\n<p>quoted on</p>\n</blockquote>");
