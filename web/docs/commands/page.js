@@ -39,6 +39,7 @@ const sheet = document.getElementById("ref-sheet");
 const sheetBody = sheet.querySelector(".ref-sheet-body");
 /** The hairline above the bar: out of view once the bar is stuck; where the page docks. */
 const sentinel = document.getElementById("ref-top");
+const panes = side.parentElement;
 const baseTitle = document.title;
 /** One column (a phone): the navigation lives in the sheet. */
 const narrow = matchMedia("(max-width: 859px)");
@@ -379,6 +380,8 @@ async function fromAddress() {
  */
 function showEntry() {
   if (!narrow.matches) {
+    // Cards that fit the screen where they are need no docking.
+    if (panes.getBoundingClientRect().bottom <= window.innerHeight + 1 && window.scrollY === 0) return;
     const dock = Math.ceil(sentinel.getBoundingClientRect().bottom + window.scrollY);
     if (Math.abs(window.scrollY - dock) > 1) window.scrollTo({ top: dock });
     return;
@@ -388,7 +391,27 @@ function showEntry() {
   if (top < under || top > window.innerHeight * 0.6) pane.scrollIntoView({ block: "start" });
 }
 
+/**
+ * The two cards' height on a desktop: down to the bottom of the screen
+ * from where they start under the title, the lead and the bar, so the
+ * first view shows them whole. A window too short for that (under
+ * `FIT_MIN` px left) keeps the docked height of docs.css: the bar at the
+ * top, the cards under it, after a choice.
+ */
+const FIT_MIN = 480;
+function fitPanes() {
+  if (narrow.matches) { panes.style.removeProperty("--ref-panes-h"); return; }
+  const top = panes.getBoundingClientRect().top + window.scrollY;
+  const gap = parseFloat(getComputedStyle(panes).getPropertyValue("--s4")) || 16;
+  const h = Math.floor(window.innerHeight - top - gap);
+  if (h >= FIT_MIN) panes.style.setProperty("--ref-panes-h", `${h}px`);
+  else panes.style.removeProperty("--ref-panes-h");
+}
+
 async function start() {
+  fitPanes();
+  window.addEventListener("resize", fitPanes);
+  document.fonts?.ready.then(fitPanes);
   const data = await loader.data();
   const has = new Set([...data.models, ...Object.keys(data.keyModels ?? {})]);
   models = MODEL_ORDER.filter((m) => has.has(m));

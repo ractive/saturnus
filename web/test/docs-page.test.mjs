@@ -10,9 +10,9 @@
 // group per menu with the chosen command's open, every command a row,
 // choosing a row or another model updates the address, a key-driven
 // model's function shows its keys. On a desktop the navigation and the
-// entry are two cards as tall as the screen under the search bar, each
-// scrolling inside itself, and choosing a command docks the page with
-// the bar at the top; on a phone a sheet that Browse opens and a chosen
+// entry are two cards down to the bottom of the screen, each scrolling
+// inside itself, and choosing a command further down docks the page
+// with the bar at the top; on a phone a sheet that Browse opens and a chosen
 // command closes. The docs index loads with its model links in their
 // colours, a model page in its own; the header's "saturnus" leads to
 // the landing page, "docs" to the index; nothing is wider than a
@@ -57,14 +57,14 @@ test("the command reference page: the addressed command read-only, suggestions a
   // The page starts with the search, not with text: one lead paragraph before it, the rest after.
   assert.equal(await ev(`document.querySelectorAll("article.docs-page > p").length`), 1, "one paragraph before the tool");
   assert.ok(await ev(`document.querySelector(".docs-after h2#reading-an-example") !== null`), "the sections after the tool");
-  // Two cards on a desktop, the navigation on the left and the entry on the right, as tall as the
-  // screen under the bar (which stays at the top), each scrolling inside itself; no Browse button.
+  // Two cards on a desktop, the navigation on the left and the entry on the right, down to the
+  // bottom of the screen from where they start (the bar stays at the top), each scrolling inside itself; no Browse button.
   const boxes = () => ev(`JSON.stringify({ side: document.getElementById("ref-side").getBoundingClientRect().toJSON(), entry: document.getElementById("ref-entry").getBoundingClientRect().toJSON(), bar: document.getElementById("ref-bar").getBoundingClientRect().toJSON(), lead: document.querySelector("article.docs-page > p").getBoundingClientRect().toJSON(), h: innerHeight })`).then(JSON.parse);
   let box = await boxes();
   assert.ok(box.side.right < box.entry.left, "the navigation left of the entry");
   assert.equal(box.side.top, box.entry.top, "the cards' tops aligned");
   assert.equal(box.side.height, box.entry.height, "the cards as tall as each other");
-  assert.ok(Math.abs(box.side.height - (box.h - box.bar.height - 16)) <= 1, `the cards fill the screen under the bar: ${JSON.stringify(box)}`);
+  assert.ok(Math.abs(box.side.bottom - (box.h - 16)) <= 1, `the cards end at the bottom of the screen in the first view: ${JSON.stringify(box)}`);
   assert.equal(box.side.left, box.bar.left + 16, "the cards on the bar's grid");
   assert.equal(box.entry.right, box.bar.right - 16);
   assert.equal(box.lead.left, box.side.left, "the lead on the same grid");
@@ -108,16 +108,23 @@ test("the command reference page: the addressed command read-only, suggestions a
   assert.equal(await ev(`document.querySelector('#ref-nav .ref-item[aria-current="true"] .ref-item-long').textContent`), "Hours-minutes-seconds minus");
   assert.ok(await ev(`(() => { const r = document.querySelector('#ref-nav .ref-item[aria-current="true"]').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()`), "the chosen row in view");
   assert.equal(await ev("scrollY"), 0, "the page itself did not scroll on loading");
-  // Choosing a command docks the page: the bar at the top, the two cards filling the screen under
-  // it, their last rows reachable by scrolling inside them; the wheel at the navigation's end moves the page.
+  // Choosing a command in the first view leaves the page where it is: the cards already end at the
+  // bottom of the screen.
   await ev(`[...document.querySelectorAll("#ref-nav .ref-item")].find((a) => a.dataset.name === "HMS→").click(), true`);
   await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "HMS→"`, 5_000, "HMS→ shown");
+  await sleep(150);
+  assert.equal(await ev("scrollY"), 0, "no docking when the cards fit");
+  // Chosen from further down the page, it docks: the bar at the top, the cards on the screen under
+  // it, their last rows reachable by scrolling inside them; the wheel at the navigation's end moves the page.
+  await ev(`scrollTo(0, 3000), true`);
+  await ev(`[...document.querySelectorAll("#ref-nav .ref-item")].find((a) => a.dataset.name === "HMS+").click(), true`);
+  await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "HMS+"`, 5_000, "HMS+ shown");
   await sleep(150);
   box = await boxes();
   const dock = await ev("scrollY");
   assert.ok(dock > 150 && box.bar.top === 0, `the page docked: ${JSON.stringify({ dock, bar: box.bar })}`);
-  assert.ok(box.side.bottom <= box.h && box.entry.bottom <= box.h && box.side.top > box.bar.bottom, `the cards fill the screen under the bar: ${JSON.stringify(box)}`);
-  assert.ok(await ev(`document.getElementById("ref-bar").classList.contains("stuck")`), "the bar marked stuck");
+  assert.ok(box.side.bottom <= box.h && box.entry.bottom <= box.h && box.side.top > box.bar.bottom, `the cards on the screen under the bar: ${JSON.stringify(box)}`);
+  await until(ev, `document.getElementById("ref-bar").classList.contains("stuck")`, 2_000, "the bar marked stuck");
   const fit = await ev(`(() => { const s = document.getElementById("ref-side"); s.scrollTop = s.scrollHeight; const r = s.getBoundingClientRect(); const last = [...s.querySelectorAll("summary, .ref-item")].filter((x) => x.checkVisibility()).at(-1).getBoundingClientRect(); return JSON.stringify({ bottom: Math.round(r.bottom), last: Math.round(last.bottom) }); })()`).then(JSON.parse);
   assert.ok(fit.last <= fit.bottom, `the navigation's last row reachable inside its card: ${JSON.stringify(fit)}`);
   for (let i = 0; i < 10 && !(await ev("scrollY") > dock); i++) {

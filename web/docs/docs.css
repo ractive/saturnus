@@ -474,7 +474,7 @@ button.ref-more:hover:not(:disabled) { background: var(--hover); border-color: t
   .ref-panes {
     grid-template-columns: var(--ref-side-w) minmax(0, 1fr);
     gap: var(--s4);
-    height: calc(100vh - var(--ref-bar-h) - var(--s4));
+    height: var(--ref-panes-h, calc(100vh - var(--ref-bar-h) - var(--s4)));
     min-height: 360px;
   }
   /* Both scroll inside themselves. The wheel at the navigation's end
