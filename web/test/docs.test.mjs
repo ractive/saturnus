@@ -141,7 +141,7 @@ test("llms.txt: the title, a summary, link lists per section to the Markdown fil
   for (const l of lines.filter((x) => x.startsWith("- "))) assert.match(l, /^- \[[^\]]+\]\(https:\/\/ractive\.ch\/saturnus\/[^)]+\)(: .+)?$/, l);
   for (const m of MODEL_ORDER) assert.ok(txt.includes(`(https://ractive.ch/saturnus/docs/commands/${m}.md)`), `${m}'s command file`);
   assert.ok(txt.includes("- [HP 48GX](https://ractive.ch/saturnus/docs/48gx.md): "), "a written model page is listed");
-  assert.ok(!txt.includes("(https://ractive.ch/saturnus/docs/48sx.md)"), "a placeholder is left out");
+  for (const p of pages.filter((x) => x.meta.status === "placeholder")) assert.ok(!txt.includes(`(https://ractive.ch/saturnus/docs/${p.rel}.md)`), `the placeholder ${p.rel} is left out`);
   assert.ok(txt.includes("(https://ractive.ch/saturnus/docs/index.md)"));
   assert.ok(txt.endsWith("\n") && !txt.endsWith("\n\n"));
 });
