@@ -161,20 +161,29 @@ test("the build: each page's HTML and its Markdown as written, the command files
     assert.ok(existsSync(join(out, "llms.txt")));
     const ref = readFileSync(join(out, "docs", "commands", "index.html"), "utf8");
     assert.match(ref, /<script type="module" src="page\.js"><\/script>/);
-    assert.match(ref, /<select id="ref-model" aria-label="Model">/);
     assert.match(ref, /<input id="ref-q" type="search" role="combobox"/);
+    // The bar: the field with the model in it (a pill with the page's chevron), the count line under it.
+    assert.match(ref, /<span class="ref-model"><select id="ref-model" aria-label="Model"><\/select><svg class="ic"[^>]*aria-hidden="true">/);
+    assert.match(ref, /<div id="ref-bar" class="ref-bar">\s*<div class="ref-bar-row">[\s\S]*<\/div>\s*<p id="ref-count" class="ref-count muted" role="status">[^<]*<\/p>\s*<\/div>\s*<div class="ref-panes">/, "the count line in the bar");
     // The two panes: the navigation (a skeleton until the data is there) and the entry; the sheet for a phone.
     assert.match(ref, /<nav id="ref-nav" class="ref-nav" aria-label="Commands by menu"><div class="ref-skeleton" aria-hidden="true">(<span><\/span>){6}<\/div><\/nav>/);
     assert.match(ref, /<aside id="ref-side"[^>]*>[\s\S]*<\/aside>\s*<div id="ref-entry" class="ref-entry docs-ref"><\/div>/);
     assert.match(ref, /<button id="ref-browse" type="button" class="ref-browse"[^>]* aria-haspopup="dialog" aria-controls="ref-sheet">/);
     assert.match(ref, /<dialog id="ref-sheet" class="ref-sheet" aria-labelledby="ref-sheet-title">/);
-    assert.match(ref, /<a href="48gx\.md">48GX<\/a>/, "the page links each model's file");
-    // The lead before the tool, the page's sections and the sources after it.
+    // No list of the models' Markdown files on the page (llms.txt has them): the noscript line points there.
+    assert.doesNotMatch(ref, /each-model-as-markdown|<a href="48gx\.md">/);
+    assert.match(ref, /<noscript><p>[^<]*<a href="\.\.\/\.\.\/llms\.txt">llms\.txt<\/a>[^<]*<\/p><\/noscript>/);
+    // The lead before the tool, the page's sections (the notes) and the sources after it, each in a column.
     assert.ok(ref.indexOf("<p>Every command of the 12 calculators") < ref.indexOf('<section class="docs-ref-app"'), "the lead first");
     assert.ok(ref.indexOf('<h2 id="reading-an-example">') > ref.indexOf('<script type="module" src="page.js">'), "the sections after the tool");
-    assert.ok(ref.indexOf('<h2 id="sources">') > ref.indexOf('<h2 id="each-model-as-markdown">'), "the sources last");
+    assert.match(ref, /<div class="docs-page docs-after">\n<div class="docs-after-notes">\n<h2 id="reading-an-example">[\s\S]*<\/div>\n<div class="docs-after-sources">\n<h2 id="sources">Sources<\/h2>\n<ul>\n<li><a href="https:/, "the notes and the sources in columns of their own");
     assert.match(readFileSync(join(out, "docs", "commands.md"), "utf8"), /\n## Sources\n\n- \[/, "the reference lists its manuals");
+    // The header: "saturnus" leads to the landing page, "docs" to the docs' index, the app's link beside them.
+    assert.match(ref, /<a class="brand" href="\.\.\/\.\.\/" title="saturnus"><svg class="logo"[^>]*>[\s\S]*?<\/svg><span>saturnus<\/span><\/a>\s*<a class="docs-brand-sub" href="\.\.\/">docs<\/a>/);
+    assert.match(ref, /<a class="docs-app" href="\.\.\/\.\.\/app\/" title="Open the app">/);
     const home = readFileSync(join(out, "docs", "index.html"), "utf8");
+    assert.match(home, /<a class="brand" href="\.\.\/" title="saturnus">/);
+    assert.match(home, /<a class="docs-brand-sub" href="\.\/">docs<\/a>/);
     assert.match(home, /<h2 id="models">Models<\/h2>/);
     assert.match(home, /<li class="docs-model-link"><a href="48gx\/"><svg class="logo"[^>]* data-logo="48gx">/);
     for (const s of ["commands/", "saturn/", "transfer/"]) assert.ok(home.includes(`href="${s}"`), s);

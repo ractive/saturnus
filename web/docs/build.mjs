@@ -159,7 +159,10 @@ ${csp ? `<meta http-equiv="Content-Security-Policy" content="${escapeHtml(csp)}"
 </head>
 <body class="docs${model ? " docs-model" : ""} docs-${escapeHtml(page.meta.section)}">
 <header class="docs-bar">
-  <a class="brand" href="${docs}">${logoSvg(24)}<span>saturnus</span> <span class="docs-brand-sub">docs</span></a>
+  <div class="docs-brand">
+    <a class="brand" href="${root}" title="saturnus">${logoSvg(24)}<span>saturnus</span></a>
+    <a class="docs-brand-sub" href="${docs}">docs</a>
+  </div>
   <nav class="docs-nav" aria-label="Sections">
     ${nav}
   </nav>
@@ -183,25 +186,28 @@ ${extra}${after ? `\n<div class="docs-page docs-after">\n${after}\n</div>` : ""}
 
 /**
  * The command reference page's tool, after its lead (page.js fills it):
- * the bar with the search field (the model beside it, its suggestions
- * under it) and, on a phone, the Browse button; the count line; the two
- * panes, the navigation by menu (a skeleton until the data is there)
- * and the entry; the sheet the navigation moves into on a phone.
+ * the bar, stuck to the top while the page scrolls, with the search
+ * field (the model in it, its suggestions under it), on a phone the
+ * Browse button, and the count line; the two panes as cards, the
+ * navigation by menu (a skeleton until the data is there) and the
+ * entry; the sheet the navigation moves into on a phone.
  */
 function commandsExtra() {
   const bars = "<span></span>".repeat(6);
   return `<section class="docs-ref-app" aria-label="Commands">
 <div id="ref-top" class="ref-top"></div>
 <div id="ref-bar" class="ref-bar">
-  <div class="ref-search" role="search">
-    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16 16"/></svg>
-    <input id="ref-q" type="search" role="combobox" aria-label="Search the commands" aria-expanded="false" aria-controls="ref-suggest" aria-autocomplete="list" placeholder="A name, ->LIST, or what it does" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
-    <select id="ref-model" aria-label="Model"></select>
-    <ul id="ref-suggest" class="ref-suggest" role="listbox" aria-label="Commands found" hidden></ul>
+  <div class="ref-bar-row">
+    <div class="ref-search" role="search">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16 16"/></svg>
+      <input id="ref-q" type="search" role="combobox" aria-label="Search the commands" aria-expanded="false" aria-controls="ref-suggest" aria-autocomplete="list" placeholder="A name, ->LIST, or what it does" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+      <span class="ref-model"><select id="ref-model" aria-label="Model"></select><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></span>
+      <ul id="ref-suggest" class="ref-suggest" role="listbox" aria-label="Commands found" hidden></ul>
+    </div>
+    <button id="ref-browse" type="button" class="ref-browse" title="Browse the commands by menu" aria-haspopup="dialog" aria-controls="ref-sheet"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg><span>Browse</span></button>
   </div>
-  <button id="ref-browse" type="button" class="ref-browse" title="Browse the commands by menu" aria-haspopup="dialog" aria-controls="ref-sheet"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg><span>Browse</span></button>
+  <p id="ref-count" class="ref-count muted" role="status">Loading the reference…</p>
 </div>
-<p id="ref-count" class="ref-count muted" role="status">Loading the reference…</p>
 <div class="ref-panes">
   <aside id="ref-side" class="ref-side">
     <nav id="ref-nav" class="ref-nav" aria-label="Commands by menu"><div class="ref-skeleton" aria-hidden="true">${bars}</div></nav>
@@ -212,7 +218,7 @@ function commandsExtra() {
   <div class="ref-sheet-head"><h2 id="ref-sheet-title" class="ref-sheet-title">Browse</h2><button type="button" class="icon ref-sheet-close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
   <div class="ref-sheet-body"></div>
 </dialog>
-<noscript><p>The page needs JavaScript. Each model's commands are also in its Markdown file, listed below.</p></noscript>
+<noscript><p>The page needs JavaScript. Each model's commands are also a Markdown file; <a href="../../llms.txt">llms.txt</a> lists them.</p></noscript>
 </section>
 <script type="module" src="page.js"></script>`;
 }
@@ -398,14 +404,15 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
     let after = "";
     const render = (md) => renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId });
     if (page.rel === "commands") {
-      // The lead above the reference; its sections and the sources
-      // (every manual it links to) after it.
+      // The lead above the reference; its sections (the notes) and the
+      // sources (every manual it links to) after it, each in a column
+      // of its own (docs.css).
       const at = body.search(/^## /m);
       const rest = at < 0 ? "" : body.slice(at);
       if (at >= 0) body = body.slice(0, at);
       const sources = `## Sources\n\n${manualSources(data, referenceModels(data)).join("\n")}\n`;
       source = `${source.trimEnd()}\n\n${sources}`;
-      after = render(`${rest.trimEnd()}\n\n${sources}`);
+      after = `<div class="docs-after-notes">\n${render(rest.trimEnd())}\n</div>\n<div class="docs-after-sources">\n${render(sources)}\n</div>`;
     }
     let bodyHtml = render(body);
     if (page.rel === "index") bodyHtml = modelLogos(bodyHtml);
@@ -421,14 +428,15 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
   for (const f of ["page.js", "slug.js"]) cpSync(join(HERE, "commands", f), join(out, "docs", "commands", f));
   written.push("docs/docs.css", "docs/commands/page.js", "docs/commands/slug.js");
 
-  // A site path exists in the site, or, for the app's files when the app
-  // is not built into `out` (the tests), in web/.
+  // A site path exists in the site, or, for the app's files and the
+  // landing page when they are not built into `out` (the tests), in web/.
   const exists = (p) => {
     if (existsSync(join(out, p)) && statSync(join(out, p)).isFile()) return true;
     if (p.startsWith("app/")) {
       const rest = p.slice(4);
       return existsSync(join(WEB, rest)) && statSync(join(WEB, rest)).isFile();
     }
+    if (p === "index.html") return existsSync(join(WEB, "landing", "index.html"));
     return p === "favicon.svg" && existsSync(join(WEB, "favicon.svg"));
   };
   const problems = [];

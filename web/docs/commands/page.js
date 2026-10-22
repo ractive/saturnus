@@ -37,6 +37,8 @@ const count = document.getElementById("ref-count");
 const browse = document.getElementById("ref-browse");
 const sheet = document.getElementById("ref-sheet");
 const sheetBody = sheet.querySelector(".ref-sheet-body");
+/** The hairline above the bar: out of view once the bar is stuck; where the page docks. */
+const sentinel = document.getElementById("ref-top");
 const baseTitle = document.title;
 /** One column (a phone): the navigation lives in the sheet. */
 const narrow = matchMedia("(max-width: 859px)");
@@ -268,30 +270,6 @@ function* ancestors(a) {
   for (let d = a.parentElement?.closest("details"); d; d = d.parentElement?.closest("details")) yield d;
 }
 
-/**
- * The column's height on a desktop: from where its top is now (lower on
- * the page before the page is scrolled, stuck under the bar after) to
- * just above the viewport's bottom, so its last row can always be
- * reached and it never hangs below the screen. Read on resize, and on
- * scroll once a frame.
- */
-function fitSide() {
-  if (narrow.matches || nav.parentElement !== side) {
-    side.style.maxHeight = "";
-    return;
-  }
-  const top = Math.max(side.getBoundingClientRect().top, 0);
-  side.style.maxHeight = `${Math.max(160, window.innerHeight - top - 16)}px`;
-}
-let fitQueued = 0;
-function queueFit() {
-  if (fitQueued) return;
-  fitQueued = requestAnimationFrame(() => {
-    fitQueued = 0;
-    fitSide();
-  });
-}
-
 /** Whether `x` is on the screen: not in a folded group (whose content keeps its boxes in Chrome). */
 function onScreen(x) {
   return x.checkVisibility ? x.checkVisibility() : x.getClientRects().length > 0;
@@ -352,6 +330,8 @@ function renderEntry(name, slug) {
     modelHref: (m) => hrefOf(m, command.name),
     examplesNote: ` · results from saturnus's emulated ${title()}`,
   }));
+  // The card scrolls inside itself on a desktop: a new entry from its top.
+  pane.scrollTop = 0;
   delete pane.dataset.empty;
   document.title = `${command.name} on the ${title()} · ${baseTitle}`;
 }
@@ -383,20 +363,29 @@ async function fromAddress() {
     markCurrent(name);
   }
   if (changed && matches === null) renderCount();
-  // A command chosen in the sheet: the sheet closes, the entry is what to see.
+  // A command chosen in the sheet: the sheet closes, the entry is what to
+  // see. On a desktop the first render leaves the page where it is, the
+  // title and the lead above the bar; it docks on a choice.
   if (sheet.open) sheet.close();
-  else if (name) showEntry();
+  else if (name && (narrow.matches || document.body.dataset.ready)) showEntry();
 }
 
 /**
- * The entry's top in view under the bar: on a desktop when the page was
- * scrolled into the entry before (the panes' top is what to see), on a
- * phone when the entry is off the screen.
+ * The entry in view. On a desktop the page docks: the bar at the top of
+ * the screen, the two cards filling the rest of it (docs.css), wherever
+ * the page was (above, reading the lead, or below, in the notes). On a
+ * phone the entry scrolls into view under the bar when it is off the
+ * screen.
  */
 function showEntry() {
+  if (!narrow.matches) {
+    const dock = Math.ceil(sentinel.getBoundingClientRect().bottom + window.scrollY);
+    if (Math.abs(window.scrollY - dock) > 1) window.scrollTo({ top: dock });
+    return;
+  }
   const top = pane.getBoundingClientRect().top;
   const under = bar.getBoundingClientRect().bottom;
-  if (top < under || (narrow.matches && top > window.innerHeight * 0.6)) pane.scrollIntoView({ block: "start" });
+  if (top < under || top > window.innerHeight * 0.6) pane.scrollIntoView({ block: "start" });
 }
 
 async function start() {
@@ -437,17 +426,12 @@ async function start() {
   sheet.addEventListener("click", (e) => { if (e.target === sheet) sheet.close(); });
   sheet.addEventListener("close", sheetClosed);
   narrow.addEventListener("change", () => { if (!narrow.matches && sheet.open) sheet.close(); });
-  // The bar stuck at the top takes a hairline under it.
-  const sentinel = document.getElementById("ref-top");
-  if (sentinel && "IntersectionObserver" in window) {
+  // The bar stuck at the top takes a rule under it.
+  if ("IntersectionObserver" in window) {
     new IntersectionObserver(([e]) => bar.classList.toggle("stuck", !e.isIntersecting)).observe(sentinel);
   }
   window.addEventListener("hashchange", () => { fromAddress(); });
-  window.addEventListener("scroll", queueFit, { passive: true });
-  window.addEventListener("resize", fitSide);
-  narrow.addEventListener("change", fitSide);
   await fromAddress();
-  fitSide();
   document.body.dataset.ready = "true";
   // The other RPL models' slugs after the first render, for the entry's
   // pills (a name's slug differs where two names of a model share one:
