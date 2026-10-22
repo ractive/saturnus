@@ -498,3 +498,7 @@ button.ref-more:hover:not(:disabled) { background: var(--hover); border-color: t
   .docs-after-notes { grid-column: 2; grid-row: 1; }
   .docs-after-sources { grid-column: 1; grid-row: 1; }
 }
+
+/* A button into the app: the model's mark on a light disc, its ring
+   would vanish into the accent of the button. */
+.docs-action .logo { flex: none; width: 22px; height: 22px; padding: 2px; margin-left: -4px; box-sizing: border-box; border-radius: 50%; background: var(--card); }

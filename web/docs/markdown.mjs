@@ -14,14 +14,12 @@
 // its caption; a table whose header cells are all empty (`| | |`) has
 // no header row (a list of facts, a label and a value per row).
 // A paragraph that is one link into the app (`../app/...`) alone is
-// its button with the app's calculator icon, as the app's own: "[Open the HP 48GX in saturnus](../app/#/calculator/48gx)".
+// its button, as the app's own, `appIcon(href)` before its text (the
+// model's mark, from the build): "[Open the HP 48GX in saturnus](../app/#/calculator/48gx)".
 //
 // Everything else is text: HTML in a page is escaped, never passed
 // through. `link(href)` lets the caller rewrite each link and image
 // source (a page's `.md` links become its HTML page's).
-
-/** The app's calculator icon (web/shared/icons.svg, ic-calculator), as on its Calculator buttons. */
-const CALCULATOR_ICON = '<svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8 6h8v4H8zM8.5 14h.01M12 14h.01M15.5 14h.01M8.5 17.5h.01M12 17.5h.01M15.5 17.5h.01"/></svg>';
 
 /** `s` with &, <, > and " escaped for HTML text and attributes. */
 export function escapeHtml(s) {
@@ -175,7 +173,7 @@ const TABLE_SEP = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
  * targets and image sources; `headingId(text)` gives a heading its id
  * (default: none).
  */
-export function renderMarkdown(markdown, { link = (h) => h, headingId = null } = {}) {
+export function renderMarkdown(markdown, { link = (h) => h, headingId = null, appIcon = () => "" } = {}) {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
   const out = [];
   const inline = (t) => renderInline(t, link);
@@ -254,7 +252,7 @@ export function renderMarkdown(markdown, { link = (h) => h, headingId = null } =
     while (i < lines.length && lines[i].trim() && !(para.length && isBlockStart(lines[i]))) para.push(lines[i++].trim());
     const only = para.length === 1 && para[0].startsWith("[") ? linkAt(para[0], 0) : null;
     if (only && only.end === para[0].length && only.href.startsWith("../app/")) {
-      const a = inline(para[0]).replace(/^<a ([^>]*)>(.*)<\/a>$/, `<a class="button primary" $1>${CALCULATOR_ICON}<span>$2</span></a>`);
+      const a = inline(para[0]).replace(/^<a ([^>]*)>(.*)<\/a>$/, `<a class="button primary" $1>${appIcon(only.href)}<span>$2</span></a>`);
       out.push(`<p class="docs-action">${a}</p>`);
       continue;
     }

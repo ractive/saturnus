@@ -126,6 +126,12 @@ function logoSvg(size, model = null) {
   return `<svg class="logo" viewBox="0 0 32 32" width="${size}" height="${size}" aria-hidden="true"${model ? ` data-logo="${model}"` : ""}><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg>`;
 }
 
+/** The icon of a button into the app: the mark of the model it opens, in its colours. */
+function appIcon(href) {
+  const model = href.match(/#\/(?:calculator|files)\/([a-z0-9]+)/)?.[1];
+  return model ? logoSvg(18, model) : "";
+}
+
 /** A heading's id: its words in lower case, joined by hyphens. */
 function headingId(text) {
   return text.toLowerCase().replace(/[`*_[\]()]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -406,7 +412,7 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
     let source = page.source;
     let body = page.body;
     let after = "";
-    const render = (md) => renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId });
+    const render = (md) => renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId, appIcon });
     if (page.rel === "commands") {
       // The lead above the reference; its sections (the notes) and the
       // sources (every manual it links to) after it, each in a column
