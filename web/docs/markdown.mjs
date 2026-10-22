@@ -9,6 +9,14 @@
 //   inline: `code`, **bold**, *italic* or _italic_, [links](url),
 //   ![images](src), <https://autolinks>.
 //
+// Two forms for a model page's typography: a paragraph that starts with
+// an image alone on its line is a <figure>, the paragraph's other lines
+// its caption; a table whose header cells are all empty (`| | |`) has
+// no header row (a list of facts, a label and a value per row).
+// A paragraph that is one link into the app (`../app/...`) alone is
+// its button, as the app's own, `appIcon(href)` before its text (the
+// model's mark, from the build): "[Open the HP 48GX in saturnus](../app/#/calculator/48gx)".
+//
 // Everything else is text: HTML in a page is escaped, never passed
 // through. `link(href)` lets the caller rewrite each link and image
 // source (a page's `.md` links become its HTML page's).
@@ -157,6 +165,7 @@ const BULLET = /^[-*]\s+(.*)$/;
 const NUMBER = /^\d+[.)]\s+(.*)$/;
 const FENCE = /^```\s*([\w-]*)\s*$/;
 const RULE = /^(-{3,}|\*{3,})\s*$/;
+const FIGURE = /^!\[[^\]]*\]\([^)\s]+\)$/;
 const TABLE_SEP = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 
 /**
@@ -164,7 +173,7 @@ const TABLE_SEP = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
  * targets and image sources; `headingId(text)` gives a heading its id
  * (default: none).
  */
-export function renderMarkdown(markdown, { link = (h) => h, headingId = null } = {}) {
+export function renderMarkdown(markdown, { link = (h) => h, headingId = null, appIcon = () => "" } = {}) {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
   const out = [];
   const inline = (t) => renderInline(t, link);
@@ -204,7 +213,8 @@ export function renderMarkdown(markdown, { link = (h) => h, headingId = null } =
       const rows = [];
       while (i < lines.length && lines[i].trimStart().startsWith("|")) rows.push(cells(lines[i++]));
       const td = (tag, c, k) => `<${tag}${align[k] ? ` style="text-align: ${align[k]}"` : ""}>${inline(c)}</${tag}>`;
-      out.push(`<div class="table-wrap"><table>\n<thead><tr>${head.map((c, k) => td("th", c, k)).join("")}</tr></thead>\n<tbody>\n${rows.map((r) => `<tr>${head.map((_, k) => td("td", r[k] ?? "", k)).join("")}</tr>`).join("\n")}\n</tbody>\n</table></div>`);
+      const thead = head.some((c) => c) ? `<thead><tr>${head.map((c, k) => td("th", c, k)).join("")}</tr></thead>\n` : "";
+      out.push(`<div class="table-wrap"><table>\n${thead}<tbody>\n${rows.map((r) => `<tr>${head.map((_, k) => td("td", r[k] ?? "", k)).join("")}</tr>`).join("\n")}\n</tbody>\n</table></div>`);
       continue;
     }
     if (line.startsWith(">")) {
@@ -231,8 +241,21 @@ export function renderMarkdown(markdown, { link = (h) => h, headingId = null } =
       out.push(`<${tag}>\n${items.map((it) => `<li>${inline(it.join(" "))}</li>`).join("\n")}\n</${tag}>`);
       continue;
     }
+    if (FIGURE.test(line.trim())) {
+      const caption = [];
+      i++;
+      while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i])) caption.push(lines[i++].trim());
+      out.push(`<figure>${inline(line.trim())}${caption.length ? `<figcaption>${inline(caption.join(" "))}</figcaption>` : ""}</figure>`);
+      continue;
+    }
     const para = [];
     while (i < lines.length && lines[i].trim() && !(para.length && isBlockStart(lines[i]))) para.push(lines[i++].trim());
+    const only = para.length === 1 && para[0].startsWith("[") ? linkAt(para[0], 0) : null;
+    if (only && only.end === para[0].length && only.href.startsWith("../app/")) {
+      const a = inline(para[0]).replace(/^<a ([^>]*)>(.*)<\/a>$/, `<a class="button primary" $1>${appIcon(only.href)}<span>$2</span></a>`);
+      out.push(`<p class="docs-action">${a}</p>`);
+      continue;
+    }
     out.push(`<p>${inline(para.join(" "))}</p>`);
   }
   return out.join("\n");

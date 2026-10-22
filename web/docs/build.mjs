@@ -30,6 +30,10 @@
 // tokens, its stylesheet (the logo's colours per model, the reference
 // entry), its theme script, all from app/.
 //
+// A model page may show a picture of its calculator from the landing
+// page's images (`../img/<model>-640.webp`, saturnus's own drawing),
+// as a figure with its caption (markdown.mjs).
+//
 // Checks, failing the build: every relative link and source of the HTML
 // names a file of the site, no page links into the wiki, no file is
 // empty. Pure functions exported for web/test/docs.test.mjs.
@@ -41,6 +45,7 @@ import { fileURLToPath } from "node:url";
 import { escapeHtml, parseFrontmatter, renderMarkdown } from "./markdown.mjs";
 import { slugMap } from "./commands/slug.js";
 import { buildIndex, exampleBefore, exampleResult, exampleRun, keysText, legendText, manualLinks, placement } from "../reference.js";
+import { STACK_NONE, stackEmpty } from "../components/entry-view.js";
 import { MODEL_ORDER, MODEL_TITLES } from "../norom.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -121,6 +126,30 @@ function logoSvg(size, model = null) {
   return `<svg class="logo" viewBox="0 0 32 32" width="${size}" height="${size}" aria-hidden="true"${model ? ` data-logo="${model}"` : ""}><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg>`;
 }
 
+/** The icon of a button into the app: the mark of the model it opens, in its colours. */
+function appIcon(href) {
+  const model = href.match(/#\/(?:calculator|files)\/([a-z0-9]+)/)?.[1];
+  return model ? logoSvg(18, model) : "";
+}
+
+/**
+ * The drawings' sizes, from the landing page's <img> tags (img/48gx-320.webp
+ * … width="1248" height="2721"): a model page's picture takes its own, so
+ * the text does not move when it loads.
+ */
+let drawingSizes = null;
+export function sizeImages(html) {
+  if (!drawingSizes) {
+    drawingSizes = new Map();
+    const landing = readFileSync(join(WEB, "landing", "index.html"), "utf8");
+    for (const m of landing.matchAll(/<img [^>]*src="img\/([a-z0-9]+)-320\.webp"[^>]*width="(\d+)" height="(\d+)"/g)) drawingSizes.set(m[1], [m[2], m[3]]);
+  }
+  return html.replace(/<img src="([^"]*\bimg\/([a-z0-9]+)-\d+\.webp)"/g, (all, src, model) => {
+    const size = drawingSizes.get(model);
+    return size ? `<img src="${src}" width="${size[0]}" height="${size[1]}" decoding="async"` : all;
+  });
+}
+
 /** A heading's id: its words in lower case, joined by hyphens. */
 function headingId(text) {
   return text.toLowerCase().replace(/[`*_[\]()]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -158,7 +187,10 @@ ${csp ? `<meta http-equiv="Content-Security-Policy" content="${escapeHtml(csp)}"
 </head>
 <body class="docs${model ? " docs-model" : ""} docs-${escapeHtml(page.meta.section)}">
 <header class="docs-bar">
-  <a class="brand" href="${docs}">${logoSvg(24)}<span>saturnus</span> <span class="docs-brand-sub">docs</span></a>
+  <div class="docs-brand">
+    <a class="brand" href="${root}" title="saturnus">${logoSvg(24)}<span>saturnus</span></a>
+    <a class="docs-brand-sub" href="${docs}">docs</a>
+  </div>
   <nav class="docs-nav" aria-label="Sections">
     ${nav}
   </nav>
@@ -182,21 +214,39 @@ ${extra}${after ? `\n<div class="docs-page docs-after">\n${after}\n</div>` : ""}
 
 /**
  * The command reference page's tool, after its lead (page.js fills it):
- * the search field with the model beside it and its suggestions, the
- * count line, the entry, the commands to browse.
+ * the bar, stuck to the top while the page scrolls, with the search
+ * field (the model in it, its suggestions under it), on a phone the
+ * Browse button, and the count line; the two panes as cards, the
+ * navigation by menu (a skeleton until the data is there) and the
+ * entry; the sheet the navigation moves into on a phone.
  */
 function commandsExtra() {
+  const bars = "<span></span>".repeat(6);
   return `<section class="docs-ref-app" aria-label="Commands">
-<div class="ref-search" role="search">
-  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16 16"/></svg>
-  <input id="ref-q" type="search" role="combobox" aria-label="Search the commands" aria-expanded="false" aria-controls="ref-suggest" aria-autocomplete="list" placeholder="A name, ->LIST, or what it does" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
-  <select id="ref-model" aria-label="Model"></select>
-  <ul id="ref-suggest" class="ref-suggest" role="listbox" aria-label="Commands found" hidden></ul>
+<div id="ref-top" class="ref-top"></div>
+<div id="ref-bar" class="ref-bar">
+  <div class="ref-bar-row">
+    <div class="ref-search" role="search">
+      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16 16"/></svg>
+      <input id="ref-q" type="search" role="combobox" aria-label="Search the commands" aria-expanded="false" aria-controls="ref-suggest" aria-autocomplete="list" placeholder="A name, ->LIST, or what it does" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+      <span class="ref-model"><select id="ref-model" aria-label="Model"></select><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></span>
+      <ul id="ref-suggest" class="ref-suggest" role="listbox" aria-label="Commands found" hidden></ul>
+    </div>
+    <button id="ref-browse" type="button" class="ref-browse" title="Browse the commands by menu" aria-haspopup="dialog" aria-controls="ref-sheet"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg><span>Browse</span></button>
+  </div>
+  <p id="ref-count" class="ref-count muted" role="status">Loading the reference…</p>
 </div>
-<p id="ref-count" class="ref-count muted" role="status">Loading the reference…</p>
-<div id="ref-entry" class="ref-entry docs-ref" hidden></div>
-<div id="ref-browse" class="ref-browse"></div>
-<noscript><p>The page needs JavaScript. Each model's commands are also in its Markdown file, listed below.</p></noscript>
+<div class="ref-panes">
+  <aside id="ref-side" class="ref-side">
+    <nav id="ref-nav" class="ref-nav" aria-label="Commands by menu"><div class="ref-skeleton" aria-hidden="true">${bars}</div></nav>
+  </aside>
+  <div id="ref-entry" class="ref-entry docs-ref"></div>
+</div>
+<dialog id="ref-sheet" class="ref-sheet" aria-labelledby="ref-sheet-title">
+  <div class="ref-sheet-head"><h2 id="ref-sheet-title" class="ref-sheet-title">Browse</h2><button type="button" class="icon ref-sheet-close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="ref-sheet-body"></div>
+</dialog>
+<noscript><p>The page needs JavaScript. Each model's commands are also a Markdown file; <a href="../../llms.txt">llms.txt</a> lists them.</p></noscript>
 </section>
 <script type="module" src="page.js"></script>`;
 }
@@ -226,6 +276,11 @@ function block(lines, levels) {
   return lines.map((l, j) => (levels ? `${lines.length - j}: ${l}` : l)).join("\n");
 }
 
+/** The stack effect as Markdown lines: a code block, or the text for an arrow alone (entry-view.js). */
+function stackLines(stack) {
+  return stackEmpty(stack) ? [`Stack: ${STACK_NONE}`, ""] : ["Stack:", "", "```", stack || "—", "```", ""];
+}
+
 /**
  * Every command of `model` as Markdown: its name and long name, its
  * stack effect or keys, the description and note, where it is, its
@@ -240,7 +295,7 @@ export function commandsMarkdown(data, model) {
   const out = [
     `# ${title} commands`,
     "",
-    `Every command of the ${title} in saturnus's reference (${index.commands.length} ${index.keyed ? "functions" : "commands"}): ${index.keyed ? "the keys that run it" : "its stack effect"}, what it does, where it is on the calculator, and examples run on the emulated ${title}. The same reference as a page: [the command reference](./${`#${model}`}).`,
+    `Every command of the ${title} in saturnus's reference (${index.commands.length} ${index.keyed ? "functions" : "commands"}): ${index.keyed ? "the keys that run it" : "its stack effect"}, what it does, where it is on the calculator, and examples with their results from saturnus's emulated ${title}. The same reference as a page: [the command reference](./${`#${model}`}).`,
     "",
     index.keyed
       ? `The ${title} has no command line: a function is pressed. An example shows the display before, the keys pressed, and the display after.`
@@ -255,9 +310,9 @@ export function commandsMarkdown(data, model) {
       else if (c.steps) out.push(`Keys: ${c.keysText}`, "");
       if (e.inserts) out.push(`Puts \`${e.inserts.trimEnd()}\` on the edit line`, "");
       if (e.param) out.push(`Asks for: ${e.param}`, "");
-      if (c.stack) out.push("Stack:", "", "```", c.stack, "```", "");
+      if (c.stack) out.push(...stackLines(c.stack));
     } else {
-      out.push("Stack:", "", "```", c.stack || "—", "```", "");
+      out.push(...stackLines(c.stack));
     }
     out.push(c.description, "");
     if (c.note) out.push(`Note: ${c.note}`, "");
@@ -266,8 +321,7 @@ export function commandsMarkdown(data, model) {
     } else {
       const where = placement(index, c);
       if (where.menus.length) out.push(`Menu: ${where.menus.join(" · ")}`, "");
-      if (where.key) out.push(`Key: ${where.key.category} (${where.key.title}${where.key.page ? `, p. ${where.key.page}` : ""}${where.key.other ? ", from another model's manual" : ""})`, "");
-      if (where.group) out.push(`Group: ${where.group} (our grouping, not a calculator menu)`, "");
+      if (where.key) out.push(`Key: ${where.key.category}`, "");
     }
     const examples = c.per.examples ?? [];
     examples.forEach((x, i) => {
@@ -314,7 +368,7 @@ export function llmsTxt(pages, data, base = BASE) {
     "",
     `> saturnus runs classic HP calculators in the browser: the HP ${list}. These docs cover the models, their commands, how the Saturn processor works and how to move files to a real calculator.`,
     "",
-    "Every docs page is also Markdown: its address with `.md` (`/saturnus/docs/48gx/` is `/saturnus/docs/48gx.md`). The command reference has one Markdown file per model with every command, its stack effect, a description and examples run on the emulator.",
+    "Every docs page is also Markdown: its address with `.md` (`/saturnus/docs/48gx/` is `/saturnus/docs/48gx.md`). The command reference has one Markdown file per model with every command, its stack effect, a description and examples with their results from the emulated calculator.",
     "",
   ];
   const section = (heading, rows) => {
@@ -376,16 +430,17 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
     let source = page.source;
     let body = page.body;
     let after = "";
-    const render = (md) => renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId });
+    const render = (md) => sizeImages(renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId, appIcon }));
     if (page.rel === "commands") {
-      // The lead above the reference; its sections and the sources
-      // (every manual it links to) after it.
+      // The lead above the reference; its sections (the notes) and the
+      // sources (every manual it links to) after it, each in a column
+      // of its own (docs.css).
       const at = body.search(/^## /m);
       const rest = at < 0 ? "" : body.slice(at);
       if (at >= 0) body = body.slice(0, at);
       const sources = `## Sources\n\n${manualSources(data, referenceModels(data)).join("\n")}\n`;
       source = `${source.trimEnd()}\n\n${sources}`;
-      after = render(`${rest.trimEnd()}\n\n${sources}`);
+      after = `<div class="docs-after-notes">\n${render(rest.trimEnd())}\n</div>\n<div class="docs-after-sources">\n${render(sources)}\n</div>`;
     }
     let bodyHtml = render(body);
     if (page.rel === "index") bodyHtml = modelLogos(bodyHtml);
@@ -401,14 +456,16 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
   for (const f of ["page.js", "slug.js"]) cpSync(join(HERE, "commands", f), join(out, "docs", "commands", f));
   written.push("docs/docs.css", "docs/commands/page.js", "docs/commands/slug.js");
 
-  // A site path exists in the site, or, for the app's files when the app
-  // is not built into `out` (the tests), in web/.
+  // A site path exists in the site, or, when the app and the landing
+  // page are not built into `out` (the tests), in web/: the app's files,
+  // the landing page, and its images (img/, from web/landing/img/), which a
+  // model page may show (`![HP 48GX](../img/48gx-640.webp)`).
+  const isFile = (f) => existsSync(f) && statSync(f).isFile();
   const exists = (p) => {
-    if (existsSync(join(out, p)) && statSync(join(out, p)).isFile()) return true;
-    if (p.startsWith("app/")) {
-      const rest = p.slice(4);
-      return existsSync(join(WEB, rest)) && statSync(join(WEB, rest)).isFile();
-    }
+    if (isFile(join(out, p))) return true;
+    if (p.startsWith("app/")) return isFile(join(WEB, p.slice(4)));
+    if (p.startsWith("img/")) return isFile(join(WEB, "landing", p));
+    if (p === "index.html") return isFile(join(WEB, "landing", "index.html"));
     return p === "favicon.svg" && existsSync(join(WEB, "favicon.svg"));
   };
   const problems = [];

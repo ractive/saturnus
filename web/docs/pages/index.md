@@ -21,11 +21,11 @@ About the HP calculators that saturnus runs in the browser: the models, their co
 - [HP 28S](28s.md)
 - [HP 19BII](19bii.md)
 
-The model pages are coming soon.
+The other model pages are coming soon.
 
 ## Command reference
 
-[Every command of the 12 models](commands.md), with its stack effect, what it does and examples run on the emulator. Search a model's commands by name or by what they do.
+[Every command of the 12 models](commands.md), with its stack effect, what it does and examples with their results from the emulated calculator. Search a model's commands by name or by what they do.
 
 ## How the Saturn works
 

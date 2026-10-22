@@ -25,7 +25,8 @@ body.docs {
   border-bottom: 1px solid var(--rule);
   box-sizing: border-box;
 }
-.docs-bar .brand {
+.docs-brand { display: inline-flex; align-items: center; gap: var(--s2); line-height: 1.2; }
+.docs-bar .brand, .docs-brand-sub {
   display: inline-flex;
   align-items: center;
   gap: var(--s2);
@@ -34,13 +35,16 @@ body.docs {
   font-size: 19px;
   font-weight: 600;
   letter-spacing: 0.01em;
+  transition: color var(--t-fast);
 }
 .docs-bar .brand .logo { display: block; flex: none; }
 /* The header's and a model page's title logo with the panel's tints (style.css); the index's
    model links in their own colours, as the app's model rows. */
 .docs-bar .brand .logo .planet, .docs-page h1 .logo .planet { fill: var(--logo-planet-panel); }
 .docs-bar .brand .logo .ring, .docs-page h1 .logo .ring { stroke: var(--logo-ring-panel); }
+/* "saturnus" leads to the landing page, "docs" to the docs' index. */
 .docs-brand-sub { font-weight: 400; color: var(--muted); }
+.docs-bar .brand:hover, .docs-brand-sub:hover { color: var(--accent-text); }
 .docs-nav { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); margin-right: auto; font-size: var(--fs-md); }
 .docs-nav a, .docs-app, .docs-foot a { color: var(--accent-text); text-decoration: none; text-underline-offset: 3px; }
 .docs-nav a:hover, .docs-app:hover, .docs-foot a:hover { text-decoration: underline; }
@@ -52,7 +56,7 @@ body.docs {
    scrolls sideways (fading out at the right), the app as its icon. */
 @media (max-width: 559px) {
   .docs-bar { flex-wrap: nowrap; gap: var(--s3); }
-  .docs-bar .brand { font-size: 17px; }
+  .docs-bar .brand, .docs-brand-sub { font-size: 17px; }
   .docs-nav {
     flex: 1 1 auto;
     flex-wrap: nowrap;
@@ -89,12 +93,11 @@ body.docs {
   padding: var(--s6) calc(var(--gutter) + var(--safe-r)) var(--s6) calc(var(--gutter) + var(--safe-l));
   box-sizing: border-box;
 }
-.docs-commands .docs-main { max-width: 1180px; }
 .docs-page { line-height: 1.6; }
 .docs-page > :first-child { margin-top: 0; }
-.docs-page h1 { display: flex; align-items: center; gap: var(--s3); font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.015em; line-height: var(--lh-tight); margin: 0 0 var(--s4); }
+.docs-page h1 { display: flex; align-items: center; gap: var(--s3); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: var(--lh-tight); margin: 0 0 var(--s4); }
 .docs-page h1 .logo { flex: none; }
-.docs-page h2 { font-size: var(--fs-xl); line-height: var(--lh-tight); margin: var(--s6) 0 var(--s2); }
+.docs-page h2 { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; line-height: var(--lh-tight); margin: var(--s6) 0 var(--s2); }
 .docs-page h3 { font-size: var(--fs-lg); margin: var(--s5) 0 var(--s2); }
 .docs-page h4 { font-size: var(--fs-base); margin: var(--s4) 0 var(--s1); }
 .docs-page p, .docs-page ul, .docs-page ol, .docs-page blockquote, .docs-page pre, .docs-page .table-wrap { margin: 0 0 var(--s3); }
@@ -111,8 +114,23 @@ body.docs {
 .docs-page th, .docs-page td { padding: 5px 10px; border-bottom: 1px solid var(--rule-soft); text-align: left; vertical-align: top; }
 .docs-page th { border-bottom-color: var(--rule); }
 
+/* A phone: the title a step smaller. */
+@media (max-width: 559px) {
+  .docs-page h1 { font-size: var(--fs-2xl); }
+}
+
 /* A model page: its title underlined in the model's colours. */
 .docs-model .docs-page h1 { padding-bottom: var(--s3); border-bottom: 3px solid var(--logo-ring-panel); }
+
+/* A figure (an image alone at the start of a paragraph, markdown.mjs):
+   the calculator at the right of the text, its caption under it. */
+.docs-page figure { float: right; width: min(36%, 200px); margin: var(--s1) 0 var(--s3) var(--s5); }
+.docs-page figure img { display: block; width: 100%; height: auto; }
+.docs-page figcaption { margin-top: var(--s2); font-size: var(--fs-sm); line-height: 1.4; color: var(--muted); }
+
+/* A table without a header row is a list of facts: a label and a value per row. */
+.docs-page table:not(:has(thead)) td:first-child { padding-left: 0; color: var(--muted); white-space: nowrap; }
+.docs-page table:not(:has(thead)) tr:first-child td { border-top: 1px solid var(--rule); }
 
 /* The index's models: a column of links, each with its logo. */
 .docs-index .docs-page ul:has(> .docs-model-link) { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s1) var(--s3); }
@@ -130,20 +148,55 @@ body.docs {
 
 /* ------------------------------------------------ the command reference */
 
-/* One column: the search field with the model beside it, the entry,
-   the commands to browse by menu. A page, not a split pane. */
-.docs-commands .docs-main { max-width: 820px; }
-.docs-ref-app { margin-top: var(--s4); }
+/* One grid, 1240 px wide at most: the title and lead, the search bar,
+   the two cards and the notes under them all span it. On a desktop
+   (860 px and up) the bar sticks to the top while the page scrolls and
+   the two cards, the commands by menu on the left and the chosen
+   command's entry on the right, are as tall as what is left of the
+   screen under it, each scrolling inside itself; the notes and the
+   sources come after them. Choosing a command docks the page: the bar
+   at the top, the cards filling the screen (page.js). On a phone one
+   column: the entry under the bar, the navigation in a sheet that
+   Browse opens. */
+.docs-commands .docs-main { max-width: 1240px; }
+.docs-commands .docs-page > p { max-width: none; font-size: 17px; line-height: 1.55; color: var(--muted); }
+.docs-commands .docs-page > p code { color: var(--ink); }
+.docs-ref-app {
+  --ref-bar-h: 92px;
+  --ref-side-w: 312px;
+  --ref-field-h: 48px;
+  margin-top: var(--s4);
+}
+.ref-top { height: 1px; margin-top: -1px; }
+
+/* The bar: the search field with the model in it, Browse on a phone, the count line under them. */
+.ref-bar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin: 0 calc(-1 * var(--gutter));
+  padding: var(--s3) var(--gutter) var(--s2);
+  background: var(--panel);
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--t);
+}
+.ref-bar.stuck { border-bottom-color: var(--rule); }
+.ref-bar-row { display: flex; align-items: center; gap: var(--s2); }
 
 /* The search field, as the app's Search: an icon, a borderless input,
-   the model at the right, in one framed box that lights up when
-   focused; the suggestions drop from it. */
+   the model at the right as a solid pill, in one framed box the whole
+   width of the grid that lights up when focused; the suggestions drop
+   from it. */
 .ref-search {
   position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--s2);
-  padding: 0 var(--s2) 0 var(--s3);
+  min-height: var(--ref-field-h);
+  padding: 0 6px 0 var(--s3);
+  box-sizing: border-box;
   background: var(--control);
   border: 1px solid var(--control-border);
   border-radius: var(--r-lg);
@@ -152,7 +205,7 @@ body.docs {
 }
 .ref-search:hover { border-color: var(--control-border-hover); }
 .ref-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); }
-.ref-search > .ic { color: var(--accent); }
+.ref-search > .ic { flex: none; color: var(--accent); }
 .ref-search input {
   flex: 1 1 120px;
   min-width: 0;
@@ -165,18 +218,30 @@ body.docs {
 }
 .ref-search input:focus-visible { outline: none; }
 .ref-search input::placeholder { color: var(--muted); font-weight: 400; }
-.ref-search select {
-  flex: none;
-  min-height: 30px;
-  border-color: transparent;
+/* The model: a solid pill, the page's own chevron on it (the select's is drawn for a plain field). */
+.ref-model { position: relative; flex: none; display: inline-flex; }
+.ref-model select {
+  min-height: 34px;
+  padding: 0 calc(var(--s2) + 18px) 0 var(--s3);
+  background: var(--accent) none;
+  border-color: var(--accent);
+  border-radius: var(--r-pill);
   box-shadow: none;
-  background-color: transparent;
-  border-radius: var(--r-sm);
   font-size: var(--fs-md);
-  color: var(--ink);
+  font-weight: 600;
+  color: var(--accent-ink);
+  cursor: pointer;
+  transition: background-color var(--t-fast), border-color var(--t-fast);
 }
-.ref-search select:hover { border-color: transparent; background-color: var(--hover); }
-.ref-search select:focus-visible { outline-offset: 0; }
+.ref-model select:hover { background-color: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: color-mix(in srgb, var(--accent) 88%, var(--ink)); }
+.ref-model select:focus-visible { outline-offset: 2px; }
+.ref-model select option { color: var(--ink); background: var(--control); font-weight: 400; }
+.ref-model > .ic { position: absolute; right: 7px; top: 50%; width: 14px; height: 14px; margin-top: -7px; color: var(--accent-ink); pointer-events: none; }
+@media (forced-colors: active) {
+  .ref-model select { padding-right: var(--s2); }
+  .ref-model > .ic { display: none; }
+}
+button.ref-browse { display: none; flex: none; min-height: var(--ref-field-h); border-radius: var(--r-lg); font-weight: 500; }
 
 .ref-suggest {
   position: absolute;
@@ -190,7 +255,7 @@ body.docs {
   max-height: min(60vh, 440px);
   overflow: auto;
   overscroll-behavior: contain;
-  background: var(--panel);
+  background: var(--card);
   border: 1px solid var(--rule);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-2);
@@ -215,6 +280,8 @@ body.docs {
 }
 .ref-row:hover { background: var(--hover); }
 .ref-suggest [aria-selected="true"] .ref-row { background: var(--accent-soft); border-left-color: var(--accent); }
+/* The chosen row's muted text in --ink: --muted on the soft accent is 4.3:1, under AA. */
+.ref-suggest [aria-selected="true"] :is(.ref-long, .ref-stack) { color: var(--ink); }
 .ref-name { font: 600 var(--fs-base)/1.4 var(--mono); overflow-wrap: anywhere; }
 .ref-long { font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ref-stack { grid-column: 1 / -1; font: var(--fs-xs)/1.4 var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -223,82 +290,215 @@ body.docs {
   .ref-row { grid-template-columns: auto minmax(0, 1fr) minmax(0, 42%); }
   .ref-stack { grid-column: auto; text-align: right; }
 }
-.ref-suggest .ref-none { padding: var(--s2) 13px; font-size: var(--fs-md); }
 button.ref-more { display: block; min-height: 0; font-size: var(--fs-md); color: var(--accent-text); font-weight: 600; cursor: pointer; }
 button.ref-more:hover:not(:disabled) { background: var(--hover); border-color: transparent; border-left-color: transparent; }
 .ref-suggest [aria-selected="true"] button.ref-more { background: var(--accent-soft); border-left-color: var(--accent); }
 
-.ref-count { margin: var(--s2) var(--s1); font-size: var(--fs-sm); }
+.ref-count { margin: 6px 0 0 var(--s3); font-size: var(--fs-sm); line-height: 1.5; font-variant-numeric: tabular-nums; }
 .ref-count.error { color: var(--error); }
 
-/* The entry: the app's (style.css), on a card. */
-.ref-entry { margin-top: var(--s2); min-width: 0; background: var(--card); border: 1px solid var(--card-border); border-radius: var(--r-lg); box-shadow: var(--shadow-card); }
-.ref-hint { margin: 0; padding: var(--s4) 20px; }
-.docs-ref a.chip { color: inherit; text-decoration: none; transition: background-color var(--t-fast), border-color var(--t-fast); }
-.docs-ref a.chip:hover { border-color: var(--control-border-hover); background: var(--control-hover); }
-.docs-ref a.chip.current:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
-.docs-ref a.chip:focus-visible { outline-offset: 1px; }
+/* ---- the panes: two cards */
 
-/* The commands to browse: a folded group per menu of the calculator
-   (its count at the right), each command a chip; sub-menus indented. */
-.ref-browse { margin-top: var(--s5); }
-.ref-browse-title { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; line-height: var(--lh-tight); margin: 0 0 var(--s2); }
-.ref-browse-note { margin: var(--s2) 0 0; font-size: var(--fs-sm); }
-.ref-heading { margin: var(--s4) 0 0; padding: 0 0 var(--s1); font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
-.ref-group { border-top: 1px solid var(--rule-soft); }
-.ref-group:last-child { border-bottom: 1px solid var(--rule-soft); }
-.ref-all { margin-top: var(--s4); border-top-color: var(--rule); }
+.ref-panes { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); margin-top: var(--s2); }
+.ref-side, .ref-entry {
+  min-width: 0;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+.ref-side { display: none; }
+
+/* The navigation: its title stuck to the top of its card, a folded
+   group per menu of the calculator (its count at the right), every
+   command a row with its long name; sub-menus as groups inside, the
+   headings in small caps between. */
+.ref-nav { font-size: var(--fs-md); padding: 0 var(--s2) var(--s3); }
+.ref-nav-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0 calc(-1 * var(--s2)) var(--s2);
+  padding: var(--s3) var(--s4) 10px;
+  background: var(--card);
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  color: var(--ink);
+}
+.ref-nav-note { margin: var(--s3) 0 0; padding: 0 var(--s2); font-size: var(--fs-sm); line-height: 1.5; }
+.ref-heading { margin: var(--s4) 0 var(--s1); padding: 0 var(--s2); font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+.ref-group { border-radius: var(--r-md); }
 .ref-group summary {
   display: flex;
   align-items: center;
   gap: var(--s2);
   min-height: var(--tap);
-  padding: var(--s1) var(--s1);
+  padding: var(--s1) var(--s2);
   list-style: none;
   cursor: pointer;
   font-weight: 600;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   transition: background-color var(--t-fast);
 }
 .ref-group summary::-webkit-details-marker { display: none; }
 .ref-group summary:hover { background: var(--hover); }
+.ref-group summary:focus-visible { outline-offset: -2px; }
 .ref-group summary::before {
   content: "";
   flex: none;
-  width: 7px;
-  height: 7px;
-  margin: 0 3px 0 2px;
+  width: 6px;
+  height: 6px;
+  margin: 0 4px 0 2px;
   border-right: 1.75px solid var(--muted);
   border-bottom: 1.75px solid var(--muted);
   transform: rotate(-45deg);
   transition: transform var(--t-fast);
 }
 .ref-group[open] > summary::before { transform: rotate(45deg); }
-.ref-group-name { font-family: var(--mono); font-size: var(--fs-base); }
+.ref-group[open] > summary { color: var(--ink); }
+.ref-group-name { font-family: var(--mono); font-size: var(--fs-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-all { margin-top: var(--s3); padding-top: var(--s2); border-top: 1px solid var(--rule-soft); border-radius: 0; }
 .ref-all .ref-group-name { font-family: var(--font); }
-.ref-n { margin-left: auto; padding: 0 7px; border-radius: var(--r-pill); background: var(--track); color: var(--muted); font-size: var(--fs-xs); font-weight: 600; line-height: 1.6; }
-.ref-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: var(--s1) var(--s1) var(--s3); }
-.ref-chip {
-  display: inline-block;
-  padding: 2px 9px;
-  border: 1px solid var(--control-border);
-  border-radius: var(--r-pill);
-  background: var(--control);
+/* The count in --ink: --muted on the track is 4.2:1, under AA for 11 px text. */
+.ref-n { flex: none; margin-left: auto; padding: 0 7px; border-radius: var(--r-pill); background: var(--track); color: var(--ink); font-size: var(--fs-xs); font-weight: 500; line-height: 1.6; font-variant-numeric: tabular-nums; }
+.ref-group[open] > summary .ref-n { background: var(--accent-soft); color: var(--accent-text); }
+.ref-list { margin: 0 0 var(--s1); padding: 0; list-style: none; }
+.ref-group > .ref-list { padding-left: var(--s4); }
+.ref-sub { margin-left: var(--s4); }
+.ref-sub > summary { min-height: var(--row); font-weight: 500; }
+.ref-sub > summary .ref-group-name { color: var(--muted); }
+.ref-sub[open] > summary .ref-group-name { color: var(--ink); }
+.ref-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  min-height: var(--row);
+  padding: 3px var(--s2) 3px 10px;
+  border-left: 2px solid var(--rule-soft);
   color: var(--ink);
-  font: 500 var(--fs-md)/1.5 var(--mono);
   text-decoration: none;
-  overflow-wrap: anywhere;
   transition: background-color var(--t-fast), border-color var(--t-fast);
 }
-.ref-chip:hover { border-color: var(--control-border-hover); background: var(--control-hover); }
-.ref-chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.ref-sub { margin: 0 0 var(--s2) var(--s2); padding-left: var(--s3); border-left: 2px solid var(--rule-soft); }
-.ref-sub h4 { margin: 0; font: 600 var(--fs-sm)/1.6 var(--mono); color: var(--muted); }
-.ref-sub .ref-chips { padding-top: 2px; padding-bottom: var(--s2); }
+.ref-item:hover { background: var(--hover); border-left-color: var(--rule); }
+.ref-item:focus-visible { outline-offset: -2px; border-radius: var(--r-sm); }
+.ref-item[aria-current="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
+.ref-item[aria-current="true"] .ref-item-name { font-weight: 700; color: var(--accent-text); }
+.ref-item-name { flex: none; font: 500 var(--fs-md)/1.5 var(--mono); overflow-wrap: anywhere; }
+.ref-item-long { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); line-height: 1.5; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-item[aria-current="true"] .ref-item-long { color: var(--ink); }
+/* The matches: a plain list, no group around it. */
+.ref-nav > .ref-list .ref-item { border-left-width: 2px; }
 
-/* A phone: the field's text at the size the keyboard does not zoom for. */
+/* Loading: six bars where the menus will be. */
+.ref-skeleton { display: flex; flex-direction: column; gap: 10px; padding: var(--s4) var(--s2); }
+.ref-skeleton span { display: block; height: 14px; border-radius: var(--r-pill); background: var(--track); }
+.ref-skeleton span:nth-child(1) { width: 72%; }
+.ref-skeleton span:nth-child(2) { width: 48%; }
+.ref-skeleton span:nth-child(3) { width: 60%; }
+.ref-skeleton span:nth-child(4) { width: 40%; }
+.ref-skeleton span:nth-child(5) { width: 66%; }
+.ref-skeleton span:nth-child(6) { width: 52%; }
+@media (prefers-reduced-motion: no-preference) {
+  .ref-skeleton span { animation: ref-pulse 1.4s ease-in-out infinite; }
+  @keyframes ref-pulse { 50% { opacity: 0.45; } }
+}
+
+/* The entry: the app's (style.css), on its card. Nothing chosen: a line in its place, centred. */
+.ref-entry { display: flex; flex-direction: column; scroll-margin-top: calc(var(--ref-bar-h) + var(--s2)); }
+.ref-entry > .entry { flex: none; }
+.ref-empty { margin: auto; padding: var(--s6) 20px; text-align: center; }
+.ref-empty p { margin: 0; line-height: 1.5; }
+.ref-empty-title { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; margin-bottom: var(--s1) !important; }
+.ref-empty .ref-wide { display: none; }
+.docs-ref a.chip { color: inherit; text-decoration: none; transition: background-color var(--t-fast), border-color var(--t-fast); }
+.docs-ref a.chip:hover { border-color: var(--control-border-hover); background: var(--control-hover); }
+.docs-ref a.chip.current:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
+.docs-ref a.chip:focus-visible { outline-offset: 1px; }
+
+/* ---- after the cards: the notes, the sources */
+
+.docs-commands .docs-after { margin-top: var(--s6); padding-top: var(--s2); border-top: 1px solid var(--rule); }
+.docs-commands .docs-after h2 { font-size: var(--fs-lg); margin-top: var(--s5); }
+.docs-commands .docs-after p { max-width: 72ch; font-size: var(--fs-base); }
+.docs-after-sources ul { padding-left: 1.2em; font-size: var(--fs-md); }
+.docs-after-sources li { margin-bottom: var(--s1); }
+
+/* ---- the sheet (a phone): the navigation, slid up from the bottom */
+
+.ref-sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  width: 100%;
+  max-width: none;
+  height: min(86dvh, 86vh);
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow-3);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ref-sheet[open] { display: flex; }
+.ref-sheet::backdrop { background: var(--backdrop); }
+@media (prefers-reduced-motion: no-preference) {
+  .ref-sheet[open] { animation: ref-sheet-in var(--t) var(--ease); }
+  @keyframes ref-sheet-in { from { transform: translateY(24px); opacity: 0; } }
+}
+.ref-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s2) var(--s2) var(--s4);
+  border-bottom: 1px solid var(--rule);
+}
+.ref-sheet-title { flex: 1; margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+.ref-sheet-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 0 calc(var(--s4) + var(--safe-b)); }
+.ref-sheet .ref-nav { padding: 0 var(--s2) var(--s3); }
+.ref-sheet .ref-nav-title { margin-top: 0; }
+
+/* ---- a phone: the field's text at the size the keyboard does not zoom for */
+
 @media (max-width: 559px) {
   .ref-search { padding-left: var(--s2); }
-  .ref-search input { font-size: 16px; }
-  .ref-search select { font-size: var(--fs-sm); padding-left: 6px; }
+  .ref-search input { flex-basis: 60px; width: 60px; font-size: 16px; }
+  .ref-model select { font-size: var(--fs-sm); padding-left: 10px; }
+  button.ref-browse { padding: 0 var(--s3); }
+  button.ref-browse > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+@media (max-width: 859px) {
+  button.ref-browse { display: inline-flex; }
+  .ref-entry { min-height: 200px; }
+}
+
+/* ---- a desktop: the two cards as tall as the screen under the bar */
+
+@media (min-width: 860px) {
+  .ref-bar { height: var(--ref-bar-h); box-sizing: border-box; }
+  .ref-panes {
+    grid-template-columns: var(--ref-side-w) minmax(0, 1fr);
+    gap: var(--s4);
+    height: var(--ref-panes-h, calc(100vh - var(--ref-bar-h) - var(--s4)));
+    min-height: 360px;
+  }
+  /* Both scroll inside themselves. The wheel at the navigation's end
+     goes on to the page: no overscroll-behavior here. */
+  .ref-side, .ref-entry { min-height: 0; overflow: auto; scrollbar-width: thin; }
+  .ref-side { display: block; }
+  .ref-empty .ref-wide { display: inline; }
+  .ref-empty .ref-narrow { display: none; }
+  /* The notes under the entry's column, the sources under the navigation's. */
+  .docs-commands .docs-after { display: grid; grid-template-columns: var(--ref-side-w) minmax(0, 1fr); gap: 0 var(--s4); align-items: start; }
+  .docs-after-notes { grid-column: 2; grid-row: 1; }
+  .docs-after-sources { grid-column: 1; grid-row: 1; }
+}
+
+/* A button into the app: the model's mark on a light disc, its ring
+   would vanish into the accent of the button. */
+.docs-action .logo { flex: none; width: 22px; height: 22px; padding: 2px; margin-left: -4px; box-sizing: border-box; border-radius: 50%; background: var(--card); }

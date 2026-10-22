@@ -918,3 +918,21 @@ test("a key-driven model's menus are no rows: their names find their functions; 
   assert.match(none.title, /No command reference for the HP 20S/);
   assert.match(none.text, /42S/);
 });
+
+test("the manual page stating a command's key is among its manual links, once", () => {
+  const sx = buildIndex(data, "48sx");
+  const ack = sx.commands.find((c) => c.name === "ACK");
+  const links = manualLinks(sx, ack, ["48sx"]);
+  assert.ok(links.some((l) => l.id === ack.per.key.manual && String(l.page) === String(ack.per.key.page)), "the 48SX key's page");
+  // Every keyed statement on every model appears exactly once.
+  for (const model of data.models) {
+    const index = buildIndex(data, model);
+    if (index.keyed) continue;
+    for (const c of index.commands) {
+      const k = c.per.key;
+      if (!k?.page || !data.manuals[k.manual]) continue;
+      const hits = manualLinks(index, c, [model]).filter((l) => l.id === k.manual && String(l.page) === String(k.page));
+      assert.equal(hits.length, 1, `${model} ${c.name}`);
+    }
+  }
+});
