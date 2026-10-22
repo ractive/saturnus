@@ -7,7 +7,10 @@ name: Web page
 # owner's site ractive.ch (the `ractive` job: FTPS into httpdocs/saturnus/,
 # the FTP_PASSWORD secret of the `pages` environment; the name only ever appears here). GitHub Pages is not used
 # (disabled on 2026-10-08). Manual dispatch; run it after a merge to main
-# that changes web/ or the bindings (kb/docs/releasing.md).
+# that changes web/ or the bindings (kb/docs/releasing.md). After the
+# upload, scripts/indexnow.mjs tells IndexNow the addresses of
+# sitemap.xml that are new or have a new lastmod against the sitemap
+# that was live before.
 
 on:
   workflow_dispatch:
@@ -27,8 +30,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # The whole history: sitemap.xml's lastmod of each address is the
+      # date of the last commit touching its files (web/docs/build.mjs);
+      # a shallow clone would leave them out.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
@@ -70,6 +77,21 @@ jobs:
           path: site
       - name: The site has its .htaccess
         run: test -f site/.htaccess && ls -la site
+      # The IndexNow script alone, beside site/ (a checkout into the
+      # workspace itself would clear it). It only feeds IndexNow: a failure
+      # here must not stop the upload.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        continue-on-error: true
+        with:
+          path: indexnow
+          sparse-checkout: scripts/indexnow.mjs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      # The sitemap that is live before the upload, for IndexNow to
+      # compare against; none (the first deploy, ractive.ch down) makes
+      # every address count as new.
+      - name: The live sitemap.xml
+        run: curl -sf https://ractive.ch/saturnus/sitemap.xml -o "$RUNNER_TEMP/sitemap-old.xml" || true
       # Explicit TLS: the password and the files never travel in clear.
       # The action keeps .ftp-deploy-sync-state.json in server-dir and
       # syncs against it: a file it deployed earlier that is no longer in
@@ -91,3 +113,9 @@ jobs:
           protocol: ftps
           local-dir: site/
           server-dir: httpdocs/saturnus/
+      # The addresses that are new or got a new lastmod, sent to
+      # IndexNow (key file at ractive.ch's top, from that site's
+      # repository). It only warns on an error: never fails the deploy.
+      - name: IndexNow
+        continue-on-error: true
+        run: node indexnow/scripts/indexnow.mjs "$RUNNER_TEMP/sitemap-old.xml" site/sitemap.xml

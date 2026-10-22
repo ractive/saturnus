@@ -34,8 +34,10 @@
 #                       docs/<page>.md, the command reference page
 #                       docs/commands/ (it runs the app's reference code
 #                       from app/), one Markdown file of commands per
-#                       model (docs/commands/<model>.md) and llms.txt at
-#                       the top; it checks the pages' links. Needs Node.
+#                       model (docs/commands/<model>.md), llms.txt and
+#                       sitemap.xml at the top (each address's lastmod
+#                       from git: run in a checkout with its history);
+#                       it checks the pages' links. Needs Node.
 #
 # Tests, READMEs and build scripts stay out. The app's service worker is
 # web/pwa/sw.js behind two constants written here: BUILD, a hash of every

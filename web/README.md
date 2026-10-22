@@ -1204,7 +1204,16 @@ of `web/docs/pages/` (frontmatter: `title`, `description`, `section`,
 `model` on a model page, `status: placeholder` until written) into
 `docs/<page>/index.html` with the Markdown beside it as
 `docs/<page>.md` (the index: `docs/index.html`, `docs/index.md`), and
-writes `llms.txt` at the top (<https://llmstxt.org>). The renderer is
+writes `llms.txt` (<https://llmstxt.org>) and `sitemap.xml` at the
+top. The sitemap gives each address the date of the last commit
+touching its sources as `lastmod` (`sitemapSources`: the landing page
+`web/landing/`; the app `web/` but the docs, landing page and tests,
+plus the crates of the wasm package; a docs page its own `.md`, not the
+shared docs code, which changes every page's markup at once and not
+what a page says; the command reference also `commands.json` and
+`web/docs/commands/`); without git history it leaves `lastmod` out.
+After a deploy, `scripts/indexnow.mjs` sends the addresses that are new
+or have a new `lastmod` to IndexNow (`web/test/indexnow.test.mjs`). The renderer is
 `web/docs/markdown.mjs`, a small one for the subset the pages use;
 HTML in a page is escaped. A page links another by its `.md`; its HTML
 gets the page's address. The pages load the app's `shared/tokens.css`,

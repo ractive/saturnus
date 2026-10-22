@@ -390,7 +390,10 @@ modules (`tx/` is Files'), the components, the shared code, the one
 wasm package, the manifest, the icons and its own service worker with a
 build hash; the docs under `docs/` with `llms.txt` at the top,
 rendered from `web/docs/pages/` by `web/docs/build.mjs` with the
-runner's Node (iteration 57); `emulator/` and `transfer/` hold only the kill-switch
+runner's Node (iteration 57), and `sitemap.xml` at the top, each
+address with the date of the last commit touching its sources as
+`lastmod` (the build job checks out the whole history, `fetch-depth: 0`,
+for that); `emulator/` and `transfer/` hold only the kill-switch
 `sw.js`; `web/README.md`, "The site"), and publishes
 it by FTP to the owner's site (<https://ractive.ch/saturnus/>, the
 app at <https://ractive.ch/saturnus/app/>, `httpdocs/saturnus/` on
@@ -403,7 +406,18 @@ by hand (ractive.ch PR 8); from then on this workflow keeps it current.
 GitHub Pages (enabled 2026-10-06) was disabled and its site deleted on
 2026-10-08 at the owner's request: ractive.ch is the only web address.
 Dispatch it after every merge to `main` that changes `web/` or the
-bindings. The FTP step uses explicit TLS (`protocol: ftps`). The action
+bindings. Around the upload the `ractive` job tells IndexNow
+(<https://www.indexnow.org>) what changed: before it, it fetches the
+live `sitemap.xml`; after it, `scripts/indexnow.mjs` (a sparse checkout
+of that one file) POSTs the addresses that are new, have a new
+`lastmod` (the date a change landed on `main`: `git log --first-parent`)
+or left the sitemap to `api.indexnow.org` with the key whose file
+`https://ractive.ch/3d159b02864628aba0cf93708a000930.txt` the
+ractive.ch repository serves (saturnus publishes no key file). Nothing
+to send, an error answer or no network only log a warning, and both
+IndexNow steps `continue-on-error`: they never fail or stop the deploy.
+The key file must be live before this job first runs with a new
+sitemap, or that one submission is lost (it was, from ractive.ch PR 18). The FTP step uses explicit TLS (`protocol: ftps`). The action
 (SamKirkland/FTP-Deploy-Action v4.4.0) keeps `.ftp-deploy-sync-state.json`
 in `httpdocs/saturnus/` and syncs against it: a file it deployed earlier
 that is no longer in `site/` is deleted on the next run (its log reads
