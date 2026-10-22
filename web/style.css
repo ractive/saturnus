@@ -1761,7 +1761,7 @@ body.resizing * { cursor: col-resize !important; }
 /* A phone's sheet covers the end of the controls: room there while the tour runs. */
 #calculator-view.tour-room .panel { padding-bottom: calc(var(--tour-room, 0px) + var(--s4)); }
 :where(#calculator-view) .tour-offer button.icon { width: 28px; height: 28px; }
-:where(#calculator-view) .about-tour { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2); }
+:where(#calculator-view) .about-tour, :where(#calculator-view) .about-docs { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2); }
 @media (pointer: coarse) {
   :where(#calculator-view) .tour-offer button.icon { width: var(--tap); height: var(--tap); }
 }
