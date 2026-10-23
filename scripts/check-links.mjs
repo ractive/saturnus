@@ -103,6 +103,15 @@ export function markdownUrls(md) {
   return out.filter(isExternal);
 }
 
+/** The folders of web/ that hold no app texts: other pages, tests, generated or vendored code. */
+const NOT_APP = new Set(["vendor", "test", "docs", "landing", "pkg"]);
+
+/** Whether the script `rel` (a path relative to web/) is one of the app's: its first folder is none of NOT_APP. */
+export function isAppText(rel) {
+  const parts = rel.split(/[/\\]/);
+  return parts.length === 1 || !NOT_APP.has(parts[0]);
+}
+
 /** Every external address to check: a Map from the address (no fragment) to the files that link it. */
 export function collect() {
   const found = new Map();
@@ -121,7 +130,7 @@ export function collect() {
   for (const m of Object.values(JSON.parse(readFileSync(commands, "utf8")).manuals ?? {})) add(m.url, commands);
   const app = [
     join(WEB, "index.html"),
-    ...files(WEB, (n) => n.endsWith(".js")).filter((f) => !/[/\\](vendor|test|docs|landing|pkg)[/\\]/.test(relative(WEB, f))),
+    ...files(WEB, (n) => n.endsWith(".js")).filter((f) => isAppText(relative(WEB, f))),
   ];
   for (const f of app) {
     const text = readFileSync(f, "utf8");

@@ -49,7 +49,10 @@ test("a link budget counts an address however it is written", () => {
 });
 
 test("scripts/check-links.mjs reads a page's addresses: parentheses in one, autolinks, site names outside code", async () => {
-  const { markdownUrls } = await import("../../scripts/check-links.mjs");
+  const { isAppText, markdownUrls } = await import("../../scripts/check-links.mjs");
+  // The app's scripts: web/'s own and its folders', not the other pages', the tests' or the vendored and generated code.
+  for (const rel of ["home.js", "components/sat-about.js", "shared/ext-links.js", "tx/app.js"]) assert.equal(isAppText(rel), true, rel);
+  for (const rel of ["pkg/saturnus_web.js", "vendor/tab-mcp-client/x.js", "test/chrome.mjs", "docs/commands/page.js", "landing/dialogs.js"]) assert.equal(isAppText(rel), false, rel);
   const md = [
     "A [photo](https://commons.wikimedia.org/wiki/File:HP_28S_(open).jpg) and <https://e.org/a>.",
     "From hpcalc.org, not from hpcomm.org; [inside](48gx.md).",
