@@ -114,6 +114,9 @@ const FAKE_TAURI = `(() => {
       default: return null;
     }
   };
+  // AI access (web/ai-local.js) attaches at start: off, nothing connected.
+  commands.mcp_attach = () => null;
+  commands.mcp_status = () => ({ enabled: false, running: false, port: 4842, defaultPort: 4842, address: null, error: null, apps: [] });
   window.fakeTauri = fake;
   window.__TAURI__ = {
     core: {
@@ -125,7 +128,8 @@ const FAKE_TAURI = `(() => {
         return fn(args, options);
       },
     },
-    event: { listen: async (_, f) => { listener = f; } },
+    // By name, as Tauri's: AI access listens to its own events too.
+    event: { listen: async (name, f) => { if (name === "saturnus") listener = f; } },
   };
 })();`;
 

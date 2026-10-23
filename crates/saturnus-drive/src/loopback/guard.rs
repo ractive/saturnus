@@ -367,6 +367,9 @@ mod tests {
         stop.store(true, Ordering::SeqCst);
         joined.join().unwrap();
         // Nobody listens any more: a new connection is refused.
-        assert!(TcpStream::connect(addr).is_err(), "the server still accepts");
+        assert!(
+            TcpStream::connect(addr).is_err(),
+            "the server still accepts"
+        );
     }
 }
