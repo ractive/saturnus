@@ -391,6 +391,7 @@ test("a site named in the text is a link to it, at most twice per address on a p
   assert.equal(urlKey("https://WWW.hpcalc.org/"), urlKey("https://hpcalc.org"));
   assert.equal(siteUrl("hpmuseum.org"), "https://www.hpmuseum.org/");
   assert.equal(siteUrl("github.com"), "https://github.com/");
+  assert.equal(siteUrl("build.rs"), null, "not a site the texts name");
   // A name with a path is a link to that page.
   assert.equal(renderInline("(hp.giesselink.com/emu42.htm)."), `(${link("https://hp.giesselink.com/emu42.htm", "hp.giesselink.com/emu42.htm")}).`);
 });
@@ -411,7 +412,8 @@ test("no site name becomes a link in code, a heading, a link's text, an address,
   assert.equal(renderMarkdown("```sh\nscoop bucket add r https://github.com/r/b\n```"), '<pre><code class="language-sh">scoop bucket add r https://github.com/r/b</code></pre>');
   assert.equal(renderMarkdown("## On hpcalc.org"), "<h2>On hpcalc.org</h2>");
   assert.equal(renderInline("[hpcalc.org: HP 49G](https://www.hpcalc.org/hp49g.html)"), `<a href="https://www.hpcalc.org/hp49g.html" ${NEW_TAB}>hpcalc.org: HP 49G${MARKS}</a>`);
-  for (const plain of ["a@hpcalc.org", "kproto.pdf", "serial49.zip", "the hpcomm.org website", "x.hpcalc.orgy"]) {
+  // Only the sites the texts name (SITES): a file name or another domain-like word stays text.
+  for (const plain of ["a@hpcalc.org", "kproto.pdf", "serial49.zip", "the hpcomm.org website", "x.hpcalc.orgy", "build.rs", "lib.rs and main.rs", "example.com", "foo.hpcalc.org"]) {
     assert.doesNotMatch(renderInline(plain), /<a /, plain);
   }
   assert.equal(siteNameAt("on hpcalc.org.", 3), "hpcalc.org");

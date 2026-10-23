@@ -2,62 +2,81 @@
 // as HTML text), the landing page (by hand) and the app (as DOM): each
 // opens in a new tab (target="_blank", rel="noopener noreferrer"), with
 // a small ↗ after its text (hidden from screen readers) and " (opens in
-// a new tab)" for them instead (`.visually-hidden`). A site named in the
-// text ("hpcalc.org") is a link to it, at most twice per address on a
-// page, counting the page's own links to that address (`LinkBudget`);
-// a list of sources does not count and is always links. A site that is
-// gone (DEAD_SITES) stays text. Pure functions, but `externalLink` and
-// `linkSites`, which build DOM.
+// a new tab)" for them instead (`.visually-hidden`). In the desktop app
+// a new tab may open nothing, so there the app's texts keep a site's
+// name as text (their callers check `inDesktopApp`, site-links.js).
+//
+// A site named in the text ("hpcalc.org") is a link to it when it is one
+// of SITES, the sites the texts name; any other word that looks like a
+// domain (build.rs, lib.rs) stays text, and so does a site that is gone
+// (hpcomm.org, not in SITES).
+//
+// The limit: one address is a link at most twice on a page, the page's
+// own links to it counted (`LinkBudget`). Not counted, and always
+// links: a list of sources (a docs page's "Sources" section, the landing
+// page's dialogs' Sources lists, About's lists in the app) and the
+// landing page's navigation in its header and footer (the same few
+// links on every visit, not mentions in the text).
+//
+// Pure functions, but `externalLink` and `linkSites`, which build DOM.
 
 /** The site's own address: links under it stay in the tab. */
 export const SITE = "https://ractive.ch/saturnus/";
 
-/** How often one address is a link on a page, sources aside. */
+/** How often one address is a link on a page, sources and navigation aside. */
 export const MAX_LINKS = 2;
 
-/** Sites named in the texts that no longer exist: their names stay text. */
-export const DEAD_SITES = new Set(["hpcomm.org"]);
-
-/** The address of a site named in a text, where it is not simply https://<name>/. */
-const SITE_URLS = {
+/**
+ * The sites a text may name and become a link, each with the address it
+ * links to (a name with a path, "hp.giesselink.com/emu42.htm", links to
+ * that page instead).
+ */
+export const SITES = {
   "hpcalc.org": "https://www.hpcalc.org/",
+  "literature.hpcalc.org": "https://literature.hpcalc.org/",
   "hpmuseum.org": "https://www.hpmuseum.org/",
   "finseth.com": "https://www.finseth.com/",
   "kermitproject.org": "https://www.kermitproject.org/",
   "columbia.edu": "https://www.columbia.edu/",
   "hparchive.com": "https://www.hparchive.com/",
+  "hp.giesselink.com": "https://hp.giesselink.com/",
+  "thomasokken.com": "https://thomasokken.com/",
+  "crates.io": "https://crates.io/",
+  "github.com": "https://github.com/",
+  "codeberg.org": "https://codeberg.org/",
   "wikipedia.org": "https://www.wikipedia.org/",
+  "en.wikipedia.org": "https://en.wikipedia.org/",
 };
 
 /**
- * A site's name in running text, perhaps with a path
- * ("hp.giesselink.com/emu42.htm"): dot-separated labels ending in one of
- * these top-level domains, not part of an address, a file name or an
- * e-mail address (nothing word-like, "@", ".", "/" or ":" right before
- * it; no word or further label right after it). A sentence's full stop
- * after it is fine. Sticky: tests one place.
+ * A domain-like name in running text, perhaps with a path: dot-separated
+ * labels, not part of an address, a file name or an e-mail address
+ * (nothing word-like, "@", ".", "/" or ":" right before it; no word or
+ * further label right after it). A sentence's full stop after it is
+ * fine. Sticky: tests one place. Only a name in SITES counts.
  */
-const TLDS = "org|com|net|edu|io|ch|de|fr|uk|jp|rs|dev|gov";
-const SITE_NAME = new RegExp(`(?<![\\w@./:-])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+(?:${TLDS})(?:/(?:[\\w.~%/-]*[\\w~%/])?)?(?![\\w-]|\\.[a-z0-9])`, "iy");
+const NAME = /(?<![\w@./:-])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?:\/(?:[\w.~%/-]*[\w~%/])?)?(?![\w-]|\.[a-z0-9])/iy;
 
-/** The site name (and path) at `at` in `text`, or null. */
-export function siteNameAt(text, at) {
-  SITE_NAME.lastIndex = at;
-  return SITE_NAME.exec(text)?.[0] ?? null;
+/** The host of a name ("www." off, lower case) and its path ("" or "/..."). */
+function split(name) {
+  const at = name.indexOf("/");
+  const host = (at < 0 ? name : name.slice(0, at)).toLowerCase().replace(/^www\./, "");
+  return { host, path: at < 0 ? "" : name.slice(at) };
 }
 
-/**
- * The address a site name links to: a name alone (lower case, "www."
- * off) its page in SITE_URLS or https://<name>/, a name with a path
- * https://<name><path>; null for a dead site.
- */
+/** The name of a site in SITES (with its path, if any) at `at` in `text`, or null. */
+export function siteNameAt(text, at) {
+  NAME.lastIndex = at;
+  const name = NAME.exec(text)?.[0] ?? null;
+  return name && Object.hasOwn(SITES, split(name).host) ? name : null;
+}
+
+/** The address a site's name links to: its entry in SITES, or with a path that page; null for a name not in SITES. */
 export function siteUrl(name) {
-  const at = name.indexOf("/");
-  const host = (at < 0 ? name : name.slice(0, at)).toLowerCase();
-  const bare = host.replace(/^www\./, "");
-  if (DEAD_SITES.has(bare)) return null;
-  if (at >= 0 && at < name.length - 1) return `https://${host}${name.slice(at)}`;
-  return SITE_URLS[bare] ?? `https://${bare}/`;
+  const { host, path } = split(name);
+  if (!Object.hasOwn(SITES, host)) return null;
+  if (path.length > 1) return `https://${name.slice(0, name.indexOf("/")).toLowerCase()}${path}`;
+  return SITES[host];
 }
 
 /** Whether `href` is on another site: http(s), not under SITE. */
