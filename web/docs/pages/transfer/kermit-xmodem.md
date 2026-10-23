@@ -5,7 +5,7 @@ section: transfer
 order: 2
 ---
 
-The HP calculators move files over their serial port with Kermit. The 48G series, the 49G and the 39G and 40G also speak XModem. Both sides need the same speed and the same transfer mode; most failed transfers come from a mismatch there. For how the protocols work, see the [Kermit Protocol Manual](https://www.kermitproject.org/kproto.pdf) by Frank da Cruz.
+The HP calculators move files over their serial port with Kermit. The 48G series, the 49G and the 39G and 40G also speak XModem. Both sides need the same speed and the same transfer mode; most failed transfers come from a mismatch there. For how Kermit works, see the [Kermit Protocol Manual](https://www.kermitproject.org/kproto.pdf) by Frank da Cruz.
 
 ## Which calculator speaks which
 
@@ -30,7 +30,7 @@ A Kermit **server** waits for commands from the **client**: send a file, take a 
 |---|---|
 | HP 48S, 48SX | type `SERVER` and press ENTER |
 | HP 48G series | right-shift, then → (the right arrow) |
-| HP 49G | right-shift and → quickly; with a pause between them they start XSERV |
+| HP 49G | right-shift and → quickly; with a pause between them they start XSERV, the XModem server |
 
 The display then says "Awaiting Server Cmd.".
 
@@ -41,16 +41,18 @@ The 38G, 39G and 40G have no server. The calculator is the client and the comput
 XModem goes back to Ward Christensen's MODEM program of 1977. It sends one file in checked blocks, without its name.
 
 - **48G series**: `XSEND` and `XRECV` with the variable's name. Binary only, 128-byte blocks with a checksum and no CRC; the computer's program must fall back to the checksum.
-- **49G**: 128-byte and 1 KB blocks, checksum or CRC, and noticeably faster than Kermit. XSERV, its XModem server, starts with right-shift, a pause, and →.
+- **49G**: 128-byte and 1 KB blocks, checksum or CRC, and noticeably faster than Kermit. It also has an XModem server, XSERV.
 - **39G and 40G**: binary aplets, from "HP39/40 (Wire)".
 
 ## Binary and ASCII
 
-Flag −35 chooses the form a variable travels in: set for binary, clear for ASCII. On the 48G series, FMT in the TRANSFER form sets it.
+Flag −35 chooses the form a variable travels in: set for binary, clear for ASCII. On the 48G series and the 49G, FMT in the TRANSFER form sets it; on the 49G the form is under APPS, I/O FUNCTIONS.
 
 **Binary** is the object as it sits in memory, after a header: `HPHP48-` and a letter on a 48, `HPHP49-` and a letter on a 49G. It is exact and faster. Both sides must treat the file as binary.
 
 **ASCII** is the object as text, as the editor shows it, after a header such as `%%HP: T(3)A(D)F(.);`: the translation mode, the angle mode and the fraction mark. The calculator reads the text back packet by packet, so a syntax error stops the transfer at once, and an arbitrary text file cannot be received in ASCII mode.
+
+A 48 and a 49G can be cabled together with the 49G's adapter. Set FMT to ASCII on both; only objects you created yourself transfer this way.
 
 ### Translation modes
 
@@ -68,23 +70,23 @@ Mode 1 is the default, mode 3 the safest for editing on a computer. Binary is ne
 ## The settings that matter
 
 - **Speed**: 1200, 2400, 4800 or 9600 baud, 9600 by default. The computer must use the same.
+- **Parity and pacing**: none, the defaults, so IOPAR starts `{ 9600 0 0 0 …`. The computer must use the same.
 - **Binary or ASCII**: flag −35, above.
 - **Overwrite or keep**: flag −36. Set, a received object replaces a variable of the same name; clear, the new one gets an extension like `.1`.
 - **Translation mode**: 0 to 3, 1 by default.
 
-The speed and the translation mode live in the variable IOPAR in HOME; on the 48G series the TRANSFER form sets them. Deleting IOPAR brings back the defaults.
+These live in the variable IOPAR in HOME, apart from the flags; on the 48G series and the 49G the TRANSFER form sets them. Deleting IOPAR brings back the defaults.
 
 ## Tips
 
 - Start the receiving side first for Kermit. For XModem it is the other way round: start the sender, then the receiver, with only a short gap.
-- A large Kermit transfer gets slower as it goes. Give the computer's program a timeout of 20 seconds and a pause of 100 ms before each packet.
+- Sending a large file to the calculator by Kermit gets slower as it goes. Give the computer's program a timeout of 20 seconds and a pause of 100 ms before each packet.
 - The calculator wants every control character prefixed. Kermit 95 needs `SET CONTROL PREFIX ALL`.
-- Between a 48 and a 49G, move programs in ASCII.
 
 ## When a transfer fails
 
 - **The computer gets no answer**: the server is not running; look for "Awaiting Server Cmd.". A 38G, 39G or 40G starts the transfer itself.
-- **Time-outs or errors from the start**: the speeds differ. Compare IOPAR or the TRANSFER form with the computer's setting.
+- **Time-outs or errors from the start**: the speeds or the parity differ. Compare IOPAR or the TRANSFER form with the computer's setting.
 - **A string that starts with `HPHP48-`**: a binary file went over as text and its line ends were changed. Send it again in binary on both sides; the HP 48 FAQ lists programs that repair such strings.
 - **"Invalid Syntax"** on an ASCII file: the fraction mark in its `%%HP:` header is not the calculator's.
 - **XRECV fails on a 48G**: before ROM revision R it could need twice the file's size free.
@@ -111,7 +113,7 @@ Set the file type to binary or text to match flag −35. `REMOTE DIRECTORY`, `GE
 
 ### satx and Files
 
-[satx](satx.md) is the project's command-line tool for the Kermit server, and for XModem on the 48G series and the 49G. [Files](files.md) in the app runs the same code in Chrome, Edge or the desktop app, and is the disk drive for a 38G, 39G or 40G. Conn4x, by Bill Graves, is a Windows program for the 49G.
+[satx](satx.md) is the project's command-line tool for the Kermit server, and for XModem on the 48G series and the 49G. [Files](files.md) in the app runs the same code in Chrome, Edge or the desktop app, and is the disk drive for a 38G, 39G or 40G. Conn4x, by Bill Graves, is a Windows program for the 49G and, with its XModem server library, the 48.
 
 ### HPComm and HPGComm
 
@@ -133,9 +135,9 @@ The source code, the help and the hpcomm.org website are archived [on GitHub](ht
 - [HP 48 FAQ 4.62](https://www.hpcalc.org/hp48/docs/faq/48faq.html), edited by André Schoorl: the 49G's Kermit and XModem (2.14), binary files received as `HPHP48-` strings (6.11), the `%%HP:` header and the translation modes (6.12), the slowdown (6.13), the XRECV bug (6.14), which side to start first (6.15), the 48G's XModem (10.1), starting the server on the G series (4.19).
 - [XMODEM/YMODEM Protocol Reference, edited by Chuck Forsberg](https://gallium.inria.fr/~doligez/zmodem/ymodem.txt): XModem's origin.
 - [Circuit to correct the HP49G serial port signal (serial49.zip)](https://www.hpcalc.org/hp49/docs/misc/serial49.zip): XModem faster than Kermit on the 49G.
-- [Conn4x help, by Bill Graves](https://www.hpcalc.org/details/5457): starting the 49G's Kermit server and XSERV.
+- [Conn4x help, by Bill Graves](https://www.hpcalc.org/details/5457): starting the 49G's Kermit server and XSERV, IOPAR's parity and pacing, the 48 with its XModem server library.
 - [HP 38G User's Guide](https://literature.hpcalc.org/official/hp38g-ug-en.pdf) and [HP 39G/40G User's Guide](https://literature.hpcalc.org/official/hp39g40g-ug-en.pdf): sending and receiving aplets from the calculator, the disk drive (1-26, 16-5).
-- [HP 49G User's Manual](https://literature.hpcalc.org/official/hp49g-um-en.pdf): transfers between a 49G and a 48 in ASCII (A-2).
+- [HP 49G User's Manual](https://literature.hpcalc.org/official/hp49g-um-en.pdf): transfers between a 49G and a 48 in ASCII, the TRANSFER form under APPS (A-2, A-3).
 - [HP Graphing Calculator PC Connectivity Kit User Guide](https://literature.hpcalc.org/community/hp-graph-calc-connectivity.pdf): the 38G's transfers started and controlled from the calculator.
 - [HPComm, the archive on GitHub](https://github.com/ractive/hpcomm): HPComm's and HPGComm's history, versions and dates, HP's Connectivity Kit, the GPL, Spot.
 - [HPComm 3.0r4](https://www.hpcalc.org/details/3713), the version of HP's kit for the 48 and the 49G, [HPComm 2.4](https://www.hpcalc.org/details/3717), the 48's from before the kit, and [HPGComm 2.0](https://www.hpcalc.org/details/3715) for the 38G, 39G and 40G, on hpcalc.org: binary aplets by XModem on the 39G and 40G.
