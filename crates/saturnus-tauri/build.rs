@@ -4,8 +4,8 @@
 //! page file at the top of `web/` (HTML, CSS, JS, JSON, SVG),
 //! `components/*.js`, `tx/*.js` and `tx/*.css`, and the shared code
 //! (`shared/*.js`, `shared/*.css`, `shared/*.svg`, `shared/components/*.js`)
-//! and the vendored `vendor/tab-mcp-client/*.js` (the web app's AI access,
-//! unused in the desktop app).
+//! and the vendored `vendor/tab-mcp-client/*.js` (the web app's AI access;
+//! the desktop app uses its confirmation dialog, web/ai-local.js).
 //! Not the installable page's files (`web/pwa/`: the app has no network
 //! and registers no service worker), the tests, the docs or the build
 //! scripts.

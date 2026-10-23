@@ -73,6 +73,7 @@ export function resultText(result) {
 export function noteText(d) {
   switch (d.what) {
     case "connected": return `Connected to the relay ${d.host}`.trim();
+    case "listening": return `AI access on at ${d.address}`.trim();
     case "lost": return `Connection lost. ${d.text ?? ""}`.trim();
     case "retrying": return `Retrying to connect… (attempt ${d.attempt})`;
     case "wait": return `Next try in ${d.seconds} s`;

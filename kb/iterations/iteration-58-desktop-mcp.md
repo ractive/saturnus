@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 58: the desktop app's calculators for AI apps, on this computer"
 date: 2026-10-23
-status: planned
+status: in-progress
 tags:
   - iteration
   - desktop
@@ -77,10 +77,10 @@ config file (accepted, option b).
 
 ## Tasks
 
-- [ ] Move the control API's HTTP and token code to a shared crate, tests kept
-- [ ] The MCP endpoint in the desktop app: stateless and legacy handshake, the rules above, Rust tests for each rule and both handshakes
-- [ ] The bridge: `mcp-call` event, `mcp_reply` command, time limit, window not ready
-- [ ] `web/ai-local.js`: the tools from `aiTools`, confirmation, Always allow, the AI's calls (tab-mcp's local entry or saturnus's own)
-- [ ] The setting, the port, the dialog for the desktop with the install links
-- [ ] kb: [[docs/control-api-security]] extended to the MCP endpoint, a decision-log entry
+- [x] Move the control API's HTTP and token code to a shared crate, tests kept
+- [x] The MCP endpoint in the desktop app: stateless and legacy handshake, the rules above, Rust tests for each rule and both handshakes
+- [x] The bridge: `mcp-call` event, `mcp_reply` command, time limit, window not ready
+- [x] `web/ai-local.js`: the tools from `aiTools`, confirmation, Always allow, the AI's calls (tab-mcp's local entry or saturnus's own)
+- [x] The setting, the port, the dialog for the desktop with the install links
+- [x] kb: [[docs/control-api-security]] extended to the MCP endpoint, a decision-log entry
 - [ ] Owner: Claude Code and Cursor against the desktop app on macOS: list the calculators, run RPL on the 48GX, a confirmation, Always allow, the AI's calls, the setting off ends it

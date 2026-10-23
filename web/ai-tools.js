@@ -42,8 +42,8 @@ export function titleOf(model) {
   return globalThis.SATURNUS_MODEL_TITLES?.[model] ?? model;
 }
 
-/** What the MCP server tells the AI app before it uses the tools (tab-mcp `server.instructions`). */
-export const INSTRUCTIONS = `saturnus runs emulated HP calculators in the user's browser tab; the user watches the calculator while you use it. Each calculator runs its real ROM, so results are what the real calculator gives.
+/** What the MCP server tells the AI app before it uses the tools (tab-mcp `server.instructions`; the desktop app's endpoint gives the same, web/ai-local.js). */
+export const INSTRUCTIONS = `saturnus runs emulated HP calculators in the saturnus app, in the user's browser or the desktop app; the user watches the calculator while you use it. Each calculator runs its real ROM, so results are what the real calculator gives.
 
 Calculators: list_calculators names the running ones. Every other tool takes an optional "calculator" (an id from list_calculators); without it, the tool works on the one shown in the app's Calculator view. Nothing here starts or stops a calculator: ask the user to open one in the app.
 

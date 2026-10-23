@@ -5,7 +5,9 @@
 //! ([`rom`]) and its download from hpcalc.org ([`fetch`]), the screen as
 //! text or PNG ([`screen`]), the native hosts' files ([`files`]) and the machine thread that drives the front-end protocol's
 //! state machine (`saturnus_host::protocol`) for the desktop app and the
-//! CLI's control API ([`runner`]).
+//! CLI's control API ([`runner`]), and the HTTP servers on 127.0.0.1 of
+//! the control API and the desktop app's MCP endpoint, under one set of
+//! rules ([`loopback`]).
 //!
 //! Unlike the core crate this one does file I/O, so it is not meant for
 //! `wasm32`.
@@ -14,6 +16,7 @@
 pub mod autostart;
 pub mod fetch;
 pub mod files;
+pub mod loopback;
 pub mod rom;
 pub mod runner;
 pub mod screen;

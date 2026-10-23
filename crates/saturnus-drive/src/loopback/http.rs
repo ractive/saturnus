@@ -1,7 +1,8 @@
-//! The little HTTP/1.1 the control API needs, over blocking `TcpStream`s:
-//! one request per connection (`Connection: close`), bodies only with
+//! The little HTTP/1.1 the loopback servers need (the CLI's control API,
+//! the desktop app's MCP endpoint), over blocking `TcpStream`s: one
+//! request per connection (`Connection: close`), bodies only with
 //! `Content-Length`, every read bounded in size and wall time. Shared by
-//! the server and the `ctl` client.
+//! the servers and the `ctl` client.
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpStream;
@@ -202,6 +203,7 @@ pub struct Response {
 pub fn reason(status: u16) -> &'static str {
     match status {
         200 => "OK",
+        202 => "Accepted",
         400 => "Bad Request",
         401 => "Unauthorized",
         403 => "Forbidden",

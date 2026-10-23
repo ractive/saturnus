@@ -7,7 +7,7 @@
 // The client library is vendored (web/vendor/tab-mcp-client/, `just
 // vendor-tab-mcp`) and loaded only when AI access is used. One `AiAccess`
 // for the document (web/main.js), whichever view is shown. Not in the
-// desktop app, which gets an MCP server of its own.
+// desktop app, which serves MCP itself (web/ai-local.js, the same tools).
 //
 // Calculators: the one Calculator shows, through its own backend; the
 // other running ones (kept calculators Files shows) through a hub
@@ -37,7 +37,7 @@ import "./shared/models.js";
 const VERSION = "1";
 
 /** The display as a PNG (base64), black on white at 3× (web/screenshot.js). */
-function screenPng(frame, model) {
+export function screenPng(frame, model) {
   const bin = atob(frame.pixels);
   const row = Math.ceil(frame.width / 8);
   const px = new Uint8Array(frame.width * frame.height);

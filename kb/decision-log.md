@@ -4432,3 +4432,58 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   is told by its rejected promise instead. The page keeps that `error` as
   `refusal` and shows "Could not connect to the relay: <the relay's
   words>", as Connect does. Vendored 0.5.1 for it.
+
+## 2026-10-23 (the desktop app's MCP endpoint, iteration 58)
+
+[[iterations/iteration-58-desktop-mcp]]. The desktop app serves MCP at
+`http://127.0.0.1:4842/mcp` while "Let AI apps on this computer use the
+calculators" is on (off by default).
+
+- **One set of tools, the web app's.** The Rust endpoint holds no tool
+  definition: it speaks the transport and JSON-RPC and forwards
+  `tools/list` and `tools/call` to the window (Tauri event `mcp-call`,
+  command `mcp_reply`), where `web/ai-local.js` runs the same
+  `aiTools(deps)` and the same `INSTRUCTIONS` as `web/ai.js` gives
+  tab-mcp. Owner's rule: the browser and the desktop app expose exactly
+  the same tools, descriptions, schemas and instructions;
+  `web/test/ai-local.test.mjs` connects `web/ai.js` through the vendored
+  tab-mcp client to a fake relay and asserts that both list (and answer)
+  the same. The instructions now say "in the saturnus app, in the user's
+  browser or the desktop app" instead of "in the user's browser tab", so
+  one text is true for both.
+- **No local entry in tab-mcp's client: saturnus does the call's
+  surroundings itself.** The vendored client (0.5.1) exports only
+  `TabMcp`. `web/ai-local.js` maps the tool list as tab-mcp does
+  (annotations to MCP hints, the WebMCP hints under `_meta`), checks the
+  arguments against the schema (the keywords the tools use), wraps
+  results the same way, asks before a consequential tool in tab-mcp's own
+  `confirmDialog` (exported by the vendored UI chunk, so the dialog looks
+  the same and "The AI's calls" sees it), keeps "Always allow" per AI app
+  and tool until a reload or the setting goes off, and emits
+  `toolcall`/`toolcallend`. The parity test guards against drift; the
+  UI chunk's file name changes with a new vendored version, and the
+  tests import it, so that cannot go unnoticed.
+- **Both MCP eras.** The stateless 2026-07-28 revision, checked as
+  tab-mcp's page server checks it (envelope, `MCP-Protocol-Version`,
+  `Mcp-Method`, `Mcp-Name`, Claude Code's 2025-11-25 header on a
+  2026-07-28 body accepted as the relay does), and the legacy `initialize`
+  handshake (2025-03-26, 2025-06-18, 2025-11-25) with JSON answers. Unlike
+  the relay, which refuses `initialize`, the local endpoint answers it:
+  clients that still start with it (VS Code and Cursor versions vary)
+  should work without the relay's fallback. Legacy errors for unknown
+  methods are HTTP 200, as a legacy 404 means "session gone".
+- **Sign-in by the control API's token** (owner, option b): the same
+  per-user `control-token`, every request, constant time. The control
+  API's HTTP, token and guard code moved to `saturnus_drive::loopback`
+  (rather than a new crate: both users depend on saturnus-drive already,
+  and a new published crate would need its own release plumbing). The
+  rules are extended in [[docs/control-api-security]].
+- **Port 4842**, a setting; a busy port says who has it ("Port 4842 is in
+  use by pid N (name). Choose another port."). Settings in
+  `ai-access.json` in the app's config folder.
+- **"Connected apps"** are the AI apps that made a request in the last 10
+  minutes, named by their `clientInfo`, a legacy session's `initialize`, or
+  the `User-Agent`. While one is, or while a call runs, the calculator keeps
+  running when the window is hidden (the web app's pacing exception). The
+  sidebar's action is "Turn off" (one switch for all apps), not
+  "Disconnect".
