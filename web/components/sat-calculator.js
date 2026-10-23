@@ -10,6 +10,7 @@ import { action } from "../bindings.js";
 import { edgeLayout } from "../edge.js";
 import { aboveStack, foldGeometry, foldScale, halfAt, stacks } from "../fold.js";
 import { MODEL_TITLES, PIONEERS, emptyText, isLive, keyAction } from "../norom.js";
+import { linkSites } from "../shared/ext-links.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenRgba } from "../screenshot.js";
@@ -536,7 +537,7 @@ export class SatCalculator extends HTMLElement {
     const kept = Boolean(s.roms?.slots.find((x) => x.model === model)?.fileName);
     // "HP 48SX" stays on one line.
     const text = emptyText(model, (MODEL_TITLES[model] ?? model).replace(" ", "\u00a0"), { asked: s.wanted === model, kept });
-    n.querySelector(".no-rom-text").textContent = text;
+    n.querySelector(".no-rom-text").replaceChildren(linkSites(text));
     n.dataset.text = text;
     n.dataset.short = s.wanted === model ? (kept ? "Not running" : "No ROM") : "No calculator";
     this.fitNoRom();
@@ -596,7 +597,8 @@ export class SatCalculator extends HTMLElement {
     for (const [cls, words] of levels) {
       n.classList.remove("compact", "short", "row");
       if (cls) n.classList.add(...cls.split(" "));
-      text.textContent = words;
+      // A site it names is a link (web/shared/ext-links.js), built as DOM.
+      text.replaceChildren(linkSites(words));
       // Cut short: the whole message as the tooltip, and the text a button that shows it.
       const cut = n.classList.contains("short");
       n.title = cut ? full : "";

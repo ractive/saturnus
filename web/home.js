@@ -14,6 +14,7 @@
 // Rendered each time it is shown.
 
 import { el } from "./shared/dom.js";
+import { externalLink, linkSites } from "./shared/ext-links.js";
 import { iconEl } from "./shared/components/icons.js";
 import { closeMenu, openMenu, openMenuKey } from "./shared/components/menu.js";
 import { confirmAction } from "./shared/components/confirm.js";
@@ -145,7 +146,8 @@ export class Home {
     const ui = this.ui;
     const touch = !this.app && globalThis.matchMedia?.("(pointer: coarse)").matches;
     $("#home-new-hint").textContent = NEW_HINTS[touch ? "touch" : roms.romSource];
-    $("#home-source-hint").textContent = SOURCE_HINTS[roms.romSource];
+    // hpcalc.org named in it is a link to the site (web/shared/ext-links.js), built as DOM.
+    $("#home-source-hint").replaceChildren(linkSites(SOURCE_HINTS[roms.romSource]));
     if (this.app) $(".home-boot-last-label").textContent = "Start the last calculator when the app opens";
 
     // A handler's failure it did not show is shown here.
@@ -289,7 +291,7 @@ export class Home {
       let where = "";
       if (d && !this.app) {
         // The page cannot fetch from hpcalc.org: its page; the file name to expect in the tooltip.
-        where = el("a", { href: d.page, target: "_blank", rel: "noopener noreferrer", title: `Download from hpcalc.org, unzip, then choose ${d.file} (${d.revision})`, "aria-label": `Download ${d.file}, the ${t} ROM, from hpcalc.org`, text: "Download from hpcalc.org" });
+        where = externalLink(d.page, "Download from hpcalc.org", { title: `Download from hpcalc.org, unzip, then choose ${d.file} (${d.revision})`, "aria-label": `Download ${d.file}, the ${t} ROM, from hpcalc.org` });
       } else if (d) {
         where = `${d.file}, from hpcalc.org`;
       } else if (DUMP_ONLY.includes(slot.model)) {

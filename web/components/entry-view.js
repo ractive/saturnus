@@ -7,12 +7,13 @@
 import { exampleBefore, exampleResult, exampleRun, exampleText, keysText, legendText, manualLinks, placement, stackVerified } from "../reference.js";
 import { MODEL_TITLES } from "../norom.js";
 import { el } from "../shared/dom.js";
+import { externalLink } from "../shared/ext-links.js";
 
 /** "48SX" from "48sx". */
 export const shortTitle = (m) => (MODEL_TITLES[m] ?? m).replace(/^HP /, "");
 
 function link(url, text) {
-  return el("a", { href: url, target: "_blank", rel: "noopener noreferrer", text });
+  return externalLink(url, text);
 }
 
 /** The command's note (a ROM bug, say) as its own line, or null. */
