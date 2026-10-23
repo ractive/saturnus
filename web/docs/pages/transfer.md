@@ -11,7 +11,7 @@ You need a serial cable for your model, a USB serial adapter on most computers, 
 ## The pages
 
 - [Cables](transfer/cables.md): which cable fits which model, the 48's wiring, the 49G's and 38G's connector, USB serial adapters and building a cable yourself.
-- [Kermit and XModem](transfer/kermit-xmodem.md): the two protocols, which calculator speaks which, binary and ASCII transfers, the translation modes and the settings.
+- [Kermit and XModem](transfer/kermit-xmodem.md): which calculator speaks which, binary and ASCII transfers, the settings that matter, what to check when a transfer fails, and the programs on the computer.
 - [satx](transfer/satx.md): the project's command-line tool, with the commands that list, copy, run, back up and restore.
 - [Files in the app](transfer/files.md): moving variables in the browser between a folder, an emulated calculator and a real one.
 
