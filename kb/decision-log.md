@@ -4423,9 +4423,12 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   (attempt n)", `disconnected` "Connection lost" and `connected` the
   rest. Turn off and New address end it through `disconnect()` and
   `newAddress()`; `replaced` is not retried by the library either.
-- **One thing lost:** when an attempt the library started by itself is
-  refused, the page sees only `reconnecting` turn `null` while
-  disconnected, not the relay's words, so it says "The relay refused to
-  connect this tab again. Connect again."; Connect then shows the
-  relay's message. A `reason` or error on that event would need a tab-mcp
-  change.
+- **0.5.1, the same day:** the first take had one gap. When the relay
+  refused an attempt the library made by itself, the page saw only
+  `reconnecting` turn `null` and could not show the relay's words, only
+  "The relay refused to connect this tab again". tab-mcp 0.5.1 (tab-mcp
+  PR 25) emits `error` with the relay's error (and its `reason`) just
+  before that `null`; an attempt a `connect()` of the page made or joined
+  is told by its rejected promise instead. The page keeps that `error` as
+  `refusal` and shows "Could not connect to the relay: <the relay's
+  words>", as Connect does. Vendored 0.5.1 for it.

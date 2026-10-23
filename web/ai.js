@@ -110,6 +110,8 @@ export class AiAccess extends EventTarget {
     this.offs = 0;
     /** While the page itself ends the session (Turn off, a new address): the client's reconnecting stops, not refused. */
     this.ending = false;
+    /** The relay's refusal of an attempt the client made by itself (its `error` just before `reconnecting` turns null, 0.5.1). */
+    this.refusal = null;
     /** The tools that ask the user first (`consequentialHint`). */
     this.consequential = new Set();
     /** The connected apps of the live session, by grant id (their names), to say who came and went. */
@@ -219,8 +221,12 @@ export class AiAccess extends EventTarget {
           this.error = lostText(next.reason);
           this.note("wait", { seconds: Math.max(0, Math.round((next.at - this.now()) / 1000)) });
         } else {
-          // Stopped: connected, ended by the page, or else the relay refused the attempt.
-          this.error = this.ending || mcp.state !== "disconnected" ? null : "The relay refused to connect this tab again. Connect again.";
+          // Stopped: connected, ended by the page, or the relay refused the attempt: in its words when
+          // the client made it by itself (`refusal`); a connect() of ours that made it says them itself.
+          const refusal = this.refusal;
+          this.refusal = null;
+          if (this.ending || mcp.state !== "disconnected") this.error = null;
+          else if (refusal) this.error = `Could not connect to the relay: ${refusal.message}`;
         }
         this.changed();
       });
@@ -236,6 +242,8 @@ export class AiAccess extends EventTarget {
         this.changed();
       });
       mcp.addEventListener("error", (e) => {
+        // Disconnected and no longer reconnecting: the refusal that ends the client's reconnecting.
+        this.refusal = mcp.state === "disconnected" && !mcp.reconnecting ? (e.detail?.error ?? null) : null;
         this.error = e.detail?.error?.message ?? null;
         this.changed();
       });

@@ -1,12 +1,12 @@
 {
   "package": "@ractive-ch/tab-mcp-client",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "license": "MIT (tab-mcp; @cfworker/json-schema, MIT, inlined)",
-  "source": {"kind": "npm", "package": "@ractive-ch/tab-mcp-client", "integrity": "sha512-wP+4I1/vE0eXLA+DEKcHUNOLFTy5iljdDI+JufZc2g8lfrtiGyoKPiBOzQhS4lHRLsLe9GAPmdToghbY35Vm3g=="},
+  "source": {"kind": "npm", "package": "@ractive-ch/tab-mcp-client", "integrity": "sha512-j6K9VM9O8/lV1cmauQaigLcRlj0W/KqCNxXuofYiTvvAXlDz4t9HBSkwx5vmDxNiWEGtj1wLmxmoOcWBinD7PA=="},
   "entry": "tab-mcp-client.min.js",
   "files": {
     "connection-by0y4k0a.min.js": "6e49703f5cc3a49f318d4a4e2abc990885da5de3c42ac84eb7aa394f950f16e3",
-    "tab-mcp-client.min.js": "38fe6aae92cfbe0e0a631cb20a5fb792bce7c1da5a3b14afa6f59ddcb63f1e39",
+    "tab-mcp-client.min.js": "e92b02e5714782ea039dd793eb692391468f6bd072b5e9a8d113b4387aa31a83",
     "ui-xh7shp5z.min.js": "1492d79b46784af1ce4de5110f04c47425f48b6b2af99c57e74895da687e9fa2"
   }
 }

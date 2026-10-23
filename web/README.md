@@ -1095,9 +1095,11 @@ through the relay while the tab is open. Nothing is installed.
   `AiAccess` is the client's `reconnecting`; its `reconnecting` event
   gives the log's "Next try in n s" and the error (why it was lost), a
   `statechange` to `connecting` while reconnecting its "Retrying to
-  connect… (attempt n)", and the event's `null` while disconnected and
-  not by the page (Turn off, New address) says the relay refused it.
-  Connect while lost makes the next attempt at once.
+  connect… (attempt n)". A refused attempt the client made by itself
+  says why in its `error`, just before the event's `null` (0.5.1); one
+  that Connect made or joined rejects that connect. Either way the
+  dialog shows the relay's words. Connect while lost makes the next
+  attempt at once, or joins the one running.
 - **The AI's calls** (`ai-log.js`): `AiLog`, made with `AiAccess`, keeps
   the last 200 tool calls (the client's `toolcall` and `toolcallend`:
   app, tool title, arguments, outcome, result, duration) and the
@@ -1122,7 +1124,7 @@ through the relay while the tab is open. Nothing is installed.
   TAB_MCP_STORE=memory NODE_ENV=development bun packages/tab-mcp/src/main.ts`
   in the tab-mcp checkout (or its Docker image). Without a relay nothing
   of it loads.
-- **The client** is tab-mcp's browser library (0.5.0), vendored in
+- **The client** is tab-mcp's browser library (0.5.1), vendored in
   `vendor/tab-mcp-client/` (its self-contained build, with
   `vendor.json`: source, version, SHA-256s) by `just vendor-tab-mcp`
   (`scripts/vendor-tab-mcp-client.sh`: the npm package, its version and
@@ -1130,7 +1132,7 @@ through the relay while the tab is open. Nothing is installed.
   local tab-mcp build) and loaded with `import()`
   only when AI access is used; the service worker precaches it with the
   page. The address secret is kept per relay (`saturnus.aiSecret:<relay
-  origin>`, the client's `storageKey`, so 0.5.0's own per-page key is
+  origin>`, the client's `storageKey`, so 0.5's own per-page key is
   not used).
 - **Tools** (`ai-tools.js`, WebMCP's `registerTool` shape; the server's
   instructions carry how to use them): `list_calculators`, `list_keys`,
