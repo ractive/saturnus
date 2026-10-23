@@ -55,3 +55,10 @@ ractive.ch is up (tab-mcp iteration 6).
 **Iteration 55** ([[iterations/iteration-55-ai-assistant]]) builds the web
 app's part against tab-mcp's client as it is (no pairing code yet); still
 open here: the desktop app's MCP server, the `.mcpb`, the skill and the plugin.
+
+**Owner, 2026-10-23:** the desktop app's local server signs in with a bearer
+token in the header (the control API's token), not OAuth. Planned as
+[[iterations/iteration-58-desktop-mcp]] (the server, reusing the web app's tools
+through the window), [[iterations/iteration-59-mcpb]] (Claude Desktop) and
+[[iterations/iteration-60-skill]] (skill and plugin). The one-click install links
+(Cursor, VS Code, Claude Code, Codex) serve the web and the desktop dialog.
