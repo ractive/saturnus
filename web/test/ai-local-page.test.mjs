@@ -43,7 +43,7 @@ const SETUP = `(async () => {
     event: { listen: async (name, fn) => { handlers.set(name, fn); return () => {}; } },
   };
   t.emit = (name, payload) => handlers.get(name)?.({ payload });
-  t.call = (id, params, client) => new Promise((resolve) => { replies.set(id, resolve); t.emit("mcp-call", { id, method: "tools/call", params, client }); });
+  t.call = (id, params, client, clientStable = true) => new Promise((resolve) => { replies.set(id, resolve); t.emit("mcp-call", { id, method: "tools/call", params, client, clientStable }); });
   const store = { state: { booted: "48gx", romName: "gxrom-r", frame: null, keysDown: [], busy: false } };
   const backend = { memoryTree: async () => ({ path: ["HOME"], dirs: [] }), storeText: async () => ({ ok: true }) };
   const { LocalAiAccess } = await import("/ai-local.js");
@@ -167,4 +167,13 @@ test("a consequential call asks in tab-mcp's dialog; Always allow lets the next 
   assert.equal(await ev(`document.querySelectorAll("dialog.tab-mcp-confirm").length`), 0, "not asked again");
   // The AI's calls has both, done.
   assert.deepEqual(await ev(`window.t.ai.log.entries.filter((e) => e.kind === "call").map((e) => e.outcome)`), ["ok", "ok"]);
+  // An AI app named only by its User-Agent: no Always allow offered.
+  await ev(`window.t.third = window.t.call(3, { name: "store_variable", arguments: { name: "Z", text: "3" } }, "node", false), true`);
+  await until(`document.querySelector("dialog.tab-mcp-confirm h2")?.textContent`, "the confirmation for node");
+  const offered = await ev(`[...document.querySelectorAll("dialog.tab-mcp-confirm button")].filter((b) => !b.hidden).map((b) => b.textContent)`);
+  assert.deepEqual(offered, ["Don't allow", "Allow"]);
+  assert.equal(await ev(`document.querySelector("dialog.tab-mcp-confirm .tab-mcp-always-note").hidden`), true);
+  await ev(`[...document.querySelectorAll("dialog.tab-mcp-confirm button")].find((b) => b.textContent === "Don't allow").click(), true`);
+  const third = await until(`window.t.third.then((r) => JSON.stringify(r))`, "the third call");
+  assert.match(JSON.parse(third).result.content[0].text, /declined/);
 });

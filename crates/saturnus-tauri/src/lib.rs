@@ -936,6 +936,7 @@ pub fn run() {
             app.manage(Roms(Arc::new(Mutex::new(lib))));
             // AI access (iteration 58): the endpoint starts if the setting is on.
             app.manage(mcp_app::setup(app.handle(), ai_file));
+            mcp_app::start_in_background(app.handle());
             let places = transfer::load_places(app.handle())?;
             app.manage(transfer::Folders(Arc::new(Mutex::new(places))));
             #[cfg(debug_assertions)]

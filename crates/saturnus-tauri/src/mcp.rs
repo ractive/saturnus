@@ -36,6 +36,7 @@
 
 use std::collections::VecDeque;
 use std::net::TcpStream;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -87,6 +88,8 @@ pub enum CallError {
     Gone,
     /// The window answered with an error.
     Failed(String),
+    /// AI access was turned off (or moved) while the request came in.
+    Off,
 }
 
 impl CallError {
@@ -96,8 +99,25 @@ impl CallError {
             Self::Timeout => "The saturnus app did not answer in time.".into(),
             Self::Gone => "The call was cancelled.".into(),
             Self::Failed(m) => m.clone(),
+            Self::Off => OFF.into(),
         }
     }
+}
+
+/// What a request to a server that was turned off is told.
+pub const OFF: &str = "AI access is off in the saturnus app.";
+
+/// Who calls: the AI app's name for the log and the confirmation, and
+/// whether it is `stable`, taken from what the app declared in its
+/// requests (`clientInfo`, or the legacy session this server issued it).
+/// A name guessed from the `User-Agent`, or the "AI app" default, is not:
+/// different apps may share it, so "Always allow" is not offered for it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Client {
+    /// The name shown.
+    pub name: String,
+    /// Whether the name may key "Always allow".
+    pub stable: bool,
 }
 
 /// The window that runs the tools, as the endpoint sees it.
@@ -105,13 +125,15 @@ pub trait Window: Send + Sync + 'static {
     /// The server's instructions, while the window is ready.
     fn instructions(&self) -> Option<String>;
     /// Run `method` (`tools/list` or `tools/call`) with its JSON-RPC
-    /// `params` for `client`; `gone` says whether the caller left and the
-    /// call should be cancelled. The window's result, or why there is none.
+    /// `params` for `client`; `gone` says whether the caller left (or the
+    /// server was turned off) and the call should be cancelled, and is
+    /// asked before anything goes to the window. The window's result, or
+    /// why there is none.
     fn call(
         &self,
         method: &str,
         params: Value,
-        client: &str,
+        client: &Client,
         gone: &dyn Fn() -> bool,
     ) -> Result<Value, CallError>;
     /// An AI app called `client` made an authenticated request.
@@ -128,8 +150,11 @@ pub struct Config {
     pub window: Arc<dyn Window>,
     /// The app's version, for `serverInfo`.
     pub version: String,
-    /// Legacy session ids and the clients' names they stand for.
-    sessions: Mutex<VecDeque<(String, String)>>,
+    /// Legacy session ids and the clients they stand for.
+    sessions: Mutex<VecDeque<(String, Client)>>,
+    /// Set when the server is turned off or moved: the requests already
+    /// accepted are refused ([`OFF`]) and nothing more reaches the window.
+    stop: Arc<AtomicBool>,
 }
 
 impl std::fmt::Debug for Config {
@@ -142,28 +167,41 @@ impl std::fmt::Debug for Config {
 }
 
 impl Config {
-    /// The endpoint on `port` with `token`, running tools in `window`.
-    pub fn new(port: u16, token: Token, window: Arc<dyn Window>, version: &str) -> Self {
+    /// The endpoint on `port` with `token`, running tools in `window`,
+    /// until `stop` is set.
+    pub fn new(
+        port: u16,
+        token: Token,
+        window: Arc<dyn Window>,
+        version: &str,
+        stop: Arc<AtomicBool>,
+    ) -> Self {
         Self {
             port,
             token,
             window,
             version: version.to_string(),
             sessions: Mutex::new(VecDeque::new()),
+            stop,
         }
     }
 
-    fn remember(&self, session: &str, client: &str) {
+    /// Whether the server was turned off.
+    pub fn stopped(&self) -> bool {
+        self.stop.load(Ordering::SeqCst)
+    }
+
+    fn remember(&self, session: &str, client: &Client) {
         if let Ok(mut s) = self.sessions.lock() {
             s.retain(|(id, _)| id != session);
             while s.len() >= MAX_SESSIONS {
                 s.pop_front();
             }
-            s.push_back((session.to_string(), client.to_string()));
+            s.push_back((session.to_string(), client.clone()));
         }
     }
 
-    fn session_client(&self, session: &str) -> Option<String> {
+    fn session_client(&self, session: &str) -> Option<Client> {
         let s = self.sessions.lock().ok()?;
         s.iter()
             .find(|(id, _)| id == session)
@@ -171,17 +209,17 @@ impl Config {
     }
 }
 
-/// Serve `listener` until `stop` is set; the accepting thread's handle.
+/// Serve `listener` until the config's stop flag is set; the accepting
+/// thread's handle.
 pub fn spawn(
     listener: std::net::TcpListener,
     cfg: Arc<Config>,
-    stop: Arc<std::sync::atomic::AtomicBool>,
 ) -> std::io::Result<std::thread::JoinHandle<()>> {
     guard::spawn(
         listener,
         "saturnus-mcp",
         Gate::new(MAX_CONNECTIONS),
-        Some(stop),
+        Some(Arc::clone(&cfg.stop)),
         move |stream, gate, pending| respond(stream, &cfg, gate, pending),
     )
 }
@@ -294,7 +332,9 @@ fn respond(
         Err(_) => return None,
     };
     let peer: &TcpStream = stream;
-    Some(handle(&head, &body, cfg, &|| client_gone(peer)))
+    Some(handle(&head, &body, cfg, &|| {
+        cfg.stopped() || client_gone(peer)
+    }))
 }
 
 /// Whether the client has closed its end (it gave up on the answer).
@@ -353,17 +393,28 @@ pub(crate) fn handle(head: &Head, body: &[u8], cfg: &Config, gone: &dyn Fn() -> 
         }
         Err(r) => return r,
     };
-    let client = client_name(head, &call, cfg);
-    cfg.window.seen(&client);
+    // Turned off (or moved) while this request came in: refused, and
+    // nothing reaches the window.
+    if cfg.stopped() {
+        return off(&call.id);
+    }
+    let client = client_of(head, &call, cfg);
+    cfg.window.seen(&client.name);
     match call.era {
         Era::Modern => modern(&call, cfg, &client, gone),
         Era::Legacy => legacy(&call, cfg, &client, gone),
     }
 }
 
-/// The client's name for the log: its `clientInfo`, the name its legacy
-/// session stands for, its `User-Agent`'s product, else "AI app".
-fn client_name(head: &Head, call: &Call<'_>, cfg: &Config) -> String {
+/// The answer of a server that was turned off.
+fn off(id: &Value) -> Response {
+    rpc_error(503, id, NOT_ANSWERED, OFF, None)
+}
+
+/// The client: its `clientInfo`'s name or the client its legacy session
+/// stands for (stable), else its `User-Agent`'s product or "AI app" (not
+/// stable).
+fn client_of(head: &Head, call: &Call<'_>, cfg: &Config) -> Client {
     let info = match call.era {
         Era::Modern => call
             .params
@@ -376,24 +427,29 @@ fn client_name(head: &Head, call: &Call<'_>, cfg: &Config) -> String {
         .and_then(Value::as_str)
         .map(clean_name)
         .filter(|n| !n.is_empty());
-    if let Some(n) = named {
-        return n;
+    if let Some(name) = named {
+        return Client { name, stable: true };
     }
-    if let Some(n) = head
+    if let Some(c) = head
         .header("mcp-session-id")
         .ok()
         .flatten()
         .and_then(|s| cfg.session_client(s))
     {
-        return n;
+        return c;
     }
-    head.header("user-agent")
+    let name = head
+        .header("user-agent")
         .ok()
         .flatten()
         .and_then(|ua| ua.split([' ', '/']).next())
         .map(clean_name)
         .filter(|n| !n.is_empty())
-        .unwrap_or_else(|| "AI app".to_string())
+        .unwrap_or_else(|| "AI app".to_string());
+    Client {
+        name,
+        stable: false,
+    }
 }
 
 /// A client's self-declared name, shown in the app: printable, at most 64
@@ -491,6 +547,20 @@ fn parse<'a>(head: &Head, msg: &'a Value) -> Result<Option<Call<'a>>, Response> 
                     "the notification body names method {method} but the Mcp-Method header names {h}"
                 ),
             ));
+        }
+        // The versions a request with an id is refused for: a claimed
+        // revision other than 2026-07-28, or a header naming none served
+        // (Claude Code's 2025-11-25 header on a 2026-07-28 body passes).
+        if let Some(c) = claimed
+            && c != MODERN
+        {
+            return Err(unsupported(&Value::Null, Some(c)));
+        }
+        if let Some(h) = header_version
+            && !LEGACY.contains(&h)
+            && h != MODERN
+        {
+            return Err(unsupported(&Value::Null, Some(h)));
         }
         return Ok(None);
     };
@@ -712,6 +782,9 @@ fn modern_result(id: &Value, cfg: &Config, mut value: Value) -> Response {
 /// A call the window did not answer, as a JSON-RPC error (the AI app sees
 /// why; HTTP 200, so no client takes it for a lost session).
 fn not_answered(id: &Value, e: &CallError) -> Response {
+    if *e == CallError::Off {
+        return off(id);
+    }
     rpc_error(200, id, NOT_ANSWERED, &e.message(), None)
 }
 
@@ -720,7 +793,7 @@ fn not_answered(id: &Value, e: &CallError) -> Response {
 fn through_window(
     call: &Call<'_>,
     cfg: &Config,
-    client: &str,
+    client: &Client,
     gone: &dyn Fn() -> bool,
 ) -> Result<Value, CallError> {
     let mut params = call.params.clone();
@@ -728,7 +801,13 @@ fn through_window(
     let r = cfg
         .window
         .call(call.method, Value::Object(params), client, gone);
+    // Turned off while it waited: the call ended for that reason.
+    let r = match r {
+        Err(_) if cfg.stopped() => Err(CallError::Off),
+        r => r,
+    };
     match r {
+        Err(CallError::Off) => Err(CallError::Off),
         Err(e) if call.method == "tools/call" && e != CallError::Gone => Ok(json!({
             "content": [{"type": "text", "text": e.message()}],
             "isError": true,
@@ -737,7 +816,7 @@ fn through_window(
     }
 }
 
-fn modern(call: &Call<'_>, cfg: &Config, client: &str, gone: &dyn Fn() -> bool) -> Response {
+fn modern(call: &Call<'_>, cfg: &Config, client: &Client, gone: &dyn Fn() -> bool) -> Response {
     let id = &call.id;
     match call.method {
         "server/discover" => {
@@ -796,7 +875,7 @@ fn instructions(cfg: &Config) -> String {
         .unwrap_or_else(|| CallError::NotReady.message())
 }
 
-fn legacy(call: &Call<'_>, cfg: &Config, client: &str, gone: &dyn Fn() -> bool) -> Response {
+fn legacy(call: &Call<'_>, cfg: &Config, client: &Client, gone: &dyn Fn() -> bool) -> Response {
     let id = &call.id;
     let ok =
         |result: Value| json_response(200, &json!({"jsonrpc": "2.0", "id": id, "result": result}));
@@ -847,6 +926,8 @@ mod tests {
         slow: AtomicBool,
         cancelled: AtomicBool,
         seen: Mutex<Vec<String>>,
+        /// The clients of the calls that reached it.
+        calls: Mutex<Vec<Client>>,
     }
 
     impl Window for FakeWindow {
@@ -858,9 +939,14 @@ mod tests {
             &self,
             method: &str,
             params: Value,
-            client: &str,
+            client: &Client,
             gone: &dyn Fn() -> bool,
         ) -> Result<Value, CallError> {
+            if gone() {
+                return Err(CallError::Gone);
+            }
+            self.calls.lock().unwrap().push(client.clone());
+            let client = &client.name;
             if self.not_ready.load(Ordering::SeqCst) {
                 return Err(CallError::NotReady);
             }
@@ -914,8 +1000,7 @@ mod tests {
         let w: Arc<dyn Window> = window.clone();
         spawn(
             l,
-            Arc::new(Config::new(port, t, w, "0.0.0")),
-            Arc::clone(&stop),
+            Arc::new(Config::new(port, t, w, "0.0.0", Arc::clone(&stop))),
         )
         .unwrap();
         Fixture {
@@ -1336,5 +1421,90 @@ mod tests {
             Some("run_rpl")
         );
         assert_eq!(decode_header_value("=?base64?!!?="), None);
+    }
+
+    /// Turned off while a request's body is still on its way: the request
+    /// is refused and nothing reaches the window.
+    #[test]
+    fn a_request_accepted_before_turning_off_is_refused() {
+        let f = fixture();
+        let body = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "read_display"}}).to_string();
+        let mut s = TcpStream::connect(("127.0.0.1", f.port)).unwrap();
+        s.set_read_timeout(Some(Duration::from_secs(30))).unwrap();
+        write!(s, "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n", f.port, f.token, body.len()).unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        f.stop.store(true, Ordering::SeqCst);
+        s.write_all(body.as_bytes()).unwrap();
+        let mut out = String::new();
+        let _ = s.read_to_string(&mut out);
+        assert!(out.starts_with("HTTP/1.1 503"), "{out}");
+        assert!(out.contains(OFF), "{out}");
+        assert!(
+            f.window.calls.lock().unwrap().is_empty(),
+            "the window got the call"
+        );
+    }
+
+    /// Notifications are refused for the versions a request is refused for.
+    #[test]
+    fn notifications_with_an_unsupported_version_are_refused() {
+        let f = fixture();
+        let note = json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
+        let (s, _, v) = f.post("MCP-Protocol-Version: 2024-01-01\r\n", &note);
+        assert_eq!(
+            (s, &v["error"]["code"]),
+            (400, &json!(UNSUPPORTED_VERSION)),
+            "{v}"
+        );
+        let future = json!({"jsonrpc": "2.0", "method": "notifications/x", "params": {"_meta": {META_VERSION: "2099-01-01", META_CAPABILITIES: {}}}});
+        let (s, _, v) = f.post(
+            "MCP-Protocol-Version: 2099-01-01\r\nMcp-Method: notifications/x\r\n",
+            &future,
+        );
+        assert_eq!(
+            (s, &v["error"]["code"]),
+            (400, &json!(UNSUPPORTED_VERSION)),
+            "{v}"
+        );
+        for header in ["", "MCP-Protocol-Version: 2025-06-18\r\n"] {
+            assert_eq!(f.post(header, &note).0, 202, "{header:?}");
+        }
+        // Claude Code's header on a 2026-07-28 body still passes.
+        let modern = json!({"jsonrpc": "2.0", "method": "notifications/x", "params": {"_meta": {META_VERSION: MODERN, META_CAPABILITIES: {}}}});
+        let (s, _, _) = f.post(
+            "MCP-Protocol-Version: 2025-11-25\r\nMcp-Method: notifications/x\r\n",
+            &modern,
+        );
+        assert_eq!(s, 202);
+    }
+
+    /// A name from clientInfo or an issued legacy session is stable; one
+    /// from the User-Agent or the default is not.
+    #[test]
+    fn which_client_names_are_stable() {
+        let f = fixture();
+        let call = |id: u64| json!({"jsonrpc": "2.0", "id": id, "method": "tools/call", "params": {"name": "read_display"}});
+        f.modern("tools/call", json!({"name": "read_display"}));
+        let init = json!({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "cursor", "version": "1"}}});
+        let (_, head, _) = f.post("", &init);
+        let session = head
+            .lines()
+            .find_map(|l| l.strip_prefix("Mcp-Session-Id: "))
+            .unwrap()
+            .to_string();
+        f.post(&format!("Mcp-Session-Id: {session}\r\n"), &call(1));
+        f.post("User-Agent: node\r\n", &call(2));
+        f.post("Mcp-Session-Id: made-up\r\n", &call(3));
+        let calls = f.window.calls.lock().unwrap().clone();
+        let got: Vec<(&str, bool)> = calls.iter().map(|c| (c.name.as_str(), c.stable)).collect();
+        assert_eq!(
+            got,
+            [
+                ("claude-code", true),
+                ("cursor", true),
+                ("node", false),
+                ("AI app", false)
+            ]
+        );
     }
 }

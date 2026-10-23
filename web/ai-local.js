@@ -174,6 +174,16 @@ export function invalidArguments(tool, args) {
   return `Input validation error: Invalid arguments for tool ${tool.name}: ${problems.join("; ")}`;
 }
 
+/** Hide "Always allow" and its note in the newest open tab-mcp confirmation of `doc`. */
+function noAlwaysAllow(doc) {
+  const dialogs = doc.querySelectorAll?.("dialog.tab-mcp-confirm") ?? [];
+  const d = dialogs[dialogs.length - 1];
+  if (!d) return;
+  for (const b of d.querySelectorAll("button")) if (b.textContent === "Always allow") b.hidden = true;
+  const note = d.querySelector(".tab-mcp-always-note");
+  if (note) note.hidden = true;
+}
+
 /** Tool call ids, unique in the page. */
 let lastCallId = 0;
 
@@ -387,7 +397,7 @@ export class LocalAiAccess extends EventTarget {
     let reply;
     try {
       if (msg.method === "tools/list") reply = { result: { tools: listTools(this.tools) } };
-      else if (msg.method === "tools/call") reply = { result: await this.call(id, msg.params ?? {}, msg.client) };
+      else if (msg.method === "tools/call") reply = { result: await this.call(id, msg.params ?? {}, msg.client, msg.clientStable === true) };
       else reply = { error: `Method ${msg.method} is not served by the app.` };
     } catch (err) {
       reply = { error: String(err?.message ?? err) };
@@ -400,13 +410,14 @@ export class LocalAiAccess extends EventTarget {
   }
 
   /** One tool call: checked, confirmed where the tool asks, run, logged. */
-  async call(id, params, clientName) {
+  async call(id, params, clientName, stable = false) {
     const tool = this.tools.find((t) => t.name === params.name);
     if (typeof params.name !== "string" || !tool) return errorResult(`Tool ${params.name} not found`);
     const raw = params.arguments ?? {};
     if (!isPlainObject(raw)) return errorResult("Invalid params: arguments must be an object");
     const name = clientName || "AI app";
-    const client = { grantId: name, id: "local", name, host: HERE };
+    // A name only guessed (User-Agent, the default) is no key for "Always allow": its grant is its own.
+    const client = { grantId: stable ? name : `?${name}`, id: "local", name, host: HERE, stable };
     const controller = new AbortController();
     this.running.set(id, controller);
     this.changed();
@@ -449,15 +460,23 @@ export class LocalAiAccess extends EventTarget {
     return [res.isError === true ? "error" : "ok", res];
   }
 
-  /** Ask the user in tab-mcp's confirmation; "Always allow" remembered for this AI app and tool. */
+  /**
+   * Ask the user in tab-mcp's confirmation; "Always allow" remembered for
+   * this AI app and tool. Only for an AI app that named itself (`stable`):
+   * a name guessed from its User-Agent may be another app's, so it is
+   * asked every time and the dialog offers no "Always allow".
+   */
   async confirm(tool, args, signal, client) {
-    if (this.allowed.get(client.grantId)?.has(tool.name)) return true;
+    if (client.stable && this.allowed.get(client.grantId)?.has(tool.name)) return true;
     if (!this.doc) return false;
     const { confirmDialog } = await this.confirmModule();
     const question = { tool: { name: tool.name, description: tool.description }, arguments: args, client, signal };
     if (tool.title !== undefined) question.tool.title = tool.title;
-    const answer = await confirmDialog(question, this.doc, this.allowDelayMs === undefined ? {} : { allowDelayMs: this.allowDelayMs });
-    if (answer === "always" && this.status.running) {
+    const asked = confirmDialog(question, this.doc, this.allowDelayMs === undefined ? {} : { allowDelayMs: this.allowDelayMs });
+    // The dialog is in the document once it is asked: without a stable name, its Always allow goes.
+    if (!client.stable) noAlwaysAllow(this.doc);
+    const answer = await asked;
+    if (answer === "always" && client.stable && this.status.running) {
       const set = this.allowed.get(client.grantId) ?? new Set();
       set.add(tool.name);
       this.allowed.set(client.grantId, set);

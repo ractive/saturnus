@@ -36,7 +36,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tauri::{AppHandle, Emitter, State};
 
-use crate::mcp::{self, CLIENT_CHECK, CallError, Config, Window};
+use crate::mcp::{self, CLIENT_CHECK, CallError, Client, Config, Window};
 
 /// The settings file, in the app's config folder.
 pub const SETTINGS_FILE: &str = "ai-access.json";
@@ -59,6 +59,10 @@ const MAX_LIMIT: Duration = Duration::from_secs(600);
 pub const APP_FRESH: Duration = Duration::from_secs(10 * 60);
 /// Longest instructions the window may set.
 const MAX_INSTRUCTIONS: usize = 64 * 1024;
+/// What the calls in progress are told when the setting goes off.
+pub const TURNED_OFF: &str = "AI access was turned off in the saturnus app.";
+/// What they are told when the endpoint moves to another port.
+pub const MOVED: &str = "AI access moved to another port in the saturnus app.";
 /// Lowest port the setting takes (below are the system's).
 const MIN_PORT: u16 = 1024;
 
@@ -243,9 +247,14 @@ impl Window for Bridge {
         &self,
         method: &str,
         params: Value,
-        client: &str,
+        client: &Client,
         gone: &dyn Fn() -> bool,
     ) -> Result<Value, CallError> {
+        // The caller left, or the server was turned off, before the call
+        // got here: nothing goes to the window.
+        if gone() {
+            return Err(CallError::Gone);
+        }
         let (id, rx, limit) = {
             let mut c = self.calls.lock().map_err(|_| CallError::NotReady)?;
             let ready = c.ready.as_ref().ok_or(CallError::NotReady)?;
@@ -266,7 +275,7 @@ impl Window for Bridge {
         };
         let sent = self.events.emit(
             CALL_EVENT,
-            json!({"id": id, "method": method, "params": params, "client": client}),
+            json!({"id": id, "method": method, "params": params, "client": client.name, "clientStable": client.stable}),
         );
         if !sent {
             self.withdraw(id);
@@ -338,6 +347,10 @@ pub struct Local {
     token_file: Option<PathBuf>,
     version: String,
     state: Mutex<LocalState>,
+    /// Held while the endpoint is started or stopped (reading the token,
+    /// binding, naming a busy port's user), so `state` is held only for
+    /// a moment and the status is never kept waiting.
+    applying: Mutex<()>,
 }
 
 #[derive(Debug, Default)]
@@ -364,6 +377,7 @@ impl Local {
                 settings,
                 ..LocalState::default()
             }),
+            applying: Mutex::new(()),
         }
     }
 
@@ -374,38 +388,42 @@ impl Local {
 
     /// Start the endpoint if the setting is on (the app starts).
     pub fn start(&self) {
-        if let Ok(mut s) = self.state.lock() {
-            self.apply(&mut s);
-        }
+        self.apply();
     }
 
     /// Change the setting: kept, then applied (turning it off stops the
     /// endpoint at once). The new status, with the header.
     pub fn set(&self, enabled: bool, port: Option<u16>) -> Result<Value, String> {
-        let mut s = self
-            .state
-            .lock()
-            .map_err(|_| "AI access is not available. Restart the app.".to_string())?;
-        let port = port.unwrap_or(s.settings.port);
-        if port < MIN_PORT {
-            return Err(format!("Choose a port from {MIN_PORT} to 65535."));
-        }
-        s.settings = Settings { enabled, port };
-        if let Some(f) = &self.file {
-            let saved = serde_json::to_vec_pretty(&s.settings)
-                .map_err(|e| e.to_string())
-                .and_then(|b| {
-                    if let Some(dir) = f.parent() {
-                        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-                    }
-                    std::fs::write(f, b).map_err(|e| e.to_string())
-                });
-            if let Err(e) = saved {
-                eprintln!("saturnus: the AI access setting is not kept: {e}");
+        {
+            let mut s = self.lock()?;
+            let port = port.unwrap_or(s.settings.port);
+            if port < MIN_PORT {
+                return Err(format!("Choose a port from {MIN_PORT} to 65535."));
+            }
+            s.settings = Settings { enabled, port };
+            if let Some(f) = &self.file {
+                let saved = serde_json::to_vec_pretty(&s.settings)
+                    .map_err(|e| e.to_string())
+                    .and_then(|b| {
+                        if let Some(dir) = f.parent() {
+                            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+                        }
+                        std::fs::write(f, b).map_err(|e| e.to_string())
+                    });
+                if let Err(e) = saved {
+                    eprintln!("saturnus: the AI access setting is not kept: {e}");
+                }
             }
         }
-        self.apply(&mut s);
+        self.apply();
+        let s = self.lock()?;
         Ok(status(&s, &self.bridge, true))
+    }
+
+    fn lock(&self) -> Result<std::sync::MutexGuard<'_, LocalState>, String> {
+        self.state
+            .lock()
+            .map_err(|_| "AI access is not available. Restart the app.".to_string())
     }
 
     /// The status; with the header while the endpoint runs.
@@ -418,23 +436,39 @@ impl Local {
         }
     }
 
-    /// Make the endpoint match the setting.
-    fn apply(&self, s: &mut LocalState) {
-        let want = s.settings.enabled.then_some(s.settings.port);
-        if s.running.as_ref().map(|r| r.port) == want && s.running.is_some() {
+    /// Make the endpoint match the setting. The slow part (the token
+    /// file, the bind, naming a busy port's user) runs without `state`
+    /// held; `applying` keeps two changes from interleaving.
+    fn apply(&self) {
+        let Ok(_one) = self.applying.lock() else {
             return;
-        }
-        if let Some(r) = s.running.take() {
+        };
+        let (want, old) = {
+            let Ok(mut s) = self.state.lock() else {
+                return;
+            };
+            let want = s.settings.enabled.then_some(s.settings.port);
+            if s.running.is_some() && s.running.as_ref().map(|r| r.port) == want {
+                return;
+            }
+            s.error = None;
+            (want, s.running.take())
+        };
+        if let Some(r) = old {
             r.stop.store(true, Ordering::SeqCst);
+            // Moved to another port, or turned off: the calls in progress
+            // end, and the AI apps must be set up again for a new port, so
+            // the list of apps starts afresh either way.
             self.bridge
-                .end_all("AI access was turned off in the saturnus app.");
+                .end_all(if want.is_some() { MOVED } else { TURNED_OFF });
             self.bridge.forget_apps();
         }
-        s.error = None;
-        if let Some(port) = want {
-            match self.launch(port) {
-                Ok(r) => s.running = Some(r),
-                Err(e) => s.error = Some(e),
+        let launched = want.map(|port| self.launch(port));
+        if let Ok(mut s) = self.state.lock() {
+            match launched {
+                Some(Ok(r)) => s.running = Some(r),
+                Some(Err(e)) => s.error = Some(e),
+                None => {}
             }
         }
         self.bridge.events.emit(STATUS_EVENT, Value::Null);
@@ -454,9 +488,14 @@ impl Local {
             .map_err(|e| bind_message(port, &e))?;
         let stop = Arc::new(AtomicBool::new(false));
         let window: Arc<dyn Window> = self.bridge.clone();
-        let cfg = Arc::new(Config::new(port, t, window, &self.version));
-        mcp::spawn(listener, cfg, Arc::clone(&stop))
-            .map_err(|e| format!("AI access could not start: {e}"))?;
+        let cfg = Arc::new(Config::new(
+            port,
+            t,
+            window,
+            &self.version,
+            Arc::clone(&stop),
+        ));
+        mcp::spawn(listener, cfg).map_err(|e| format!("AI access could not start: {e}"))?;
         Ok(Running {
             port,
             stop,
@@ -526,18 +565,34 @@ pub async fn mcp_set(app: AppHandle, enabled: bool, port: Option<u16>) -> Result
     .await
 }
 
-/// The app's state of AI access, its endpoint started if the setting is
-/// on.
+/// The app's state of AI access; [`start_in_background`] starts its
+/// endpoint once it is managed.
 pub fn setup(app: &AppHandle, file: Option<PathBuf>) -> Local {
     let bridge = Arc::new(Bridge::new(Box::new(AppEvents(app.clone()))));
-    let local = Local::new(bridge, file, &app.package_info().version.to_string());
-    local.start();
-    local
+    Local::new(bridge, file, &app.package_info().version.to_string())
+}
+
+/// Start the endpoint if the setting is on, off the main thread (it reads
+/// the token file and binds).
+pub fn start_in_background(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(local) = tauri::Manager::try_state::<Local>(&app) {
+            local.start();
+        }
+    });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn client(name: &str) -> Client {
+        Client {
+            name: name.to_string(),
+            stable: true,
+        }
+    }
 
     /// Records the events.
     #[derive(Default)]
@@ -580,7 +635,7 @@ mod tests {
         let never = || false;
         // Not attached: not ready, nothing sent.
         assert_eq!(
-            b.call("tools/list", json!({}), "x", &never),
+            b.call("tools/list", json!({}), &client("x"), &never),
             Err(CallError::NotReady)
         );
         assert!(b.instructions().is_none());
@@ -594,18 +649,20 @@ mod tests {
             b2.call(
                 "tools/call",
                 json!({"name": "read_display"}),
-                "claude-code",
+                &client("claude-code"),
                 &|| false,
             )
         });
         let call = last_call(&rec);
         assert_eq!(call["method"], "tools/call");
         assert_eq!(call["client"], "claude-code");
+        assert_eq!(call["clientStable"], true);
         b.reply(call["id"].as_u64().unwrap(), Ok(json!({"content": []})));
         assert_eq!(t.join().unwrap(), Ok(json!({"content": []})));
         // An error from the window.
         let b2 = Arc::clone(&b);
-        let t = std::thread::spawn(move || b2.call("tools/list", json!({}), "x", &|| false));
+        let t =
+            std::thread::spawn(move || b2.call("tools/list", json!({}), &client("x"), &|| false));
         let id = loop {
             let c = last_call(&rec);
             if c["method"] == "tools/list" {
@@ -622,7 +679,12 @@ mod tests {
         // run_rpl's limit is clamped to the minimum of 1 s.
         b.attach(String::new(), &HashMap::from([("run_rpl".to_string(), 10)]));
         let started = Instant::now();
-        let r = b.call("tools/call", json!({"name": "run_rpl"}), "x", &|| false);
+        let r = b.call(
+            "tools/call",
+            json!({"name": "run_rpl"}),
+            &client("x"),
+            &|| false,
+        );
         assert_eq!(r, Err(CallError::Timeout));
         assert!(started.elapsed() >= MIN_LIMIT);
         let cancelled = |rec: &Recorder| {
@@ -634,16 +696,54 @@ mod tests {
                 .count()
         };
         assert_eq!(cancelled(&rec), 1, "the window is told");
-        // The client leaves.
-        let r = b.call("tools/call", json!({"name": "read_display"}), "x", &|| true);
+        // The client left (or the server was turned off) before the call
+        // got here: nothing goes to the window.
+        let calls = |rec: &Recorder| {
+            rec.0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(e, _)| e == CALL_EVENT)
+                .count()
+        };
+        let before = calls(&rec);
+        let r = b.call(
+            "tools/call",
+            json!({"name": "read_display"}),
+            &client("x"),
+            &|| true,
+        );
         assert_eq!(r, Err(CallError::Gone));
+        assert_eq!(calls(&rec), before, "no mcp-call");
+        // It leaves while the call waits: withdrawn, the window told.
+        let left = AtomicBool::new(false);
+        let b2 = Arc::clone(&b);
+        let gone_later = std::thread::scope(|sc| {
+            let h = sc.spawn(|| {
+                b2.call(
+                    "tools/call",
+                    json!({"name": "read_display"}),
+                    &client("x"),
+                    &|| left.load(Ordering::SeqCst),
+                )
+            });
+            while calls(&rec) == before {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            left.store(true, Ordering::SeqCst);
+            h.join().unwrap()
+        });
+        assert_eq!(gone_later, Err(CallError::Gone));
         assert_eq!(cancelled(&rec), 2);
         // The window reloads while a call waits.
         let b2 = Arc::clone(&b);
         let t = std::thread::spawn(move || {
-            b2.call("tools/call", json!({"name": "read_display"}), "x", &|| {
-                false
-            })
+            b2.call(
+                "tools/call",
+                json!({"name": "read_display"}),
+                &client("x"),
+                &|| false,
+            )
         });
         let _ = last_call(&rec);
         std::thread::sleep(Duration::from_millis(20));
@@ -718,12 +818,13 @@ mod tests {
         // A call waiting when it is turned off ends at once.
         b.attach(String::new(), &HashMap::new());
         let b2 = Arc::clone(&b);
-        let t =
-            std::thread::spawn(move || b2.call("tools/call", json!({"name": "x"}), "x", &|| false));
+        let t = std::thread::spawn(move || {
+            b2.call("tools/call", json!({"name": "x"}), &client("x"), &|| false)
+        });
         std::thread::sleep(Duration::from_millis(50));
         let off = local.set(false, None).unwrap();
         assert_eq!(off["running"], false);
-        assert!(matches!(t.join().unwrap(), Err(CallError::Failed(m)) if m.contains("turned off")));
+        assert!(matches!(t.join().unwrap(), Err(CallError::Failed(m)) if m == TURNED_OFF));
         let end = Instant::now() + Duration::from_secs(5);
         while std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
             assert!(Instant::now() < end, "still accepting");
@@ -732,6 +833,24 @@ mod tests {
         // Read back on the next start.
         let again = Local::new(Arc::clone(&b), Some(file), "0.0.0");
         assert_eq!(again.status(false)["enabled"], false);
+
+        // Moved to another port: the calls in progress are told so, the
+        // old port stops, the new one serves.
+        local.set(true, Some(port)).unwrap();
+        let other = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let b2 = Arc::clone(&b);
+        let t = std::thread::spawn(move || {
+            b2.call("tools/call", json!({"name": "x"}), &client("x"), &|| false)
+        });
+        std::thread::sleep(Duration::from_millis(50));
+        let moved = local.set(true, Some(other)).unwrap();
+        assert_eq!(moved["address"], format!("http://127.0.0.1:{other}/mcp"));
+        assert!(matches!(t.join().unwrap(), Err(CallError::Failed(m)) if m == MOVED));
+        local.set(false, None).unwrap();
 
         // A busy port.
         let held = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -744,5 +863,22 @@ mod tests {
             "{e}"
         );
         local.set(false, None).unwrap();
+    }
+
+    /// While the endpoint starts or stops (the token file, the bind,
+    /// naming a busy port's user), the status still answers at once.
+    #[test]
+    fn the_status_does_not_wait_for_a_start() {
+        let (b, _) = bridge();
+        let local = Arc::new(Local::new(b, None, "0.0.0"));
+        let starting = local.applying.lock().unwrap();
+        let l2 = Arc::clone(&local);
+        let (tx, rx) = channel();
+        std::thread::spawn(move || tx.send(l2.status(true)).unwrap());
+        let s = rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("the status waited");
+        assert_eq!(s["running"], false);
+        drop(starting);
     }
 }

@@ -53,9 +53,9 @@ function fakeTauri(status = {}) {
       handlers.get(name)?.({ payload });
     },
     /** An AI app's call through the endpoint: resolves to the window's reply. */
-    call(id, method, params, client = "claude-code") {
+    call(id, method, params, client = "claude-code", clientStable = true) {
       const p = new Promise((resolve) => replies.set(id, resolve));
-      t.emit("mcp-call", { id, method, params, client });
+      t.emit("mcp-call", { id, method, params, client, clientStable });
       return p;
     },
   };
@@ -140,6 +140,18 @@ test("a consequential tool asks first; Always allow stops asking for that app an
   await ai.set(false);
   await ai.set(true);
   await tauri.call(4, "tools/call", store, "Cursor");
+  assert.equal(confirm.asked.length, 3);
+});
+
+test("an AI app named only by its User-Agent is asked every time, without Always allow", async () => {
+  const { tauri, confirm } = await loaded({ answer: "always", status: { running: true, enabled: true } });
+  const store = { name: "store_variable", arguments: { name: "X", text: "1" } };
+  await tauri.call(1, "tools/call", store, "node", false);
+  await tauri.call(2, "tools/call", store, "node", false);
+  assert.equal(confirm.asked.length, 2, "asked again");
+  assert.equal(confirm.asked[0].client.stable, false);
+  // A stable app of the same name gets no grant from it either.
+  await tauri.call(3, "tools/call", store, "node", true);
   assert.equal(confirm.asked.length, 3);
 });
 

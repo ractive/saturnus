@@ -5,7 +5,7 @@
 //!
 //! Connections are budgeted in two stages. Until its head has passed the
 //! checks a connection is *pending*: it has [`HEAD_TIMEOUT`] to send the
-//! head, and when [`MAX_PENDING`] are pending the oldest is dropped for a
+//! head, and when `guard::MAX_PENDING` are pending the oldest is dropped for a
 //! new one, so idle connections without the token cannot lock the token
 //! holder out. An authenticated request then takes one of
 //! [`MAX_CONNECTIONS`] slots (503 when none is free) until its response

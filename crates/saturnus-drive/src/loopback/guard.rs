@@ -130,7 +130,7 @@ impl Gate {
 /// thread of its own runs `handle` (the stream, the gate, its pending
 /// place), whose response, if any, is written before the connection is
 /// closed. With `stop`, the server stops accepting and lets the port go
-/// within [`STOP_POLL`] once the flag is set; without, it serves as long
+/// within 25 ms once the flag is set; without, it serves as long
 /// as the process lives. The join handle of the accepting thread.
 pub fn spawn<H>(
     listener: TcpListener,

@@ -91,7 +91,7 @@ the same code (`saturnus_drive::loopback::guard`):
 
 | Rule | Why | Test |
 | --- | --- | --- |
-| Bound to 127.0.0.1 only; off by default; turning the setting off stops accepting at once (the accept loop looks at its stop flag every 25 ms) and ends the calls in progress | No remote caller; nothing listens unless the user asked for it | `mcp::tests::turned_off_it_stops_accepting`, `mcp_app::tests::the_setting_starts_and_stops_the_endpoint`, `guard::tests::a_stopped_server_stops_accepting` |
+| Bound to 127.0.0.1 only; off by default; turning the setting off stops accepting at once (the accept loop looks at its stop flag every 25 ms) and ends the calls in progress; a request accepted before is refused (503, "AI access is off") and never reaches the window | No remote caller; nothing listens unless the user asked for it | `mcp::tests::turned_off_it_stops_accepting`, `mcp::tests::a_request_accepted_before_turning_off_is_refused`, `mcp_app::tests::the_setting_starts_and_stops_the_endpoint`, `guard::tests::a_stopped_server_stops_accepting` |
 | The control API's token file (`control-token`, created if missing), `Authorization: Bearer` on every request, compared in constant time; missing or wrong is 401 `{}` before the path is looked at; no hello (the forwarder of iteration 59 reads the file itself) | Other local users, and browsers | `mcp::tests::the_control_api_rules_hold` |
 | `Host` 127.0.0.1 or localhost with the bound port (421), any other `Origin` 403, `OPTIONS` 405, no CORS header ever | DNS rebinding and cross-site pages, as for the control API | the same test |
 | Only `POST /mcp`; `GET` and `DELETE` 405 (no event stream, no sessions to end); `application/json` only (415) | Nothing a page can send without a preflight | the same test |
@@ -110,6 +110,14 @@ AI apps then need the new commands, as do `saturnus ctl` callers).
 
 A legacy `initialize` gets an `Mcp-Session-Id`; it only names the client
 in "The AI's calls" and is never checked, so it grants nothing.
+
+"Always allow" is keyed on the AI app's declared name (its `clientInfo`,
+or the legacy session this server issued it), which is enough because
+the token is the boundary and the confirmation guards against an AI
+model's mistakes, not a hostile local app; a name only guessed from the
+`User-Agent` or the "AI app" default is asked every time, with no
+"Always allow" (`mcp::tests::which_client_names_are_stable`, web
+`ai-local.test.mjs`, `ai-local-page.test.mjs`).
 
 ## Known limits
 
