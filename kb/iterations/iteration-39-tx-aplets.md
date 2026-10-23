@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 39: saturnus-tx for the 38G, 39G and 40G (aplets, XModem), XModem on the 48GX and 49G"
 date: 2026-10-10
-status: planned
+status: completed
 tags:
   - iteration
   - saturnus-tx
@@ -45,7 +45,7 @@ No XSERV (owner, 2026-10-10: it belongs to the 49g+/50g).
 - [x] 49G and 48GX: "Fast transfer (XModem)" for get and put: the page ends the server, shows what to type (`'NAME' XRECV`, `XSEND`), waits, and offers to restart `SERVER` after (`satx-core`'s XModem session; 1k blocks on the 49G, checksum only on the 48GX)
 - [x] Tests: unit tests over the new traces; `just tx-e2e DIR` with the emulated 38G and 39G: send an aplet to the folder, receive it back byte for byte; XModem put and get against the emulated 48GX and 49G
 - [x] Docs: [[docs/saturnus-tx]] (aplets as built), CHANGELOG
-- [ ] Owner: on the 38G (the owner's 10-pin cable): send an aplet to a folder, receive it back, receive an aplet made on the emulated 38G; XModem put and get on the 49G
+- [-] Owner: on the 38G (the owner's 10-pin cable): send an aplet to a folder, receive it back, receive an aplet made on the emulated 38G; XModem put and get on the 49G (moved to [[backlog/owner-checks]], 2026-10-23)
 
 ## Acceptance
 

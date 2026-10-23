@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 38: saturnus-tx two panes, local folder, drag and drop, backup and restore"
 date: 2026-10-10
-status: planned
+status: completed
 tags:
   - iteration
   - saturnus-tx
@@ -53,7 +53,7 @@ directory); backup and restore of a whole calculator.
 - [x] Web: two panes, the place switcher, the stacked narrow layout, drag and drop (pane to pane, file manager to pane, optional `DownloadURL` drag out), the keys, the queue and progress, the replace and purge questions (`confirm.js`)
 - [x] Tests: node tests for the panes' actions and the queue; the page with `FakeLink` and a fake folder (drag, replace, purge, overflow at the five widths); `just tx-e2e DIR`: backup and restore, folder copy of HOME and back byte for byte, emulated 48GX to emulated 49G
 - [x] Docs: [[docs/saturnus-tx]] updated where the build differs, `web/README.md`, CHANGELOG
-- [ ] Owner: on the 48SX and the 49G: a folder chosen in Chrome, a drag each way, rename and purge on both sides, a backup and a restore, the folder copy of HOME; the emulated 49G to the real 49G by drag; in Firefox the fallback with the emulated calculator
+- [-] Owner: on the 48SX and the 49G: a folder chosen in Chrome, a drag each way, rename and purge on both sides, a backup and a restore, the folder copy of HOME; the emulated 49G to the real 49G by drag; in Firefox the fallback with the emulated calculator (moved to [[backlog/owner-checks]], 2026-10-23)
 
 ## Acceptance
 

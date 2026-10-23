@@ -39,6 +39,18 @@ Checks that need a person (real calculators, phones, other browsers, the desktop
 
 - [ ] Owner: on the 48SX and the 49G in Chrome or Edge with a USB serial cable: connect without typing settings, the model shown right, list, get a program and a GROB, put them back under new names, the preview of both; then the same against the emulated 48GX in Firefox or Safari
 
+## Iteration 38: [[iterations/iteration-38-tx-two-panes]]
+
+- [ ] Owner: on the 48SX and the 49G: a folder chosen in Chrome, a drag each way, rename and purge on both sides, a backup and a restore, the folder copy of HOME; the emulated 49G to the real 49G by drag; in Firefox the fallback with the emulated calculator
+
+## Iteration 39: [[iterations/iteration-39-tx-aplets]]
+
+- [ ] Owner: on the 38G (the owner's 10-pin cable): send an aplet to a folder, receive it back, receive an aplet made on the emulated 38G; XModem put and get on the 49G
+
+## Iteration 40: [[iterations/iteration-40-tx-desktop]]
+
+- [ ] Owner: the macOS app opens without the quarantine dance (signed and notarised), installs from the cask; on the 48SX, 49G and 38G with the app: connect, a drag each way, a backup; the Windows and Linux installers on a real port if a machine is at hand
+
 ## Iteration 41: [[iterations/iteration-41-shared-calculators]]
 
 - [ ] Owner: the 48GX used in the emulator, then in saturnus tx and back (a variable made in one shows in the other); the emulator tab in the background for a minute, then taken over from saturnus tx; on the phone the same with the emulator app

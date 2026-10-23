@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 40: saturnus-tx desktop app with native serial, release, signing and cask"
 date: 2026-10-10
-status: planned
+status: completed
 tags:
   - iteration
   - saturnus-tx
@@ -46,7 +46,7 @@ only moves bytes and files.
 - [x] The app ships from the workspace's one tag and version (decision log, 2026-10-10, consolidation): `desktop.yml` with `release-tag` attaches both apps' installers, the release checklist in [[docs/releasing]] names them
 - [x] Linux: the `.deb`, `.rpm` and AppImage name the `dialout` group in their description; no file shared with the `saturnus`, `saturnus-app` or `satx` packages
 - [x] Docs: [[docs/releasing]] (the tx app: checklist steps, recovery), [[docs/ci]], README (download links, the cable notes), CHANGELOG
-- [ ] Owner: the macOS app opens without the quarantine dance (signed and notarised), installs from the cask; on the 48SX, 49G and 38G with the app: connect, a drag each way, a backup; the Windows and Linux installers on a real port if a machine is at hand
+- [-] Owner: the macOS app opens without the quarantine dance (signed and notarised), installs from the cask; on the 48SX, 49G and 38G with the app: connect, a drag each way, a backup; the Windows and Linux installers on a real port if a machine is at hand (moved to [[backlog/owner-checks]], 2026-10-23)
 
 ## Acceptance
 
