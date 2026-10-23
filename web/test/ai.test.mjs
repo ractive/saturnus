@@ -209,6 +209,13 @@ test("which failed connects are worth another try", () => {
   assert.equal(transientFailure(new Error("The relay ended the connection: replaced")), false);
   assert.equal(transientFailure(new DOMException("no click", "NotAllowedError")), false);
   assert.equal(transientFailure(new DOMException("cancelled", "AbortError")), false);
+  // The client's reason decides over the message (tab-mcp 0.4 on).
+  const because = (reason, message = "worded differently") => Object.assign(new Error(message), { reason });
+  assert.equal(transientFailure(because("network")), true);
+  assert.equal(transientFailure(because("shutdown")), true);
+  assert.equal(transientFailure(because("policy", DOWN().message)), false, "a refusal, whatever the words");
+  assert.equal(transientFailure(because("rate_limited")), false);
+  assert.equal(transientFailure(because("replaced")), false);
 });
 
 test("a broken connection is tried again with growing waits until it is back, without Keep AI access on", { timeout: 2000 }, async () => {

@@ -46,10 +46,13 @@ export function retryDelay(attempt) {
  * Whether a failed connect may work later (the relay down or restarting,
  * no answer in time), not refused for good: the relay said no (an
  * address it refuses, its message limit), the browser said no, or it was
- * cancelled. The client gives no codes, so its messages are read.
+ * cancelled. The client (0.4 on) gives the rejection a `reason`, as in a
+ * `disconnected` event, which decides like the library's own reconnect;
+ * without one (older clients) its messages are read.
  */
 export function transientFailure(err) {
   if (!err || err.name === "NotAllowedError" || err.name === "AbortError") return false;
+  if (typeof err.reason === "string") return TRANSIENT.has(err.reason);
   const m = String(err.message ?? "");
   if (m.startsWith("The relay refused the connection") || m.includes("message limit")) return false;
   const ended = /^The relay ended the connection: (\w+)/.exec(m);
