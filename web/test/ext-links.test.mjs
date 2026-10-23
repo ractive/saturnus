@@ -3,7 +3,8 @@
 // each opens in a new tab with rel="noopener noreferrer" and its ↗, and
 // one address is a link at most twice on the page, the header's and the
 // footer's navigation and the dialogs' source lists aside. The docs
-// pages' links: web/test/docs.test.mjs.
+// pages' links: web/test/docs.test.mjs. Also the addresses
+// scripts/check-links.mjs reads from a docs page.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -45,4 +46,17 @@ test("a link budget counts an address however it is written", () => {
   assert.equal(b.take("https://hpcalc.org"), true);
   assert.equal(b.take("http://HPCALC.org/"), false);
   assert.equal(b.take("https://www.hpcalc.org/details/1"), true, "another page of the site is another address");
+});
+
+test("scripts/check-links.mjs reads a page's addresses: parentheses in one, autolinks, site names outside code", async () => {
+  const { markdownUrls } = await import("../../scripts/check-links.mjs");
+  const md = [
+    "A [photo](https://commons.wikimedia.org/wiki/File:HP_28S_(open).jpg) and <https://e.org/a>.",
+    "From hpcalc.org, not from hpcomm.org; [inside](48gx.md).",
+    "`crates.io` and",
+    "```",
+    "scoop bucket add r https://github.com/r/b",
+    "```",
+  ].join("\n");
+  assert.deepEqual(markdownUrls(md), ["https://commons.wikimedia.org/wiki/File:HP_28S_(open).jpg", "https://e.org/a", "https://www.hpcalc.org/"]);
 });
