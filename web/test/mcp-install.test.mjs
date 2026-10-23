@@ -41,7 +41,9 @@ test("VS Code: URL-encoded JSON with type http", () => {
 
 test("Claude Code: the command, headers after the address", () => {
   assert.equal(claudeCodeCommand(plain), `claude mcp add --transport http saturnus ${URL_}`);
-  assert.equal(claudeCodeCommand(local), `claude mcp add --transport http saturnus http://127.0.0.1:4870/mcp --header 'Authorization: Bearer t0k'\\''en x'`);
+  assert.equal(claudeCodeCommand(local), `claude mcp add --transport http saturnus http://127.0.0.1:4870/mcp --header "Authorization: Bearer t0k'en x"`);
+  // A value with $ falls back to POSIX single quotes.
+  assert.equal(claudeCodeCommand({ ...plain, headers: { "X-Key": "a$b'c" } }), `claude mcp add --transport http saturnus ${URL_} --header 'X-Key: a$b'\\''c'`);
 });
 
 test("Codex: the command, or config.toml with headers", () => {
@@ -53,14 +55,20 @@ test("Codex: the command, or config.toml with headers", () => {
   assert.match(codexSetup({ name: "a b", url: URL_, headers: { X: 'q"\\' } }).text, /^\[mcp_servers\."a b"\]\n.*\nhttp_headers = \{ "X" = "q\\"\\\\" \}\n$/);
 });
 
-test("shellQuote: safe words as they are, the rest single-quoted", () => {
+test("shellQuote: plain words as they are, double quotes where every shell agrees, else single quotes", () => {
   assert.equal(shellQuote(URL_), URL_);
-  assert.equal(shellQuote("a b"), "'a b'");
-  assert.equal(shellQuote("it's"), `'it'\\''s'`);
+  assert.equal(shellQuote("http://127.0.0.1:4870/mcp"), "http://127.0.0.1:4870/mcp");
+  // Double quotes: the same word in POSIX shells, PowerShell and cmd.exe.
+  assert.equal(shellQuote("a b"), '"a b"');
+  assert.equal(shellQuote("it's"), `"it's"`);
+  assert.equal(shellQuote("https://x.example/?a=1&b=2"), '"https://x.example/?a=1&b=2"');
+  assert.equal(shellQuote("Authorization: Bearer abc.DEF-123_~+/="), '"Authorization: Bearer abc.DEF-123_~+/="');
+  // Characters that mean something inside double quotes somewhere: POSIX single quotes.
   assert.equal(shellQuote("$(rm -rf ~)"), "'$(rm -rf ~)'");
-  assert.equal(shellQuote("https://x.example/?a=1&b=2"), "'https://x.example/?a=1&b=2'");
+  assert.equal(shellQuote("it's $x"), `'it'\\''s $x'`);
+  for (const c of ['"', "$", "`", "\\", "!", "%"]) assert.equal(shellQuote(`a${c}b`), `'a${c}b'`, c);
   // The shell reads each back as the one word it was.
-  for (const s of ["a b", "it's", "$(x) `y` \"z\" \\ ;|&", "'", "''"]) {
+  for (const s of ["a b", "it's", "x?a=1&b=2;c|d", "$(x) `y` \"z\" \\ ;|&", "'", "''", "100%", "hi!"]) {
     assert.equal(execFileSync("sh", ["-c", `printf %s ${shellQuote(s)}`]).toString(), s);
   }
 });

@@ -90,17 +90,21 @@ export async function openAiDialog(ai, doc = document) {
     address.value = state === "connected" ? mcp.address : "";
     addressRow.hidden = state !== "connected";
     install.hidden = state !== "connected";
-    if (state === "connected" && installFor !== mcp.address) {
-      // The desktop app's local address comes with headers (a token); the relay's has none.
-      installFor = mcp.address;
+    // The desktop app's local address comes with headers (a token); the
+    // relay's has none. Built again when either changes.
+    const key = state === "connected" ? JSON.stringify([mcp.address, mcp.headers ?? {}]) : null;
+    if (key && installFor !== key) {
+      installFor = key;
       targets = installTargets({ name: "saturnus", url: mcp.address, headers: mcp.headers ?? {} });
       const t = Object.fromEntries(targets.map((x) => [x.id, x]));
       cursor.href = t.cursor.href;
       vscode.href = t.vscode.href;
-      forCodex.title = t.codex.kind === "config" ? "Copies the lines for ~/.codex/config.toml" : t.codex.text;
-      forClaude.title = t["claude-code"].text;
+      // Fixed words: the command may carry a token, never in an attribute.
+      forCodex.title = t.codex.kind === "config" ? "Copies the lines for ~/.codex/config.toml" : "Copies the codex mcp add command";
+      forClaude.title = "Copies the claude mcp add command";
       connector.textContent = t.connector.text;
       cmd.hidden = true;
+      cmd.value = "";
     }
     const pc = mcp?.pairingCode;
     code.hidden = !pc;
@@ -132,6 +136,9 @@ export async function openAiDialog(ai, doc = document) {
   copy.addEventListener("click", () => copyText(copy, "Copy", address.value, () => address.select()));
   const copyFor = (button, label, id) => button.addEventListener("click", () => {
     const text = targets.find((x) => x.id === id)?.text ?? "";
+    // The field shows a command only after a refused copy, never an older one.
+    cmd.hidden = true;
+    cmd.value = "";
     copyText(button, label, text, () => {
       cmd.value = text;
       cmd.rows = text.split("\n").length;

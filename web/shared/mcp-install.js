@@ -29,11 +29,15 @@ function base64(text) {
 }
 
 /**
- * `s` as one POSIX shell word: as it is when it has only safe characters,
- * else in single quotes, a single quote inside as '\''.
+ * `s` as one shell word. As it is when every character means itself in
+ * POSIX shells, PowerShell and cmd.exe (letters, digits, _ . / : -).
+ * Else in double quotes when it has none of " $ ` \ ! %: the same word in
+ * all three (a token, an http(s) address with a query). Else, POSIX only,
+ * in single quotes, a single quote inside as '\''.
  */
 export function shellQuote(s) {
-  if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(s)) return s;
+  if (/^[A-Za-z0-9_./:-]+$/.test(s)) return s;
+  if (!/["$`\\!%]/.test(s)) return `"${s}"`;
   return `'${s.replaceAll("'", `'\\''`)}'`;
 }
 
