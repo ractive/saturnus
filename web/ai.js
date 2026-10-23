@@ -221,6 +221,8 @@ export class AiAccess extends EventTarget {
         appName: "saturnus",
         server: { name: "saturnus", title: "saturnus calculators", version: VERSION, instructions: INSTRUCTIONS },
         storageKey: aiSecretKey(origin),
+        // The page retries a broken connection itself (scheduleRetry: the log, the panel's "lost"); the library's own reconnect (0.4) would race it.
+        reconnect: false,
       });
       for (const tool of aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, png: screenPng })) {
         await mcp.registerTool(tool);

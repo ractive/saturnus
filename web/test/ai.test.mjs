@@ -119,8 +119,9 @@ test("a connect the browser refused for lack of a click says to press Connect, n
 /** A fake `TabMcp`: `connect` takes the next of `outcomes` (true, or an Error), `drop(reason)` breaks the session. */
 function fakeMcpClass(outcomes) {
   return class FakeTabMcp extends EventTarget {
-    constructor() {
+    constructor(options) {
       super();
+      this.options = options;
       this.state = "disconnected";
       this.grants = [];
       this.connects = 0;
@@ -189,6 +190,12 @@ function reconnecting(outcomes = []) {
 }
 
 const DOWN = () => new Error("Could not connect to the relay (refused, unreachable, or this page's origin is not allowed).");
+
+test("the library's own reconnect (tab-mcp 0.4) is off: the page retries itself", async () => {
+  const { ai, Mcp } = reconnecting([true]);
+  await ai.connect();
+  assert.equal(Mcp.last.options.reconnect, false);
+});
 
 test("the waits between retries: 5, 10, 20, 40 s, then every 60 s", () => {
   assert.deepEqual([1, 2, 3, 4, 5, 6, 20].map(retryDelay), [5000, 10000, 20000, 40000, 60000, 60000, 60000]);
