@@ -415,9 +415,6 @@ function watchAi(ai, store) {
   };
   Promise.all([ai, import("./ai-log.js")]).then(([a, { aiView }]) => {
     a.load().catch(() => {});
-    // Back in front, or back online: a broken connection is tried at once, not after the backoff.
-    document.addEventListener("visibilitychange", () => { if (!document.hidden) a.retryNow(); });
-    addEventListener("online", () => a.retryNow());
     // Open as it was left in this browser.
     if (prefs.get("aiLog") === "open") toggleAiLog(ai, null, { restore: true });
     const render = () => {

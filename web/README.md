@@ -1084,17 +1084,24 @@ through the relay while the tab is open. Nothing is installed.
   dot in `--warn` (Calls · Turn off). Disconnect turns AI access off in
   this tab; the apps stay paired. A visually hidden `aria-live` line
   (`#ai-live`) reads the state out.
-- **Reconnecting** (`ai.js`): a session that ended with `network`,
+- **Reconnecting** is the client library's (tab-mcp 0.4 on, its
+  `reconnect` option left on): a session that ended with `network`,
   `heartbeat` or `shutdown` is connected again after 5, 10, 20, 40 s,
-  then every 60 s (`retryDelay`), with or without Keep AI access on,
-  until it is back, the user turns it off, or a retry is refused for good
-  (`transientFailure`: the relay refused the address, another tab took
-  over). `lost`, `retrying` (the next try's time) and `attempt` are on
-  `AiAccess`; a connect resets them.
+  then every 60 s, at once when the tab comes back to the front or the
+  browser goes online, with or without Keep AI access on, until it is
+  back, the user turns it off, or an attempt is refused (the relay
+  refused the address or its limits). Not after `replaced` (another tab
+  took over), `expired` or `idle`. `ai.js` only shows it: `lost` on
+  `AiAccess` is the client's `reconnecting`; its `reconnecting` event
+  gives the log's "Next try in n s" and the error (why it was lost), a
+  `statechange` to `connecting` while reconnecting its "Retrying to
+  connect… (attempt n)", and the event's `null` while disconnected and
+  not by the page (Turn off, New address) says the relay refused it.
+  Connect while lost makes the next attempt at once.
 - **The AI's calls** (`ai-log.js`): `AiLog`, made with `AiAccess`, keeps
-  the last 200 tool calls (tab-mcp 0.2.0's `toolcall` and `toolcallend`:
+  the last 200 tool calls (the client's `toolcall` and `toolcallend`:
   app, tool title, arguments, outcome, result, duration) and the
-  connection's events (connected, lost, the retries, apps paired and
+  connection's events (connected, lost, each wait and attempt of the reconnecting, apps paired and
   gone, turned off) in memory only; never the address, a token or a
   pairing code. `AiLogView` is the drawer `#ai-log` (the packets' look,
   green on black; beside the calculator in the stage's right part when
@@ -1115,7 +1122,7 @@ through the relay while the tab is open. Nothing is installed.
   TAB_MCP_STORE=memory NODE_ENV=development bun packages/tab-mcp/src/main.ts`
   in the tab-mcp checkout (or its Docker image). Without a relay nothing
   of it loads.
-- **The client** is tab-mcp's browser library, vendored in
+- **The client** is tab-mcp's browser library (0.5.0), vendored in
   `vendor/tab-mcp-client/` (its self-contained build, with
   `vendor.json`: source, version, SHA-256s) by `just vendor-tab-mcp`
   (`scripts/vendor-tab-mcp-client.sh`: the npm package, its version and
@@ -1123,7 +1130,8 @@ through the relay while the tab is open. Nothing is installed.
   local tab-mcp build) and loaded with `import()`
   only when AI access is used; the service worker precaches it with the
   page. The address secret is kept per relay (`saturnus.aiSecret:<relay
-  origin>`).
+  origin>`, the client's `storageKey`, so 0.5.0's own per-page key is
+  not used).
 - **Tools** (`ai-tools.js`, WebMCP's `registerTool` shape; the server's
   instructions carry how to use them): `list_calculators`, `list_keys`,
   `read_display` (a PNG and/or text), `press_keys`, `lookup_command`
@@ -1152,7 +1160,8 @@ through the relay while the tab is open. Nothing is installed.
   AI access."
 - Tests: `test/ai.test.mjs` (the session on a fake hub: one attach per
   calculator, every connection closed again, when the calculators keep
-  running; the retries with fake timers), `test/ai-log.test.mjs` (the
+  running; the reconnecting on a fake client that models the library's
+  `reconnecting`, with fake timers), `test/ai-log.test.mjs` (the
   log's entries, its text, the sidebar's states), `test/ai-log-page.test.mjs`
   (the sidebar and the drawer in the page, states and events played in), `test/vendor.test.mjs` (the vendored files against
   `vendor.json`: each SHA-256, no file more or less, the entry's chunks),

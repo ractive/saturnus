@@ -57,6 +57,12 @@ retry runs whether or not "Keep AI access on" is set: the user had it on.
 `AiAccess` exposes `retrying` (the next attempt's time, or null) for the
 sidebar. A successful connect resets the backoff.
 
+Since 2026-10-23 the client library does this (tab-mcp 0.4's
+`reconnect`, the same waits and reasons); `web/ai.js` only shows its
+`reconnecting` (decision log, 2026-10-23 "tab-mcp client 0.5.0
+vendored"). `retrying`, `transientFailure` and the page's own timers are
+gone.
+
 ### The AI's calls (new web/ai-log.js, panel in web/index.html)
 
 A drawer like Files' packets panel (`web/tx/cable-view.js`, same

@@ -4406,6 +4406,26 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   justfile). 0.3's dialog changes do not apply (the page has its own
   dialog), nor does 0.5's per-page secret key (the page sets its own,
   `saturnus.aiSecret:<relay origin>`, so the address stays).
-- **`reconnect: false`:** 0.4 reconnects a broken connection by itself;
-  the page keeps its own retries (`scheduleRetry`: the waits, the log's
-  notes, the panel's "lost"), which the library's would race.
+- **The library's reconnect, not the page's** (owner, the same day,
+  amending the first take, which passed `reconnect: false` and kept the
+  page's own retries). 0.4 reconnects a broken connection by itself with
+  the same waits saturnus had (5, 10, 20, 40 s, then every 60 s), at once
+  when the tab is back in front or online, after the same reasons
+  (`network`, `heartbeat`, `shutdown`), and stops on a refusal; two loops
+  for one thing would race, and the library's decides from the failure's
+  `reason`, where the page's had read its messages. So `web/ai.js` drops
+  `scheduleRetry`, `retryNow`, `stopRetrying`, `retryDelay`,
+  `transientFailure` and its `lost`/`retrying`/`attempt` state, and
+  `web/app.js` its visibility and online hooks. What the user sees stays,
+  driven by the client: `lost` is its `reconnecting`; the `reconnecting`
+  event gives the log's "Next try in n s" and why it was lost, a
+  `statechange` to `connecting` while reconnecting "Retrying to connect…
+  (attempt n)", `disconnected` "Connection lost" and `connected` the
+  rest. Turn off and New address end it through `disconnect()` and
+  `newAddress()`; `replaced` is not retried by the library either.
+- **One thing lost:** when an attempt the library started by itself is
+  refused, the page sees only `reconnecting` turn `null` while
+  disconnected, not the relay's words, so it says "The relay refused to
+  connect this tab again. Connect again."; Connect then shows the
+  relay's message. A `reason` or error on that event would need a tab-mcp
+  change.

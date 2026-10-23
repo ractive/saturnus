@@ -56,8 +56,8 @@ const SIDEBAR = `(() => {
 
 /** Play a state into AI access: the client's state and apps, then `change`. */
 const STATE = (state, grants, lost = false) => `window.saturnusApp.ai.then((a) => {
-  a.mcp = { state: ${JSON.stringify(state)}, grants: ${JSON.stringify(grants)}, disconnect() {}, startPairing() {}, stopPairing() {} };
-  a.lost = ${lost};
+  // Lost: the client reconnecting by itself (its \`reconnecting\`), until Turn off stops it.
+  a.mcp = { state: ${JSON.stringify(state)}, grants: ${JSON.stringify(grants)}, reconnecting: ${lost ? '{ reason: "shutdown", attempt: 1, at: Date.now() + 5000 }' : "undefined"}, disconnect() { this.reconnecting = undefined; }, startPairing() {}, stopPairing() {} };
   a.error = ${lost ? JSON.stringify("The relay restarted.") : "null"};
   a.changed();
   return true;

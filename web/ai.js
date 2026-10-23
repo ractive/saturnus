@@ -17,10 +17,12 @@
 // Calculator stops sending `visibility` hidden (app.js, on `change`).
 //
 // A broken connection (the relay restarted, the network went) is tried
-// again with a growing wait, 5 s up to every 60 s, until it is back, the
-// user turns AI access off, or the relay refuses it (iteration 56). The
-// calls and the connection's events go to `log` (web/ai-log.js, "The AI's
-// calls"); never the address, a token or a pairing code.
+// again by the client library (tab-mcp 0.4 on, its `reconnecting`): 5 s
+// up to every 60 s, at once when the tab is back in front or online, until
+// it is back, the user turns AI access off, or the relay refuses it. The
+// page only shows it: the panel's "lost", the log's notes. The calls and
+// the connection's events go to `log` (web/ai-log.js, "The AI's calls");
+// never the address, a token or a pairing code.
 
 import { aiTools, INSTRUCTIONS, titleOf } from "./ai-tools.js";
 import { AiLog, appLabel } from "./ai-log.js";
@@ -33,32 +35,6 @@ import "./shared/models.js";
 
 /** The app's version for the MCP server's info. */
 const VERSION = "1";
-
-/** Why a session ended that is worth connecting again for: the relay or the network went away for a while. */
-const TRANSIENT = new Set(["network", "heartbeat", "shutdown"]);
-
-/** The wait before retry `attempt` (1, 2, …) after a broken connection: 5, 10, 20, 40 s, then every 60 s. */
-export function retryDelay(attempt) {
-  return [5000, 10000, 20000, 40000][attempt - 1] ?? 60000;
-}
-
-/**
- * Whether a failed connect may work later (the relay down or restarting,
- * no answer in time), not refused for good: the relay said no (an
- * address it refuses, its message limit), the browser said no, or it was
- * cancelled. The client (0.4 on) gives the rejection a `reason`, as in a
- * `disconnected` event, which decides like the library's own reconnect;
- * without one (older clients) its messages are read.
- */
-export function transientFailure(err) {
-  if (!err || err.name === "NotAllowedError" || err.name === "AbortError") return false;
-  if (typeof err.reason === "string") return TRANSIENT.has(err.reason);
-  const m = String(err.message ?? "");
-  if (m.startsWith("The relay refused the connection") || m.includes("message limit")) return false;
-  const ended = /^The relay ended the connection: (\w+)/.exec(m);
-  if (ended) return TRANSIENT.has(ended[1]);
-  return true;
-}
 
 /** The display as a PNG (base64), black on white at 3× (web/screenshot.js). */
 function screenPng(frame, model) {
@@ -125,19 +101,15 @@ export class AiAccess extends EventTarget {
     hub = { running: hubRunning, client: (who) => new HubClient({ who }) },
     roms = { kept: (models) => keptRoms(undefined, models), bytes: (sha256) => keptRomBytes(sha256) },
     client = () => import("./vendor/tab-mcp-client/tab-mcp-client.min.js"),
-    timers = { set: (fn, ms) => setTimeout(fn, ms), clear: (t) => clearTimeout(t), now: () => Date.now() },
+    now = () => Date.now(),
   } = {}) {
     super();
-    /** The clock and timers of the retries (tests give fakes). */
-    this.timers = timers;
-    /** The connection broke and is being tried again (`retrying` the next try's time, or null while it runs). */
-    this.lost = false;
-    this.retrying = null;
-    /** The retries since the connection broke. */
-    this.attempt = 0;
-    this.retryTimer = null;
+    /** The clock, for the log and the waits it notes (tests give a fake). */
+    this.now = now;
     /** Counts the user's Turn offs: a connect that outlived one says nothing. */
     this.offs = 0;
+    /** While the page itself ends the session (Turn off, a new address): the client's reconnecting stops, not refused. */
+    this.ending = false;
     /** The tools that ask the user first (`consequentialHint`). */
     this.consequential = new Set();
     /** The connected apps of the live session, by grant id (their names), to say who came and went. */
@@ -161,7 +133,7 @@ export class AiAccess extends EventTarget {
     this.lobby = null;
     this.error = null;
     /** "The AI's calls" (web/ai-log.js): from now on, in memory only. */
-    this.log = new AiLog(this, { now: () => this.timers.now() });
+    this.log = new AiLog(this, { now: () => this.now() });
   }
 
   /** The relay's host name, for the log. */
@@ -176,6 +148,11 @@ export class AiAccess extends EventTarget {
   /** Something for the log (`what`: connected, lost, retrying, wait, paired, unpaired, off). */
   note(what, detail = {}) {
     this.dispatchEvent(new CustomEvent("note", { detail: { what, ...detail } }));
+  }
+
+  /** The connection broke and the client is connecting again by itself (its `reconnecting`). */
+  get lost() {
+    return this.mcp?.reconnecting != null;
   }
 
   /** Whether AI access can be offered here (a relay). */
@@ -224,21 +201,35 @@ export class AiAccess extends EventTarget {
         appName: "saturnus",
         server: { name: "saturnus", title: "saturnus calculators", version: VERSION, instructions: INSTRUCTIONS },
         storageKey: aiSecretKey(origin),
-        // The page retries a broken connection itself (scheduleRetry: the log, the panel's "lost"); the library's own reconnect (0.4) would race it.
-        reconnect: false,
       });
       for (const tool of aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, png: screenPng })) {
         await mcp.registerTool(tool);
         if (tool.annotations?.consequentialHint) this.consequential.add(tool.name);
       }
-      for (const type of ["statechange", "pairingcode"]) mcp.addEventListener(type, () => this.changed());
+      mcp.addEventListener("statechange", (e) => {
+        // An attempt of the client's reconnecting starts (its timer, the tab back in front, Connect).
+        if (e.detail?.state === "connecting" && mcp.reconnecting) this.note("retrying", { attempt: mcp.reconnecting.attempt });
+        this.changed();
+      });
+      mcp.addEventListener("pairingcode", () => this.changed());
+      mcp.addEventListener("reconnecting", (e) => {
+        const next = e.detail;
+        if (next) {
+          // Tried again until it is back, whether or not "Keep AI access on" is set: the user had it on.
+          this.error = lostText(next.reason);
+          this.note("wait", { seconds: Math.max(0, Math.round((next.at - this.now()) / 1000)) });
+        } else {
+          // Stopped: connected, ended by the page, or else the relay refused the attempt.
+          this.error = this.ending || mcp.state !== "disconnected" ? null : "The relay refused to connect this tab again. Connect again.";
+        }
+        this.changed();
+      });
       for (const type of ["toolcall", "toolcallend"]) mcp.addEventListener(type, (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail })));
       mcp.addEventListener("grantschange", () => {
         this.noteApps(mcp.grants);
         this.changed();
       });
       mcp.addEventListener("connected", () => {
-        this.stopRetrying();
         this.error = null;
         this.apps = new Map(mcp.grants.map((g) => [g.grantId, appLabel(g.client)]));
         this.note("connected", { host: this.relayHost, apps: mcp.grants.length });
@@ -252,16 +243,10 @@ export class AiAccess extends EventTarget {
         this.release();
         this.apps = null;
         const reason = e.detail?.reason;
-        if (reason !== "user" && reason !== "new_address") this.note("lost", { reason, text: lostText(reason) });
-        if (TRANSIENT.has(reason)) {
-          // Tried again until it is back, whether or not "Keep AI access on" is set: the user had it on.
-          this.lost = true;
-          this.error = lostText(reason);
-          this.attempt = 0;
-          this.scheduleRetry();
-        } else {
-          this.error = reason && reason !== "user" && reason !== "new_address" ? disconnectText(reason) : null;
-        }
+        const ours = reason === "user" || reason === "new_address";
+        if (!ours) this.note("lost", { reason, text: lostText(reason) });
+        // What to do; the client's `reconnecting` that follows a broken connection says it is tried again.
+        this.error = reason && !ours ? disconnectText(reason) : null;
         this.changed();
       });
       this.mcp = mcp;
@@ -272,14 +257,11 @@ export class AiAccess extends EventTarget {
   }
 
   /**
-   * Connect to the relay (from a click, `resume` for "Keep AI access on",
-   * or a retry). After a broken connection a failure that may pass
-   * (`transientFailure`) schedules the next retry; any other ends them.
+   * Connect to the relay (from a click, or `resume` for "Keep AI access
+   * on"). While the client reconnects by itself it makes the next attempt
+   * at once; a failure that may pass leaves the rest to the client.
    */
   async connect({ resume = false } = {}) {
-    if (this.retryTimer !== null) this.timers.clear(this.retryTimer);
-    this.retryTimer = null;
-    this.retrying = null;
     if (!this.lost) this.error = null;
     const offs = this.offs;
     try {
@@ -288,57 +270,13 @@ export class AiAccess extends EventTarget {
     } catch (err) {
       // Turned off meanwhile: that is what happened, not an error.
       if (offs !== this.offs) throw err;
-      if (this.lost && transientFailure(err)) {
-        this.scheduleRetry();
-        throw err;
-      }
-      this.stopRetrying();
+      // Still reconnecting: the client tries again later.
+      if (this.lost) throw err;
       // Refused without a click (the click's activation ran out while the client loaded): say what to do.
       this.error = err?.name === "NotAllowedError" ? "Press Connect to turn on AI access." : `Could not connect to the relay: ${err?.message ?? err}`;
       this.changed();
       throw err;
     }
-  }
-
-  /** The next retry after a broken connection, `retryDelay` from now. */
-  scheduleRetry() {
-    this.attempt++;
-    const ms = retryDelay(this.attempt);
-    this.retrying = this.timers.now() + ms;
-    this.note("wait", { seconds: Math.round(ms / 1000) });
-    this.retryTimer = this.timers.set(() => {
-      this.retryTimer = null;
-      this.retrying = null;
-      this.note("retrying", { attempt: this.attempt });
-      this.changed();
-      this.connect({ resume: true }).catch(() => {});
-    }, ms);
-    this.changed();
-  }
-
-  /**
-   * Try the waiting retry now (the tab came back to the front, or the
-   * network came back): a phone pauses a background tab, so its connection
-   * breaks while the user is in the AI app, and the backoff may still have
-   * a minute to go when they return.
-   */
-  retryNow() {
-    if (this.retryTimer === null) return;
-    this.timers.clear(this.retryTimer);
-    this.retryTimer = null;
-    this.retrying = null;
-    this.note("retrying", { attempt: this.attempt });
-    this.changed();
-    this.connect({ resume: true }).catch(() => {});
-  }
-
-  /** No more retries: connected again, turned off, or refused. */
-  stopRetrying() {
-    if (this.retryTimer !== null) this.timers.clear(this.retryTimer);
-    this.retryTimer = null;
-    this.retrying = null;
-    this.lost = false;
-    this.attempt = 0;
   }
 
   /** Who came and went among the connected apps of the live session (the first list on connecting is not news). */
@@ -356,13 +294,12 @@ export class AiAccess extends EventTarget {
     this.connect({ resume: true }).catch(() => {});
   }
 
-  /** Turn AI access off in this tab (the connected apps stay paired; Connect brings it back). Ends the retries. */
+  /** Turn AI access off in this tab (the connected apps stay paired; Connect brings it back). Ends the client's reconnecting. */
   disconnect() {
     const on = this.lost || this.state !== "disconnected";
     this.offs++;
-    this.stopRetrying();
     this.error = null;
-    this.mcp?.disconnect();
+    this.byPage(() => this.mcp?.disconnect());
     this.release();
     if (on) this.note("off");
     this.changed();
@@ -371,7 +308,17 @@ export class AiAccess extends EventTarget {
   /** A new address: the apps connected to the old one lose access. */
   newAddress() {
     this.release();
-    return this.mcp?.newAddress();
+    return this.byPage(() => this.mcp?.newAddress());
+  }
+
+  /** `end()`, which ends the session (and the client's reconnecting) on the page's behalf. */
+  byPage(end) {
+    this.ending = true;
+    try {
+      return end();
+    } finally {
+      this.ending = false;
+    }
   }
 
   revoke(grantId) {
