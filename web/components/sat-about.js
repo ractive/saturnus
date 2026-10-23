@@ -8,7 +8,7 @@
 // "Show me around" closes it and asks the page for the tour (`sat-tour`).
 
 import { icon } from "../shared/components/icons.js";
-import { siteHref } from "../shared/site-links.js";
+import { inDesktopApp, siteHref } from "../shared/site-links.js";
 import { LinkBudget, externalLink, linkSites } from "../shared/ext-links.js";
 
 const TEMPLATE = `
@@ -128,11 +128,13 @@ export class SatAbout extends HTMLElement {
       return;
     }
     const st = this.querySelector(".about-statement");
-    // The statement's site names (hpcalc.org) are links, as on the docs pages.
+    // The statement's site names (hpcalc.org) are links, as on the docs
+    // pages; text in the desktop app, where a new tab may open nothing.
     const budget = new LinkBudget();
+    const withLinks = (t) => (inDesktopApp() ? t : linkSites(t, budget));
     for (const p of about.statement) {
       const para = el("p");
-      para.append(linkSites(p, budget));
+      para.append(withLinks(p));
       st.append(para);
     }
 
@@ -156,7 +158,7 @@ export class SatAbout extends HTMLElement {
     // Paragraphs (a single string in an older about.json).
     for (const p of [about.roms].flat()) {
       const para = el("p");
-      para.append(linkSites(p, budget));
+      para.append(withLinks(p));
       this.querySelector(".about-roms").append(para);
     }
     this.loadManuals();

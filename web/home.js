@@ -15,6 +15,7 @@
 
 import { el } from "./shared/dom.js";
 import { externalLink, linkSites } from "./shared/ext-links.js";
+import { inDesktopApp } from "./shared/site-links.js";
 import { iconEl } from "./shared/components/icons.js";
 import { closeMenu, openMenu, openMenuKey } from "./shared/components/menu.js";
 import { confirmAction } from "./shared/components/confirm.js";
@@ -147,7 +148,9 @@ export class Home {
     const touch = !this.app && globalThis.matchMedia?.("(pointer: coarse)").matches;
     $("#home-new-hint").textContent = NEW_HINTS[touch ? "touch" : roms.romSource];
     // hpcalc.org named in it is a link to the site (web/shared/ext-links.js), built as DOM.
-    $("#home-source-hint").replaceChildren(linkSites(SOURCE_HINTS[roms.romSource]));
+    // Not in the desktop app: a new tab may open nothing there.
+    const sourceHint = SOURCE_HINTS[roms.romSource];
+    $("#home-source-hint").replaceChildren(this.app || inDesktopApp() ? sourceHint : linkSites(sourceHint));
     if (this.app) $(".home-boot-last-label").textContent = "Start the last calculator when the app opens";
 
     // A handler's failure it did not show is shown here.
