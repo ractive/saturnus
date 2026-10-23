@@ -221,12 +221,13 @@ export class AiAccess extends EventTarget {
           this.error = lostText(next.reason);
           this.note("wait", { seconds: Math.max(0, Math.round((next.at - this.now()) / 1000)) });
         } else {
-          // Stopped: connected, ended by the page, or the relay refused the attempt: in its words when
-          // the client made it by itself (`refusal`); a connect() of ours that made it says them itself.
+          // Stopped: connected (the client stops before it says connected), ended by the page, or the
+          // relay refused the attempt. No longer lost, so not the lost text: the relay's words when the
+          // client made the attempt by itself (`refusal`), else none (a connect() of ours that made or
+          // joined it says them in its catch).
           const refusal = this.refusal;
           this.refusal = null;
-          if (this.ending || mcp.state !== "disconnected") this.error = null;
-          else if (refusal) this.error = `Could not connect to the relay: ${refusal.message}`;
+          this.error = refusal && !this.ending && mcp.state === "disconnected" ? `Could not connect to the relay: ${refusal.message}` : null;
         }
         this.changed();
       });

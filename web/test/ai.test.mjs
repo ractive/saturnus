@@ -437,3 +437,31 @@ test("Connect while the library's own attempt runs joins it: one attempt, one Re
     assert.equal(ai.error, "Could not connect to the relay: The relay refused the connection: unknown address");
   }
 });
+
+test("no stale lost text once the reconnecting stops: on every change while it comes back, and while a refused Connect settles", { timeout: 2000 }, async () => {
+  {
+    const { ai, timers, Mcp } = reconnecting([true]);
+    await ai.connect();
+    Mcp.last.drop("shutdown");
+    const seen = [];
+    ai.addEventListener("change", () => seen.push([ai.lost, ai.state, ai.error]));
+    await timers.fire();
+    assert.equal(ai.state, "connected");
+    for (const [lost, state, error] of seen) {
+      if (lost) assert.equal(error, "The relay restarted.", `lost while ${state}: why`);
+      else assert.equal(error, null, `not lost while ${state}: no error`);
+    }
+    assert.ok(seen.some(([lost, state]) => !lost && state === "connecting"), "the client stops reconnecting before it says connected");
+  }
+  {
+    // A refused attempt Connect made: no `error` from the client, the catch says why; nothing stale between.
+    const { ai, Mcp } = reconnecting([true, REFUSED()]);
+    await ai.connect();
+    Mcp.last.drop("shutdown");
+    const seen = [];
+    ai.addEventListener("change", () => seen.push([ai.lost, ai.error]));
+    await assert.rejects(ai.connect());
+    assert.ok(seen.every(([lost, error]) => lost || error !== "The relay restarted."), JSON.stringify(seen));
+    assert.equal(ai.error, "Could not connect to the relay: The relay refused the connection: unknown address");
+  }
+});
