@@ -109,7 +109,7 @@ export async function openAiDialog(ai, doc = document) {
     const pc = mcp?.pairingCode;
     code.hidden = !pc;
     if (pc) code.textContent = `When your AI app asks for a code, enter ${pc.code}.`;
-    // Lost: why, and that it connects again by itself (web/ai.js retries).
+    // Lost: why, and that it connects again by itself (the client library reconnects).
     status.classList.toggle("error", Boolean(ai.error) && !ai.lost);
     status.textContent = ai.lost
       ? `${ai.error ?? "The connection to the relay broke."} Reconnecting…`

@@ -4406,6 +4406,29 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
   justfile). 0.3's dialog changes do not apply (the page has its own
   dialog), nor does 0.5's per-page secret key (the page sets its own,
   `saturnus.aiSecret:<relay origin>`, so the address stays).
-- **`reconnect: false`:** 0.4 reconnects a broken connection by itself;
-  the page keeps its own retries (`scheduleRetry`: the waits, the log's
-  notes, the panel's "lost"), which the library's would race.
+- **The library's reconnect, not the page's** (owner, the same day,
+  amending the first take, which passed `reconnect: false` and kept the
+  page's own retries). 0.4 reconnects a broken connection by itself with
+  the same waits saturnus had (5, 10, 20, 40 s, then every 60 s), at once
+  when the tab is back in front or online, after the same reasons
+  (`network`, `heartbeat`, `shutdown`), and stops on a refusal; two loops
+  for one thing would race, and the library's decides from the failure's
+  `reason`, where the page's had read its messages. So `web/ai.js` drops
+  `scheduleRetry`, `retryNow`, `stopRetrying`, `retryDelay`,
+  `transientFailure` and its `lost`/`retrying`/`attempt` state, and
+  `web/app.js` its visibility and online hooks. What the user sees stays,
+  driven by the client: `lost` is its `reconnecting`; the `reconnecting`
+  event gives the log's "Next try in n s" and why it was lost, a
+  `statechange` to `connecting` while reconnecting "Retrying to connect…
+  (attempt n)", `disconnected` "Connection lost" and `connected` the
+  rest. Turn off and New address end it through `disconnect()` and
+  `newAddress()`; `replaced` is not retried by the library either.
+- **0.5.1, the same day:** the first take had one gap. When the relay
+  refused an attempt the library made by itself, the page saw only
+  `reconnecting` turn `null` and could not show the relay's words, only
+  "The relay refused to connect this tab again". tab-mcp 0.5.1 (tab-mcp
+  PR 25) emits `error` with the relay's error (and its `reason`) just
+  before that `null`; an attempt a `connect()` of the page made or joined
+  is told by its rejected promise instead. The page keeps that `error` as
+  `refusal` and shows "Could not connect to the relay: <the relay's
+  words>", as Connect does. Vendored 0.5.1 for it.

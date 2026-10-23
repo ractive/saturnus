@@ -144,12 +144,16 @@ test("AI access hands the calls and the connection's events to its log, never th
       return Promise.resolve({});
     }
     disconnect() {
+      if (this.reconnecting) {
+        this.reconnecting = undefined;
+        this.dispatchEvent(new CustomEvent("reconnecting", { detail: null }));
+      }
+      if (this.state === "disconnected") return;
       this.state = "disconnected";
       this.dispatchEvent(new CustomEvent("disconnected", { detail: { reason: "user", code: 1000 } }));
     }
   }
-  const timers = { set: () => ({}), clear: () => {}, now: () => 0 };
-  const ai = new AiAccess({ calculatorView: () => null, relay: "https://relay.example", storage: null, client: async () => ({ TabMcp: FakeTabMcp }), timers, hub: { running: () => false, client: () => null }, roms: { kept: async () => [], bytes: async () => null } });
+  const ai = new AiAccess({ calculatorView: () => null, relay: "https://relay.example", storage: null, client: async () => ({ TabMcp: FakeTabMcp }), now: () => 0, hub: { running: () => false, client: () => null }, roms: { kept: async () => [], bytes: async () => null } });
   await ai.connect();
   assert.ok(ai.consequential.has("store_variable") && ai.consequential.has("purge_variable"), "the tools that ask first");
   // A second app pairs, the first goes.
@@ -160,7 +164,11 @@ test("AI access hands the calls and the connection's events to its log, never th
   mcp.dispatchEvent(new CustomEvent("grantschange", { detail: { grants: mcp.grants } }));
   mcp.dispatchEvent(new CustomEvent("toolcall", { detail: { id: 7, tool: "store_variable", title: "Store a variable", arguments: { name: "A", text: "1" }, client: CLIENT } }));
   mcp.dispatchEvent(new CustomEvent("toolcallend", { detail: { id: 7, tool: "store_variable", client: CLIENT, outcome: "ok", result: { content: [{ type: "text", text: '{"stored":true}' }] }, durationMs: 900 } }));
+  // The connection breaks; the client says it reconnects (its `reconnecting`).
+  mcp.state = "disconnected";
   mcp.dispatchEvent(new CustomEvent("disconnected", { detail: { reason: "network", code: 1006 } }));
+  mcp.reconnecting = { reason: "network", attempt: 1, at: 5000 };
+  mcp.dispatchEvent(new CustomEvent("reconnecting", { detail: mcp.reconnecting }));
   ai.disconnect();
   const lines = ai.log.entries.map((e) => (e.kind === "event" ? e.text : `${e.app} ${e.title} ${e.outcome} ${e.asks}`));
   assert.deepEqual(lines, [
