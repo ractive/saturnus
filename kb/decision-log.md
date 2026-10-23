@@ -4399,3 +4399,13 @@ Owner decisions, reversing "two separate apps" of 2026-10-14:
 - **Pacing:** while an AI app is connected (a relay session with at least
   one app), Calculator does not send `visibility` hidden (owner, option 1);
   no SharedWorker.
+
+## 2026-10-23 (tab-mcp client 0.5.0 vendored)
+
+- **0.2.0 → 0.5.0** (`just vendor-tab-mcp`, version and integrity in the
+  justfile). 0.3's dialog changes do not apply (the page has its own
+  dialog), nor does 0.5's per-page secret key (the page sets its own,
+  `saturnus.aiSecret:<relay origin>`, so the address stays).
+- **`reconnect: false`:** 0.4 reconnects a broken connection by itself;
+  the page keeps its own retries (`scheduleRetry`: the waits, the log's
+  notes, the panel's "lost"), which the library's would race.

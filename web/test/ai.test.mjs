@@ -119,8 +119,9 @@ test("a connect the browser refused for lack of a click says to press Connect, n
 /** A fake `TabMcp`: `connect` takes the next of `outcomes` (true, or an Error), `drop(reason)` breaks the session. */
 function fakeMcpClass(outcomes) {
   return class FakeTabMcp extends EventTarget {
-    constructor() {
+    constructor(options) {
       super();
+      this.options = options;
       this.state = "disconnected";
       this.grants = [];
       this.connects = 0;
@@ -190,6 +191,12 @@ function reconnecting(outcomes = []) {
 
 const DOWN = () => new Error("Could not connect to the relay (refused, unreachable, or this page's origin is not allowed).");
 
+test("the library's own reconnect (tab-mcp 0.4) is off: the page retries itself", async () => {
+  const { ai, Mcp } = reconnecting([true]);
+  await ai.connect();
+  assert.equal(Mcp.last.options.reconnect, false);
+});
+
 test("the waits between retries: 5, 10, 20, 40 s, then every 60 s", () => {
   assert.deepEqual([1, 2, 3, 4, 5, 6, 20].map(retryDelay), [5000, 10000, 20000, 40000, 60000, 60000, 60000]);
 });
@@ -202,6 +209,13 @@ test("which failed connects are worth another try", () => {
   assert.equal(transientFailure(new Error("The relay ended the connection: replaced")), false);
   assert.equal(transientFailure(new DOMException("no click", "NotAllowedError")), false);
   assert.equal(transientFailure(new DOMException("cancelled", "AbortError")), false);
+  // The client's reason decides over the message (tab-mcp 0.4 on).
+  const because = (reason, message = "worded differently") => Object.assign(new Error(message), { reason });
+  assert.equal(transientFailure(because("network")), true);
+  assert.equal(transientFailure(because("shutdown")), true);
+  assert.equal(transientFailure(because("policy", DOWN().message)), false, "a refusal, whatever the words");
+  assert.equal(transientFailure(because("rate_limited")), false);
+  assert.equal(transientFailure(because("replaced")), false);
 });
 
 test("a broken connection is tried again with growing waits until it is back, without Keep AI access on", { timeout: 2000 }, async () => {
