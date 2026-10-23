@@ -86,7 +86,7 @@ test("the browser's: a kept calculator's ⋯, New calculator's Choose… and Dow
   assert.deepEqual(await p.ev("window.__acted"), [["choose", "48gx"]]);
   const rows = await p.fresh();
   assert.deepEqual(rows, [
-    { model: "38g", buttons: ["Choose…"], line: "Download from hpcalc.org", link: "https://www.hpcalc.org/details/1" },
+    { model: "38g", buttons: ["Choose…"], line: "Download from hpcalc.org↗ (opens in a new tab)", link: "https://www.hpcalc.org/details/1" },
     { model: "42s", buttons: ["Choose…"], line: "HP never published it: read it out of your own calculator.", link: null },
     { model: "28s", buttons: ["Choose…"], line: "HP never published it: read it out of your own calculator.", link: null },
   ]);

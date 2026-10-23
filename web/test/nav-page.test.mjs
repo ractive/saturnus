@@ -164,7 +164,7 @@ test("the home page: the kept calculators with Calculator and Files, the running
   assert.equal(await ev("location.hash"), "#/", "still on the home page");
   const fresh = await ev(`[...document.querySelectorAll("#home-models li")].map((li) => ({ model: li.dataset.model, buttons: [...li.querySelectorAll("button")].map((b) => b.textContent), link: li.querySelector("a")?.textContent ?? null }))`);
   assert.deepEqual(fresh.map((r) => r.model), ["48sx", "49g", "38g", "39g", "40g", "27s", "17bii", "17b", "28s", "19bii"], "the models without a ROM, in the page's order");
-  assert.deepEqual(fresh.find((r) => r.model === "48sx"), { model: "48sx", buttons: ["Choose…"], link: "Download from hpcalc.org" });
+  assert.deepEqual(fresh.find((r) => r.model === "48sx"), { model: "48sx", buttons: ["Choose…"], link: "Download from hpcalc.org↗ (opens in a new tab)" });
   assert.deepEqual(fresh.find((r) => r.model === "28s"), { model: "28s", buttons: ["Choose…"], link: null });
   // A file that is no ROM: said on the home page, nothing opened.
   await ev(`saturnusApp.home.chooseFiles("48sx", [new File(["not a rom"], "notes.txt")]).then(() => true)`);

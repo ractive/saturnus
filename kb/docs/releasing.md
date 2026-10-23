@@ -287,7 +287,15 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `git switch main && git pull --ff-only && git status --short` prints
    nothing.
 3. **Local gates**: `just gates` (includes `just package` and `just doc`)
-   passes.
+   passes. Then the links to other sites (needs the network, not in CI):
+   `node scripts/check-links.mjs` (`--verbose` prints every address)
+   checks the docs pages, the landing page, `web/about.json`, Search's
+   manuals and the app's texts. It must print "no dead links"; fix a
+   dead one at its source (the page, `scripts/about-json.py`, the
+   reference). "Blocked, check by hand" lists the addresses of sites
+   that turn scripts away (hpmuseum.org and columbia.edu behind
+   Cloudflare, the Wayback Machine's rate limit): open them in a
+   browser.
 4. **ROM-gated suites**, with the owner's ROMs:
    `just rom-tests ~/devel/saturnus/roms` (every crate's tests with the
    ROMs, `saturnus-tauri`'s `tests/runner.rs` included, and the full

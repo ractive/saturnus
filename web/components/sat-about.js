@@ -8,7 +8,8 @@
 // "Show me around" closes it and asks the page for the tour (`sat-tour`).
 
 import { icon } from "../shared/components/icons.js";
-import { siteHref } from "../shared/site-links.js";
+import { inDesktopApp, siteHref } from "../shared/site-links.js";
+import { LinkBudget, externalLink, linkSites } from "../shared/ext-links.js";
 
 const TEMPLATE = `
   <dialog class="about" aria-labelledby="about-title">
@@ -23,7 +24,7 @@ const TEMPLATE = `
     </div>
     <div class="about-body">
       <p class="about-version"></p>
-      <p class="about-docs"><a class="about-docs-link" target="_blank" rel="noopener noreferrer">The docs</a> <span class="hint">The 12 models and their history, every command, how the Saturn works, moving files to a real calculator.</span></p>
+      <p class="about-docs"><a class="about-docs-link" target="_blank" rel="noopener noreferrer">The docs<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <span class="hint">The 12 models and their history, every command, how the Saturn works, moving files to a real calculator.</span></p>
       <p class="about-tour"><button type="button" class="tour-start">Show me around</button> <span class="hint">A short tour of the app.</span></p>
       <div class="about-statement"></div>
       <h3>Checked against</h3>
@@ -53,9 +54,9 @@ function el(tag, attrs = {}, text = null) {
   return e;
 }
 
+/** A link to another site, in a new tab (web/shared/ext-links.js). The lists are sources: no limit. */
 function link(url, text) {
-  const a = el("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, text ?? url);
-  return a;
+  return externalLink(url, text ?? url);
 }
 
 export class SatAbout extends HTMLElement {
@@ -127,7 +128,15 @@ export class SatAbout extends HTMLElement {
       return;
     }
     const st = this.querySelector(".about-statement");
-    for (const p of about.statement) st.append(el("p", {}, p));
+    // The statement's site names (hpcalc.org) are links, as on the docs
+    // pages; text in the desktop app, where a new tab may open nothing.
+    const budget = new LinkBudget();
+    const withLinks = (t) => (inDesktopApp() ? t : linkSites(t, budget));
+    for (const p of about.statement) {
+      const para = el("p");
+      para.append(withLinks(p));
+      st.append(para);
+    }
 
     const ul = (sel, items, fill) => {
       const list = this.querySelector(sel);
@@ -147,7 +156,11 @@ export class SatAbout extends HTMLElement {
       li.append(link(t.url, t.name), `. ${t.use}`);
     });
     // Paragraphs (a single string in an older about.json).
-    for (const p of [about.roms].flat()) this.querySelector(".about-roms").append(el("p", {}, p));
+    for (const p of [about.roms].flat()) {
+      const para = el("p");
+      para.append(withLinks(p));
+      this.querySelector(".about-roms").append(para);
+    }
     this.loadManuals();
     this.querySelector(".about-count").textContent = `(${about.sources.length})`;
     ul(".about-sources", about.sources, (li, s) => {

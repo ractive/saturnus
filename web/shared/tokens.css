@@ -289,6 +289,16 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+/* The ↗ after a link to another site (web/shared/ext-links.js): a little
+   smaller, not underlined (an inline-block takes no text decoration). */
+.ext {
+  display: inline-block;
+  margin-inline-start: 0.1em;
+  font-size: 0.9em;
+  line-height: 1;
+  vertical-align: 0.1em;
+  text-decoration: none;
+}
 
 html, body { height: 100%; }
 body {

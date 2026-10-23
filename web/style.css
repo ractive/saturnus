@@ -434,6 +434,8 @@
   overflow: hidden;
 }
 :where(#calculator-view) .skin .no-rom p { margin: 0; }
+/* A site the message names (the Emu42 page): a link in the page's colour. */
+:where(#calculator-view) .skin .no-rom-text a { color: var(--accent-text); text-underline-offset: 2px; overflow-wrap: anywhere; }
 :where(#calculator-view) .skin .no-rom-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1) var(--s2); }
 :where(#calculator-view) .skin .no-rom a.button { min-height: 0; padding: 5px 12px; font-size: var(--fs-md); }
 /* Smaller displays (sat-calculator.js `fitNoRom`): smaller print, then the

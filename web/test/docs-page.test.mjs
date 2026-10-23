@@ -250,14 +250,14 @@ test("the command reference page: the addressed command read-only, suggestions a
   await until(ev, `document.querySelector("#ref-entry .entry-name")?.firstChild.textContent === "BAR" && document.querySelector("#ref-entry .chip.current")?.textContent === "48SX"`, 10_000, "BAR on the 48SX");
   assert.deepEqual(await rows(), ["Menu: PLOT PTYPE", "Key: PLOT"]);
   assert.equal(await ev(`document.querySelectorAll("#ref-entry .entry-where a").length`), 0, "no manual link in the rows");
-  assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-manuals li")].map((li) => li.textContent)`), ["HP 48G Series Advanced User's Reference Manual, p. 198"]);
+  assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-manuals li")].map((li) => li.textContent)`), ["HP 48G Series Advanced User's Reference Manual, p. 198↗ (opens in a new tab)"]);
   assert.equal(await ev(`document.querySelector("#ref-entry .entry-stack-none").textContent`), "Takes nothing, returns nothing.");
   assert.equal(await ev(`document.querySelectorAll("#ref-entry .entry-stack").length`), 0, "no box for an arrow alone");
   assert.equal(await ev(`document.querySelector("#ref-entry .entry h4").textContent`), "Examples · results from saturnus's emulated HP 48SX");
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/#49g/bar` });
   await until(ev, `document.querySelector("#ref-entry .chip.current")?.textContent === "49G"`, 10_000, "BAR on the 49G");
   assert.deepEqual(await rows(), [], "no Group row: our grouping is not a place on the calculator");
-  assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-manuals li")].map((li) => li.textContent)`), ["HP 48G Series Advanced User's Reference Manual, p. 198 (48SX, 48GX)"]);
+  assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-manuals li")].map((li) => li.textContent)`), ["HP 48G Series Advanced User's Reference Manual, p. 198↗ (opens in a new tab) (48SX, 48GX)"]);
   assert.equal(await ev(`document.querySelector("#ref-entry .entry-stack-none").textContent`), "Takes nothing, returns nothing.");
 
   // A model without the command: its pill is no link.

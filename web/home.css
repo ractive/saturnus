@@ -84,6 +84,7 @@ body > [data-view][hidden] { display: none; }
   h2 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; line-height: var(--lh-tight); margin: 0 0 var(--s2); }
   .home-hint { margin: 0 0 var(--s3); font-size: var(--fs-sm); line-height: var(--lh); }
   .home-hint.error { color: var(--error); }
+  .home-hint a { color: var(--accent-text); text-underline-offset: 3px; }
   .home-new, .home-settings { margin-top: var(--s6); }
   .home-new .home-list { margin-bottom: var(--s3); }
 
