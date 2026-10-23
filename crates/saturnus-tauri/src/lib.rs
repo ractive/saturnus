@@ -38,9 +38,16 @@
 //! dialog), the computer's serial ports and files through the commands
 //! of [`transfer`], and the ROM library read-only (`emulator_roms`,
 //! `emulator_rom`: file names, SHA-256 and bytes by model, never a path).
+//!
+//! AI access (iteration 58): AI apps on this computer use the calculators
+//! over MCP at `http://127.0.0.1:4842/mcp` while a setting is on
+//! ([`mcp`], the endpoint; [`mcp_app`], the setting and the bridge to the
+//! window, which runs the web app's tools).
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod files;
+pub mod mcp;
+pub mod mcp_app;
 pub mod order;
 pub mod places;
 pub mod roms;
@@ -923,8 +930,12 @@ pub fn run() {
                 tx,
                 order: Mutex::new(Sequencer::default()),
             });
+            let ai_file =
+                settings_file(app).and_then(|f| f.parent().map(|d| d.join(mcp_app::SETTINGS_FILE)));
             let lib = Library::open(settings_file(app));
             app.manage(Roms(Arc::new(Mutex::new(lib))));
+            // AI access (iteration 58): the endpoint starts if the setting is on.
+            app.manage(mcp_app::setup(app.handle(), ai_file));
             let places = transfer::load_places(app.handle())?;
             app.manage(transfer::Folders(Arc::new(Mutex::new(places))));
             #[cfg(debug_assertions)]
@@ -935,6 +946,10 @@ pub fn run() {
         .on_page_load(|webview, payload| {
             if payload.event() == tauri::webview::PageLoadEvent::Started {
                 webview.state::<transfer::Serial>().0.close_all();
+                // Nor are its tools ready: AI apps' calls wait for it to attach.
+                if let Some(local) = webview.try_state::<mcp_app::Local>() {
+                    local.bridge().detach();
+                }
             }
         })
         .on_window_event(|window, event| {
@@ -968,6 +983,10 @@ pub fn run() {
                 transfer::folder_used,
                 transfer::folder_recent_clear,
                 transfer::save_file,
+                mcp_app::mcp_attach,
+                mcp_app::mcp_reply,
+                mcp_app::mcp_status,
+                mcp_app::mcp_set,
                 $($extra),*
             ]
         };

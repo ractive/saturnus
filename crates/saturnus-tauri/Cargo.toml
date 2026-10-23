@@ -37,6 +37,7 @@ tauri-plugin-dialog = "2"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSProcessInfo", "NSString", "NSObject"] }
 
 [dev-dependencies]
+saturnus-drive = { workspace = true, features = ["testing"] }
 # The pseudo-terminal test (tests/serial_pty.rs): the calculator emulated
 # in-process behind one end, the Kermit client on the app's serial code.
 satx-core = { workspace = true, features = ["native", "saturnus"] }

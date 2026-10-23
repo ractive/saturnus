@@ -1,0 +1,748 @@
+//! The desktop app's side of AI access (iteration 58): the setting "Let
+//! AI apps on this computer use the calculators" (off by default, kept in
+//! `ai-access.json` in the app's config folder), the MCP endpoint it
+//! starts and stops ([`crate::mcp`]), and the bridge to the window that
+//! runs the tools (`web/ai-local.js`).
+//!
+//! The bridge: the endpoint's `tools/list` and `tools/call` go to the
+//! window as the event `mcp-call` (`{id, method, params, client}`); the
+//! window answers with the command `mcp_reply(id, result, error)`. A call
+//! not answered within its time limit (the window says each tool's in
+//! `mcp_attach`), or whose AI app left, is withdrawn: the event
+//! `mcp-cancel` (`{id}`) tells the window, which closes its confirmation.
+//! Until the window has attached (`mcp_attach`, once its tools are ready),
+//! and from the moment it starts loading again, calls are answered "the
+//! app is not ready". Turning the setting off stops the endpoint at once
+//! and ends the calls in progress.
+//!
+//! `mcp_status` and `mcp_set` give the page the state, and while the
+//! endpoint runs its address and the `Authorization` header the AI apps
+//! need (the control API's token): the page puts it into the install links
+//! and commands, the AI app keeps it in its config (owner, 2026-10-23,
+//! option b). It is never logged, never in an event. The event
+//! `mcp-status` (no payload) says the state changed: an AI app was seen
+//! for the first time in a while, or the endpoint started or stopped.
+
+use std::collections::HashMap;
+use std::net::{Ipv4Addr, SocketAddrV4};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{RecvTimeoutError, Sender, channel};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+use saturnus_drive::loopback::{self, token};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use tauri::{AppHandle, Emitter, State};
+
+use crate::mcp::{self, CLIENT_CHECK, CallError, Config, Window};
+
+/// The settings file, in the app's config folder.
+pub const SETTINGS_FILE: &str = "ai-access.json";
+/// The event a call goes to the window on.
+pub const CALL_EVENT: &str = "mcp-call";
+/// The event that withdraws a call.
+pub const CANCEL_EVENT: &str = "mcp-cancel";
+/// The event that says the state changed.
+pub const STATUS_EVENT: &str = "mcp-status";
+/// The window the tools run in.
+const WINDOW: &str = "main";
+/// Time limit of `tools/list`.
+const LIST_LIMIT: Duration = Duration::from_secs(15);
+/// Time limit of a tool the window named no limit for.
+const DEFAULT_LIMIT: Duration = Duration::from_secs(120);
+/// The bounds of a tool's time limit.
+const MIN_LIMIT: Duration = Duration::from_secs(1);
+const MAX_LIMIT: Duration = Duration::from_secs(600);
+/// An AI app counts as connected for this long after its last request.
+pub const APP_FRESH: Duration = Duration::from_secs(10 * 60);
+/// Longest instructions the window may set.
+const MAX_INSTRUCTIONS: usize = 64 * 1024;
+/// Lowest port the setting takes (below are the system's).
+const MIN_PORT: u16 = 1024;
+
+/// The setting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Settings {
+    /// Whether the endpoint runs.
+    pub enabled: bool,
+    /// Its port.
+    pub port: u16,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            port: mcp::DEFAULT_PORT,
+        }
+    }
+}
+
+/// What the window said when it attached.
+#[derive(Debug)]
+struct Ready {
+    instructions: String,
+    /// Each tool's time limit.
+    limits: HashMap<String, Duration>,
+}
+
+/// The calls waiting for the window and what it said when it attached.
+#[derive(Debug, Default)]
+struct Calls {
+    ready: Option<Ready>,
+    pending: HashMap<u64, Sender<Result<Value, String>>>,
+    next: u64,
+}
+
+/// Where the bridge sends its events: the app's window (a fake in tests).
+pub trait Events: Send + Sync + 'static {
+    /// Send `payload` on `event` to the tools' window; `false` if it is not
+    /// there.
+    fn emit(&self, event: &str, payload: Value) -> bool;
+}
+
+/// The app's window.
+#[derive(Debug)]
+struct AppEvents(AppHandle);
+
+impl Events for AppEvents {
+    fn emit(&self, event: &str, payload: Value) -> bool {
+        self.0.emit_to(WINDOW, event, payload).is_ok()
+    }
+}
+
+/// The bridge between the endpoint and the window.
+pub struct Bridge {
+    events: Box<dyn Events>,
+    calls: Mutex<Calls>,
+    /// The AI apps seen, with when.
+    apps: Mutex<Vec<(String, Instant)>>,
+}
+
+impl std::fmt::Debug for Bridge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Bridge").finish_non_exhaustive()
+    }
+}
+
+impl Bridge {
+    /// A bridge sending its events to `events`.
+    pub fn new(events: Box<dyn Events>) -> Self {
+        Self {
+            events,
+            calls: Mutex::new(Calls::default()),
+            apps: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// The window is ready: its instructions and each tool's time limit
+    /// in ms.
+    pub fn attach(&self, instructions: String, limits: &HashMap<String, u64>) {
+        let mut instructions = instructions;
+        if instructions.len() > MAX_INSTRUCTIONS {
+            let mut end = MAX_INSTRUCTIONS;
+            while !instructions.is_char_boundary(end) {
+                end -= 1;
+            }
+            instructions.truncate(end);
+        }
+        let limits = limits
+            .iter()
+            .map(|(k, ms)| {
+                (
+                    k.clone(),
+                    Duration::from_millis(*ms).clamp(MIN_LIMIT, MAX_LIMIT),
+                )
+            })
+            .collect();
+        if let Ok(mut c) = self.calls.lock() {
+            c.ready = Some(Ready {
+                instructions,
+                limits,
+            });
+        }
+    }
+
+    /// The window is loading again or gone: the calls waiting end ("not
+    /// ready").
+    pub fn detach(&self) {
+        if let Ok(mut c) = self.calls.lock() {
+            c.ready = None;
+            // Dropping the senders ends each wait.
+            c.pending.clear();
+        }
+    }
+
+    /// The window's answer to call `id`.
+    pub fn reply(&self, id: u64, answer: Result<Value, String>) {
+        let tx = self
+            .calls
+            .lock()
+            .ok()
+            .and_then(|mut c| c.pending.remove(&id));
+        if let Some(tx) = tx {
+            let _ = tx.send(answer);
+        }
+    }
+
+    /// End every call waiting with `why` (the setting was turned off).
+    fn end_all(&self, why: &str) {
+        let ended: Vec<(u64, Sender<Result<Value, String>>)> = match self.calls.lock() {
+            Ok(mut c) => c.pending.drain().collect(),
+            Err(_) => return,
+        };
+        for (id, tx) in ended {
+            let _ = tx.send(Err(why.to_string()));
+            self.events.emit(CANCEL_EVENT, json!({"id": id}));
+        }
+    }
+
+    /// Withdraw call `id`: the window stops waiting for the user.
+    fn withdraw(&self, id: u64) {
+        if let Ok(mut c) = self.calls.lock() {
+            c.pending.remove(&id);
+        }
+        self.events.emit(CANCEL_EVENT, json!({"id": id}));
+    }
+
+    /// The AI apps seen in the last [`APP_FRESH`], newest first, with
+    /// seconds since.
+    fn fresh_apps(&self) -> Vec<Value> {
+        let Ok(apps) = self.apps.lock() else {
+            return Vec::new();
+        };
+        let mut fresh: Vec<&(String, Instant)> = apps
+            .iter()
+            .filter(|(_, t)| t.elapsed() < APP_FRESH)
+            .collect();
+        fresh.sort_by_key(|(_, t)| std::cmp::Reverse(*t));
+        fresh
+            .iter()
+            .map(|(n, t)| json!({"name": n, "secondsAgo": t.elapsed().as_secs()}))
+            .collect()
+    }
+
+    /// Forget the AI apps (the endpoint stopped).
+    fn forget_apps(&self) {
+        if let Ok(mut a) = self.apps.lock() {
+            a.clear();
+        }
+    }
+}
+
+impl Window for Bridge {
+    fn instructions(&self) -> Option<String> {
+        let c = self.calls.lock().ok()?;
+        c.ready.as_ref().map(|r| r.instructions.clone())
+    }
+
+    fn call(
+        &self,
+        method: &str,
+        params: Value,
+        client: &str,
+        gone: &dyn Fn() -> bool,
+    ) -> Result<Value, CallError> {
+        let (id, rx, limit) = {
+            let mut c = self.calls.lock().map_err(|_| CallError::NotReady)?;
+            let ready = c.ready.as_ref().ok_or(CallError::NotReady)?;
+            let limit = if method == "tools/list" {
+                LIST_LIMIT
+            } else {
+                params
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .and_then(|n| ready.limits.get(n).copied())
+                    .unwrap_or(DEFAULT_LIMIT)
+            };
+            c.next += 1;
+            let id = c.next;
+            let (tx, rx) = channel();
+            c.pending.insert(id, tx);
+            (id, rx, limit)
+        };
+        let sent = self.events.emit(
+            CALL_EVENT,
+            json!({"id": id, "method": method, "params": params, "client": client}),
+        );
+        if !sent {
+            self.withdraw(id);
+            return Err(CallError::NotReady);
+        }
+        let deadline = Instant::now() + limit;
+        loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            match rx.recv_timeout(left.min(CLIENT_CHECK)) {
+                Ok(answer) => return answer.map_err(CallError::Failed),
+                // Dropped by `detach`: the window is loading again.
+                Err(RecvTimeoutError::Disconnected) => return Err(CallError::NotReady),
+                Err(RecvTimeoutError::Timeout) => {}
+            }
+            if left.is_zero() {
+                self.withdraw(id);
+                return Err(CallError::Timeout);
+            }
+            if gone() {
+                self.withdraw(id);
+                return Err(CallError::Gone);
+            }
+        }
+    }
+
+    fn seen(&self, client: &str) {
+        let news = {
+            let Ok(mut apps) = self.apps.lock() else {
+                return;
+            };
+            let now = Instant::now();
+            match apps.iter_mut().find(|(n, _)| n == client) {
+                Some((_, t)) => {
+                    let stale = t.elapsed() >= APP_FRESH;
+                    *t = now;
+                    stale
+                }
+                None => {
+                    // A bounded list: the oldest goes.
+                    if apps.len() >= 32 {
+                        apps.sort_by_key(|(_, t)| *t);
+                        apps.remove(0);
+                    }
+                    apps.push((client.to_string(), now));
+                    true
+                }
+            }
+        };
+        if news {
+            self.events.emit(STATUS_EVENT, Value::Null);
+        }
+    }
+}
+
+/// The endpoint while it runs.
+#[derive(Debug)]
+struct Running {
+    port: u16,
+    stop: Arc<AtomicBool>,
+    authorization: String,
+}
+
+/// The setting, the endpoint and the bridge: the app's state.
+#[derive(Debug)]
+pub struct Local {
+    bridge: Arc<Bridge>,
+    file: Option<PathBuf>,
+    /// The token file; `None`: the control API's (`token::resolve`).
+    token_file: Option<PathBuf>,
+    version: String,
+    state: Mutex<LocalState>,
+}
+
+#[derive(Debug, Default)]
+struct LocalState {
+    settings: Settings,
+    running: Option<Running>,
+    error: Option<String>,
+}
+
+impl Local {
+    /// The state with the settings in `file` (none: defaults, not kept).
+    pub fn new(bridge: Arc<Bridge>, file: Option<PathBuf>, version: &str) -> Self {
+        let settings = file
+            .as_deref()
+            .and_then(|f| std::fs::read(f).ok())
+            .and_then(|b| serde_json::from_slice::<Settings>(&b).ok())
+            .unwrap_or_default();
+        Self {
+            bridge,
+            file,
+            token_file: None,
+            version: version.to_string(),
+            state: Mutex::new(LocalState {
+                settings,
+                ..LocalState::default()
+            }),
+        }
+    }
+
+    /// The bridge.
+    pub fn bridge(&self) -> &Arc<Bridge> {
+        &self.bridge
+    }
+
+    /// Start the endpoint if the setting is on (the app starts).
+    pub fn start(&self) {
+        if let Ok(mut s) = self.state.lock() {
+            self.apply(&mut s);
+        }
+    }
+
+    /// Change the setting: kept, then applied (turning it off stops the
+    /// endpoint at once). The new status, with the header.
+    pub fn set(&self, enabled: bool, port: Option<u16>) -> Result<Value, String> {
+        let mut s = self
+            .state
+            .lock()
+            .map_err(|_| "AI access is not available. Restart the app.".to_string())?;
+        let port = port.unwrap_or(s.settings.port);
+        if port < MIN_PORT {
+            return Err(format!("Choose a port from {MIN_PORT} to 65535."));
+        }
+        s.settings = Settings { enabled, port };
+        if let Some(f) = &self.file {
+            let saved = serde_json::to_vec_pretty(&s.settings)
+                .map_err(|e| e.to_string())
+                .and_then(|b| {
+                    if let Some(dir) = f.parent() {
+                        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+                    }
+                    std::fs::write(f, b).map_err(|e| e.to_string())
+                });
+            if let Err(e) = saved {
+                eprintln!("saturnus: the AI access setting is not kept: {e}");
+            }
+        }
+        self.apply(&mut s);
+        Ok(status(&s, &self.bridge, true))
+    }
+
+    /// The status; with the header while the endpoint runs.
+    pub fn status(&self, with_header: bool) -> Value {
+        match self.state.lock() {
+            Ok(s) => status(&s, &self.bridge, with_header),
+            Err(_) => {
+                json!({"enabled": false, "running": false, "error": "AI access is not available. Restart the app."})
+            }
+        }
+    }
+
+    /// Make the endpoint match the setting.
+    fn apply(&self, s: &mut LocalState) {
+        let want = s.settings.enabled.then_some(s.settings.port);
+        if s.running.as_ref().map(|r| r.port) == want && s.running.is_some() {
+            return;
+        }
+        if let Some(r) = s.running.take() {
+            r.stop.store(true, Ordering::SeqCst);
+            self.bridge
+                .end_all("AI access was turned off in the saturnus app.");
+            self.bridge.forget_apps();
+        }
+        s.error = None;
+        if let Some(port) = want {
+            match self.launch(port) {
+                Ok(r) => s.running = Some(r),
+                Err(e) => s.error = Some(e),
+            }
+        }
+        self.bridge.events.emit(STATUS_EVENT, Value::Null);
+    }
+
+    /// Start the endpoint on `port`.
+    fn launch(&self, port: u16) -> Result<Running, String> {
+        let path = match &self.token_file {
+            Some(p) => Ok(p.clone()),
+            None => token::resolve(None),
+        };
+        let t = path
+            .and_then(|p| token::load_or_create(&p))
+            .map_err(|e| format!("AI access could not start: {e}"))?;
+        let authorization = t.bearer();
+        let listener = std::net::TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port))
+            .map_err(|e| bind_message(port, &e))?;
+        let stop = Arc::new(AtomicBool::new(false));
+        let window: Arc<dyn Window> = self.bridge.clone();
+        let cfg = Arc::new(Config::new(port, t, window, &self.version));
+        mcp::spawn(listener, cfg, Arc::clone(&stop))
+            .map_err(|e| format!("AI access could not start: {e}"))?;
+        Ok(Running {
+            port,
+            stop,
+            authorization,
+        })
+    }
+}
+
+/// What a failed bind of `port` says: a busy port names its user.
+fn bind_message(port: u16, e: &std::io::Error) -> String {
+    if e.kind() == std::io::ErrorKind::AddrInUse {
+        let who = loopback::who_listens(port).unwrap_or_else(|| "another program".to_string());
+        return format!("Port {port} is in use by {who}. Choose another port.");
+    }
+    format!("AI access could not use port {port}: {e}")
+}
+
+fn status(s: &LocalState, bridge: &Bridge, with_header: bool) -> Value {
+    let running = s.running.as_ref();
+    let mut v = json!({
+        "enabled": s.settings.enabled,
+        "port": s.settings.port,
+        "defaultPort": mcp::DEFAULT_PORT,
+        "running": running.is_some(),
+        "address": running.map(|r| format!("http://127.0.0.1:{}{}", r.port, mcp::PATH)),
+        "error": s.error,
+        "apps": if running.is_some() { bridge.fresh_apps() } else { Vec::new() },
+    });
+    if with_header && let Some(r) = running {
+        v["authorization"] = json!(r.authorization);
+    }
+    v
+}
+
+/// The window's tools are ready: its instructions and each tool's time
+/// limit (ms).
+#[tauri::command]
+pub fn mcp_attach(local: State<'_, Local>, instructions: String, limits: HashMap<String, u64>) {
+    local.bridge.attach(instructions, &limits);
+}
+
+/// The window's answer to call `id`: its result, or an error.
+#[tauri::command]
+pub fn mcp_reply(local: State<'_, Local>, id: u64, result: Option<Value>, error: Option<String>) {
+    let answer = match (result, error) {
+        (_, Some(e)) => Err(e),
+        (Some(r), None) => Ok(r),
+        (None, None) => Err("The app gave no answer.".to_string()),
+    };
+    local.bridge.reply(id, answer);
+}
+
+/// The state of AI access, with the address and header while it runs.
+#[tauri::command]
+pub fn mcp_status(local: State<'_, Local>) -> Value {
+    local.status(true)
+}
+
+/// Turn AI access on or off, on `port` (unchanged when left out).
+#[tauri::command]
+pub async fn mcp_set(app: AppHandle, enabled: bool, port: Option<u16>) -> Result<Value, String> {
+    // Starting reads the token file and binds: off the main thread.
+    crate::transfer::blocking(move || {
+        let local = tauri::Manager::state::<Local>(&app);
+        local.set(enabled, port)
+    })
+    .await
+}
+
+/// The app's state of AI access, its endpoint started if the setting is
+/// on.
+pub fn setup(app: &AppHandle, file: Option<PathBuf>) -> Local {
+    let bridge = Arc::new(Bridge::new(Box::new(AppEvents(app.clone()))));
+    let local = Local::new(bridge, file, &app.package_info().version.to_string());
+    local.start();
+    local
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Records the events.
+    #[derive(Default)]
+    struct Recorder(Mutex<Vec<(String, Value)>>);
+
+    impl Events for Arc<Recorder> {
+        fn emit(&self, event: &str, payload: Value) -> bool {
+            self.0.lock().unwrap().push((event.to_string(), payload));
+            true
+        }
+    }
+
+    fn bridge() -> (Arc<Bridge>, Arc<Recorder>) {
+        let rec = Arc::new(Recorder::default());
+        (Arc::new(Bridge::new(Box::new(Arc::clone(&rec)))), rec)
+    }
+
+    /// The id of the last `mcp-call`, waited for.
+    fn last_call(rec: &Recorder) -> Value {
+        let end = Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Some((_, p)) = rec
+                .0
+                .lock()
+                .unwrap()
+                .iter()
+                .rev()
+                .find(|(e, _)| e == CALL_EVENT)
+            {
+                return p.clone();
+            }
+            assert!(Instant::now() < end, "no call reached the window");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn calls_go_to_the_window_and_come_back() {
+        let (b, rec) = bridge();
+        let never = || false;
+        // Not attached: not ready, nothing sent.
+        assert_eq!(
+            b.call("tools/list", json!({}), "x", &never),
+            Err(CallError::NotReady)
+        );
+        assert!(b.instructions().is_none());
+        b.attach(
+            "Use them.".into(),
+            &HashMap::from([("run_rpl".to_string(), 50)]),
+        );
+        assert_eq!(b.instructions().as_deref(), Some("Use them."));
+        let b2 = Arc::clone(&b);
+        let t = std::thread::spawn(move || {
+            b2.call(
+                "tools/call",
+                json!({"name": "read_display"}),
+                "claude-code",
+                &|| false,
+            )
+        });
+        let call = last_call(&rec);
+        assert_eq!(call["method"], "tools/call");
+        assert_eq!(call["client"], "claude-code");
+        b.reply(call["id"].as_u64().unwrap(), Ok(json!({"content": []})));
+        assert_eq!(t.join().unwrap(), Ok(json!({"content": []})));
+        // An error from the window.
+        let b2 = Arc::clone(&b);
+        let t = std::thread::spawn(move || b2.call("tools/list", json!({}), "x", &|| false));
+        let id = loop {
+            let c = last_call(&rec);
+            if c["method"] == "tools/list" {
+                break c["id"].as_u64().unwrap();
+            }
+        };
+        b.reply(id, Err("broken".into()));
+        assert_eq!(t.join().unwrap(), Err(CallError::Failed("broken".into())));
+    }
+
+    #[test]
+    fn time_limits_leaving_clients_and_reloads() {
+        let (b, rec) = bridge();
+        // run_rpl's limit is clamped to the minimum of 1 s.
+        b.attach(String::new(), &HashMap::from([("run_rpl".to_string(), 10)]));
+        let started = Instant::now();
+        let r = b.call("tools/call", json!({"name": "run_rpl"}), "x", &|| false);
+        assert_eq!(r, Err(CallError::Timeout));
+        assert!(started.elapsed() >= MIN_LIMIT);
+        let cancelled = |rec: &Recorder| {
+            rec.0
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(e, _)| e == CANCEL_EVENT)
+                .count()
+        };
+        assert_eq!(cancelled(&rec), 1, "the window is told");
+        // The client leaves.
+        let r = b.call("tools/call", json!({"name": "read_display"}), "x", &|| true);
+        assert_eq!(r, Err(CallError::Gone));
+        assert_eq!(cancelled(&rec), 2);
+        // The window reloads while a call waits.
+        let b2 = Arc::clone(&b);
+        let t = std::thread::spawn(move || {
+            b2.call("tools/call", json!({"name": "read_display"}), "x", &|| {
+                false
+            })
+        });
+        let _ = last_call(&rec);
+        std::thread::sleep(Duration::from_millis(20));
+        b.detach();
+        assert_eq!(t.join().unwrap(), Err(CallError::NotReady));
+        assert!(b.instructions().is_none());
+        // A late reply for a call that ended is dropped.
+        b.reply(999, Ok(json!({})));
+    }
+
+    #[test]
+    fn apps_are_seen_and_named_once() {
+        let (b, rec) = bridge();
+        b.seen("cursor");
+        b.seen("cursor");
+        b.seen("claude-code");
+        let status_events = rec
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(e, _)| e == STATUS_EVENT)
+            .count();
+        assert_eq!(status_events, 2, "only news is told");
+        let apps = b.fresh_apps();
+        assert_eq!(apps.len(), 2);
+        assert_eq!(apps[0]["name"], "claude-code");
+    }
+
+    /// The setting: off by default, kept, turning it on starts the
+    /// endpoint with its header, off stops it and ends the calls; a busy
+    /// port says who has it; a port below 1024 is refused.
+    #[test]
+    fn the_setting_starts_and_stops_the_endpoint() {
+        let dir = saturnus_drive::loopback::token::testing::TempDir::new("mcp-app");
+        let file = dir.0.join(SETTINGS_FILE);
+        let (b, _) = bridge();
+        let mut local = Local::new(Arc::clone(&b), Some(file.clone()), "0.0.0");
+        // The token file of this test only.
+        local.token_file = Some(dir.0.join("control-token"));
+        let s = local.status(true);
+        assert_eq!(
+            (s["enabled"].as_bool(), s["running"].as_bool()),
+            (Some(false), Some(false))
+        );
+        assert_eq!(s["port"], mcp::DEFAULT_PORT);
+        assert!(s.get("authorization").is_none());
+        assert!(local.set(true, Some(80)).unwrap_err().contains("1024"));
+
+        // A free port, found by binding one and letting it go.
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let on = local.set(true, Some(port)).unwrap();
+        assert_eq!(on["running"], true, "{on}");
+        assert_eq!(on["address"], format!("http://127.0.0.1:{port}/mcp"));
+        let auth = on["authorization"].as_str().unwrap().to_string();
+        assert!(auth.starts_with("Bearer ") && auth.len() == 71);
+        assert!(local.status(false).get("authorization").is_none());
+        let kept: Settings = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        assert_eq!(
+            kept,
+            Settings {
+                enabled: true,
+                port
+            }
+        );
+        assert!(std::net::TcpStream::connect(("127.0.0.1", port)).is_ok());
+
+        // A call waiting when it is turned off ends at once.
+        b.attach(String::new(), &HashMap::new());
+        let b2 = Arc::clone(&b);
+        let t =
+            std::thread::spawn(move || b2.call("tools/call", json!({"name": "x"}), "x", &|| false));
+        std::thread::sleep(Duration::from_millis(50));
+        let off = local.set(false, None).unwrap();
+        assert_eq!(off["running"], false);
+        assert!(matches!(t.join().unwrap(), Err(CallError::Failed(m)) if m.contains("turned off")));
+        let end = Instant::now() + Duration::from_secs(5);
+        while std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+            assert!(Instant::now() < end, "still accepting");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        // Read back on the next start.
+        let again = Local::new(Arc::clone(&b), Some(file), "0.0.0");
+        assert_eq!(again.status(false)["enabled"], false);
+
+        // A busy port.
+        let held = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let busy = held.local_addr().unwrap().port();
+        let s = local.set(true, Some(busy)).unwrap();
+        assert_eq!(s["running"], false);
+        let e = s["error"].as_str().unwrap();
+        assert!(
+            e.contains(&format!("Port {busy} is in use by")) && e.ends_with("Choose another port."),
+            "{e}"
+        );
+        local.set(false, None).unwrap();
+    }
+}
