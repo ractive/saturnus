@@ -1,6 +1,7 @@
-//! The control API's per-user token file (kb: docs/control-api-security).
+//! The per-user token file of the loopback servers, the CLI's control API
+//! and the desktop app's MCP endpoint (kb: docs/control-api-security).
 //!
-//! `saturnus run` creates it on first use: 256 bits from the operating
+//! `saturnus run` or the desktop app creates it on first use: 256 bits from the operating
 //! system's random source, as 64 hex digits. On Unix the file is created
 //! with mode 0600 in a directory created with mode 0700, and a file that
 //! other users may read is refused. On Windows it lives under the user's
@@ -21,7 +22,7 @@ pub const TOKEN_ENV: &str = "SATURNUS_TOKEN_FILE";
 /// Hex digits in a token: 256 bits.
 const TOKEN_HEX: usize = 64;
 
-/// The shared secret of the control API.
+/// The shared secret of the control API and the MCP endpoint.
 #[derive(Clone)]
 pub struct Token(String);
 
@@ -192,7 +193,7 @@ impl ReadError {
             Self::Missing => anyhow::anyhow!("no token file at {p}"),
             Self::Malformed => anyhow::anyhow!(
                 "the token file {p} is malformed (64 hex digits expected); delete it, and \
-                 the next `saturnus run --serve` makes a new one"
+                 the next `saturnus run --serve` (or the desktop app's AI setting) makes a new one"
             ),
             Self::Open(e) => anyhow::anyhow!("cannot read the token file {p}: {e}"),
             Self::NotAFile => anyhow::anyhow!("the token file {p} is not a regular file"),
@@ -276,8 +277,46 @@ fn create_dir(dir: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)
 }
 
+/// Helpers for the tests of the crates that use the token (feature
+/// `testing`): a token of given hex digits, a temporary directory.
+#[cfg(any(test, feature = "testing"))]
+#[allow(clippy::panic, missing_debug_implementations)]
+pub mod testing {
+    use std::path::PathBuf;
+
+    use super::Token;
+
+    /// The token of hex `s`.
+    pub fn token_of(s: &str) -> Token {
+        Token(s.to_string())
+    }
+
+    /// A temporary directory removed on drop.
+    pub struct TempDir(pub PathBuf);
+
+    impl TempDir {
+        pub fn new(tag: &str) -> Self {
+            static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+            let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let p = std::env::temp_dir().join(format!("saturnus-{tag}-{}-{n}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&p);
+            if let Err(e) = std::fs::create_dir_all(&p) {
+                panic!("cannot create {}: {e}", p.display());
+            }
+            Self(p)
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+}
+
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
+    use super::testing::TempDir;
     use super::*;
 
     /// RFC 4231 test cases 2 and 6; and a proof depends on the nonce and port.
@@ -304,31 +343,6 @@ pub(crate) mod tests {
             t.proof(&n, 4840),
             Token(random_hex().unwrap()).proof(&n, 4840)
         );
-    }
-
-    /// The token of hex `s`.
-    pub(crate) fn token_of(s: &str) -> Token {
-        Token(s.to_string())
-    }
-
-    /// A temporary directory removed on drop.
-    pub(crate) struct TempDir(pub PathBuf);
-
-    impl TempDir {
-        pub(crate) fn new(tag: &str) -> Self {
-            static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-            let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            let p = std::env::temp_dir().join(format!("saturnus-{tag}-{}-{n}", std::process::id()));
-            let _ = std::fs::remove_dir_all(&p);
-            std::fs::create_dir_all(&p).unwrap();
-            Self(p)
-        }
-    }
-
-    impl Drop for TempDir {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
     }
 
     #[test]

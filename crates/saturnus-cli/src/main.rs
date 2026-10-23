@@ -681,7 +681,7 @@ mod tests {
     #[test]
     fn outputs_follow_links_and_keep_permissions() {
         use std::os::unix::fs::PermissionsExt as _;
-        let dir = control::token::tests::TempDir::new("outputs");
+        let dir = control::token::testing::TempDir::new("outputs");
         let real = dir.0.join("real.state");
         std::fs::write(&real, b"old").unwrap();
         std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o640)).unwrap();

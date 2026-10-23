@@ -2911,7 +2911,6 @@ dependencies = [
  "anyhow",
  "clap",
  "ctrlc",
- "getrandom 0.4.3",
  "miniz_oxide 0.9.1",
  "saturnus-core",
  "saturnus-drive",
@@ -2932,6 +2931,7 @@ name = "saturnus-drive"
 version = "0.9.0"
 dependencies = [
  "anyhow",
+ "getrandom 0.4.3",
  "miniz_oxide 0.9.1",
  "png 0.18.1",
  "saturnus-core",

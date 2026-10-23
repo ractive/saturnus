@@ -23,13 +23,12 @@
 //! bounded body read (408). No CORS header is ever sent. The server never
 //! takes a file path: snapshots travel as bytes.
 
-use std::collections::VecDeque;
 use std::net::{SocketAddrV4, TcpListener, TcpStream};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::sync::mpsc::{RecvTimeoutError, SyncSender, TrySendError, channel};
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use saturnus_drive::loopback::guard::{self, BODY_TIMEOUT, Gate, HEAD_TIMEOUT, Pending, Refusal};
 use saturnus_drive::runner::{self, MAX_STATE_FILE, Request, Ticket};
 use saturnus_host::protocol::{CommandKind, HttpEndpoint};
 use serde_json::{Value, json};
@@ -39,20 +38,8 @@ use super::token::Token;
 
 /// Most authenticated requests served at once; more are answered 503.
 pub const MAX_CONNECTIONS: usize = 8;
-/// Most connections still sending their head; a new one drops the oldest.
-pub const MAX_PENDING: usize = 16;
-/// Most connection threads alive (including closing ones); a connection
-/// over this is closed at once.
-pub const MAX_THREADS: usize = 64;
 /// Commands waiting for the machine thread; more are answered 503.
 pub const QUEUE_DEPTH: usize = 8;
-/// Wall time a client has to send its request head: local clients send
-/// it at once, and until then the connection is unauthenticated.
-pub const HEAD_TIMEOUT: Duration = Duration::from_secs(2);
-/// Wall time a client has to send its body.
-pub const BODY_TIMEOUT: Duration = Duration::from_secs(20);
-/// Wall time a client has to take the response.
-pub const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Longest a handler waits for the machine thread: a key script may run
 /// [`runner::SCRIPT_WALL_LIMIT`], and commands queue behind each other.
 pub const REPLY_TIMEOUT: Duration = Duration::from_secs(90);
@@ -162,135 +149,14 @@ impl Endpoint {
 /// lives.
 pub fn spawn(listener: TcpListener, cfg: Config) -> std::io::Result<()> {
     let cfg = Arc::new(cfg);
-    std::thread::Builder::new()
-        .name("saturnus-control".into())
-        .spawn(move || accept(&listener, &cfg))?;
+    guard::spawn(
+        listener,
+        "saturnus-control",
+        Gate::new(MAX_CONNECTIONS),
+        None,
+        move |stream, gate, pending| respond(stream, &cfg, gate, pending),
+    )?;
     Ok(())
-}
-
-/// The connection budgets.
-#[derive(Debug, Default)]
-struct Gate {
-    /// Connections still sending their head, oldest first, with a handle
-    /// to drop them.
-    pending: Mutex<VecDeque<(u64, TcpStream)>>,
-    next: AtomicU64,
-    /// Authenticated requests in progress.
-    served: AtomicUsize,
-    /// Connection threads alive.
-    threads: AtomicUsize,
-}
-
-/// Decrements a counter on drop.
-struct Count<'a>(&'a AtomicUsize);
-
-impl Drop for Count<'_> {
-    fn drop(&mut self) {
-        self.0.fetch_sub(1, Ordering::SeqCst);
-    }
-}
-
-/// A connection's place among the pending ones, left on drop.
-struct Pending<'a>(&'a Gate, u64);
-
-impl Drop for Pending<'_> {
-    fn drop(&mut self) {
-        if let Ok(mut p) = self.0.pending.lock() {
-            p.retain(|(id, _)| *id != self.1);
-        }
-    }
-}
-
-impl Gate {
-    /// Register a new connection as pending, dropping the oldest pending
-    /// one when [`MAX_PENDING`] are; its id.
-    fn arrive(&self, stream: &TcpStream) -> u64 {
-        let id = self.next.fetch_add(1, Ordering::SeqCst);
-        if let Ok(mut p) = self.pending.lock() {
-            while p.len() >= MAX_PENDING {
-                if let Some((_, old)) = p.pop_front() {
-                    let _ = old.shutdown(std::net::Shutdown::Both);
-                }
-            }
-            if let Ok(handle) = stream.try_clone() {
-                p.push_back((id, handle));
-            }
-        }
-        id
-    }
-
-    /// An authenticated request takes a slot, if one is free.
-    fn admit(&self) -> Option<Count<'_>> {
-        if self.served.fetch_add(1, Ordering::SeqCst) >= MAX_CONNECTIONS {
-            self.served.fetch_sub(1, Ordering::SeqCst);
-            return None;
-        }
-        Some(Count(&self.served))
-    }
-}
-
-fn accept(listener: &TcpListener, cfg: &Arc<Config>) {
-    let gate = Arc::new(Gate::default());
-    for stream in listener.incoming() {
-        let Ok(stream) = stream else { continue };
-        if gate.threads.fetch_add(1, Ordering::SeqCst) >= MAX_THREADS {
-            gate.threads.fetch_sub(1, Ordering::SeqCst);
-            drop(stream);
-            continue;
-        }
-        let id = gate.arrive(&stream);
-        let (cfg, g) = (Arc::clone(cfg), Arc::clone(&gate));
-        let spawned = std::thread::Builder::new()
-            .name("saturnus-control-conn".into())
-            .spawn(move || {
-                let _thread = Count(&g.threads);
-                serve(stream, &cfg, &g, id);
-            });
-        if spawned.is_err() {
-            // Out of threads: the connection was dropped with the closure.
-            gate.threads.fetch_sub(1, Ordering::SeqCst);
-            if let Ok(mut p) = gate.pending.lock() {
-                p.retain(|(i, _)| *i != id);
-            }
-        }
-    }
-}
-
-fn serve(mut stream: TcpStream, cfg: &Config, gate: &Gate, id: u64) {
-    let _ = stream.set_nodelay(true);
-    let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
-    let pending = Pending(gate, id);
-    let resp = respond(&mut stream, cfg, gate, pending);
-    if let Some(resp) = resp {
-        let _ = resp.write_to(&mut stream);
-    }
-    linger(&mut stream);
-}
-
-/// Most a closing connection reads and drops after its response, and for
-/// how long: closing a socket with unread bytes (a refused request's body)
-/// resets it, and the client may lose the response.
-const LINGER_BYTES: usize = 1024 * 1024;
-const LINGER_TIME: Duration = Duration::from_secs(1);
-
-/// Finish the response (FIN), then drain what the client still sends, a
-/// bounded amount for a bounded time, before closing.
-fn linger(stream: &mut TcpStream) {
-    use std::io::Read as _;
-    let _ = stream.shutdown(std::net::Shutdown::Write);
-    let deadline = Instant::now() + LINGER_TIME;
-    let mut buf = [0u8; 16 * 1024];
-    let mut total = 0;
-    while total < LINGER_BYTES {
-        let left = deadline.saturating_duration_since(Instant::now());
-        if left.is_zero() || stream.set_read_timeout(Some(left)).is_err() {
-            break;
-        }
-        match stream.read(&mut buf) {
-            Ok(0) | Err(_) => break,
-            Ok(n) => total += n,
-        }
-    }
 }
 
 /// The reply shape of `web/protocol.md` for a failure.
@@ -318,28 +184,10 @@ fn not_allowed(allow: &[&str], message: &str) -> Response {
 
 /// The checks that need only the head, in order. `Ok` is the endpoint.
 fn check(head: &Head, cfg: &Config) -> Result<Endpoint, Response> {
-    let bad = |m: String| error(400, &m);
-    // Host: the bound address, or localhost, with the bound port.
-    let host = head.header("host").map_err(bad)?;
-    let ours = [
-        format!("127.0.0.1:{}", cfg.port),
-        format!("localhost:{}", cfg.port),
-    ];
-    if !host.is_some_and(|h| ours.iter().any(|o| o.eq_ignore_ascii_case(h))) {
-        return Err(error(
-            421,
-            &format!("Host must be {} or {}", ours[0], ours[1]),
-        ));
-    }
-    // A browser names the page's origin; only the API's own is accepted.
-    if let Some(origin) = head.header("origin").map_err(bad)? {
-        let own = ours
-            .iter()
-            .any(|o| origin.eq_ignore_ascii_case(&format!("http://{o}")));
-        if !own {
-            return Err(error(403, "cross-origin requests are refused"));
-        }
-    }
+    // Host: the bound address, or localhost, with the bound port; a
+    // browser names the page's origin, and only the API's own is accepted.
+    guard::host_and_origin(head, cfg.port)
+        .map_err(|Refusal { status, message }| error(status, &message))?;
     let method = head.first.as_str();
     if method == "OPTIONS" {
         return Err(not_allowed(
@@ -358,18 +206,9 @@ fn check(head: &Head, cfg: &Config) -> Result<Endpoint, Response> {
             ))
         };
     }
-    let presented = head.header("authorization").ok().flatten().and_then(|a| {
-        let (scheme, cred) = a.split_once(' ')?;
-        scheme.eq_ignore_ascii_case("bearer").then_some(cred.trim())
-    });
-    if !presented.is_some_and(|p| cfg.token.matches(p.as_bytes())) {
+    if !guard::bearer_matches(head, &cfg.token) {
         // No detail: not which part was wrong, nothing about the token.
-        return Err(Response {
-            status: 401,
-            content_type: "application/json",
-            headers: vec![("WWW-Authenticate", "Bearer".to_string())],
-            body: b"{}".to_vec(),
-        });
+        return Err(guard::unauthorized());
     }
     let ep = Endpoint::from_path(path).ok_or_else(|| error(404, "no such endpoint"))?;
     if !ep.methods().contains(&method) {
@@ -672,20 +511,18 @@ fn dispatch(
 
 /// Bind the control API on `addr` (always 127.0.0.1).
 pub fn bind(addr: SocketAddrV4) -> anyhow::Result<TcpListener> {
-    if *addr.ip() != std::net::Ipv4Addr::LOCALHOST {
-        anyhow::bail!("the control API listens on 127.0.0.1 only");
-    }
-    TcpListener::bind(addr).map_err(|e| super::bind_error("control API", &addr.to_string(), e))
+    saturnus_drive::loopback::bind("control API", addr, super::PORT_HINT)
 }
 
 #[cfg(test)]
 mod tests {
     use std::io::{Read, Write};
 
+    use saturnus_drive::loopback::guard::MAX_PENDING;
     use saturnus_drive::runner::Runner;
     use saturnus_host::Emulator;
 
-    use super::super::token::{self, tests::TempDir};
+    use super::super::token::{self, testing::TempDir};
     use super::*;
 
     struct NoSink;
@@ -905,7 +742,7 @@ mod tests {
         );
         assert_eq!(s, 200);
         let v: Value = serde_json::from_slice(&b).unwrap();
-        let token = super::super::token::tests::token_of(&f.token);
+        let token = super::super::token::testing::token_of(&f.token);
         assert_eq!(v["result"]["proof"], token.proof(&nonce, f.port));
         assert!(!String::from_utf8_lossy(&b).contains(&f.token));
         for target in ["/v1/hello", "/v1/hello?nonce=xyz"] {

@@ -16,6 +16,8 @@ include = ["/src/**", "/README.md", "/LICENSE"]
 [dependencies]
 saturnus-core.workspace = true
 anyhow = "1"
+# The loopback servers' token: 256 bits from the OS random source.
+getrandom = "0.4"
 # Unpacks the ROM zips `fetch` downloads.
 miniz_oxide = "0.9"
 png = "0.18"
@@ -24,6 +26,11 @@ png = "0.18"
 saturnus-host.workspace = true
 serde = "1"
 serde_json = "1"
+
+[features]
+# Test helpers of `loopback::token` (a token of given digits, a temporary
+# directory) for the tests of the crates that serve on loopback.
+testing = []
 
 [lints]
 workspace = true
