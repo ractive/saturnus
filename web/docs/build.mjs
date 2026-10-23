@@ -49,6 +49,7 @@ import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { escapeHtml, parseFrontmatter, renderMarkdown } from "./markdown.mjs";
+import { LinkBudget } from "../shared/ext-links.js";
 import { slugMap } from "./commands/slug.js";
 import { buildIndex, exampleBefore, exampleResult, exampleRun, keysText, legendText, manualLinks, placement } from "../reference.js";
 import { STACK_NONE, stackEmpty } from "../components/entry-view.js";
@@ -516,7 +517,11 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
     let source = page.source;
     let body = page.body;
     let after = "";
-    const render = (md) => sizeImages(renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId, appIcon }));
+    // One link budget per page (markdown.mjs): its body, then the notes and sources after it.
+    const budget = new LinkBudget();
+    const render = (md) => sizeImages(renderMarkdown(md, { link: (h) => htmlLink(page.rel, h, pageRels), headingId, appIcon, budget }));
+    let notes = "";
+    let sources = "";
     if (page.rel === "commands") {
       // The lead above the reference; its sections (the notes) and the
       // sources (every manual it links to) after it, each in a column
@@ -524,11 +529,12 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
       const at = body.search(/^## /m);
       const rest = at < 0 ? "" : body.slice(at);
       if (at >= 0) body = body.slice(0, at);
-      const sources = `## Sources\n\n${manualSources(data, referenceModels(data)).join("\n")}\n`;
+      notes = rest.trimEnd();
+      sources = `## Sources\n\n${manualSources(data, referenceModels(data)).join("\n")}\n`;
       source = `${source.trimEnd()}\n\n${sources}`;
-      after = `<div class="docs-after-notes">\n${render(rest.trimEnd())}\n</div>\n<div class="docs-after-sources">\n${render(sources)}\n</div>`;
     }
     let bodyHtml = render(body);
+    if (page.rel === "commands") after = `<div class="docs-after-notes">\n${render(notes)}\n</div>\n<div class="docs-after-sources">\n${render(sources)}\n</div>`;
     if (page.rel === "index") bodyHtml = modelLogos(bodyHtml);
     const extra = page.rel === "commands" ? commandsExtra() : "";
     const doc = pageHtml(page, bodyHtml, { csp, extra, after });

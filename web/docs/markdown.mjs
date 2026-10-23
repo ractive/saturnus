@@ -20,6 +20,18 @@
 // Everything else is text: HTML in a page is escaped, never passed
 // through. `link(href)` lets the caller rewrite each link and image
 // source (a page's `.md` links become its HTML page's).
+//
+// Links to other sites (web/shared/ext-links.js) open in a new tab, with
+// a ↗ after their text and " (opens in a new tab)" for screen readers. A
+// site named in the text ("hpcalc.org") is a link to it, at most twice
+// per address on a page, its explicit links counted too (`budget`, one
+// LinkBudget per page, shared by the page's render calls); a link beyond
+// that is its text. Under a "Sources" heading (level 1 or 2, to the next
+// one) links do not count and are always links, and names stay text.
+// Never in code, in a link's text or in a heading. The Markdown itself
+// is not changed: the .md beside the HTML stays as written.
+
+import { EXT_ATTRS, EXT_MARKS_HTML, LinkBudget, isExternal, siteNameAt, siteUrl } from "../shared/ext-links.js";
 
 /** `s` with &, <, > and " escaped for HTML text and attributes. */
 export function escapeHtml(s) {
@@ -58,9 +70,23 @@ export function safeHref(href) {
   return href;
 }
 
-/** Inline Markdown of `text` as HTML; `link(href)` rewrites each link's target. */
-export function renderInline(text, rewrite = (h) => h) {
+/**
+ * Inline Markdown of `text` as HTML; `link(href)` rewrites each link's
+ * target. `opts`: `budget` (the page's LinkBudget), `autolink` (site
+ * names become links; false in a heading and a link's text), `sources`
+ * (in a list of sources: links do not count, names stay text).
+ */
+export function renderInline(text, rewrite = (h) => h, opts = {}) {
   const link = (h) => rewrite(safeHref(h));
+  const { budget = new LinkBudget(), autolink = true, sources = false } = opts;
+  const inner = (t, o = {}) => renderInline(t, link, { budget, autolink, sources, ...o });
+  // An <a> for `href` with `html` as its text; another site's in a new tab,
+  // or its text alone when the page has linked the address enough.
+  const anchor = (href, html) => {
+    if (!isExternal(href)) return `<a href="${escapeHtml(link(href))}">${html}</a>`;
+    if (!sources && !budget.take(href)) return html;
+    return `<a href="${escapeHtml(link(href))}" ${EXT_ATTRS}>${html}${EXT_MARKS_HTML}</a>`;
+  };
   let out = "";
   let i = 0;
   const s = text;
@@ -84,7 +110,7 @@ export function renderInline(text, rewrite = (h) => h) {
     if (c === "<") {
       const auto = s.slice(i).match(/^<(https?:\/\/[^\s<>]+)>/);
       if (auto) {
-        out += `<a href="${escapeHtml(link(auto[1]))}">${escapeHtml(auto[1])}</a>`;
+        out += anchor(auto[1], escapeHtml(auto[1]));
         i += auto[0].length;
         continue;
       }
@@ -100,7 +126,7 @@ export function renderInline(text, rewrite = (h) => h) {
     if (c === "[") {
       const a = linkAt(s, i);
       if (a) {
-        out += `<a href="${escapeHtml(link(a.href))}">${renderInline(a.label, link)}</a>`;
+        out += anchor(a.href, inner(a.label, { autolink: false }));
         i = a.end;
         continue;
       }
@@ -108,7 +134,7 @@ export function renderInline(text, rewrite = (h) => h) {
     if ((c === "*" || c === "_") && s[i + 1] === c) {
       const end = s.indexOf(c + c, i + 2);
       if (end > i + 2) {
-        out += `<strong>${renderInline(s.slice(i + 2, end), link)}</strong>`;
+        out += `<strong>${inner(s.slice(i + 2, end))}</strong>`;
         i = end + 2;
         continue;
       }
@@ -118,10 +144,18 @@ export function renderInline(text, rewrite = (h) => h) {
       const opens = s[i + 1] && s[i + 1] !== " " && (c === "*" || !/\w/.test(s[i - 1] ?? ""));
       const end = opens ? findClose(s, c, i + 1) : -1;
       if (end > i + 1) {
-        out += `<em>${renderInline(s.slice(i + 1, end), link)}</em>`;
+        out += `<em>${inner(s.slice(i + 1, end))}</em>`;
         i = end + 1;
         continue;
       }
+    }
+    const name = /[a-z0-9]/i.test(c) ? siteNameAt(s, i) : null;
+    if (name) {
+      // A site's name: a link while the page allows, else its text.
+      const url = autolink && !sources ? siteUrl(name) : null;
+      out += url && budget.take(url) ? `<a href="${escapeHtml(url)}" ${EXT_ATTRS}>${escapeHtml(name)}${EXT_MARKS_HTML}</a>` : escapeHtml(name);
+      i += name.length;
+      continue;
     }
     out += escapeHtml(c);
     i++;
@@ -138,7 +172,10 @@ function findClose(s, c, from) {
   return -1;
 }
 
-/** A `[label](href)` at `i`: `{label, href, end}`, or null. */
+/**
+ * A `[label](href)` at `i`: `{label, href, end}`, or null. The href may
+ * hold balanced parentheses (a Wikimedia file name: `File:HP_48_(1).jpg`).
+ */
 function linkAt(s, i) {
   let depth = 0;
   let j = i;
@@ -148,7 +185,11 @@ function linkAt(s, i) {
     else if (s[j] === "]" && --depth === 0) break;
   }
   if (j >= s.length || s[j + 1] !== "(") return null;
-  const close = s.indexOf(")", j + 2);
+  let close = -1;
+  for (let k = j + 2, open = 1; k < s.length; k++) {
+    if (s[k] === "(") open++;
+    else if (s[k] === ")" && --open === 0) { close = k; break; }
+  }
   if (close < 0) return null;
   const href = s.slice(j + 2, close).trim();
   if (!href || /\s/.test(href)) return null;
@@ -165,7 +206,7 @@ const BULLET = /^[-*]\s+(.*)$/;
 const NUMBER = /^\d+[.)]\s+(.*)$/;
 const FENCE = /^```\s*([\w-]*)\s*$/;
 const RULE = /^(-{3,}|\*{3,})\s*$/;
-const FIGURE = /^!\[[^\]]*\]\([^)\s]+\)$/;
+const FIGURE = /^!\[[^\]]*\]\([^\s]+\)$/;
 const TABLE_SEP = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 
 /**
@@ -173,10 +214,10 @@ const TABLE_SEP = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
  * targets and image sources; `headingId(text)` gives a heading its id
  * (default: none).
  */
-export function renderMarkdown(markdown, { link = (h) => h, headingId = null, appIcon = () => "" } = {}) {
+export function renderMarkdown(markdown, { link = (h) => h, headingId = null, appIcon = () => "", budget = new LinkBudget(), state = { sources: false } } = {}) {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
   const out = [];
-  const inline = (t) => renderInline(t, link);
+  const inline = (t) => renderInline(t, link, { budget, sources: state.sources });
   let i = 0;
   const isBlockStart = (l) => HEADING.test(l) || FENCE.test(l) || BULLET.test(l) || NUMBER.test(l) || l.startsWith(">") || RULE.test(l) || l.trimStart().startsWith("|");
   while (i < lines.length) {
@@ -197,7 +238,8 @@ export function renderMarkdown(markdown, { link = (h) => h, headingId = null, ap
     if (h) {
       const level = h[1].length;
       const id = headingId ? headingId(h[2]) : null;
-      out.push(`<h${level}${id ? ` id="${escapeHtml(id)}"` : ""}>${inline(h[2])}</h${level}>`);
+      if (level <= 2) state.sources = /^sources$/i.test(h[2].trim());
+      out.push(`<h${level}${id ? ` id="${escapeHtml(id)}"` : ""}>${renderInline(h[2], link, { budget, autolink: false, sources: state.sources })}</h${level}>`);
       i++;
       continue;
     }
@@ -220,7 +262,7 @@ export function renderMarkdown(markdown, { link = (h) => h, headingId = null, ap
     if (line.startsWith(">")) {
       const body = [];
       while (i < lines.length && lines[i].startsWith(">")) body.push(lines[i++].replace(/^> ?/, ""));
-      out.push(`<blockquote>\n${renderMarkdown(body.join("\n"), { link, headingId })}\n</blockquote>`);
+      out.push(`<blockquote>\n${renderMarkdown(body.join("\n"), { link, headingId, budget, state })}\n</blockquote>`);
       continue;
     }
     const ordered = NUMBER.test(line);

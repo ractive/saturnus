@@ -18,6 +18,11 @@ import { commandOfSlug, hashEncode, parseRefHash, refHash, slugBase, slugMap } f
 import { brokenLinks, build, gitLastmod, sitemapSources, sitemapXml, sizeImages, commandsMarkdown, htmlLink, llmsTxt, loadPages, pagePaths, referenceModels, relative, sectionPages } from "../docs/build.mjs";
 import { buildIndex } from "../reference.js";
 import { MODEL_ORDER } from "../norom.js";
+import { LinkBudget, isExternal, siteNameAt, siteUrl, urlKey } from "../shared/ext-links.js";
+
+/** What an external link has after its text (web/shared/ext-links.js). */
+const MARKS = '<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span>';
+const NEW_TAB = 'target="_blank" rel="noopener noreferrer"';
 
 const data = JSON.parse(readFileSync(new URL("../commands.json", import.meta.url), "utf8"));
 
@@ -41,7 +46,7 @@ test("the renderer covers the pages' Markdown and escapes HTML", () => {
   assert.equal(renderMarkdown("Text ![p](a.png) inline"), '<p>Text <img src="a.png" alt="p"> inline</p>', "an image within text stays inline");
   assert.equal(renderMarkdown("| | |\n|---|---|\n| RAM | 128 KB |"), '<div class="table-wrap"><table>\n<tbody>\n<tr><td>RAM</td><td>128 KB</td></tr>\n</tbody>\n</table></div>');
   assert.equal(renderMarkdown("<script>alert(1)</script>"), "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>");
-  assert.equal(renderInline("[a *b*](x.md#y) <https://e.org/> ![p](i.png)"), '<a href="x.md#y">a <em>b</em></a> <a href="https://e.org/">https://e.org/</a> <img src="i.png" alt="p">');
+  assert.equal(renderInline("[a *b*](x.md#y) <https://e.org/> ![p](i.png)"), `<a href="x.md#y">a <em>b</em></a> <a href="https://e.org/" target="_blank" rel="noopener noreferrer">https://e.org/${MARKS}</a> <img src="i.png" alt="p">`);
   assert.equal(renderInline("snake_case_name and 2*3*4"), "snake_case_name and 2<em>3</em>4");
   assert.equal(renderInline("\\*not\\* [x](a\"b)"), '*not* <a href="a&quot;b">x</a>');
   // Review of PR 206: only relative, fragment, http(s) and mailto targets; a closing # needs a space.
@@ -237,7 +242,15 @@ test("the build: each page's HTML and its Markdown as written, the command files
     assert.match(gx, /<figure><img src="\.\.\/\.\.\/img\/48gx-640\.webp" width="1248" height="2721" decoding="async" alt="HP 48GX"><figcaption>[^<]+<\/figcaption><\/figure>/);
     assert.match(gx, /<h2 id="at-a-glance">At a glance<\/h2>\n<div class="table-wrap"><table>\n<tbody>/, "the facts without a header row");
     assert.ok(gx.includes('href="../../app/#/calculator/48gx"') && gx.includes('href="../commands/#48gx"'));
-    assert.match(gx, /<h2 id="sources">Sources<\/h2>\n<ul>\n(<li><a href="https:\/\/[^"]+">[\s\S]*?<\/li>\n)+<\/ul>\n<\/article>/, "the sources last, each linked");
+    assert.match(gx, /<h2 id="sources">Sources<\/h2>\n<ul>\n(<li><a href="https:\/\/[^"]+" target="_blank" rel="noopener noreferrer">[\s\S]*?<\/li>\n)+<\/ul>\n<\/article>/, "the sources last, each linked, in a new tab");
+    // Every link to another site opens in a new tab; a site's name in the text is a link (the 49G page names hpcalc.org).
+    for (const f of written.filter((w) => w.endsWith(".html"))) {
+      const doc = readFileSync(join(out, f), "utf8");
+      for (const [a] of doc.matchAll(/<a [^>]*href="https?:\/\/[^"]*"[^>]*>/g)) assert.ok(a.includes(NEW_TAB), `${f}: ${a}`);
+    }
+    assert.ok(readFileSync(join(out, "docs", "49g", "index.html"), "utf8").includes(`<a href="https://www.hpcalc.org/" ${NEW_TAB}>hpcalc.org${MARKS}</a>`));
+    // The Markdown beside the HTML stays Markdown: no HTML put into it.
+    for (const f of written.filter((w) => w.endsWith(".md"))) assert.doesNotMatch(readFileSync(join(out, f), "utf8"), /target="_blank"|class="ext"|visually-hidden/, f);
     assert.doesNotMatch(readFileSync(join(out, "docs", "48gx.md"), "utf8"), /status: placeholder|coming soon/);
     // The page's own modules import the app's from app/ beside docs/.
     const page = readFileSync(join(out, "docs", "commands", "page.js"), "utf8");
@@ -345,4 +358,62 @@ test("sitemap.xml: gitLastmod gives a date or null", () => {
   const date = gitLastmod(["web/docs/build.mjs"]);
   assert.ok(date === null || /^\d{4}-\d{2}-\d{2}$/.test(date), String(date));
   assert.equal(gitLastmod(["web/no-such-file-anywhere.txt"]), null);
+});
+
+test("a link to another site opens in a new tab with its arrow; links within the site stay as they are", () => {
+  assert.equal(renderInline("[HP](https://www.hp.com/x)"), `<a href="https://www.hp.com/x" ${NEW_TAB}>HP${MARKS}</a>`);
+  assert.equal(renderInline("[*it*](http://e.org)"), `<a href="http://e.org" ${NEW_TAB}><em>it</em>${MARKS}</a>`);
+  for (const internal of ["[a](48gx.md)", "[b](#top)", "[c](../app/)", "[d](https://ractive.ch/saturnus/docs/)", "[m](mailto:a@b.c)"]) {
+    assert.doesNotMatch(renderInline(internal), /target=|class="ext"/, internal);
+  }
+  assert.equal(isExternal("https://ractive.ch/"), true, "ractive.ch outside saturnus is another site");
+  assert.equal(isExternal("https://ractive.ch/saturnus"), false);
+  // An address with parentheses (a Wikimedia file name) stays whole.
+  assert.equal(renderInline("[photo](https://commons.wikimedia.org/wiki/File:HP_28S_(open).jpg) after"), `<a href="https://commons.wikimedia.org/wiki/File:HP_28S_(open).jpg" ${NEW_TAB}>photo${MARKS}</a> after`);
+  assert.match(renderMarkdown("![p](https://e.org/a_(b).png)"), /^<figure><img src="https:\/\/e\.org\/a_\(b\)\.png" alt="p"><\/figure>$/);
+});
+
+test("a site named in the text is a link to it, at most twice per address on a page, its own links counted", () => {
+  const link = (url, text) => `<a href="${url}" ${NEW_TAB}>${text}${MARKS}</a>`;
+  assert.equal(renderInline("From hpcalc.org."), `From ${link("https://www.hpcalc.org/", "hpcalc.org")}.`);
+  assert.equal(renderInline("See literature.hpcalc.org and crates.io"), `See ${link("https://literature.hpcalc.org/", "literature.hpcalc.org")} and ${link("https://crates.io/", "crates.io")}`);
+  // Twice per address on a page, the page's explicit links to it counted (www. and a trailing / aside).
+  const md = "One hpcalc.org, [two](https://hpcalc.org), three hpcalc.org.\n\nFour hpcalc.org and [five](https://www.hpcalc.org/).";
+  const html = renderMarkdown(md);
+  assert.equal(html.match(/<a /g).length, 2, html);
+  assert.equal(html, `<p>One ${link("https://www.hpcalc.org/", "hpcalc.org")}, ${link("https://hpcalc.org", "two")}, three hpcalc.org.</p>\n<p>Four hpcalc.org and five.</p>`);
+  // The budget is the page's: shared by its render calls.
+  const budget = new LinkBudget();
+  renderMarkdown("hpcalc.org hpcalc.org", { budget });
+  assert.doesNotMatch(renderMarkdown("hpcalc.org", { budget }), /<a /);
+  // Different pages of a site are different addresses.
+  assert.equal(renderMarkdown("[a](https://e.org/1) [b](https://e.org/1) [c](https://e.org/2) [d](https://e.org/1)").match(/<a /g).length, 3);
+  assert.equal(urlKey("https://WWW.hpcalc.org/"), urlKey("https://hpcalc.org"));
+  assert.equal(siteUrl("hpmuseum.org"), "https://www.hpmuseum.org/");
+  assert.equal(siteUrl("github.com"), "https://github.com/");
+  // A name with a path is a link to that page.
+  assert.equal(renderInline("(hp.giesselink.com/emu42.htm)."), `(${link("https://hp.giesselink.com/emu42.htm", "hp.giesselink.com/emu42.htm")}).`);
+});
+
+test("a list of sources does not count and is always links; its names stay text", () => {
+  const md = "[a](https://e.org/x) [b](https://e.org/x) hpcalc.org hpcalc.org\n\n## Sources\n\n- [c](https://e.org/x), on hpcalc.org\n- [d](https://e.org/x)\n- [e](https://www.hpcalc.org/)\n\n## After\n\n[f](https://e.org/x) hpcalc.org";
+  const html = renderMarkdown(md);
+  const [before, rest] = html.split('<h2>Sources</h2>');
+  const [sources, after] = rest.split("<h2>After</h2>");
+  assert.equal(before.match(/<a /g).length, 4);
+  assert.equal(sources.match(/<a /g).length, 3, "every source a link");
+  assert.match(sources, /, on hpcalc\.org<\/li>/, "a name in the sources stays text");
+  assert.doesNotMatch(after, /<a /, "after the sources the limit holds again");
+});
+
+test("no site name becomes a link in code, a heading, a link's text, an address, a file name or for a dead site", () => {
+  assert.equal(renderInline("`cargo install x # from crates.io`"), "<code>cargo install x # from crates.io</code>");
+  assert.equal(renderMarkdown("```sh\nscoop bucket add r https://github.com/r/b\n```"), '<pre><code class="language-sh">scoop bucket add r https://github.com/r/b</code></pre>');
+  assert.equal(renderMarkdown("## On hpcalc.org"), "<h2>On hpcalc.org</h2>");
+  assert.equal(renderInline("[hpcalc.org: HP 49G](https://www.hpcalc.org/hp49g.html)"), `<a href="https://www.hpcalc.org/hp49g.html" ${NEW_TAB}>hpcalc.org: HP 49G${MARKS}</a>`);
+  for (const plain of ["a@hpcalc.org", "kproto.pdf", "serial49.zip", "the hpcomm.org website", "x.hpcalc.orgy"]) {
+    assert.doesNotMatch(renderInline(plain), /<a /, plain);
+  }
+  assert.equal(siteNameAt("on hpcalc.org.", 3), "hpcalc.org");
+  assert.equal(siteNameAt("literature.hpcalc.org", 11), null, "not a part of a longer name");
 });
