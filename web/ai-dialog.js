@@ -1,14 +1,34 @@
 // "Connect your AI app" (iteration 55): the dialog of AI access
 // (web/ai.js) in the page's own look (shared/components.css, `dialog.ai`):
-// the MCP address with Copy, the state, the pairing code once the relay
-// sends one (tab-mcp's OAuth, its iteration 3), the AI apps connected with
-// Disconnect each, "Keep AI access on", and Connect, Turn off or New
+// the MCP address with Copy, links and commands that add it to the
+// common AI apps (shared/mcp-install.js), the state, the pairing code
+// once the relay sends one (tab-mcp's OAuth, its iteration 3), the AI
+// apps connected with Disconnect each, "Keep AI access on", and Connect, Turn off or New
 // address. Opened from Search and from Calculator's panel; one at a time.
 // While it is open the relay is asked for pairing codes (tab-mcp
 // `startPairing`).
 
 import { el } from "./shared/dom.js";
 import { externalLink } from "./shared/ext-links.js";
+import { installTargets } from "./shared/mcp-install.js";
+
+const COPY_FAILED = "Press ⌘C or Ctrl+C";
+
+/**
+ * Copy `text` from `button`'s click: "Copied" on it for two seconds, or,
+ * when the browser refuses, `select()` (which shows and selects the text)
+ * and the keys to press.
+ */
+async function copyText(button, label, text, select) {
+  try {
+    await navigator.clipboard.writeText(text);
+    button.textContent = "Copied";
+  } catch {
+    select();
+    button.textContent = COPY_FAILED;
+  }
+  setTimeout(() => { button.textContent = label; }, 2000);
+}
 
 /**
  * Open the dialog for `ai` (an `AiAccess`), from a click: connects first
@@ -23,6 +43,21 @@ export async function openAiDialog(ai, doc = document) {
   const address = el("input", { class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
   const copy = el("button", { type: "button", text: "Copy" });
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
+  // Add it to an AI app: links that open Cursor and VS Code, commands to
+  // copy for Claude Code and Codex. A command shows in `cmd` only when
+  // the browser refuses the clipboard, selected for ⌘C.
+  const cursor = el("a", { class: "button small", text: "Add to Cursor" });
+  const vscode = el("a", { class: "button small", text: "Add to VS Code" });
+  const forClaude = el("button", { type: "button", class: "small", text: "Copy for Claude Code" });
+  const forCodex = el("button", { type: "button", class: "small", text: "Copy for Codex" });
+  const cmd = el("textarea", { class: "input ai-cmd", readonly: true, rows: 1, hidden: true, "aria-label": "Command", spellcheck: "false" });
+  const connector = el("p", { class: "ai-note" });
+  const install = el("div", { class: "ai-install" },
+    el("div", { class: "ai-install-row" }, cursor, vscode, forClaude, forCodex),
+    cmd,
+    connector);
+  let targets = [];
+  let installFor = null;
   const code = el("p", { class: "ai-code", hidden: true });
   const apps = el("ul", { class: "ai-apps" });
   const appsNote = el("p", { class: "ai-note" });
@@ -34,8 +69,9 @@ export async function openAiDialog(ai, doc = document) {
   const done = el("button", { type: "button", text: "Done" });
   dialog.append(el("div", { class: "ai-box" },
     el("h2", { id: "ai-title", text: "Connect your AI app" }),
-    el("p", { text: "Your AI app (Claude, ChatGPT, Claude Code, …) can use the calculators in this tab: read the display, press keys, run programs and look up commands. Add this address to it as an MCP server, or custom connector." }),
+    el("p", { text: "Your AI app (Claude, ChatGPT, Claude Code, …) can use the calculators in this tab: read the display, press keys, run programs and look up commands. Add this address to it as an MCP server." }),
     addressRow,
+    install,
     code,
     status,
     el("h3", { text: "Connected apps" }),
@@ -53,6 +89,19 @@ export async function openAiDialog(ai, doc = document) {
     const mcp = ai.mcp;
     address.value = state === "connected" ? mcp.address : "";
     addressRow.hidden = state !== "connected";
+    install.hidden = state !== "connected";
+    if (state === "connected" && installFor !== mcp.address) {
+      // The desktop app's local address comes with headers (a token); the relay's has none.
+      installFor = mcp.address;
+      targets = installTargets({ name: "saturnus", url: mcp.address, headers: mcp.headers ?? {} });
+      const t = Object.fromEntries(targets.map((x) => [x.id, x]));
+      cursor.href = t.cursor.href;
+      vscode.href = t.vscode.href;
+      forCodex.title = t.codex.kind === "config" ? "Copies the lines for ~/.codex/config.toml" : t.codex.text;
+      forClaude.title = t["claude-code"].text;
+      connector.textContent = t.connector.text;
+      cmd.hidden = true;
+    }
     const pc = mcp?.pairingCode;
     code.hidden = !pc;
     if (pc) code.textContent = `When your AI app asks for a code, enter ${pc.code}.`;
@@ -80,16 +129,18 @@ export async function openAiDialog(ai, doc = document) {
     fresh.hidden = state !== "connected";
   };
 
-  copy.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(address.value);
-      copy.textContent = "Copied";
-    } catch {
-      address.select();
-      copy.textContent = "Press ⌘C or Ctrl+C";
-    }
-    setTimeout(() => { copy.textContent = "Copy"; }, 2000);
+  copy.addEventListener("click", () => copyText(copy, "Copy", address.value, () => address.select()));
+  const copyFor = (button, label, id) => button.addEventListener("click", () => {
+    const text = targets.find((x) => x.id === id)?.text ?? "";
+    copyText(button, label, text, () => {
+      cmd.value = text;
+      cmd.rows = text.split("\n").length;
+      cmd.hidden = false;
+      cmd.select();
+    });
   });
+  copyFor(forClaude, "Copy for Claude Code", "claude-code");
+  copyFor(forCodex, "Copy for Codex", "codex");
   connect.addEventListener("click", () => {
     ai.connect().catch(() => {});
     render();
