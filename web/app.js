@@ -305,7 +305,7 @@ function appActions(backend, store, memory, bindings, ai = null) {
     // Files, on this calculator when it can reach it (its route, web/router.js).
     // AI access (web/ai.js), where there is a relay; after the palette has closed.
     ...(ai ? [
-      { id: "ai", title: "Connect your AI app…", description: "Let your AI app (Claude, ChatGPT, Claude Code, …) use the calculators in this tab.", keywords: "ai assistant mcp claude chatgpt agent connect llm tool", run: () => setTimeout(() => openAi(ai), 0) },
+      { id: "ai", title: "Connect your AI app…", description: window.__TAURI__ ? "Let AI apps on this computer (Claude Code, Codex, VS Code, Cursor, …) use the calculators." : "Let your AI app (Claude, ChatGPT, Claude Code, …) use the calculators in this tab.", keywords: "ai assistant mcp claude chatgpt agent connect llm tool", run: () => setTimeout(() => openAi(ai), 0) },
       { id: "ai-calls", title: aiLogView?.isOpen ? "Hide the AI's calls" : "Show the AI's calls", description: "Every call your AI app makes here, with its arguments and result, and the connection's events.", keywords: "ai calls log mcp tool history claude chatgpt debug", run: () => setTimeout(() => toggleAiLog(ai), 0) },
     ] : []),
     { id: "open-tx", title: "Open Files", description: "Move files between calculators, emulated or on a cable, and this computer.", keywords: "files tx transfer send receive kermit serial cable backup computer", run: () => { location.hash = filesHref(store); } },
@@ -429,7 +429,8 @@ function watchAi(ai, store) {
       const calls = () => link("Calls", (e) => toggleAiLog(ai, e.currentTarget));
       const actions = {
         show: () => [link("Show", () => openAi(ai))],
-        connected: () => [calls(), " · ", link("Disconnect", () => a.disconnect())],
+        // The desktop app: one switch for every AI app, so its word is Turn off.
+        connected: () => [calls(), " · ", link(a.local ? "Turn off" : "Disconnect", () => a.disconnect())],
         lost: () => [calls(), " · ", link("Turn off", () => a.disconnect())],
       }[v.actions];
       const line = actions ? actions() : v.note ? [v.note] : [];

@@ -240,6 +240,9 @@ dialog.ai {
 .ai-status { color: var(--muted); }
 .ai-status.error { color: var(--error); }
 .ai-note { color: var(--muted); font-size: var(--fs-md); }
+/* The desktop app's port (web/ai-dialog.js openLocalDialog). */
+.ai-port-row { align-items: center; }
+.ai-port { width: 7em; flex: 0 0 auto; }
 .ai-apps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s1); }
 .ai-apps:empty { display: none; }
 .ai-apps li { display: flex; align-items: center; gap: var(--s2); justify-content: space-between; }

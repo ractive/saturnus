@@ -12,9 +12,12 @@ tags:
 
 The rules of the control API that `saturnus run` serves (iteration 17,
 [[iterations/iteration-17-control-api]]), why each exists, and the test
-that holds it. Code: `crates/saturnus-cli/src/control/` (`server.rs`,
-`token.rs`, `http.rs`); the HTTP mapping is in `web/protocol.md`
-("HTTP"). Any change to these rules is a decision-log entry.
+that holds it. Code: `crates/saturnus-cli/src/control/server.rs`, and
+since iteration 58 the parts shared with the desktop app's MCP endpoint
+in `crates/saturnus-drive/src/loopback/` (`token.rs`, `http.rs`,
+`guard.rs`: the Host, Origin and token checks, the connection budgets);
+the HTTP mapping is in `web/protocol.md` ("HTTP"). Any change to these
+rules is a decision-log entry.
 
 ## Threat model
 
@@ -73,6 +76,40 @@ tokenless raw port; on a shared machine, serve with `--no-serial` or stop
 `run` while the calculator holds anything that matters. A non-browser
 program that speaks HTTP is not a threat this check addresses; it only
 keeps browser pages out.
+
+## The desktop app's MCP endpoint
+
+Iteration 58 ([[iterations/iteration-58-desktop-mcp]]): while the setting
+"Let AI apps on this computer use the calculators" is on (off by default),
+the desktop app serves MCP over Streamable HTTP at
+`http://127.0.0.1:4842/mcp` (the port is a setting). Code:
+`crates/saturnus-tauri/src/mcp.rs` (the endpoint) and `mcp_app.rs` (the
+setting and the bridge to the window). The threat model is the control
+API's: the endpoint drives the calculator the user sees, so a caller must
+be the user. The control API's rules above hold for it unchanged, through
+the same code (`saturnus_drive::loopback::guard`):
+
+| Rule | Why | Test |
+| --- | --- | --- |
+| Bound to 127.0.0.1 only; off by default; turning the setting off stops accepting at once (the accept loop looks at its stop flag every 25 ms) and ends the calls in progress | No remote caller; nothing listens unless the user asked for it | `mcp::tests::turned_off_it_stops_accepting`, `mcp_app::tests::the_setting_starts_and_stops_the_endpoint`, `guard::tests::a_stopped_server_stops_accepting` |
+| The control API's token file (`control-token`, created if missing), `Authorization: Bearer` on every request, compared in constant time; missing or wrong is 401 `{}` before the path is looked at; no hello (the forwarder of iteration 59 reads the file itself) | Other local users, and browsers | `mcp::tests::the_control_api_rules_hold` |
+| `Host` 127.0.0.1 or localhost with the bound port (421), any other `Origin` 403, `OPTIONS` 405, no CORS header ever | DNS rebinding and cross-site pages, as for the control API | the same test |
+| Only `POST /mcp`; `GET` and `DELETE` 405 (no event stream, no sessions to end); `application/json` only (415) | Nothing a page can send without a preflight | the same test |
+| Bodies capped at 256 KiB from `Content-Length` before reading, no `Transfer-Encoding`, heads 16 KiB; the control API's timeouts and budgets (16 pending, 64 threads, 8 requests served) | Memory and time per request bounded | the same test |
+| A call waits for the window at most its tool's time limit (the window names each: 120 s, 300 s for a tool that asks the user; clamped to 1-600 s), `tools/list` 15 s; a client that leaves withdraws its call, and the window closes its confirmation (`mcp-cancel`) | A stalled window or client holds nothing for long | `mcp_app::tests::time_limits_leaving_clients_and_reloads`, `mcp::tests::a_window_that_does_not_answer` |
+| The token is never logged, never in an event to the window or an MCP answer; the page gets it only from the `mcp_status` and `mcp_set` commands, for the install links and commands | It would leak into logs and transcripts | `mcp::tests::the_control_api_rules_hold`, web `ai-local.test.mjs` (notes and log), `ai-local-page.test.mjs` (no attribute) |
+| The tools and their confirmations are the web app's, run in the window (`web/ai-local.js`): `store_variable` and `purge_variable` ask the user in the app first, as in the browser | The same consequences need the same consent | web `ai-local.test.mjs`, `ai-local-page.test.mjs` |
+
+Accepted (owner, 2026-10-23, option b): the token is in the links and
+commands the dialog offers, so the AI app keeps it in its config file
+(`~/.claude.json`, `mcp.json`, `~/.codex/config.toml`). Anyone who can
+read that file can use the calculators while the setting is on; that is
+the user's own account, already out of scope. Turning the setting off
+shuts every AI app out; deleting `control-token` gives a new token (the
+AI apps then need the new commands, as do `saturnus ctl` callers).
+
+A legacy `initialize` gets an `Mcp-Session-Id`; it only names the client
+in "The AI's calls" and is never checked, so it grants nothing.
 
 ## Known limits
 

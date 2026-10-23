@@ -44,10 +44,15 @@ for (const a of document.querySelectorAll("a[data-route]")) a.hidden = false;
 const pwa = installServiceWorker(desktop ? "tauri" : "worker", { set() {} });
 
 /**
- * AI access (web/ai.js, iteration 55): loaded only where there is a relay,
- * never in the desktop app; with "Keep AI access on" it connects at once.
+ * AI access: in the browser through a relay (web/ai.js, iteration 55),
+ * loaded only where there is one; with "Keep AI access on" it connects at
+ * once. In the desktop app the app serves MCP itself (web/ai-local.js,
+ * iteration 58): the window attaches its tools at once.
  */
-const ai = desktop || !relayUrl() ? null : import("./ai.js").then(({ AiAccess }) => new AiAccess({ calculatorView: () => mounted.calculator ?? null }));
+const calculatorView = () => mounted.calculator ?? null;
+const ai = desktop
+  ? import("./ai-local.js").then(({ LocalAiAccess }) => new LocalAiAccess({ calculatorView }))
+  : relayUrl() ? import("./ai.js").then(({ AiAccess }) => new AiAccess({ calculatorView })) : null;
 ai?.then((a) => a.resume(), (err) => console.error("saturnus: AI access did not load", err));
 
 /** The ROM commands of the home page: the app's, or the browser's hub's. */

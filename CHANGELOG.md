@@ -5,6 +5,15 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **AI access in the desktop app.** AI apps on this computer (Claude
+  Code, Codex, VS Code, Cursor) can use the calculator in the desktop
+  app, with the same tools as on the web page and without the internet.
+  Turn on "Let AI apps on this computer use the calculators" in
+  "Connect your AI app…" (off by default) and add the app with a link or
+  a command from there. Storing or purging a variable asks you first.
+
 ## 0.9.0 (2026-10-21)
 
 - **AI access on the web page.** Your AI app (Claude, ChatGPT, Claude
