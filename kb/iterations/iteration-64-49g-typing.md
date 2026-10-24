@@ -70,9 +70,9 @@ Owner 2026-10-24: start it.
 
 ## Tasks
 
-- [ ] Reproduce both (ROM-gated tests, both 49G ROMs)
-- [ ] Fix the send after a boot
-- [ ] Fix the long program send
+- [x] Reproduce both (ROM-gated tests, both 49G ROMs)
+- [x] Fix the send after a boot
+- [x] Fix the long program send
 - [ ] (On hold, coordinator 2026-10-24: in its own commit, to keep or drop) run_rpl on a 49G in algebraic mode switches it to RPN first (CF -95, the echo dropped), says so (`switched`, `mode: "rpn"`), does not switch back; instructions and description say so; web tests and a ROM-gated test with the owner's text on both 49G ROMs (stored, `10 SSQ` → 385, `1 5 5 SQL` → { 1 4 9 16 25 })
-- [ ] Wiki findings, decision-log entry
+- [x] Wiki findings, decision-log entry
 - [ ] Owner: on a freshly started 49G, an AI app's first run_rpl with a program of several lines works
