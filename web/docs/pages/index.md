@@ -49,4 +49,6 @@ Each page tells the model's history, what makes it special and how saturnus runs
 
 ## For AI apps
 
+[AI apps](ai-apps.md): let Claude Code, Codex, Cursor, Claude or ChatGPT use the calculators, with the saturnus skill and the Claude Code plugin.
+
 Every page is also available as Markdown: `/saturnus/docs/48gx/` as `/saturnus/docs/48gx.md`. [llms.txt](../llms.txt) lists them.
