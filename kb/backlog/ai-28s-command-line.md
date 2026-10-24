@@ -2,7 +2,7 @@
 title: "AI tools: detect an open command line on the 28S"
 type: backlog
 date: 2026-10-20
-status: planned
+status: completed
 priority: low
 tags:
   - backlog

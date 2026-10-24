@@ -695,7 +695,7 @@ export class SatPalette extends HTMLElement {
     const verb = m.verbFor(row);
     const other = m.verbFor(row, true);
     const what = row.kind === "send" ? "the text" : row.kind === "variable" ? "its name" : row.name;
-    // The 28S's line cannot be read: its keys type the name, as a person would.
+    // The 28S's line is not read here: its keys type the name, as a person would.
     const on28 = this.store.state.booted === "28s";
     const key28 = row.kind === "command" && KEY_COMMANDS[row.name];
     const explain = (v) => (on28
