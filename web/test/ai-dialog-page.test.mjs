@@ -3,9 +3,9 @@
 // access is on and no AI app is connected, Done and the backdrop do not
 // close it (that would end the pairing code) and a line says so; the
 // pairing code with Copy code; Copy for Codex with the command that turns
-// on Codex's mcp_2026_07_28 first; each Copy with the copy icon; Done once an app is connected, and
-// when AI access is off; Close anyway while it waits. Skipped without
-// Chrome.
+// on Codex's mcp_2026_07_28 first; each Copy with the copy icon; Done
+// once an app is connected, and when AI access is off; Close anyway
+// while it waits. Skipped without Chrome.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { session, sleep } from "./chrome.mjs";
@@ -87,10 +87,6 @@ test("the browser dialog: Done waits for an AI app, the code has Copy, Codex get
 
   let d = await ev(DIALOG);
   assert.deepEqual(d, { open: true, doneDisabled: true, doneNote: true, code: null, codexNote: true }, "on, no app yet: Done waits");
-  // Every Copy button carries the copy icon.
-  await ev(`window.t.ai.mcp.pairingCode = { code: "000000", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), true`);
-  const copies = await ev(`[...document.querySelectorAll("dialog.ai button")].filter((b) => b.textContent.startsWith("Copy")).map((b) => [b.textContent, b.querySelector("svg.ic use")?.getAttribute("href") ?? null])`);
-  assert.deepEqual(copies, [["Copy", "#ic-copy"], ["Copy for Claude Code", "#ic-copy"], ["Copy for Codex", "#ic-copy"], ["Copy code", "#ic-copy"]]);
   // A click on the backdrop leaves it open while it waits.
   await ev(`document.querySelector("dialog.ai").click(), true`);
   await sleep(100);
@@ -100,6 +96,9 @@ test("the browser dialog: Done waits for an AI app, the code has Copy, Codex get
   await ev(`window.t.ai.mcp.pairingCode = { code: "482913", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), true`);
   d = await until(ev, `(${DIALOG})?.code && (${DIALOG})`, "the code");
   assert.match(d.code, /When your AI app asks for a code, enter 482913\./);
+  // Every Copy button carries the copy icon.
+  const copies = await ev(`[...document.querySelectorAll("dialog.ai button")].filter((b) => b.textContent.startsWith("Copy")).map((b) => [b.textContent, b.querySelector("svg.ic use")?.getAttribute("href") ?? null])`);
+  assert.deepEqual(copies, [["Copy", "#ic-copy"], ["Copy for Claude Code", "#ic-copy"], ["Copy for Codex", "#ic-copy"], ["Copy code", "#ic-copy"]]);
   await click("Copy code");
   await until(ev, `window.t.copied.length === 1`, "the code copied");
   assert.deepEqual(await ev(`window.t.copied`), ["482913"]);
