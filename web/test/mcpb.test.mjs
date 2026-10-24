@@ -14,7 +14,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
-import { DEFAULT_PORT, START, portOf, proofOf, readToken, sseMessages, tokenPath } from "../mcpb/server/index.mjs";
+import { DEFAULT_PORT, NOT_READY, START, portOf, proofOf, readToken, sseMessages, tokenPath } from "../mcpb/server/index.mjs";
 import { buildBundle, unzip } from "../mcpb/build.mjs";
 
 /** The bundle, built and unpacked into a temporary folder, as Claude Desktop installs it. */
@@ -172,6 +172,10 @@ test("the proof is token.rs's (the same fixed value as its test)", () => {
   assert.equal(proofOf("ab".repeat(32), "cd".repeat(32), 4842), "cb5b940c81864eae6e01e3d7dfe7916eefa6e60c1425f4fea5abd58633074b73");
 });
 
+test("the endpoint's not-ready answer starts as the forwarder expects", () => {
+  assert.ok(readFileSync(new URL("../../crates/saturnus-tauri/src/mcp.rs", import.meta.url), "utf8").includes(`"${NOT_READY}:`));
+});
+
 test("event streams give their messages", () => {
   const a = { jsonrpc: "2.0", method: "notifications/x" };
   const b = { jsonrpc: "2.0", id: 3, result: {} };
@@ -301,11 +305,18 @@ test("a call starts the app and goes through once it answers, after the client's
     const until = Date.now() + 5000;
     while (!existsSync(launches) && Date.now() < until) await new Promise((r) => setTimeout(r, 50));
     assert.ok(existsSync(launches), "the app was started");
-    ep = await fakeEndpoint(port);
+    // The window loads after the endpoint is up: "not ready" twice, then the answer.
+    let loading = 2;
+    ep = await fakeEndpoint(port, {
+      answer: (msg) => (msg.method === "tools/call" && loading-- > 0
+        ? { body: { jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text: `${NOT_READY}: its window is loading or closed. Try again in a moment.` }], isError: true } } }
+        : null),
+    });
     assert.equal((await f.next(2)).result.content[0].text, "ran read_display");
-    assert.deepEqual(ep.requests.map((r) => r.msg.method), ["initialize", "tools/call"]);
+    assert.deepEqual(ep.requests.map((r) => r.msg.method), ["initialize", "tools/call", "tools/call", "tools/call"]);
     assert.equal(ep.requests[0].msg.params.clientInfo.name, "claude-ai");
     assert.equal(ep.requests[1].headers["mcp-session-id"], "s".repeat(64));
+    assert.equal(f.out.filter((l) => JSON.parse(l).id === 2).length, 1, "one answer for the call");
     await f.stop();
     assertClean(f);
   } finally {

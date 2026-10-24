@@ -23,7 +23,9 @@
 // A tools/call starts the app (macOS `open -b ch.ractive.saturnus`;
 // Windows and Linux the installed program, best effort) and waits for the
 // endpoint up to 20 s; then, or with AI access off, the call's answer is
-// START. The forwarder never turns AI access on.
+// START. A call the just-started app answers "not ready" (its window is
+// still loading) is asked again within that time. The forwarder never
+// turns AI access on.
 //
 // stdout carries MCP only; diagnostics go to stderr.
 //
@@ -229,6 +231,15 @@ export function sseMessages(text) {
   return out;
 }
 
+/** The start of the endpoint's answer while its window loads (mcp.rs `CallError::NotReady`). */
+export const NOT_READY = "The saturnus app is not ready";
+
+/** Whether `m` is the endpoint's "not ready" answer: a tool result with isError, or an error. */
+function notReady(m) {
+  const text = m?.result?.isError ? m.result.content?.[0]?.text : m?.error?.message;
+  return typeof text === "string" && text.startsWith(NOT_READY);
+}
+
 const isModern = (msg) => typeof msg?.params?._meta?.[META_VERSION] === "string";
 
 /** The forwarder: `handle(line)` per stdin line, answers through `write(message)`. */
@@ -316,8 +327,15 @@ export class Forwarder {
     const controller = new AbortController();
     this.inFlight.set(id, controller);
     try {
-      const r = await this.post(msg, t.token, controller.signal);
-      for (const m of this.answers(msg, r)) this.write(m);
+      let answers = this.answers(msg, await this.post(msg, t.token, controller.signal));
+      // Just started: the endpoint answers before the window has loaded
+      // its tools. Asked again until it has, within the wait for the app.
+      const until = this.lastLaunch + this.waitMs;
+      while (answers.length === 1 && notReady(answers[0]) && Date.now() < until && !controller.signal.aborted) {
+        await sleep(POLL_MS);
+        answers = this.answers(msg, await this.post(msg, t.token, controller.signal));
+      }
+      for (const m of answers) this.write(m);
     } catch (e) {
       if (controller.signal.aborted) return; // cancelled: no answer
       log(`the app closed the connection (${e.code ?? e.message})`);

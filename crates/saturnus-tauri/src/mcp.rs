@@ -100,6 +100,7 @@ pub enum CallError {
 impl CallError {
     fn message(&self) -> String {
         match self {
+            // The .mcpb forwarder asks again on this start (web/mcpb/server/index.mjs NOT_READY).
             Self::NotReady => "The saturnus app is not ready: its window is loading or closed. Try again in a moment.".into(),
             Self::Timeout => "The saturnus app did not answer in time.".into(),
             Self::Gone => "The call was cancelled.".into(),
