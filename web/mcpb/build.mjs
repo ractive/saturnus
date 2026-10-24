@@ -20,18 +20,27 @@
 //
 // Usage: node web/mcpb/build.mjs OUT.mcpb
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { realpathSync } from "node:fs";
 
 const here = new URL("./", import.meta.url);
 const web = new URL("../", here);
 const root = new URL("../", web);
 
-/** The workspace's version from Cargo.toml's [workspace.package]. */
+/**
+ * The workspace's version from Cargo.toml's [workspace.package]; for a
+ * copy of web/ alone (web/test/site.test.mjs builds the site from one),
+ * the wasm package's, which wasm-pack writes from the same version.
+ */
 export function workspaceVersion() {
-  const toml = readFileSync(new URL("Cargo.toml", root), "utf8");
+  const cargo = new URL("Cargo.toml", root);
+  if (!existsSync(cargo)) {
+    const pkg = new URL("pkg/package.json", web);
+    if (existsSync(pkg)) return JSON.parse(readFileSync(pkg, "utf8")).version;
+    throw new Error("no Cargo.toml above web/ and no web/pkg/package.json: cannot tell the version");
+  }
+  const toml = readFileSync(cargo, "utf8");
   const section = toml.split(/^\[workspace\.package\]\s*$/m)[1]?.split(/^\[/m)[0] ?? "";
   const m = section.match(/^version\s*=\s*"([^"]+)"/m);
   if (!m) throw new Error("no version in Cargo.toml's [workspace.package]");
