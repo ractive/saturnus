@@ -7,6 +7,7 @@
     "romName": "",
     "running": false,
     "speed": "1",
+    "starting": false,
     "type": "status"
   },
   {
@@ -22,6 +23,7 @@
     "romName": "",
     "running": false,
     "speed": "1",
+    "starting": false,
     "type": "status"
   },
   {
@@ -101,6 +103,7 @@
     "romName": "zeros",
     "running": true,
     "speed": "1",
+    "starting": false,
     "type": "status"
   },
   {
@@ -119,6 +122,7 @@
     "romName": "zeros",
     "running": false,
     "speed": "1",
+    "starting": false,
     "type": "status"
   },
   {
@@ -134,6 +138,7 @@
     "romName": "zeros",
     "running": false,
     "speed": "4",
+    "starting": false,
     "type": "status"
   },
   {
@@ -268,6 +273,7 @@
     "romName": "zeros",
     "running": true,
     "speed": "4",
+    "starting": false,
     "type": "status"
   },
   {
@@ -283,6 +289,7 @@
     "romName": "zeros",
     "running": true,
     "speed": "4",
+    "starting": false,
     "type": "status"
   },
   {
@@ -333,6 +340,7 @@
     "romName": "zeros",
     "running": true,
     "speed": "4",
+    "starting": false,
     "type": "status"
   },
   {
@@ -343,6 +351,7 @@
     "romName": "zeros",
     "running": true,
     "speed": "4",
+    "starting": false,
     "type": "status"
   },
   {
@@ -368,6 +377,7 @@
     "romName": "zeros",
     "running": false,
     "speed": "4",
+    "starting": false,
     "type": "status"
   },
   {
@@ -457,6 +467,7 @@
     "romName": "zeros",
     "running": false,
     "speed": "4",
+    "starting": false,
     "type": "status"
   },
   {

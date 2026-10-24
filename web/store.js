@@ -22,6 +22,8 @@ export class Store extends EventTarget {
       loop: "stopped",
       /** A long send is typing: the screen is frozen (`status.busy`). */
       busy: false,
+      /** A cold boot's question is still being answered (`status.starting`). */
+      starting: false,
       speed: "1",
       /** A status line message and whether it is an error. */
       message: "",
@@ -110,6 +112,7 @@ export function connect(backend, store) {
       halted: s.halted,
       loop: s.loop,
       busy: Boolean(s.busy),
+      starting: Boolean(s.starting),
     });
   });
   backend.addEventListener("error", (e) => store.set({ message: e.detail.message, messageError: true }));

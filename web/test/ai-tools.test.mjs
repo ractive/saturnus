@@ -271,6 +271,22 @@ test("while a program runs: run_rpl says so, results carry screen running, RAM i
   const ran = await call(tools({ "48gx": r }).run_rpl, { text: "« 1 1000 START NEXT » EVAL" });
   assert.equal(ran.running, true);
   assert.equal(ran.screen, "running");
+  // The stack then holds the program's working objects: not shown as a result.
+  assert.match(ran.stack, /not read while a program runs/);
+  assert.ok(!r.calls.some(([cmd]) => cmd === "stack"));
+  const s = await call(tools({ "48gx": c }).read_stack);
+  assert.equal(s.running, true);
+  assert.match(s.note, /working objects/);
+});
+
+test("right after a cold boot the tools wait until the boot's question is answered", async () => {
+  const c = fake("48gx", { run: { error: null, closed: true, running: false }, uiState: AT_STACK, commandLine: { active: false }, stack: [] });
+  c.store.state.starting = true;
+  setTimeout(() => { c.store.state.starting = false; }, 30);
+  const r = await call(tools({ "48gx": c }).run_rpl, { text: "1" });
+  assert.equal(r.ran, "1");
+  assert.equal(c.store.state.starting, false, "it waited");
+  assert.ok(c.calls.some(([cmd]) => cmd === "run"));
 });
 
 test("press_keys and read_display say what has the keyboard; nothing at the stack", async () => {

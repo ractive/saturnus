@@ -69,6 +69,8 @@ const DISPLAY = { type: "string", enum: ["image", "text", "both", "none"], descr
 const SETTLE_MS = 30_000;
 /** Most CANCEL presses `to_stack` makes. */
 const TO_STACK_PRESSES = 5;
+/** How long a tool waits for a freshly booted calculator to answer its boot's question (ms). */
+const STARTING_MS = 20_000;
 
 /**
  * The tools over `deps` (see the top of this file). `pace` (tests) is
@@ -83,8 +85,9 @@ export function aiTools(deps) {
     const t = await targetOf(optionalString(input.calculator));
     const prev = queues.get(t.id) ?? Promise.resolve();
     // A call the AI app gave up on while it waited presses nothing.
-    const run = prev.then(() => {
+    const run = prev.then(async () => {
       if (signal?.aborted) throw new Error("Cancelled");
+      await started(t);
       return fn(t);
     });
     const tail = run.catch(() => {});
@@ -95,6 +98,21 @@ export function aiTools(deps) {
     return run;
   };
   const wait = (t) => settle(t.backend, t.store, pace);
+  /**
+   * Right after a cold boot the host still answers "Try To Recover
+   * Memory?" (`status.starting`): the screen is not the stack yet, so the
+   * tools' own checks would refuse. Wait for the answer and for the
+   * calculator to settle after it (a send would wait in the host anyway).
+   */
+  const started = async (t) => {
+    if (!t.store.state.starting) return;
+    const until = Date.now() + STARTING_MS;
+    while (t.store.state.starting) {
+      if (Date.now() > until) throw new Error("The calculator is still starting (it answers its boot question). Try again in a moment.");
+      await new Promise((r) => setTimeout(r, pace.poll));
+    }
+    await wait(t);
+  };
 
   return [
     {
@@ -247,9 +265,11 @@ export function aiTools(deps) {
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
+        const running = await stillRunning(t);
         const stack = await t.backend.stack();
         const max = Number(input.levels ?? 50);
-        return { calculator: t.id, depth: stack.length, levels: stack.slice(0, max).map((o, i) => levelText(o, i + 1)) };
+        const note = running.running ? { note: "A program is still running: these are its working objects, not its result. Read the stack again once it is done." } : {};
+        return { calculator: t.id, depth: stack.length, levels: stack.slice(0, max).map((o, i) => levelText(o, i + 1)), ...running, ...note };
       }, options?.signal),
     },
     {
@@ -559,7 +579,10 @@ async function display(t, format, { pixels = false, png = null, extra = {} } = {
   const wantImage = format === "image" || format === "both";
   if (wantText) {
     text.annunciators = annunciatorsOn(frame);
-    if (RPL_MODELS.includes(t.model)) {
+    if (RPL_MODELS.includes(t.model) && screen?.kind === "running") {
+      // Its working objects are on the stack, not its result.
+      text.stack = "not read while a program runs: read_stack or read_display once it is done";
+    } else if (RPL_MODELS.includes(t.model)) {
       try {
         const cl = await t.backend.commandLine();
         if (cl.active) text.commandLine = { text: cl.text, cursor: cl.cursor };
