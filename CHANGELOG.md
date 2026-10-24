@@ -7,6 +7,14 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **One Kermit client for the emulated calculator.** The ROM-gated
+  Kermit tests and the reference generator (`saturnus-kermit`) run the
+  Kermit client of the app's hidden writes
+  (`saturnus_host::transfer::Exchange`, now public and generic over the
+  wire's `Line`) instead of satx-core's `Machine`. satx-core loses
+  `Machine::set_emulated_link`, which only they used: a host command's
+  `C` is always sent once and device names are always refused. No
+  change for users.
 - **AI access in the desktop app.** AI apps on this computer (Claude
   Code, Codex, VS Code, Cursor) can use the calculator in the desktop
   app, with the same tools as on the web page and without the internet.

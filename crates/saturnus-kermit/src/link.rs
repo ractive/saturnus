@@ -1,23 +1,25 @@
 //! The serial link between the Kermit client and the emulated machine, in
 //! process and single-threaded, on emulated time only: the products' wire,
-//! [`saturnus_host::wire::Wire`], blocked on.
+//! [`saturnus_host::wire::Wire`], and their Kermit client,
+//! [`saturnus_host::transfer::Exchange`], each transaction run to its end.
 //!
 //! The machine runs only while the link waits for it; nothing advances it
-//! in the background. The Kermit client's clock is the link's
-//! [`Link::now`]: a fixed start plus the emulated time the calculator spent
-//! idle while a reply was awaited, so the same exchange always leaves the
-//! same machine state and no wall-clock time is involved. The machine
-//! runs through [`Session::run`], so the session's limits and trace hold. The rules (the
-//! quiet line, busy time, the turnaround before a packet that opens a
-//! transaction, the read cap) are the wire's; see [`saturnus_host::wire`].
+//! in the background. The client's clock is the wire's: a fixed start plus
+//! the emulated time the calculator spent idle while a reply was awaited,
+//! so the same exchange always leaves the same machine state and no
+//! wall-clock time is involved. The machine runs through [`Session::run`],
+//! so the session's limits and trace hold. The rules (the quiet line, busy
+//! time, the turnaround before a packet that opens a transaction, the read
+//! cap) are the wire's; see [`saturnus_host::wire`].
 
 use std::time::Duration;
 
 use anyhow::Result;
-use kermit_proto::time::Instant;
+use kermit_proto::Command;
 use saturnus_core::Machine;
 use saturnus_drive::session::Session;
-use saturnus_host::wire::{self, Line, Wire};
+use saturnus_host::transfer::{Exchange, Failure, Transcript};
+use saturnus_host::wire::{Line, Wire};
 
 /// The session as the wire's [`Line`]: its runs go through
 /// [`Session::run`], so the session's limits (abort, wall-clock deadline)
@@ -68,6 +70,24 @@ impl Line for Port<'_> {
     }
 }
 
+/// What a transaction produced, or why the calculator or the link failed
+/// it.
+pub type Outcome = std::result::Result<Transcript, Failure>;
+
+/// One Kermit transaction run to its end.
+fn exchange(
+    wire: &mut Wire,
+    port: &mut Port<'_>,
+    command: Command,
+) -> saturnus_host::Result<Outcome> {
+    let mut x = Exchange::new(wire, port, command)?;
+    loop {
+        if let Some(done) = x.step(wire, port, u64::MAX)? {
+            return Ok(done);
+        }
+    }
+}
+
 /// The emulated calculator and the wire to it.
 #[derive(Debug)]
 pub struct Link {
@@ -85,19 +105,10 @@ impl Link {
         }
     }
 
-    /// The Kermit client's clock.
-    pub fn now(&self) -> Instant {
-        self.wire.now()
-    }
-
-    /// Emulated time `d` in CPU cycles.
-    pub fn cycles_in(&self, d: Duration) -> u64 {
-        wire::cycles(&self.session.machine, d)
-    }
-
     /// Limit the next command's computing time to `d` of emulated time
     /// ([`Wire::set_read_cap`]); a read past it fails with
-    /// [`wire::READ_CAP_MESSAGE`]. `None` lifts it.
+    /// [`READ_CAP_MESSAGE`](saturnus_host::wire::READ_CAP_MESSAGE). `None`
+    /// lifts it.
     pub fn set_read_cap(&mut self, d: Option<Duration>) {
         self.wire.set_read_cap(d);
     }
@@ -105,17 +116,6 @@ impl Link {
     /// Whether a read stopped at the cap since the last call; resets it.
     pub fn take_read_cap_hit(&mut self) -> bool {
         self.wire.take_read_cap_hit()
-    }
-
-    /// Run `n` cycles and collect what the calculator transmitted; returns
-    /// whether it transmitted anything.
-    pub fn run(&mut self, n: u64) -> Result<bool> {
-        let mut port = Port {
-            session: &mut self.session,
-            error: None,
-        };
-        let r = self.wire.run(&mut port, n);
-        port.result(r)
     }
 
     /// Drop everything the calculator sent so far, collected or not (the
@@ -136,25 +136,15 @@ impl Link {
         port.result(r)
     }
 
-    /// Queue `packet` for the calculator, after the wire's
-    /// [`TURNAROUND`](wire::TURNAROUND) when it opens a transaction.
-    pub fn write_packet(&mut self, packet: &[u8]) -> Result<()> {
+    /// Run one Kermit transaction to its end. Input the idle server sent
+    /// before it (its periodic NAKs) is dropped first. Fails when the
+    /// machine does, or past the read cap.
+    pub fn transact(&mut self, command: Command) -> Result<Outcome> {
         let mut port = Port {
             session: &mut self.session,
             error: None,
         };
-        let r = self.wire.write_packet(&mut port, packet);
-        port.result(r)
-    }
-
-    /// What the calculator sends until its output goes quiet, or what came
-    /// in once the clock reaches `deadline`. Fails past the read cap.
-    pub fn read(&mut self, deadline: Instant) -> Result<Vec<u8>> {
-        let mut port = Port {
-            session: &mut self.session,
-            error: None,
-        };
-        let r = self.wire.read(&mut port, deadline);
+        let r = exchange(&mut self.wire, &mut port, command);
         port.result(r)
     }
 }

@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 63: one Kermit client for the engine and satx-core"
 date: 2026-10-24
-status: planned
+status: in-progress
 tags:
   - iteration
   - satx
@@ -34,8 +34,8 @@ Kermit client users run.
 
 ## Tasks
 
-- [ ] Decision: which client stays; decision-log entry
-- [ ] Fold the other one into it; remove the duplicate
+- [x] Decision: which client stays; decision-log entry
+- [x] Fold the other one into it; remove the duplicate
 - [ ] Tests: the transfer tests and the ROM-gated Kermit tests pass on the one client; satx e2e against saturnus (`just satx-e2e-saturnus 49g`)
 - [ ] kb: backlog item completed
 - [ ] Owner: a file sent and received in Files on the web and in the desktop app

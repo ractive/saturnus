@@ -992,14 +992,15 @@ natively is shared with it (`web/native-hub.js`).
 `crates/saturnus-kermit` (not published) owns one emulated calculator and
 talks to its ROM's Kermit server in process, for the ROM-gated tests and
 for `saturnus-refgen`. It drives the machine's serial port directly
-(`Machine::serial_push`/`serial_drain`), runs satx's calculator
-operations through `satx-core`'s sans-I/O client (the same code satx
-runs on real calculators) and takes the objects on the wire from
+(`Machine::serial_push`/`serial_drain`), talks Kermit through the client
+the app's hidden writes use (`saturnus_host::transfer::Exchange`), so
+the tests run the Kermit client users run, parses the replies with
+`satx-core`'s parsers and takes the objects on the wire from
 `saturnus_objects::transfer`. Scripts and agents use the control API and
 satx over the serial port instead (above).
 
 The link is the emulated wire the app also uses for its hidden writes
-(`saturnus_host::wire`), here run to completion. It runs on emulated
+(`saturnus_host::wire`), here each transaction run to completion. It runs on emulated
 time only. The Kermit client's clock is the emulated time the calculator
 spent idle while a reply was awaited: the calculator answers a host
 command only when it is done, so time it spends computing (not in

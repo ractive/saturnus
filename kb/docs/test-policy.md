@@ -34,9 +34,10 @@ Tests must help without slowing the project down (lesson from ff-rdp and hyalo).
 - Differential tests against the saturnng container are a script, run
   manually or in a separate CI job, limited to a few scripted scenarios.
 - `saturnus-kermit`'s ROM-gated tests and `saturnus-refgen` run the
-  products' emulated wire (`saturnus_host::wire`, blocked on), so they
-  prove the turnaround, quiet-line, busy-time and timeout rules users
-  run; only the Kermit client differs ([[backlog/one-kermit-client]]).
+  products' emulated wire (`saturnus_host::wire`) and Kermit client
+  (`saturnus_host::transfer::Exchange`), each transaction run to its
+  end, so they prove the turnaround, quiet-line, busy-time and timeout
+  rules and the Kermit client users run ([[iterations/iteration-63-one-kermit-client]]).
   The wire's rules are unit-tested on a fake calculator in `wire.rs`.
 - No fuzzing or property tests until a bug justifies one. Keep `just test`
   fast (seconds per crate in a warm build).
