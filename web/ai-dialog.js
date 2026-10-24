@@ -64,7 +64,8 @@ export async function openAiDialog(ai, doc = document) {
   const off = el("button", { type: "button", text: "Turn off" });
   const fresh = el("button", { type: "button", class: "link", text: "New address" });
   const done = el("button", { type: "button", text: "Done" });
-  const doneNote = el("p", { class: "ai-note ai-done-note", hidden: true, text: "Done works once your AI app is connected: closing ends the pairing code. Press Esc to close anyway." });
+  const closeAnyway = el("button", { type: "button", class: "link", text: "Close anyway" });
+  const doneNote = el("p", { class: "ai-note ai-done-note", hidden: true }, "Done works once your AI app is connected: closing now ends the pairing code. ", closeAnyway);
   dialog.append(el("div", { class: "ai-box" },
     el("h2", { id: "ai-title", text: "Connect your AI app" }),
     el("p", { text: "Your AI app (Claude, ChatGPT, Claude Code, …) can use the calculators in this tab: read the display, press keys, run programs and look up commands. Add this address to it as an MCP server." }),
@@ -84,7 +85,8 @@ export async function openAiDialog(ai, doc = document) {
   ));
 
   // AI access is on but no AI app is connected yet: closing would end the
-  // pairing code the app is about to ask for, so only Esc closes.
+  // pairing code the app is about to ask for, so Done and the backdrop
+  // wait; Close anyway (and Esc) close on purpose.
   let waiting = false;
   const render = () => {
     const state = ai.state;
@@ -122,7 +124,7 @@ export async function openAiDialog(ai, doc = document) {
     connect.hidden = state !== "disconnected";
     off.hidden = state === "disconnected" && !ai.lost;
     fresh.hidden = state !== "connected";
-    waiting = state !== "disconnected" && !ai.lost && grants.length === 0;
+    waiting = state === "connected" && grants.length === 0;
     done.disabled = waiting;
     doneNote.hidden = !waiting;
   };
@@ -145,6 +147,7 @@ export async function openAiDialog(ai, doc = document) {
   });
   copyCode.addEventListener("click", () => copyText(copyCode, "Copy code", codeValue.textContent, () => doc.getSelection()?.selectAllChildren(codeValue)));
   done.addEventListener("click", () => dialog.close());
+  closeAnyway.addEventListener("click", () => dialog.close());
   // A click on the backdrop (the dialog itself, outside its box) closes it,
   // unless that would end the code an AI app is about to ask for.
   dialog.addEventListener("click", (e) => {
@@ -190,7 +193,7 @@ export function installBlock({ connector: connectorText = null, newOnly = false 
   const cmd = el("textarea", { class: "input ai-cmd", readonly: true, rows: 1, hidden: true, "aria-label": "Command", spellcheck: "false" });
   const connector = el("p", { class: "ai-note" });
   const codexNote = el("p", { class: "ai-note", hidden: !newOnly });
-  codexNote.append("Codex needs its feature ", el("code", { text: CODEX_FEATURE }), " for this address; Copy for Codex turns it on too. Start a new chat in Codex once it is connected.");
+  codexNote.append("Copy for Codex also turns on Codex's feature ", el("code", { text: CODEX_FEATURE }), ", which this address needs. It applies to all of Codex's MCP servers; ", el("code", { text: `codex features disable ${CODEX_FEATURE}` }), " turns it off. Start a new chat in Codex once it is connected.");
   const node = el("div", { class: "ai-install" },
     el("div", { class: "ai-install-row" }, cursor, vscode, forClaude, forCodex),
     cmd,

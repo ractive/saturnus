@@ -4,7 +4,8 @@
 // close it (that would end the pairing code) and a line says so; the
 // pairing code with Copy code; Copy for Codex with the command that turns
 // on Codex's mcp_2026_07_28 first; Done once an app is connected, and
-// when AI access is off. Skipped without Chrome.
+// when AI access is off; Close anyway while it waits. Skipped without
+// Chrome.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { session, sleep } from "./chrome.mjs";
@@ -55,26 +56,36 @@ const DIALOG = `(() => {
   };
 })()`;
 
-test("the browser dialog: Done waits for an AI app, the code has Copy, Codex gets its feature", { timeout: 60_000 }, async (t) => {
+/** Polls `expr` in the page until it is truthy (10 s). */
+async function until(ev, expr, what) {
+  for (let i = 0; i < 200; i++) {
+    const v = await ev(expr).catch(() => null);
+    if (v) return v;
+    await sleep(50);
+  }
+  assert.fail(`timed out waiting for ${what}`);
+}
+
+/** A page with the dialog open on the fake AI access. */
+async function open(t) {
   const c = await session(t);
-  if (!c) return;
+  if (!c) return null;
   const { send, ev, port } = c;
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/shared/mcp-install.js` });
   await sleep(300);
   assert.equal(await ev(SETUP), true);
-  const until = async (expr, what) => {
-    for (let i = 0; i < 200; i++) {
-      const v = await ev(expr).catch(() => null);
-      if (v) return v;
-      await sleep(50);
-    }
-    assert.fail(`timed out waiting for ${what}`);
-  };
+  await until(ev, DIALOG, "the dialog");
+  return ev;
+}
+
+test("the browser dialog: Done waits for an AI app, the code has Copy, Codex gets its feature", { timeout: 60_000 }, async (t) => {
+  const ev = await open(t);
+  if (!ev) return;
   const click = (text) => ev(`[...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === ${JSON.stringify(text)}).click(), true`);
 
-  let d = await until(DIALOG, "the dialog");
+  let d = await ev(DIALOG);
   assert.deepEqual(d, { open: true, doneDisabled: true, doneNote: true, code: null, codexNote: true }, "on, no app yet: Done waits");
   // A click on the backdrop leaves it open while it waits.
   await ev(`document.querySelector("dialog.ai").click(), true`);
@@ -83,41 +94,40 @@ test("the browser dialog: Done waits for an AI app, the code has Copy, Codex get
 
   // The code, and Copy code.
   await ev(`window.t.ai.mcp.pairingCode = { code: "482913", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), true`);
-  d = await until(`(${DIALOG})?.code && (${DIALOG})`, "the code");
+  d = await until(ev, `(${DIALOG})?.code && (${DIALOG})`, "the code");
   assert.match(d.code, /When your AI app asks for a code, enter 482913\./);
   await click("Copy code");
-  await until(`window.t.copied.length === 1`, "the code copied");
+  await until(ev, `window.t.copied.length === 1`, "the code copied");
   assert.deepEqual(await ev(`window.t.copied`), ["482913"]);
   assert.equal(await ev(`document.querySelector("dialog.ai .ai-code button").textContent`), "Copied");
 
   // Copy for Codex: the feature first, then the address.
   await click("Copy for Codex");
-  await until(`window.t.copied.length === 2`, "the Codex commands copied");
+  await until(ev, `window.t.copied.length === 2`, "the Codex commands copied");
   assert.equal(await ev(`window.t.copied[1]`), `codex features enable mcp_2026_07_28\ncodex mcp add saturnus --url ${ADDRESS}`);
 
   // An app connects: Done closes it.
   await ev(`window.t.ai.mcp.grants = [{ grantId: "g1", client: { name: "Codex", host: "chatgpt.com" } }], window.t.ai.mcp.pairingCode = undefined, window.t.ai.changed(), true`);
-  d = await until(`(${DIALOG})?.doneDisabled === false && (${DIALOG})`, "Done enabled");
+  d = await until(ev, `(${DIALOG})?.doneDisabled === false && (${DIALOG})`, "Done enabled");
   assert.equal(d.doneNote, false);
   await click("Done");
-  await until(`window.t.done === true`, "closed by Done");
+  await until(ev, `window.t.done === true`, "closed by Done");
 });
 
 test("the browser dialog: with AI access off, Done closes it", { timeout: 60_000 }, async (t) => {
-  const c = await session(t);
-  if (!c) return;
-  const { send, ev, port } = c;
-  await send("Page.enable");
-  await send("Runtime.enable");
-  await send("Page.navigate", { url: `http://127.0.0.1:${port}/shared/mcp-install.js` });
-  await sleep(300);
-  assert.equal(await ev(SETUP), true);
-  await sleep(100);
-  assert.equal(await ev(`(${DIALOG}).doneDisabled`), true);
+  const ev = await open(t);
+  if (!ev) return;
+  assert.equal((await ev(DIALOG)).doneDisabled, true);
   await ev(`[...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === "Turn off").click(), true`);
-  await sleep(100);
-  assert.deepEqual(await ev(`[(${DIALOG}).doneDisabled, (${DIALOG}).doneNote]`), [false, false]);
+  await until(ev, `(${DIALOG})?.doneDisabled === false && !(${DIALOG}).doneNote`, "Done enabled with AI access off");
   await ev(`[...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === "Done").click(), true`);
-  await sleep(100);
-  assert.equal(await ev(`window.t.done === true`), true, "closed by Done");
+  await until(ev, `window.t.done === true`, "closed by Done");
+});
+
+test("the browser dialog: Close anyway closes it while it waits (a phone has no Esc)", { timeout: 60_000 }, async (t) => {
+  const ev = await open(t);
+  if (!ev) return;
+  assert.equal((await ev(DIALOG)).doneNote, true);
+  await ev(`[...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === "Close anyway").click(), true`);
+  await until(ev, `window.t.done === true`, "closed by Close anyway");
 });

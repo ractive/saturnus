@@ -1073,15 +1073,15 @@ through the relay while the tab is open. Nothing is installed.
   name in Calculator's panel open its dialog (`ai-dialog.js`): the
   address with Copy, the links and commands for the common AI apps
   (`shared/mcp-install.js`; Copy for Codex also turns on Codex's feature
-  `mcp_2026_07_28`, without which Codex 0.163 signs in to the relay but
+  `mcp_2026_07_28`, for all its MCP servers, without which Codex 0.163 signs in to the relay but
   lists no tools), the state, the pairing code with Copy code once the
   relay sends one (tab-mcp's OAuth pairing: the user types it on the
   relay's sign-in page), the connected apps each with Disconnect, **Keep
   AI access on** (connect again when the app opens, kept as
   `saturnus.aiKeepOn`), Turn off and New address (the apps of the old one
   lose access). While AI access is on and no app is connected, Done and
-  the backdrop do not close it, since closing ends the pairing code; Esc
-  still does, and a line says so. Not in the desktop app.
+  the backdrop do not close it, since closing ends the pairing code; a
+  line says so, with Close anyway (Esc closes too). Not in the desktop app.
 - **The sidebar entry** (`app.js` `watchAi`, `ai-log.js` `aiView`,
   iteration 56) says the state: "Connect your AI app…" (off; why it went
   off below it), "AI access: connecting…", "AI access on · no app yet"
