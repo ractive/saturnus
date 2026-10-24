@@ -34,7 +34,7 @@ import { IndexWatch } from "../palette.js";
 import { contextItems, subjectActions } from "../actions.js";
 import { exportScale, graphicBits, graphicDrawable, graphicFileName, graphicRgba, graphicScale, graphicSize, graphicText, graphicThumb } from "../shared/graphic.js";
 import { SCALE, lookOf, screenColors } from "../screenshot.js";
-import { copyPng, pngBlob } from "../shared/png.js";
+import { copyPng, pngBlob, twoColourPng } from "../shared/png.js";
 import { dragResize } from "../shared/resize.js";
 import { entryView } from "./entry-view.js";
 import { icon, iconEl } from "../shared/components/icons.js";
@@ -1204,7 +1204,7 @@ export class SatExplorer extends HTMLElement {
     // A large one at a smaller scale: the image stays within what a
     // browser can draw.
     const scale = exportScale(g.width, g.height, SCALE);
-    return pngBlob(graphicRgba(g, screenColors(this.store.state.frame ?? {}, look), scale));
+    return pngBlob(twoColourPng({ width: g.width, height: g.height, bits: graphicBits(g) }, screenColors(this.store.state.frame ?? {}, look), scale));
   }
 
   /**

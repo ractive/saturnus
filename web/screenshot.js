@@ -2,11 +2,12 @@
 // strip above them, as the page draws the LCD, scaled up with hard pixel
 // edges. Two looks: the LCD's colours at its contrast ("lcd"), or pure
 // black on white ("bw"). Copied to the clipboard as a PNG, or saved as a
-// file where that is not possible (web/shared/png.js). Pure (no DOM):
+// file where that is not possible (web/shared/png.js encodes it). Pure (no DOM):
 // web/test/screenshot.test.mjs.
 
 import { contrastDarkness, offTint } from "./contrast.js";
 import "./shared/models.js";
+import { twoColourPng } from "./shared/png.js";
 
 /** Rows of the annunciator strip above the pixels (as sat-calculator.js draws it). */
 export const ANN_H = 8;
@@ -190,6 +191,15 @@ export function screenRgba(frame, pixels, model, look = "lcd", scale = SCALE) {
     }
   }
   return { width: W, height: H, data };
+}
+
+/**
+ * The screen as an indexed PNG's bytes (a promise): two colours, one bit
+ * a pixel, `scale` image pixels per LCD pixel, in `look` (the same image
+ * as `screenRgba`).
+ */
+export function screenPng(frame, pixels, model, look = "lcd", scale = SCALE) {
+  return twoColourPng(screenBits(frame, pixels, model), screenColors(frame, look), scale);
 }
 
 /**

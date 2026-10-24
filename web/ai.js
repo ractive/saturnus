@@ -30,13 +30,14 @@ import { HubClient, hubRunning } from "./shared/calc-hub.js";
 import { KEYS, aiSecretKey } from "./shared/storage-names.js";
 import { relayUrl } from "./ai-relay.js";
 import { keptRomBytes, keptRoms } from "./tx/kept-roms.js";
-import { screenRgba } from "./screenshot.js";
+import { screenPng as screenPngBytes } from "./screenshot.js";
+import { pngBase64 } from "./shared/png.js";
 import "./shared/models.js";
 
 /** The app's version for the MCP server's info. */
 const VERSION = "1";
 
-/** The display as a PNG (base64), black on white at 3× (web/screenshot.js). */
+/** The display as a PNG (a promise of base64), black on white at 3× (web/screenshot.js). */
 export function screenPng(frame, model) {
   const bin = atob(frame.pixels);
   const row = Math.ceil(frame.width / 8);
@@ -44,12 +45,7 @@ export function screenPng(frame, model) {
   for (let y = 0; y < frame.height; y++) {
     for (let x = 0; x < frame.width; x++) px[y * frame.width + x] = (bin.charCodeAt(y * row + (x >> 3)) >> (7 - (x & 7))) & 1;
   }
-  const img = screenRgba(frame, px, model, "bw", 3);
-  const canvas = document.createElement("canvas");
-  canvas.width = img.width;
-  canvas.height = img.height;
-  canvas.getContext("2d").putImageData(new ImageData(img.data, img.width, img.height), 0, 0);
-  return canvas.toDataURL("image/png").split(",")[1];
+  return pngBase64(screenPngBytes(frame, px, model, "bw", 3));
 }
 
 /**

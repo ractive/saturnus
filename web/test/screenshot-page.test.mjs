@@ -2,7 +2,8 @@
 // DevTools protocol (no dependencies), with real mouse and key events:
 // the panel's Copy screen writes an image/png to the clipboard (stubbed)
 // and Save screen hands a PNG of the right size to the backend's save,
-// on the 48GX, the 49G and the 42S; the shortcut copies; the display's
+// on the 48GX, the 49G and the 42S, an indexed 1-bit PNG with the same
+// pixels as the screen; the shortcut copies; the display's
 // menu opens on a right-click with its six items; where images cannot
 // be copied, the image is saved and the page says so. No ROM: the page
 // is made to believe a model runs (`booted` and `model` set, a frame).
@@ -31,7 +32,16 @@ const fake = (model, { clipboard = true } = {}) => `(async () => {
     const b = new Uint8Array(await blob.arrayBuffer());
     const v = new DataView(b.buffer);
     const sig = [137, 80, 78, 71].every((x, i) => b[i] === x);
-    return { png: sig, type: blob.type, width: v.getUint32(16), height: v.getUint32(20) };
+    // The image as Chrome decodes it, against the screen's RGBA in the look chosen.
+    const { lookOf, screenRgba } = await import("/screenshot.js");
+    const st = s.store.state;
+    const want = screenRgba(st.frame, document.querySelector("sat-calculator").pixels, st.booted, lookOf(st.screenLook));
+    const bmp = await createImageBitmap(blob);
+    const c = new OffscreenCanvas(bmp.width, bmp.height).getContext("2d");
+    c.drawImage(bmp, 0, 0);
+    const got = c.getImageData(0, 0, bmp.width, bmp.height).data;
+    const same = got.length === want.data.length && got.every((x, i) => x === want.data[i]);
+    return { png: sig, type: blob.type, width: v.getUint32(16), height: v.getUint32(20), depth: b[24], colourType: b[25], same };
   };
   window.copied = null;
   window.saved = null;
@@ -87,11 +97,13 @@ test("Copy screen puts a 4x PNG on the clipboard, Save screen saves one, on thre
     assert.equal(await p.ev(fake(model)), model);
     await p.click("#copy-screen");
     const copied = await p.until("window.copied", `${model} copied`);
-    assert.deepEqual(copied, { types: ["image/png"], png: true, type: "image/png", width: 524, height }, model);
+    // Indexed, one bit a pixel (web/shared/png.js), the same pixels as the screen.
+    assert.deepEqual(copied, { types: ["image/png"], png: true, type: "image/png", width: 524, height, depth: 1, colourType: 3, same: true }, model);
     assert.match(await p.ev("window.saturnus.store.state.message"), /copied/);
     await p.click("#save-screen");
     const saved = await p.until("window.saved", `${model} saved`);
     assert.equal(saved.png, true);
+    assert.equal(saved.same, true, `${model}: the saved image is the screen`);
     assert.deepEqual([saved.width, saved.height], [524, height]);
     assert.match(saved.name, new RegExp(`^${model}-\\d{4}-\\d\\d-\\d\\d-\\d{4}\\.png$`));
   }
