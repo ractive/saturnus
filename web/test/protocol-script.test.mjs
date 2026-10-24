@@ -47,7 +47,20 @@ test("the command script gives the transcript every host gives", async () => {
     const r = posted.findLast((m) => m.type === "reply" && m.id === i);
     if (r.ok && r.result?.state instanceof Uint8Array) saved = r.result.state;
   }
-  const transcript = posted.map((m) => {
+  // `starting` follows whether the host answers a cold boot's question:
+  // the Worker does (the zeros ROM never shows it, so it stays up), the
+  // native transcript's HTTP host without a store does not. Set aside:
+  // the field, and a status sent only because it moved.
+  const plain = (m) => JSON.stringify({ ...m, starting: false });
+  let last = null;
+  const events = posted.filter((m) => {
+    if (m.type !== "status") return true;
+    const moved = last !== null && plain(m) === plain(last) && m.starting !== last.starting;
+    last = m;
+    return !moved;
+  });
+  const transcript = events.map((m) => {
+    if (m.type === "status") return { ...m, starting: false };
     if (m.type !== "reply") return m;
     const out = { reply: m.id, ok: m.ok };
     if (!m.ok) return { ...out, error: m.error };
