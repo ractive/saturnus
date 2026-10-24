@@ -1210,12 +1210,15 @@ the landing page (`web/landing/`: `index.html`, `style.css`, `img/`; no
 script, it follows the device's colour scheme), `favicon.svg`, the
 `.htaccess` (it applies below too; no redirects) and `sw.js`, the kill
 switch; under `app/` the app: `index.html` and every page
-file, `tx/`, `shared/`, the wasm package, the manifest, the icons and
+file, `tx/`, `shared/`, the wasm package, the manifest, the icons,
+`saturnus.mcpb` (the Claude Desktop extension, built from `web/mcpb/` by
+`web/mcpb/build.mjs`, iteration 59) and
 `sw.js` with a BUILD hash over `app/` alone, so a landing-page change
 leaves the app's build and caches untouched. `emulator/` and
 `transfer/`, the two subsites the app replaced, hold only `sw.js`, the
 same kill switch (below). `web/site.sh --list` lists the app's page
-files, which the desktop app embeds (with the wasm package). `web/test/site.test.mjs` checks the
+files, which the desktop app embeds (with the wasm package and the
+extension). `web/test/site.test.mjs` checks the
 layout.
 
 **The docs** (iteration 57). `web/docs/build.mjs`, run by `site.sh`

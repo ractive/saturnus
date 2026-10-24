@@ -13,6 +13,12 @@ the desktop app and the web page share one version.
   Turn on "Let AI apps on this computer use the calculators" in
   "Connect your AI app…" (off by default) and add the app with a link or
   a command from there. Storing or purging a variable asks you first.
+- **Claude Desktop.** "Add to Claude Desktop" in the desktop app's
+  "Connect your AI app…" installs an extension that connects Claude
+  Desktop to the desktop app's calculators and starts saturnus when
+  Claude needs one. The extension holds no key: it reads the one the
+  app writes for your user account, and sends it only after saturnus has
+  shown that it holds the same key. Also on the docs page "AI apps".
 - **The AI tools know what is on the screen** (48SX, 48GX, 49G). Each
   result says what has the keyboard (the stack, a command line, an input
   form, a choose box, a message, the graphics screen, a halted program)

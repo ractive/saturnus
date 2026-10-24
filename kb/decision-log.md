@@ -4567,3 +4567,41 @@ read the state from memory rather than guess it from the display.
 - **The helper lives in `scripts/`, not `bin/`.** Claude Code puts `bin/` on
   the Bash tool's PATH, and claude.ai and Cowork refuse to install a plugin
   that has one.
+
+## 2026-10-24 (iteration 59: Claude Desktop through a .mcpb)
+
+- **One static `.mcpb` with a Node forwarder** (owner, 2026-10-24), not a
+  Rust `saturnus mcp` in per-platform bundles. Claude Desktop runs it with
+  its built-in Node (server type `node`); no npm dependencies. The MCPB
+  spec (manifest 0.3, checked 2026-10-24) has no remote-URL server type, so
+  a local process is needed anyway, and it must read the token file and
+  start the app.
+- **Built at build time, not committed.** `web/mcpb/build.mjs` writes a
+  stored zip with fixed dates, so the same sources give the same bytes;
+  `web/site.sh` and the desktop app's `build.rs` run it (both need Node,
+  which the web build already did). Committing it would mean a freshness
+  check on every change to the tools, whose list it carries.
+- **The MCP endpoint gets the control API's hello** (`GET /hello?nonce=N`,
+  the HMAC of N and the bound port under the token, `Token::proof`), and
+  the forwarder checks it before every request. The forwarder knocks on
+  the port while the app is closed or starting, which is exactly when
+  another local user could hold it and collect the token; the Claude Code
+  plugin's `headersHelper` path does not check it (Claude Code sends the
+  header itself), which stays as accepted for the install links in
+  iteration 58. The proof and the request travel on separate connections,
+  the race accepted for `saturnus ctl`.
+- **The app closed: `initialize`, `ping` and `tools/list` are answered
+  from the bundle** (`offline.json`: the instructions and the tool list
+  from `web/ai-tools.js`, as the endpoint gives them), so opening Claude
+  Desktop does not open saturnus; only a `tools/call` starts it. Once the
+  endpoint answers, the client's `initialize` is replayed so its session
+  names the AI app in saturnus ("Always allow" stays available). No key
+  file means AI access was never on: no start, the message only.
+- **Starting the app**: macOS `open -b ch.ractive.saturnus`; Windows the
+  first of `saturnus.exe` or `saturnus-app.exe` under `%LOCALAPPDATA%`,
+  `%LOCALAPPDATA%\Programs`, `%ProgramFiles%` (best effort, untested);
+  Linux `saturnus-app` on the PATH (the .deb and .rpm). Not again within a
+  minute; a call then waits 2 s instead of 20 s.
+- **"Add to Claude Desktop" opens the copy embedded in the app**
+  (`mcpb_open`: the asset written to the app's cache folder and opened
+  with the system), so it works offline and matches the app's version.

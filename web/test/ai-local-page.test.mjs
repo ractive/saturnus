@@ -3,7 +3,8 @@
 // headless Chrome, with web/ai-local.js's LocalAiAccess on a fake Tauri
 // bridge (no app, no ROM): the setting off by default, turned on (the
 // local address, the Cursor and VS Code links and the Claude Code and
-// Codex commands with the Authorization header), the AI apps seen, a busy
+// Codex commands with the Authorization header), Add to Claude Desktop,
+// the AI apps seen, a busy
 // port's error, another port, turned off. A store_variable call opens
 // tab-mcp's own confirmation (the vendored dialog); Always allow lets the
 // next one run without asking. Skipped without Chrome or the wasm package
@@ -36,6 +37,10 @@ const SETUP = `(async () => {
           if (args.enabled) t.status.authorization = "Bearer " + "c".repeat(64); else delete t.status.authorization;
         }
         return { ...t.status };
+      }
+      if (cmd === "mcpb_open") {
+        if (t.mcpbError) throw new Error(t.mcpbError);
+        return "/cache/saturnus.mcpb";
       }
       if (cmd === "mcp_reply") replies.get(args.id)?.(args);
       return null;
@@ -109,6 +114,16 @@ test("the desktop dialog: the setting, the address with its header, the apps, th
   // No token in any attribute of the dialog (titles, labels), only in the links' hrefs.
   const attrs = await ev(`[...document.querySelectorAll("dialog.ai *")].flatMap((e) => [...e.attributes].filter((a) => a.name !== "href").map((a) => a.value)).join(" ")`);
   assert.ok(!attrs.includes("c".repeat(64)));
+
+  // Add to Claude Desktop: the app opens its extension; a failure says why.
+  await ev(`[...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === "Add to Claude Desktop").click(), true`);
+  d = await until(`(${DIALOG}).status.includes("Install") && (${DIALOG})`, "the extension opened");
+  assert.equal(d.status, "Choose Install in Claude Desktop. If it does not open, open /cache/saturnus.mcpb with it.");
+  assert.deepEqual(await ev(`window.t.calls.filter((c) => c[0] === "mcpb_open").length`), 1);
+  await ev(`window.t.mcpbError = "Claude Desktop did not open the extension.", [...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === "Add to Claude Desktop").click(), true`);
+  d = await until(`(${DIALOG}).error && (${DIALOG})`, "the extension's error");
+  assert.equal(d.status, "Claude Desktop did not open the extension.");
+  await ev(`window.t.mcpbError = null, true`);
 
   // An AI app seen.
   await ev(`window.t.status.apps = [{ name: "Claude Code", secondsAgo: 130 }], window.t.emit("mcp-status", null), true`);

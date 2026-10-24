@@ -565,6 +565,115 @@ pub async fn mcp_set(app: AppHandle, enabled: bool, port: Option<u16>) -> Result
     .await
 }
 
+/// The Claude Desktop extension's name in the embedded page (built there
+/// by the crate's `build.rs` from `web/mcpb/`, iteration 59).
+pub const MCPB_FILE: &str = "saturnus.mcpb";
+
+/// "Add to Claude Desktop": the extension from the embedded page, written
+/// to the app's cache folder and opened with the system, so Claude
+/// Desktop shows its install dialog. It holds no token (the forwarder in
+/// it reads the token file), so it is the same file for every user. The
+/// file's path, for the page's note (open it by hand if Claude Desktop
+/// does not).
+#[tauri::command]
+pub async fn mcpb_open(app: AppHandle) -> Result<String, String> {
+    use tauri::Manager as _;
+    let bytes = app
+        .asset_resolver()
+        .get(MCPB_FILE.to_string())
+        .map(|a| a.bytes)
+        .filter(|b| b.starts_with(b"PK\x03\x04"))
+        .ok_or("This copy of saturnus came without the Claude Desktop extension. Download it from the saturnus docs (AI apps) instead.")?;
+    let dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| format!("cannot find the app's cache folder ({e})"))?;
+    crate::transfer::blocking(move || {
+        let path = write_mcpb(&dir, &bytes)?;
+        open_with_system(&path)?;
+        Ok(path.display().to_string())
+    })
+    .await
+}
+
+/// Write the extension's `bytes` as [`MCPB_FILE`] in `dir` (created if
+/// missing), through a temporary file so a half-written one is never
+/// opened; its path.
+fn write_mcpb(dir: &std::path::Path, bytes: &[u8]) -> Result<PathBuf, String> {
+    std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let path = dir.join(MCPB_FILE);
+    let part = dir.join(format!("{MCPB_FILE}.part"));
+    std::fs::write(&part, bytes).map_err(|e| format!("{}: {e}", part.display()))?;
+    std::fs::rename(&part, &path).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(path)
+}
+
+/// How long `xdg-open` may take to say whether it opened the file.
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+const OPENER_WAIT: Duration = Duration::from_secs(10);
+
+/// Open `path` with the system's handler for its type (Claude Desktop
+/// for `.mcpb`). macOS `open` and `xdg-open` say by their exit status
+/// when no app took the file. Windows: `explorer.exe` with the path as
+/// one argument (std quotes it, spaces and all; no shell, so `&` or `^`
+/// in a user name mean nothing); its exit status says nothing, so the
+/// page's note names the path to open by hand.
+fn open_with_system(path: &std::path::Path) -> Result<(), String> {
+    let not_opened = || {
+        format!(
+            "Claude Desktop did not open the extension. Install Claude Desktop, then try again, or open {} with it.",
+            path.display()
+        )
+    };
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("open")
+            .arg(path)
+            .status()
+            .map_err(|_| not_opened())?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(not_opened())
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let mut child = std::process::Command::new("explorer.exe")
+            .arg(path)
+            .spawn()
+            .map_err(|_| not_opened())?;
+        // Waited for on its own thread: no zombie, and the dialog is not held.
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let mut child = std::process::Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map_err(|_| not_opened())?;
+        let end = Instant::now() + OPENER_WAIT;
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) if status.success() => return Ok(()),
+                Ok(Some(_)) | Err(_) => return Err(not_opened()),
+                Ok(None) if Instant::now() >= end => {
+                    // Still running (some openers stay with the app): it
+                    // started something; reaped on its own thread.
+                    std::thread::spawn(move || {
+                        let _ = child.wait();
+                    });
+                    return Ok(());
+                }
+                Ok(None) => std::thread::sleep(Duration::from_millis(50)),
+            }
+        }
+    }
+}
+
 /// The app's state of AI access; [`start_in_background`] starts its
 /// endpoint once it is managed.
 pub fn setup(app: &AppHandle, file: Option<PathBuf>) -> Local {
@@ -771,6 +880,34 @@ mod tests {
         let apps = b.fresh_apps();
         assert_eq!(apps.len(), 2);
         assert_eq!(apps[0]["name"], "claude-code");
+    }
+
+    /// The extension is written whole into a folder made for it, and
+    /// again over an older copy; no part file is left.
+    #[test]
+    fn the_extension_is_written_for_claude_desktop() {
+        let dir = saturnus_drive::loopback::token::testing::TempDir::new("mcpb");
+        let cache = dir.0.join("cache").join("ch.ractive.saturnus");
+        let path = write_mcpb(&cache, b"PK\x03\x04old").unwrap();
+        assert_eq!(path, cache.join(MCPB_FILE));
+        let path = write_mcpb(&cache, b"PK\x03\x04new").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"PK\x03\x04new");
+        assert!(!cache.join(format!("{MCPB_FILE}.part")).exists());
+    }
+
+    /// The page's copy of the extension (built by build.rs when Node is
+    /// there) is a zip with the manifest.
+    #[test]
+    fn the_embedded_page_carries_the_extension() {
+        let built = PathBuf::from(env!("OUT_DIR"))
+            .join("app-site")
+            .join(MCPB_FILE);
+        let Ok(bytes) = std::fs::read(&built) else {
+            eprintln!("no {MCPB_FILE} (Node missing at build time): skipped");
+            return;
+        };
+        assert!(bytes.starts_with(b"PK\x03\x04"));
+        assert!(bytes.windows(13).any(|w| w == b"manifest.json"));
     }
 
     /// The setting: off by default, kept, turning it on starts the

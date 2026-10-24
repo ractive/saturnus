@@ -234,6 +234,7 @@ dialog.ai {
 .ai-install { display: flex; flex-direction: column; gap: var(--s2); }
 .ai-install[hidden], .ai-cmd[hidden] { display: none; }
 .ai-install-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.ai-install-row .ai-claude { grid-column: 1 / -1; }
 .ai-install-row a.button { min-height: max(28px, calc(var(--tap) - 8px)); padding: 0 var(--s2); font-size: var(--fs-md); border-radius: var(--r-sm); }
 .ai-cmd { width: 100%; box-sizing: border-box; padding: var(--s1) var(--s2); resize: none; font-family: var(--mono); font-size: var(--fs-sm); white-space: pre; overflow-x: auto; }
 .ai-code { font-weight: 600; }

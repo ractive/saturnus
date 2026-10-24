@@ -26,7 +26,9 @@
 #                       installable page's files from web/pwa/: the
 #                       manifest, the icons and the service worker, with
 #                       index.html given the manifest link and Apple's
-#                       tags (web/pwa/head.html).
+#                       tags (web/pwa/head.html); and saturnus.mcpb, the
+#                       extension for Claude Desktop (web/mcpb/build.mjs,
+#                       built here, never committed; needs Node).
 #   docs/, llms.txt,    the docs
 #   sitemap.xml         (iteration 57): web/docs/build.mjs
 #                       renders web/docs/pages/*.md into docs/<page>/
@@ -160,10 +162,11 @@ install_index "$here/index.html" "$app" "$here/pwa/head.html"
 mkdir -p "$app/icons"
 cp "$here/pwa/manifest.webmanifest" "$app/"
 cp "$here"/pwa/icons/*.png "$app/icons/"
+command -v node > /dev/null || { echo "web/site.sh: the extension and the docs need Node (web/mcpb/build.mjs, web/docs/build.mjs)" >&2; exit 1; }
+node "$here/mcpb/build.mjs" "$app/saturnus.mcpb"
 install_sw "$app"
 
 # The docs, after the app: their pages load its code and styles.
-command -v node > /dev/null || { echo "web/site.sh: the docs need Node (web/docs/build.mjs)" >&2; exit 1; }
 node "$here/docs/build.mjs" "$out" --csp "$csp"
 
 # Every relative module reference of a page must resolve: `from "./x"`,

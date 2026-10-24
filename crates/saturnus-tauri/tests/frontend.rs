@@ -1,6 +1,6 @@
 //! The app embeds exactly the web app's files: the set `build.rs`
-//! assembled in `$OUT_DIR/app-site`, without the app's own addition (the
-//! wasm package), equals what `web/site.sh --list` selects, so the two
+//! assembled in `$OUT_DIR/app-site`, without the built additions (the
+//! wasm package, the Claude Desktop extension), equals what `web/site.sh --list` selects, so the two
 //! rules cannot drift apart. Skipped where `sh` cannot be run (Windows without Git Bash); CI's
 //! tauri job runs it on Linux.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
@@ -31,9 +31,10 @@ fn files_under(dir: &Path) -> Vec<String> {
     out
 }
 
-/// What the app adds to the page's files: once built, the wasm package.
+/// What is built into the page's files: the wasm package and the Claude
+/// Desktop extension (`web/site.sh` adds both to the web app too).
 fn added(name: &str) -> bool {
-    name.starts_with("pkg/")
+    name.starts_with("pkg/") || name == "saturnus.mcpb"
 }
 
 #[test]

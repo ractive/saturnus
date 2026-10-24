@@ -92,7 +92,8 @@ the same code (`saturnus_drive::loopback::guard`):
 | Rule | Why | Test |
 | --- | --- | --- |
 | Bound to 127.0.0.1 only; off by default; turning the setting off stops accepting at once (the accept loop looks at its stop flag every 25 ms) and ends the calls in progress; a request accepted before is refused (503, "AI access is off") and never reaches the window | No remote caller; nothing listens unless the user asked for it | `mcp::tests::turned_off_it_stops_accepting`, `mcp::tests::a_request_accepted_before_turning_off_is_refused`, `mcp_app::tests::the_setting_starts_and_stops_the_endpoint`, `guard::tests::a_stopped_server_stops_accepting` |
-| The control API's token file (`control-token`, created if missing), `Authorization: Bearer` on every request, compared in constant time; missing or wrong is 401 `{}` before the path is looked at; no hello (the forwarder of iteration 59 reads the file itself) | Other local users, and browsers | `mcp::tests::the_control_api_rules_hold` |
+| The control API's token file (`control-token`, created if missing), `Authorization: Bearer` on every request, compared in constant time; missing or wrong is 401 `{}` before the path is looked at (`GET /hello` aside) | Other local users, and browsers | `mcp::tests::the_control_api_rules_hold` |
+| Since iteration 59 a token-free `GET /hello?nonce=N` (64 hex digits) answers `{"proof": …}`, the control API's proof (`Token::proof`: HMAC-SHA-256 under the token of N and the bound port); nothing else is token-free. The Claude Desktop extension's forwarder (`web/mcpb/server/index.mjs`) checks it with a fresh nonce before every request and sends the token only after a right proof, only to 127.0.0.1 at the port | The forwarder knocks on the port while the app is closed or starting, exactly when another local user could bind it and collect the token | `mcp::tests::hello_proves_the_token_without_it`, `token::tests::hmac_and_proofs` (a fixed value web `mcpb.test.mjs` checks too), web `mcpb.test.mjs` ("a server without the proof never gets the token") |
 | `Host` 127.0.0.1 or localhost with the bound port (421), any other `Origin` 403, `OPTIONS` 405, no CORS header ever | DNS rebinding and cross-site pages, as for the control API | the same test |
 | Only `POST /mcp`; `GET` and `DELETE` 405 (no event stream, no sessions to end); `application/json` only (415) | Nothing a page can send without a preflight | the same test |
 | Bodies capped at 256 KiB from `Content-Length` before reading, no `Transfer-Encoding`, heads 16 KiB; the control API's timeouts and budgets (16 pending, 64 threads, 8 requests served) | Memory and time per request bounded | the same test |
@@ -107,6 +108,13 @@ read that file can use the calculators while the setting is on; that is
 the user's own account, already out of scope. Turning the setting off
 shuts every AI app out; deleting `control-token` gives a new token (the
 AI apps then need the new commands, as do `saturnus ctl` callers).
+
+The install links and commands (and the Claude Code plugin's
+`headersHelper`) send the token without the hello: those AI apps send
+the header themselves. Accepted with option b above; the extension is
+the one client saturnus writes, so it checks. Its proof and its request
+travel on separate connections, the race accepted for `saturnus ctl`
+under "Known limits".
 
 A legacy `initialize` gets an `Mcp-Session-Id`; it only names the client
 in "The AI's calls" and is never checked, so it grants nothing.

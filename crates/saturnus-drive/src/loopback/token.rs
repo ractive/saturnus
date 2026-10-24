@@ -334,6 +334,12 @@ mod tests {
             ),
             "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54"
         );
+        // A fixed proof; the .mcpb forwarder's test checks the same one
+        // (web/test/mcpb.test.mjs), so the two compute it alike.
+        assert_eq!(
+            Token("ab".repeat(32)).proof(&"cd".repeat(32), 4842),
+            "cb5b940c81864eae6e01e3d7dfe7916eefa6e60c1425f4fea5abd58633074b73"
+        );
         let t = Token(random_hex().unwrap());
         let n = random_hex().unwrap();
         assert_eq!(t.proof(&n, 4840), t.proof(&n, 4840));

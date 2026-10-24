@@ -556,6 +556,8 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
   const isFile = (f) => existsSync(f) && statSync(f).isFile();
   const exists = (p) => {
     if (isFile(join(out, p))) return true;
+    // The Claude Desktop extension is built by web/site.sh, not kept in web/.
+    if (p === "app/saturnus.mcpb") return isFile(join(WEB, "mcpb", "build.mjs"));
     if (p.startsWith("app/")) return isFile(join(WEB, p.slice(4)));
     if (p.startsWith("img/")) return isFile(join(WEB, "landing", p));
     if (p === "index.html") return isFile(join(WEB, "landing", "index.html"));

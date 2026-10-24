@@ -1,0 +1,51 @@
+{
+  "manifest_version": "0.3",
+  "name": "saturnus",
+  "display_name": "saturnus calculators",
+  "version": "",
+  "description": "Use the HP calculators of the saturnus desktop app on this computer: read the display, press keys, run RPL and look up commands.",
+  "long_description": "Claude uses the calculators you have open in the saturnus desktop app: it reads the display, presses keys, runs RPL, stores programs on the 48 and 49 models and looks up commands in the reference. You watch the calculator while Claude works, and you allow each store or purge of a variable in saturnus first.\n\nTurn on \"Let AI apps on this computer use the calculators\" in saturnus (Connect your AI app). The extension starts saturnus when Claude needs a calculator (on Windows and Linux only if saturnus is installed in its usual place). It reads the key from the file saturnus writes for your user account and sends it only to saturnus on this computer, after saturnus has proved it holds the same key. Nothing goes over the internet.",
+  "author": {
+    "name": "James Bergamin",
+    "url": "https://ractive.ch/saturnus/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ractive/saturnus.git"
+  },
+  "homepage": "https://ractive.ch/saturnus/",
+  "documentation": "https://ractive.ch/saturnus/docs/ai-apps/",
+  "support": "https://github.com/ractive/saturnus/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.mjs"],
+      "env": {
+        "SATURNUS_MCP_PORT": "${user_config.port}"
+      }
+    }
+  },
+  "tools": [],
+  "keywords": ["calculator", "hp48", "hp49", "rpl", "emulator", "saturnus"],
+  "license": "MIT",
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "user_config": {
+    "port": {
+      "type": "number",
+      "title": "Port",
+      "description": "The port of AI access in the saturnus settings. Leave it at 4842 unless you changed it there.",
+      "default": 4842,
+      "min": 1024,
+      "max": 65535,
+      "required": false
+    }
+  }
+}
