@@ -620,7 +620,11 @@ fn open_with_system(path: &std::path::Path) -> Result<(), String> {
             .arg(path)
             .status()
             .map_err(|_| not_opened())?;
-        if status.success() { Ok(()) } else { Err(not_opened()) }
+        if status.success() {
+            Ok(())
+        } else {
+            Err(not_opened())
+        }
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -869,7 +873,9 @@ mod tests {
     /// there) is a zip with the manifest.
     #[test]
     fn the_embedded_page_carries_the_extension() {
-        let built = PathBuf::from(env!("OUT_DIR")).join("app-site").join(MCPB_FILE);
+        let built = PathBuf::from(env!("OUT_DIR"))
+            .join("app-site")
+            .join(MCPB_FILE);
         let Ok(bytes) = std::fs::read(&built) else {
             eprintln!("no {MCPB_FILE} (Node missing at build time): skipped");
             return;

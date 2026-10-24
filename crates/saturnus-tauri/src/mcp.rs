@@ -1354,7 +1354,12 @@ mod tests {
         assert_eq!(v["proof"], t.proof(&nonce, f.port));
         assert_ne!(v["proof"], t.proof(&nonce, f.port.wrapping_add(1)));
         assert!(!String::from_utf8_lossy(&b).contains(&f.token) && !head.contains(&f.token));
-        for target in ["/hello", "/hello?nonce=xyz", "/hello?nonce=", "/hello?other=1"] {
+        for target in [
+            "/hello",
+            "/hello?nonce=xyz",
+            "/hello?nonce=",
+            "/hello?other=1",
+        ] {
             assert_eq!(get(target, &host).0, 400, "{target}");
         }
         let (s, head, _) = raw(
