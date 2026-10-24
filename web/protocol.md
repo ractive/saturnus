@@ -521,6 +521,7 @@ what it reads from RAM: wiki `hardware/command-line`.
 | --- | --- | --- | --- |
 | `commandLine` | | `{active, text, cursor}` | The command line, read from RAM; no key is pressed. `active` is false when none is open (also while the 49G shows an error box); `text` is `""` then. `cursor` counts calculator characters from the start (`x̄` is one character and two UTF-16 units). |
 | `entryModes` | | `{lowercase, menuLock}` | The 28S only (an error on the others): whether its letters type in lower case (LC) and whether Menu Lock (shifted α) is on, read from RAM; neither has an annunciator. Search reads them before it types a command's name on the 28S. |
+| `uiState` | | `{kind, from, stackInControl, halted, commandLine}` | What has the keyboard, on the 48SX, 48GX and 49G (an error on the others), read from RAM; no key is pressed. `kind`: `stack`, `commandLine` (at the stack), `halted` (at the stack, programs halted), `inputForm`, `chooseBox`, `message`, `graphics`, `input` (another loop with the command line open: INPUT, the 49G's equation writer) or `unknown` (another loop: the interactive stack, the equation writer, `WAIT`; or memory that does not read as the ROM's). `from`: `memory`, or `display` for the 48GX's choose and message boxes and the 49G's message box, which RAM does not name (a framed box with a shadow on the display). `stackInControl`: the stack's own loop reads the keys; `halted`: programs halted (HALT, PROMPT); `commandLine`: the editor's line is open. How each is read: wiki `hardware/ui-state`. The AI tools' `screen` and `to_stack` use it. |
 | `insert` | `text` | `{typed, keys, emulatedMs, commandLine}` | Types `text` at the cursor, or starts a command line. |
 | `run` | `text` (may be `""`) | as `insert`, plus `closed`, `error`, `running` | Types `text`, then presses ENTER and waits until the calculator settles (at most 30 s of emulated time). `closed`: no command line is open afterwards; `error`: the message the calculator showed (`"Invalid Syntax"`, `"DROP Error: Too Few Arguments"`) or `null`; `running`: still busy when the wait ended. The 49G's error box is closed (ATTN), which returns to the line, as the 48 leaves it open. |
 | `replace` | `text` | as `insert` | Deletes every character of the command line being edited, staying in it (also inside `EDIT` and `VISIT`), then types `text`. An error if no line is open. |
@@ -572,7 +573,7 @@ what it reads from RAM: wiki `hardware/command-line`.
   `keyScript` and `poke`. `keyUpAll` is taken and does nothing; `releaseAll` stops
   the send (the send's reply is the error "cancelled", before
   `releaseAll`'s reply). Everything else is served (`hello`, `stats`,
-  `commandLine`, `entryModes`, `setSpeed`, `pause`, `watchMemory`, `romSlots`,
+  `commandLine`, `entryModes`, `uiState`, `setSpeed`, `pause`, `watchMemory`, `romSlots`,
   `screen`, `info`, `peek`, ...). In the Tauri app a `bootModel`,
   `chooseRom` or `downloadRom` reaches the machine as a `boot`, which is
   refused: after `chooseRom` or `downloadRom` the files are remembered

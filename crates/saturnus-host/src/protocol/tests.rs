@@ -723,6 +723,12 @@ fn reads_and_stats() {
         "missing number field \"address\""
     );
     assert_eq!(h.ok(json!({"cmd": "commandLine"}))["active"], false);
+    // A ROM that set up no RAM: nothing reads as the ROM's loops.
+    let ui = h.ok(json!({"cmd": "uiState"}));
+    assert_eq!(
+        (ui["kind"].as_str(), ui["stackInControl"].as_bool()),
+        (Some("unknown"), Some(false))
+    );
     h.turns(5);
     let stats = h.ok(json!({"cmd": "stats"}));
     let keys: Vec<&str> = stats

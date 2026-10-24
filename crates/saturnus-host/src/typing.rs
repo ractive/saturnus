@@ -1091,6 +1091,13 @@ impl Emulator {
         Ok(cmdline::command_line(self.machine())?)
     }
 
+    /// What has the keyboard (`uiState`): the stack, a command line, a
+    /// halted program, an input form, a choose or message box, the
+    /// graphics screen (wiki: hardware/ui-state).
+    pub fn ui_state(&self) -> crate::Result<saturnus_objects::screen::Screen> {
+        Ok(saturnus_objects::screen::screen(self.machine())?)
+    }
+
     /// Start a send (`verb` is `insert`, `run` or `replace`); every key
     /// is released first. Returns whether it freezes the screen. Fails,
     /// pressing nothing, on text the model cannot type or a state the

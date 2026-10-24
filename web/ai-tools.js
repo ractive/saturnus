@@ -31,7 +31,7 @@ export const FUNCTION_MODELS = ["42s", "27s", "17bii", "17b", "19bii", "38g", "3
 /** The family of a model and the tools that work on it, for `list_calculators`. */
 export function familyOf(model) {
   if (RPL_MODELS.includes(model)) {
-    return { family: "rpl", tools: ["read_display", "press_keys", "list_keys", "run_rpl", "read_stack", "list_variables", "read_variable", "store_variable", "purge_variable", "lookup_command"] };
+    return { family: "rpl", tools: ["read_display", "press_keys", "list_keys", "run_rpl", "to_stack", "read_stack", "list_variables", "read_variable", "store_variable", "purge_variable", "lookup_command"] };
   }
   if (KEYED_RPL_MODELS.includes(model)) return { family: "rpl-keys", tools: ["read_display", "press_keys", "list_keys", "run_rpl", "lookup_command"] };
   return { family: "keys", tools: ["read_display", "press_keys", "list_keys", "run_function", "lookup_command"] };
@@ -52,6 +52,8 @@ The models fall into three families:
 - 28S: RPL too, but run_rpl types through its keys and nothing reads its memory: check results with read_display.
 - 42S, 27S, 17BII, 17B, 19BII, 38G, 39G, 40G (key-driven): run_function presses a function's keys by its name, from lookup_command's reference (on the 42S also XEQ "NAME"). On the 38G, 39G and 40G it puts the function on HOME's edit line, which is algebraic (SIN(45)); type the arguments and ENTER with press_keys.
 
+Screens (48SX, 48GX, 49G): read_display, press_keys and run_rpl say in "screen" what has the keyboard, read from the calculator's memory: "stack", "command line", "program halted", "input form", "choose box", "message", "graphics", "program input", "running" (a program is still computing) or "unknown", and for every screen but the stack, in "next", how to work in it or leave it. A form, a choose box, a message, the plot screen or another application takes the keys the stack would: run_rpl refuses there, since its text would go into the form's field. Leave with to_stack (it presses CANCEL until the stack is back and says what it closed; it leaves forms, choose boxes, messages and the plot screen, never a command line, a program or a screen it cannot name), or follow "next" (CANCEL leaves a form unchanged, OK or ENTER confirms it). A halted program (HALT, PROMPT) leaves the stack usable: run_rpl "CONT" continues it, "KILL" stops it.
+
 Work in small steps: press or run, then read the display (read_display) or the stack to check what happened before the next step. press_keys and run_function return the display afterwards. Key names come from list_keys: digits are "0" to "9", operators "plus", "minus", "multiply", "divide", and a shifted function is the shift key, then the key ("leftshift", "sin"). A shift or ALPHA stays pending until the next key: look at the annunciators. Long presses are not possible; every press is a normal tap.
 
 RPL basics: numbers and objects go on the stack, commands take their arguments from it (1 2 + gives 3). Programs are « … », names 'X', strings "…", lists { … }. Store with 'NAME' STO or store_variable; run a program by its name. Character codes such as \\<< \\>> \\-> work in place of « » →. On the 49G, flag -95 set means algebraic mode, where RPN text does not parse: run_rpl says "mode": "algebraic"; type algebraic syntax there, or run CF(-95) to switch to RPN mode.
@@ -65,6 +67,8 @@ const DISPLAY = { type: "string", enum: ["image", "text", "both", "none"], descr
 
 /** How long a tool waits for the calculator to settle after its keys (ms). */
 const SETTLE_MS = 30_000;
+/** Most CANCEL presses `to_stack` makes. */
+const TO_STACK_PRESSES = 5;
 
 /**
  * The tools over `deps` (see the top of this file). `pace` (tests) is
@@ -126,7 +130,7 @@ export function aiTools(deps) {
     {
       name: "read_display",
       title: "Read the display",
-      description: "The calculator's display now: a PNG image, text (the annunciators that are on; on the 48SX, 48GX and 49G also the stack and the command line, as the calculator writes them), or both. pixels: true adds the dots as rows of # (dark) and . (light).",
+      description: "The calculator's display now: a PNG image, text (the annunciators that are on; on the 48SX, 48GX and 49G also the stack and the command line, as the calculator writes them), or both. pixels: true adds the dots as rows of # (dark) and . (light). On the 48SX, 48GX and 49G, \"screen\" says what has the keyboard (the stack, a command line, an input form, a choose box, a message, the graphics screen, a halted program…) and \"next\" how to work in it or leave it.",
       inputSchema: {
         type: "object",
         properties: {
@@ -141,7 +145,7 @@ export function aiTools(deps) {
     {
       name: "press_keys",
       title: "Press keys",
-      description: "Presses keys one after the other, as a person would, waits until the calculator has finished, then returns the display. Key names from list_keys; a shifted function is the shift key, then the key. Check the result on the display before the next step.",
+      description: "Presses keys one after the other, as a person would, waits until the calculator has finished, then returns the display. Key names from list_keys; a shifted function is the shift key, then the key. Check the result on the display before the next step; on the 48SX, 48GX and 49G, \"screen\" and \"next\" say what has the keyboard afterwards.",
       inputSchema: {
         type: "object",
         properties: {
@@ -166,7 +170,7 @@ export function aiTools(deps) {
     {
       name: "run_rpl",
       title: "Run RPL",
-      description: "48SX, 48GX, 49G and 28S: types the text on a new command line and presses ENTER, as a person would, then waits until the calculator has finished. Refused while a command line is open on the 48SX, 48GX and 49G (finish or cancel it first); on the 28S, which cannot be read, check the display for an open line first. Returns the calculator's error message (null if none), the stack (48SX, 48GX, 49G) and the display as asked. A program's text is « … »; \\<< \\>> work too.",
+      description: "48SX, 48GX, 49G and 28S: types the text on a new command line and presses ENTER, as a person would, then waits until the calculator has finished. Refused on the 48SX, 48GX and 49G while a command line is open (finish or cancel it first) or another screen has the keyboard (an input form, a choose box, a message, the graphics screen: the refusal says which and how to leave it; to_stack goes back); on the 28S, which cannot be read, check the display for an open line first. Returns the calculator's error message (null if none), the stack (48SX, 48GX, 49G) and the display as asked. A program's text is « … »; \\<< \\>> work too.",
       inputSchema: {
         type: "object",
         properties: {
@@ -185,6 +189,12 @@ export function aiTools(deps) {
           return display(t, String(input.display ?? "both"), { png, extra: { ran: text, ...(await stillRunning(t)) } });
         }
         if (!RPL_MODELS.includes(t.model)) throw new Error(`The ${titleOf(t.model)} has no RPL command line. Use run_function or press_keys.`);
+        // A form or a box would take the text into its own field.
+        const screen = await screenOf(t);
+        if (screen?.kind === "running") throw new Error(`The calculator is still running a program: run_rpl would type into it. screen: "running". next: ${screen.next}`);
+        if (screen && !screen.inControl) {
+          throw new Error(`The calculator shows ${screenPhrase(screen)}, not the stack: run_rpl would type into it. screen: ${JSON.stringify(screen.screen)}. next: ${screen.next} Or to_stack, which presses CANCEL until the stack is back.`);
+        }
         // The user's own line would be run together with the text: never typed into.
         const open = await t.backend.commandLine();
         if (open?.active) {
@@ -196,6 +206,37 @@ export function aiTools(deps) {
           png,
           extra: strip({ ran: text, error: r.error ?? null, running: Boolean(r.running), commandLineOpen: !r.closed, mode }),
         });
+      }, options?.signal),
+    },
+    {
+      name: "to_stack",
+      title: "Back to the stack",
+      description: "48SX, 48GX, 49G: leaves an input form (no field being edited), a choose box, a message or the graphics screen by pressing CANCEL (ATTN on the 48) until the stack has the keyboard again, at most 5 times, reading the screen from memory before each press; returns what it closed (\"closed\") and the display. It presses nothing where CANCEL could throw away typing or stop a program: a command line (at the stack, in a form's field, for INPUT), a halted or running program, or a screen it cannot name; it refuses there (or, after closing something, stops) with \"next\": what to do yourself. Nothing is pressed at the stack.",
+      inputSchema: { type: "object", properties: { calculator: CALCULATOR, display: { ...DISPLAY, description: `${DISPLAY.description} Default: text.` } } },
+      annotations: { untrustedContentHint: true },
+      execute: (input, options) => onCalculator(input, async (t) => {
+        rplOnly(t);
+        ready(t);
+        const closed = [];
+        for (;;) {
+          const screen = await screenOf(t);
+          if (!screen) throw new Error("The calculator's screen cannot be read now. Read the display (read_display) and press_keys [\"on\"] (CANCEL) yourself.");
+          if (screen.kind === "stack") return display(t, String(input.display ?? "text"), { png, extra: { closed, pressed: closed.length } });
+          if (!closable(screen)) {
+            const why = `to_stack does not press CANCEL in ${screenPhrase(screen)}${screen.kind === "inputForm" ? " with a field being edited" : ""}: it could throw away typing or stop a program.`;
+            if (!closed.length) throw new Error(`${why} screen: ${JSON.stringify(screen.screen)}. next: ${screen.next}`);
+            return display(t, String(input.display ?? "both"), { png, extra: { closed, pressed: closed.length, note: `Stopped: ${why} Follow "next".` } });
+          }
+          if (closed.length >= TO_STACK_PRESSES) {
+            return display(t, String(input.display ?? "both"), {
+              png,
+              extra: { closed, pressed: closed.length, note: `Still not at the stack after ${TO_STACK_PRESSES} CANCEL presses. Look at the display and follow "next".` },
+            });
+          }
+          closed.push(screen.screen);
+          t.backend.typeKeys(["on"]);
+          await wait(t);
+        }
       }, options?.signal),
     },
     {
@@ -400,6 +441,60 @@ async function stillRunning(t) {
   }
 }
 
+/** The tools' name of each `uiState` kind (web/protocol.md) and what to press there. */
+const SCREENS = {
+  stack: { screen: "stack" },
+  running: { screen: "running", next: "A program is running: wait and read_display again, or press_keys [\"on\"] (ATTN) to stop it." },
+  commandLine: { screen: "command line", next: "Finish the line (press_keys [\"enter\"]) or cancel it (press_keys [\"on\"], ATTN/CANCEL)." },
+  halted: { screen: "program halted", next: "The stack works meanwhile: run_rpl \"CONT\" continues the program, \"KILL\" stops it." },
+  inputForm: { screen: "input form", next: "press_keys [\"on\"] (CANCEL) leaves the form unchanged; ENTER or the OK menu key confirms it. The arrow keys move between fields; type into a field with press_keys and ENTER. Its fields are on the display (read_display)." },
+  chooseBox: { screen: "choose box", next: "The arrow keys pick an item, press_keys [\"enter\"] (OK) chooses it, [\"on\"] (CANCEL) closes the box. The items are on the display (read_display)." },
+  message: { screen: "message", next: "Read it on the display (read_display); press_keys [\"enter\"] (OK) or [\"on\"] closes it." },
+  graphics: { screen: "graphics", next: "press_keys [\"on\"] (CANCEL) returns to the stack." },
+  input: { screen: "program input", next: "A program waits for input on the command line (INPUT; on the 49G also the equation writer): type with press_keys and press ENTER, or, once you have decided to drop what is typed, press_keys [\"on\"] (CANCEL) yourself." },
+  unknown: { screen: "unknown", next: "Another screen has the keyboard (the interactive stack, an editor, a program waiting for a key): look at the display (read_display); press_keys [\"on\"] (CANCEL) leaves most, to_stack presses it for you." },
+};
+
+/**
+ * What has the keyboard of `t` (48SX, 48GX, 49G; `uiState`, read from
+ * memory): `{screen, next, kind, inControl, halted, commandLine}`, kind
+ * "running" while the ROM is not waiting for a key; null on the other
+ * models or when it cannot be read.
+ */
+async function screenOf(t) {
+  if (!RPL_MODELS.includes(t.model)) return null;
+  // RAM tells the screen only while the ROM waits for a key (wiki: hardware/ui-state).
+  if ((await stillRunning(t)).running) return { ...SCREENS.running, kind: "running", inControl: false, halted: 0, commandLine: false };
+  let s;
+  try {
+    s = await t.backend.uiState();
+  } catch {
+    return null;
+  }
+  if (!s?.kind) return null;
+  const named = SCREENS[s.kind] ?? SCREENS.unknown;
+  const screen = { ...named, kind: s.kind, inControl: Boolean(s.stackInControl), halted: Number(s.halted) || 0, commandLine: Boolean(s.commandLine) };
+  if (s.kind === "inputForm" && screen.commandLine) {
+    screen.next = "A field is being edited: press_keys [\"enter\"] keeps what is typed, [\"on\"] (CANCEL) drops it (decide first). Then CANCEL leaves the form unchanged, ENTER or OK confirms it.";
+  }
+  return screen;
+}
+
+/** Whether `to_stack` presses CANCEL in `s`: nothing typed or running is lost there. */
+function closable(s) {
+  if (s.kind === "inputForm") return !s.commandLine;
+  return ["chooseBox", "message", "graphics"].includes(s.kind);
+}
+
+/** "an input form", "a message", "the graphics screen". */
+function screenPhrase(s) {
+  if (s.kind === "graphics") return "the graphics screen";
+  if (s.kind === "running") return "a running program";
+  if (s.kind === "halted") return "a halted program";
+  if (s.kind === "unknown") return "another screen";
+  return `${/^[aeiou]/.test(s.screen) ? "an" : "a"} ${s.screen}`;
+}
+
 /** The 49G's entry mode: "algebraic" (flag -95 set) or "rpn"; null when unknown. */
 async function modeOf(t) {
   try {
@@ -444,6 +539,12 @@ export function pixelRows(frame) {
 async function display(t, format, { pixels = false, png = null, extra = {} } = {}) {
   const frame = t.store.state.frame;
   const text = { calculator: t.id, model: t.model, ...extra };
+  const screen = await screenOf(t);
+  if (screen) {
+    text.screen = screen.screen;
+    if (screen.next) text.next = screen.next;
+    if (screen.halted) text.haltedPrograms = screen.halted;
+  }
   if (format === "none") return text;
   if (!frame) return { ...text, display: "The calculator shows nothing yet." };
   const wantText = format === "text" || format === "both";

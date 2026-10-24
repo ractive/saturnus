@@ -77,6 +77,8 @@ class Backend extends EventTarget {
   commandLine() { return this.request("commandLine"); }
   /** The 28S's `{lowercase, menuLock}`, from RAM. */
   entryModes() { return this.request("entryModes"); }
+  /** What has the keyboard (`{kind, from, stackInControl, halted, commandLine}`), from RAM. */
+  uiState() { return this.request("uiState"); }
 
   // The writes (protocol.md, "The user memory, written"): each one hidden
   // Kermit transaction with the calculator's server. `dir` is a path

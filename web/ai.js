@@ -79,6 +79,7 @@ class HubTarget {
       stack: () => r("stack"),
       commandLine: () => r("commandLine"),
       entryModes: () => r("entryModes"),
+      uiState: () => r("uiState"),
       flags: () => r("flags"),
       memoryTree: () => r("memoryTree"),
       editText: (where) => r("editText", where),

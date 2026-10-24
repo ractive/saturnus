@@ -13,6 +13,14 @@ the desktop app and the web page share one version.
   Turn on "Let AI apps on this computer use the calculators" in
   "Connect your AI app…" (off by default) and add the app with a link or
   a command from there. Storing or purging a variable asks you first.
+- **The AI tools know what is on the screen** (48SX, 48GX, 49G). Each
+  result says what has the keyboard (the stack, a command line, an input
+  form, a choose box, a message, the graphics screen, a halted program)
+  and what to press there, read from the calculator's memory. Run RPL no
+  longer types into a form's field: it refuses with how to leave, and
+  the new tool "to_stack" presses CANCEL until the stack is back. The
+  libraries: `saturnus-objects::screen` and the protocol command
+  `uiState`.
 
 ## 0.9.0 (2026-10-21)
 

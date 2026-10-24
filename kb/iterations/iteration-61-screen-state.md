@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 61: the AI tools say what is on the screen"
 date: 2026-10-24
-status: planned
+status: in-progress
 tags:
   - iteration
   - ai
@@ -59,9 +59,9 @@ If the research finds no reliable signal, fall back to the display alone for
 
 ## Tasks
 
-- [ ] Research: RAM diffs per screen on the three ROMs, findings in the wiki (commit or PR to calculator-knowledgebase)
-- [ ] Reading the state (Rust, saturnus-objects or saturnus-host, wasm-safe), tests per screen with ROMs (gated by SATURNUS_ROM_DIR)
-- [ ] `screen` and `next` in the tools' results, run_rpl's refusal, `to_stack`
-- [ ] INSTRUCTIONS and tool descriptions; web tests
-- [ ] kb: decision-log entry
+- [x] Research: RAM diffs per screen on the three ROMs, findings in the wiki (commit or PR to calculator-knowledgebase)
+- [x] Reading the state (Rust, saturnus-objects or saturnus-host, wasm-safe), tests per screen with ROMs (gated by SATURNUS_ROM_DIR)
+- [x] `screen` and `next` in the tools' results, run_rpl's refusal, `to_stack`
+- [x] INSTRUCTIONS and tool descriptions; web tests
+- [x] kb: decision-log entry
 - [ ] Owner: an AI app on the 48GX opens PLOT, gets out with the hint, runs RPL again

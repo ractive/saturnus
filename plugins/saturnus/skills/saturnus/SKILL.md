@@ -36,7 +36,11 @@ would.
 
 ## Screens that catch key presses
 
-Many problems come from keys landing in a screen you did not expect. Signs:
+Many problems come from keys landing in a screen you did not expect. On the
+48SX, 48GX and 49G the tools say which screen is showing (`screen`) and what to
+do there (`next`); `to_stack` closes forms, choose boxes, messages and the plot
+screen, and refuses where closing would lose what was typed. Follow `next`.
+Elsewhere, look for these signs:
 
 - `run_rpl` is refused because a command line is open, or a form answers
   "Invalid Syntax" to text that is valid RPL: you are not at the stack.
@@ -47,8 +51,7 @@ Many problems come from keys landing in a screen you did not expect. Signs:
 
 The way out: read the display, then press CANCEL or EXIT once and read again.
 CANCEL is key `"on"` on the 48, 49 and 38G to 40G, ATTN is key `"on"` on the
-28S, and EXIT is key `"on"` on
-the 42S; the 17BII, 17B, 19BII and 27S have their own EXIT key (`"exit"`) and
+28S, and EXIT is key `"on"` on the 42S; the 17BII, 17B, 19BII and 27S have their own EXIT key (`"exit"`) and
 ⇧ MAIN. Repeat until the stack (RPL models), HOME (38G to 40G) or the main
 menu is back. A message box with OK takes the OK menu key or ENTER.
 

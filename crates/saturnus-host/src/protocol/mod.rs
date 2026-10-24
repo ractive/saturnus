@@ -1145,6 +1145,7 @@ impl Engine {
             }
             C::CommandLine => value_of(&self.emu()?.command_line()?)?.into(),
             C::EntryModes => value_of(&crate::typing::entry_modes(self.emu()?.machine())?)?.into(),
+            C::UiState => value_of(&self.emu()?.ui_state()?)?.into(),
             C::SerialOpen => {
                 let serial = self.serial;
                 let e = self.emu()?;

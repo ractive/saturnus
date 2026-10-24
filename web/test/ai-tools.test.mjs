@@ -22,7 +22,7 @@ function fake(model, answers = {}) {
       return (...args) => {
         calls.push([cmd, ...args]);
         if (cmd === "skin") return Promise.resolve({ keys: [{ name: "1", label: "1" }, { name: "enter", label: "ENTER" }, { name: "plus", label: "+" }, { name: "leftshift", label: "" }, { name: "sin", label: "SIN", left: "ASIN" }, { name: "on", label: "EXIT" }] });
-        if (cmd === "stats") return Promise.resolve({ loop: "sleep" });
+        if (cmd === "stats") return Promise.resolve(typeof answers.stats === "function" ? answers.stats() : answers.stats ?? { loop: "sleep" });
         if (cmd === "typeKeys") return undefined;
         const a = answers[cmd];
         if (a instanceof Error) return Promise.reject(a);
@@ -217,9 +217,105 @@ test("run_rpl refuses while the user's command line is open, and types nothing",
   assert.ok(!c.calls.some(([cmd]) => cmd === "run"), "nothing typed");
 });
 
+/** `uiState` answers, as the protocol gives them. */
+const AT_STACK = { kind: "stack", from: "memory", stackInControl: true, halted: 0, commandLine: false };
+const IN_FORM = { kind: "inputForm", from: "memory", stackInControl: false, halted: 0, commandLine: false };
+
+test("run_rpl refuses while a form has the keyboard, with the screen and how to leave it", async () => {
+  // The owner's report: the 48GX in the PLOT form took UPDIR into a field.
+  const c = fake("48gx", { uiState: IN_FORM, commandLine: { active: false }, run: { closed: true } });
+  await assert.rejects(call(tools({ "48gx": c }).run_rpl, { text: "UPDIR" }), /an input form, not the stack.*screen: "input form".*CANCEL.*to_stack/s);
+  assert.ok(!c.calls.some(([cmd]) => cmd === "run"), "nothing typed");
+  // A halted program leaves the stack usable: run_rpl runs, and says so.
+  const halted = { ...AT_STACK, kind: "halted", halted: 1 };
+  const h = fake("48gx", { uiState: halted, commandLine: { active: false }, run: { closed: true }, stack: [] });
+  const r = await call(tools({ "48gx": h }).run_rpl, { text: "CONT" });
+  assert.equal(r.screen, "program halted");
+  assert.equal(r.haltedPrograms, 1);
+  assert.match(r.next, /CONT.*KILL/);
+});
+
+test("while a program runs: run_rpl says so, results carry screen running, RAM is not read", async () => {
+  const c = fake("48gx", { stats: { loop: "frame" }, uiState: IN_FORM, commandLine: { active: false }, run: { closed: true }, stack: [] });
+  await assert.rejects(call(tools({ "48gx": c }).run_rpl, { text: "1" }), /still running a program.*screen: "running".*wait and read_display/s);
+  assert.ok(!c.calls.some(([cmd]) => cmd === "run" || cmd === "uiState"));
+  const d = await call(tools({ "48gx": c }).read_display, { format: "text" });
+  assert.equal(d.screen, "running");
+  assert.match(d.next, /ATTN/);
+  // run_rpl that returns still running: its screen is "running" too.
+  let n = 0;
+  const r = fake("48gx", { stats: () => ({ loop: n++ ? "frame" : "sleep" }), uiState: AT_STACK, commandLine: { active: false }, run: { closed: true, running: true }, stack: [] });
+  const ran = await call(tools({ "48gx": r }).run_rpl, { text: "« 1 1000 START NEXT » EVAL" });
+  assert.equal(ran.running, true);
+  assert.equal(ran.screen, "running");
+});
+
+test("press_keys and read_display say what has the keyboard; nothing at the stack", async () => {
+  const c = fake("49g", { uiState: { ...IN_FORM, kind: "message", from: "display" }, commandLine: { active: false }, stack: [] });
+  const r = await call(tools({ "49g": c }).press_keys, { keys: ["1"], display: "text" });
+  assert.equal(r.screen, "message");
+  assert.match(r.next, /"enter".*closes it/);
+  const s = fake("48sx", { uiState: AT_STACK, commandLine: { active: false }, stack: [] });
+  const d = await call(tools({ "48sx": s }).read_display, { format: "text" });
+  assert.equal(d.screen, "stack");
+  assert.equal(d.next, undefined);
+  // Not on the key-driven models.
+  const k = await call(tools({ "42s": fake("42s") }).read_display, { format: "text" });
+  assert.equal(k.screen, undefined);
+});
+
+test("to_stack presses CANCEL until the stack has the keyboard, and says what it closed", async () => {
+  const states = [{ ...IN_FORM, kind: "chooseBox", from: "display" }, IN_FORM, AT_STACK];
+  const c = fake("48gx", { uiState: () => states[c.calls.filter(([cmd]) => cmd === "typeKeys").length], commandLine: { active: false }, stack: [] });
+  const r = await call(tools({ "48gx": c }).to_stack);
+  assert.deepEqual(r.closed, ["choose box", "input form"]);
+  assert.equal(r.pressed, 2);
+  assert.equal(r.screen, "stack");
+  assert.deepEqual(c.calls.filter(([cmd]) => cmd === "typeKeys").map(([, k]) => k), [["on"], ["on"]]);
+  // At the stack: nothing pressed.
+  const s = fake("48gx", { uiState: AT_STACK, commandLine: { active: false }, stack: [] });
+  assert.equal((await call(tools({ "48gx": s }).to_stack)).pressed, 0);
+  assert.ok(!s.calls.some(([cmd]) => cmd === "typeKeys"));
+  // Never where CANCEL could drop typing or stop a program: refused, nothing pressed.
+  const refusals = [
+    [{ ...AT_STACK, kind: "commandLine", commandLine: true }, /command line.*"enter"/s],
+    [{ ...IN_FORM, commandLine: true }, /input form with a field being edited.*keeps what is typed/s],
+    [{ ...IN_FORM, kind: "input", commandLine: true }, /program input.*decided/s],
+    [{ ...AT_STACK, kind: "halted", halted: 1 }, /halted program.*CONT.*KILL/s],
+    [{ ...IN_FORM, kind: "unknown" }, /another screen.*read_display/s],
+  ];
+  for (const [state, why] of refusals) {
+    const x = fake("48gx", { uiState: state, commandLine: { active: state.commandLine, text: "12" }, stack: [] });
+    await assert.rejects(call(tools({ "48gx": x }).to_stack), why, state.kind);
+    assert.ok(!x.calls.some(([cmd]) => cmd === "typeKeys"), state.kind);
+  }
+  // A running program: not read from RAM, refused, never ATTN.
+  const busy = fake("48gx", { stats: { loop: "frame" }, uiState: IN_FORM });
+  await assert.rejects(call(tools({ "48gx": busy }).to_stack), /running program.*wait and read_display/s);
+  assert.ok(!busy.calls.some(([cmd]) => cmd === "typeKeys" || cmd === "uiState"));
+  // Reaching such a screen after closing one: stops and reports.
+  const into = [{ ...IN_FORM, kind: "message", from: "display" }, { ...IN_FORM, kind: "input", commandLine: true }];
+  const m = fake("48gx", { uiState: () => into[Math.min(m.calls.filter(([cmd]) => cmd === "typeKeys").length, 1)], commandLine: { active: true }, stack: [] });
+  const stopped = (await call(tools({ "48gx": m }).to_stack)).structuredContent;
+  assert.deepEqual(stopped.closed, ["message"]);
+  assert.equal(stopped.screen, "program input");
+  assert.match(stopped.note, /^Stopped: /);
+  // A box CANCEL does not close: five presses, then the note.
+  const u = fake("48gx", { uiState: { ...IN_FORM, kind: "message" }, commandLine: { active: false }, stack: [] });
+  const stuck = (await call(tools({ "48gx": u }).to_stack)).structuredContent;
+  assert.equal(stuck.pressed, 5);
+  assert.equal(stuck.screen, "message");
+  assert.match(stuck.note, /Still not at the stack/);
+  // Only on the 48SX, 48GX and 49G.
+  await assert.rejects(call(tools({ "28s": fake("28s") }).to_stack), /48SX, 48GX and 49G/);
+  assert.ok(familyOf("49g").tools.includes("to_stack"));
+  assert.ok(!familyOf("28s").tools.includes("to_stack"));
+  assert.match(INSTRUCTIONS, /to_stack/);
+});
+
 test("the tools whose results carry calculator text say it is untrusted", () => {
   const t = tools({ "48gx": fake("48gx") });
-  for (const name of ["read_display", "read_stack", "list_variables", "read_variable", "press_keys", "run_rpl", "run_function"]) {
+  for (const name of ["read_display", "read_stack", "list_variables", "read_variable", "press_keys", "run_rpl", "to_stack", "run_function"]) {
     assert.equal(t[name].annotations?.untrustedContentHint, true, name);
   }
 });
