@@ -51,8 +51,10 @@ mcp`, no per-platform binaries, no change to the release workflows.
   saturnus. A `tools/call` starts it (macOS `open -b ch.ractive.saturnus`,
   Windows the installed `saturnus.exe` or `saturnus-app.exe`, Linux
   `saturnus-app`; best effort off macOS) and waits up to 20 s for the endpoint,
-  then answers "Start saturnus and turn on AI access in its settings". AI access
-  off: the same answer; the forwarder never turns it on. Once the endpoint
+  then answers "Start saturnus and turn on AI access in its settings"; a call
+  the just-started app answers "not ready" (its window still loading) is asked
+  again within that time. AI access off: the same answer; the forwarder never
+  turns it on. No key file (AI access never on): the message, no start. Once the endpoint
   answers, the client's `initialize` is replayed to it so the calls carry its
   session and the app knows the AI app's name.
 - The desktop dialog's "Connect your AI app" gets "Add to Claude Desktop": the
@@ -61,9 +63,9 @@ mcp`, no per-platform binaries, no change to the release workflows.
 
 ## Tasks
 
-- [ ] The endpoint's hello (`GET /hello?nonce=`), Rust tests, control-api-security
-- [ ] The forwarder: forwarding, the proof, offline answers, starting the app, the messages; Node tests against a fake endpoint
-- [ ] The bundle: manifest, deterministic build (`just mcpb`), built into the web app and the desktop app; a test of its contents
-- [ ] "Add to Claude Desktop" in the desktop dialog; the docs page links the web app's copy
-- [ ] kb: releasing.md (the bundle), a decision-log entry
+- [x] The endpoint's hello (`GET /hello?nonce=`), Rust tests, control-api-security
+- [x] The forwarder: forwarding, the proof, offline answers, starting the app, the messages; Node tests against a fake endpoint
+- [x] The bundle: manifest, deterministic build (`just mcpb`), built into the web app and the desktop app; a test of its contents
+- [x] "Add to Claude Desktop" in the desktop dialog; the docs page links the web app's copy
+- [x] kb: releasing.md (the bundle), a decision-log entry
 - [ ] Owner: install the `.mcpb` in Claude Desktop on macOS; with the app closed, a question that needs the calculator starts it
