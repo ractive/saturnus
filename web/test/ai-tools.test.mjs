@@ -113,12 +113,24 @@ test("run_rpl: the 48GX's run, its error and the 49G's mode; refused on the 42S"
 });
 
 test("run_rpl on the 28S types through its keys", async () => {
-  const c = fake("28s", { entryModes: { lowercase: false, menuLock: false } });
+  const c = fake("28s", { entryModes: { lowercase: false, menuLock: false }, commandLine: { active: false, text: "", cursor: 0 } });
   const r = await call(tools({ "28s": c }).run_rpl, { text: "1 2 +", display: "text" });
   const typed = c.calls.find(([cmd]) => cmd === "typeKeys")[1];
   assert.equal(typed.at(-1), "enter");
   assert.equal(r.ran, "1 2 +");
-  assert.equal(r.stack, undefined, "no memory read on the 28S");
+  assert.equal(r.stack, undefined, "no stack read on the 28S");
+  assert.equal(r.commandLine, undefined, "no line open");
+});
+
+test("run_rpl on the 28S refuses while a command line is open; read_display shows the line", async () => {
+  const c = fake("28s", { entryModes: { lowercase: false, menuLock: false }, commandLine: { active: true, text: "«1", cursor: 2 } });
+  const t = tools({ "28s": c });
+  await assert.rejects(call(t.run_rpl, { text: "1 2 +" }), /command line open \("«1"\).*"enter".*"on"/s);
+  assert.ok(!c.calls.some(([cmd]) => cmd === "typeKeys"), "nothing typed");
+  const r = await call(t.read_display, { format: "text" });
+  assert.deepEqual(r.commandLine, { text: "«1", cursor: 2 });
+  assert.equal(r.stack, undefined);
+  assert.doesNotMatch(t.run_rpl.description, /cannot be read/);
 });
 
 test("the memory tools: reads, a store with its compile error, a purge; the dir; refused off the 48/49", async () => {

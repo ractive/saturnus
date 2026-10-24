@@ -213,7 +213,8 @@ pub enum Error {
     /// The model keeps no RPL user memory this crate reads (the aplet
     /// models, the Pioneers, the 28S, the 19BII).
     NoUserMemory(Model),
-    /// The model has no RPL command line this crate reads.
+    /// The model has no RPL command line this crate reads, or (the 28S)
+    /// none whose screens it follows.
     NoCommandLine(Model),
     /// HOME (at this address) is no directory: the ROM has not set up its
     /// memory yet (not booted, or reset and not idle since).
@@ -289,7 +290,7 @@ impl fmt::Display for Error {
             }
             Error::NoCommandLine(model) => {
                 let what = if *model == Model::Hp28s {
-                    "has a command line this cannot read or type into yet"
+                    "has its command line read, but not its screens or typing"
                 } else {
                     "has no RPL command line to read or type into"
                 };

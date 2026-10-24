@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use anyhow::{Context, Result, bail};
 use saturnus_core::Lcd;
 use saturnus_kermit::Emulator;
+use saturnus_objects::charset::HP28_HIGH as HIGH;
 
 use crate::examples::Example;
 use crate::reference::ExampleSpec;
@@ -29,13 +30,6 @@ pub const COLUMNS: usize = 23;
 const CELL: usize = 6;
 /// Pixel rows per text line.
 const ROWS: usize = 8;
-
-/// The 28S's characters 128-147 as Unicode, from their glyphs (28S ROM,
-/// each shown by `CHR` and `DISP`); 128 shows blank.
-const HIGH: [char; 20] = [
-    ' ', '÷', '×', '√', '∫', 'Σ', '▶', 'π', '∂', '≤', '≥', '≠', 'α', '→', '←', 'µ', '¶', '°', '«',
-    '»',
-];
 
 /// The character the ROM shows for code `c`; codes without a glyph of
 /// their own (the control codes, 148-255) share a block.
