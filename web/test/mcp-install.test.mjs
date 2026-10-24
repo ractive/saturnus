@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { claudeCodeCommand, codexSetup, cursorLink, installTargets, shellQuote, vscodeLink } from "../shared/mcp-install.js";
+import { CODEX_FEATURE, claudeCodeCommand, codexSetup, cursorLink, installTargets, shellQuote, vscodeLink } from "../shared/mcp-install.js";
 
 const URL_ = "https://tab-mcp.ractive.ch/a/AbC123/mcp";
 const plain = { name: "saturnus", url: URL_ };
@@ -52,6 +52,10 @@ test("Codex: the command, or config.toml with headers", () => {
     kind: "config",
     text: `[mcp_servers.saturnus]\nurl = "http://127.0.0.1:4870/mcp"\nhttp_headers = { "Authorization" = "Bearer t0k'en x" }\n`,
   });
+  // Only 2026-07-28 (the relay): Codex's feature turned on first, one command per line.
+  assert.deepEqual(codexSetup({ ...plain, newOnly: true }), { kind: "command", text: `codex features enable ${CODEX_FEATURE}\ncodex mcp add saturnus --url ${URL_}` });
+  // With headers (the desktop app, which speaks both) the config alone.
+  assert.equal(codexSetup({ ...local, newOnly: true }).text, codexSetup(local).text);
   assert.match(codexSetup({ name: "a b", url: URL_, headers: { X: 'q"\\' } }).text, /^\[mcp_servers\."a b"\]\n.*\nhttp_headers = \{ "X" = "q\\"\\\\" \}\n$/);
 });
 
@@ -76,6 +80,8 @@ test("shellQuote: plain words as they are, double quotes where every shell agree
 test("installTargets: every app, in order", () => {
   const t = installTargets(plain);
   assert.deepEqual(t.map((x) => [x.id, x.kind]), [["cursor", "link"], ["vscode", "link"], ["claude-code", "command"], ["codex", "command"], ["connector", "note"]]);
+  assert.equal(t[3].text, codexSetup(plain).text);
+  assert.equal(installTargets({ ...plain, newOnly: true })[3].text, codexSetup({ ...plain, newOnly: true }).text);
   assert.equal(t[0].href, cursorLink(plain));
   assert.equal(t[1].href, vscodeLink(plain));
   assert.equal(t[1].insidersHref, vscodeLink(plain, true));

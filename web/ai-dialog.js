@@ -16,7 +16,7 @@
 
 import { el } from "./shared/dom.js";
 import { externalLink } from "./shared/ext-links.js";
-import { installTargets } from "./shared/mcp-install.js";
+import { CODEX_FEATURE, installTargets } from "./shared/mcp-install.js";
 
 const COPY_FAILED = "Press ⌘C or Ctrl+C";
 
@@ -50,9 +50,12 @@ export async function openAiDialog(ai, doc = document) {
   const address = el("input", { class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
   const copy = el("button", { type: "button", text: "Copy" });
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
-  const block = installBlock();
+  const block = installBlock({ newOnly: true });
   const install = block.node;
-  const code = el("p", { class: "ai-code", hidden: true });
+  const codeText = el("span");
+  const codeValue = el("strong", { class: "ai-code-value" });
+  const copyCode = el("button", { type: "button", class: "small", text: "Copy code" });
+  const code = el("p", { class: "ai-code", hidden: true }, codeText, " ", copyCode);
   const apps = el("ul", { class: "ai-apps" });
   const appsNote = el("p", { class: "ai-note" });
   const keep = el("input", { type: "checkbox", id: "ai-keep" });
@@ -61,6 +64,8 @@ export async function openAiDialog(ai, doc = document) {
   const off = el("button", { type: "button", text: "Turn off" });
   const fresh = el("button", { type: "button", class: "link", text: "New address" });
   const done = el("button", { type: "button", text: "Done" });
+  const closeAnyway = el("button", { type: "button", class: "link", text: "Close anyway" });
+  const doneNote = el("p", { class: "ai-note ai-done-note", hidden: true }, "Done works once your AI app is connected: closing now ends the pairing code. ", closeAnyway);
   dialog.append(el("div", { class: "ai-box" },
     el("h2", { id: "ai-title", text: "Connect your AI app" }),
     el("p", { text: "Your AI app (Claude, ChatGPT, Claude Code, …) can use the calculators in this tab: read the display, press keys, run programs and look up commands. Add this address to it as an MCP server." }),
@@ -76,8 +81,13 @@ export async function openAiDialog(ai, doc = document) {
     el("p", { class: "ai-note" }, "What passes through the relay, and what it keeps: ", externalLink("https://ractive.ch/tab-mcp/", "privacy notice"), "."),
     keepRow,
     el("div", { class: "ai-actions" }, fresh, el("span", { class: "ai-gap" }), off, connect, done),
+    doneNote,
   ));
 
+  // AI access is on but no AI app is connected yet: closing would end the
+  // pairing code the app is about to ask for, so Done and the backdrop
+  // wait; Close anyway (and Esc) close on purpose.
+  let waiting = false;
   const render = () => {
     const state = ai.state;
     const mcp = ai.mcp;
@@ -87,7 +97,11 @@ export async function openAiDialog(ai, doc = document) {
     if (state === "connected") block.set({ url: mcp.address, headers: mcp.headers ?? {} });
     const pc = mcp?.pairingCode;
     code.hidden = !pc;
-    if (pc) code.textContent = `When your AI app asks for a code, enter ${pc.code}.`;
+    if (pc && codeValue.textContent !== pc.code) {
+      codeValue.textContent = pc.code;
+      codeText.replaceChildren("When your AI app asks for a code, enter ", codeValue, ".");
+      copyCode.textContent = "Copy code";
+    }
     // Lost: why, and that it connects again by itself (the client library reconnects).
     status.classList.toggle("error", Boolean(ai.error) && !ai.lost);
     status.textContent = ai.lost
@@ -110,6 +124,9 @@ export async function openAiDialog(ai, doc = document) {
     connect.hidden = state !== "disconnected";
     off.hidden = state === "disconnected" && !ai.lost;
     fresh.hidden = state !== "connected";
+    waiting = state === "connected" && grants.length === 0;
+    done.disabled = waiting;
+    doneNote.hidden = !waiting;
   };
 
   copy.addEventListener("click", () => copyText(copy, "Copy", address.value, () => address.select()));
@@ -128,10 +145,13 @@ export async function openAiDialog(ai, doc = document) {
   keep.addEventListener("change", () => {
     ai.keepOn = keep.checked;
   });
+  copyCode.addEventListener("click", () => copyText(copyCode, "Copy code", codeValue.textContent, () => doc.getSelection()?.selectAllChildren(codeValue)));
   done.addEventListener("click", () => dialog.close());
-  // A click on the backdrop (the dialog itself, outside its box) closes it.
+  closeAnyway.addEventListener("click", () => dialog.close());
+  // A click on the backdrop (the dialog itself, outside its box) closes it,
+  // unless that would end the code an AI app is about to ask for.
   dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close();
+    if (e.target === dialog && !waiting) dialog.close();
   });
 
   ai.addEventListener("change", render);
@@ -161,18 +181,23 @@ export async function openAiDialog(ai, doc = document) {
  * to copy for Claude Code and Codex. A command shows in its field only
  * when the browser refuses the clipboard, selected for ⌘C. `set({url,
  * headers})` builds them again when either changed; `connector` replaces
- * the line about Claude and ChatGPT.
+ * the line about Claude and ChatGPT. `newOnly`: the server speaks only MCP
+ * 2026-07-28 (the relay), so Codex's command also turns on its feature
+ * for it, and a line says so.
  */
-export function installBlock({ connector: connectorText = null } = {}) {
+export function installBlock({ connector: connectorText = null, newOnly = false } = {}) {
   const cursor = el("a", { class: "button small", text: "Add to Cursor" });
   const vscode = el("a", { class: "button small", text: "Add to VS Code" });
   const forClaude = el("button", { type: "button", class: "small", text: "Copy for Claude Code" });
   const forCodex = el("button", { type: "button", class: "small", text: "Copy for Codex" });
   const cmd = el("textarea", { class: "input ai-cmd", readonly: true, rows: 1, hidden: true, "aria-label": "Command", spellcheck: "false" });
   const connector = el("p", { class: "ai-note" });
+  const codexNote = el("p", { class: "ai-note", hidden: !newOnly });
+  codexNote.append("Copy for Codex also turns on Codex's feature ", el("code", { text: CODEX_FEATURE }), ", which this address needs. It applies to all of Codex's MCP servers; ", el("code", { text: `codex features disable ${CODEX_FEATURE}` }), " turns it off. Start a new chat in Codex once it is connected.");
   const node = el("div", { class: "ai-install" },
     el("div", { class: "ai-install-row" }, cursor, vscode, forClaude, forCodex),
     cmd,
+    codexNote,
     connector);
   let targets = [];
   let built = null;
@@ -181,12 +206,12 @@ export function installBlock({ connector: connectorText = null } = {}) {
     const key = JSON.stringify([url, headers]);
     if (built === key) return;
     built = key;
-    targets = installTargets({ name: "saturnus", url, headers });
+    targets = installTargets({ name: "saturnus", url, headers, newOnly });
     const t = Object.fromEntries(targets.map((x) => [x.id, x]));
     cursor.href = t.cursor.href;
     vscode.href = t.vscode.href;
     // Fixed words: the command may carry a token, never in an attribute.
-    forCodex.title = t.codex.kind === "config" ? "Copies the lines for ~/.codex/config.toml" : "Copies the codex mcp add command";
+    forCodex.title = t.codex.kind === "config" ? "Copies the lines for ~/.codex/config.toml" : newOnly ? "Copies the codex features enable and codex mcp add commands" : "Copies the codex mcp add command";
     forClaude.title = "Copies the claude mcp add command";
     connector.textContent = connectorText ?? t.connector.text;
     cmd.hidden = true;

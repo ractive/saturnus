@@ -4487,3 +4487,26 @@ calculators" is on (off by default).
   running when the window is hidden (the web app's pacing exception). The
   sidebar's action is "Turn off" (one switch for all apps), not
   "Disconnect".
+
+## 2026-10-24 (the AI dialog: Codex's feature, Copy code, Done waits)
+
+Found in the owner's first test with Codex 0.163 on 2026-10-23.
+
+- **Copy for Codex turns on `mcp_2026_07_28` first** (in the browser's
+  dialog only, for the relay's address; the feature itself applies to
+  all of Codex's MCP servers, and the dialog says so with the command
+  that turns it off). Codex speaks the older MCP revision unless that feature
+  is on, and the relay speaks only 2026-07-28: Codex signed in but listed
+  no tools. The copied text is two commands, one per line (`codex features
+  enable mcp_2026_07_28`, then `codex mcp add`), which every shell runs in
+  turn; a line in the dialog names the feature and says to start a new
+  chat once Codex is connected (Codex loads the tools when a chat starts).
+  The desktop app's endpoint speaks both revisions, so its Codex config
+  stays as it was. Drop this once Codex turns the feature on by default.
+- **The pairing code has Copy code.**
+- **Done waits for an AI app.** Closing the dialog ends pairing (tab-mcp
+  `stopPairing`), so a Done pressed before the AI app asked for the code
+  lost it. While AI access is on and no app is connected, Done is
+  disabled and a backdrop click does nothing; a line says why, with Close
+  anyway (a way out on a phone, which has no Esc; Esc closes too). With
+  AI access off, connecting or reconnecting, Done closes as before.
