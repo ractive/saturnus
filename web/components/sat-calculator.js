@@ -14,7 +14,7 @@ import { linkSites } from "../shared/ext-links.js";
 import { inDesktopApp } from "../shared/site-links.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
-import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenRgba } from "../screenshot.js";
+import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenPng } from "../screenshot.js";
 import { copyPng, pngBlob } from "../shared/png.js";
 import { closeMenu, openMenu, openMenuKey } from "../shared/components/menu.js";
 import { screenRefusal } from "../writes.js";
@@ -784,7 +784,7 @@ export class SatCalculator extends HTMLElement {
   /** The screen as a PNG blob in `look` ("lcd", "bw"), as shown now (screenshot.js). */
   screenPng(look) {
     const s = this.store.state;
-    return pngBlob(screenRgba(s.frame, this.pixels, s.booted, look));
+    return pngBlob(screenPng(s.frame, this.pixels, s.booted, look));
   }
 
   /**

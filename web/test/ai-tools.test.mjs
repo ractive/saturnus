@@ -196,6 +196,17 @@ test("read_display: text, pixels, and no image where none can be made", async ()
   assert.equal(pixelRows(FRAME)[0], ".".repeat(131));
 });
 
+test("an image that fails to be made leaves the display's text", async () => {
+  for (const png of [async () => { throw new Error("no deflate"); }, () => { throw new Error("sync"); }]) {
+    const c = fake("48gx", { commandLine: { active: false }, stack: [{ type: "real", value: 3, text: "3" }] });
+    const t = tools({ "48gx": c }, { png });
+    const r = await call(t.press_keys, { keys: ["1"] });
+    assert.equal(r.content, undefined, "no image");
+    assert.equal(r.pressed, 1);
+    assert.deepEqual(r.stack, [{ level: 1, type: "real", text: "3" }]);
+  }
+});
+
 test("calls on one calculator run one after the other", async () => {
   const order = [];
   let release;

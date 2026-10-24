@@ -141,6 +141,21 @@ test("copying: the item is made at once; false where images cannot be copied", a
   assert.equal(await copyPng(blob, { clipboard, Item: NoPng }), false, "no image/png");
   const refusing = { write: async () => { throw new Error("NotAllowedError"); } };
   assert.equal(await copyPng(blob, { clipboard: refusing, Item }), false, "the write refused");
+
+  // An image that fails, not taken on any path: no unhandled rejection.
+  const unhandled = [];
+  const seen = (e) => unhandled.push(e);
+  process.on("unhandledRejection", seen);
+  try {
+    const failing = () => Promise.reject(new Error("no image"));
+    assert.equal(await copyPng(failing(), { clipboard, Item: NoPng }), false);
+    assert.equal(await copyPng(failing(), { clipboard, Item: undefined }), false);
+    assert.equal(await copyPng(failing(), { clipboard: {}, Item }), false);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.off("unhandledRejection", seen);
+  }
 });
 
 test("a screen to take: the model shown runs and has drawn", () => {

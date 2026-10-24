@@ -4,7 +4,7 @@
 // hidden, so one left open keeps its calculator computing).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AiAccess, keepsRunning } from "../ai.js";
+import { AiAccess, keepsRunning, screenPng } from "../ai.js";
 
 /** A fake hub: `engines` lists `models`, `attach` waits for `release()` (or fails with `fail`). */
 function fakeHub(models = ["48gx"]) {
@@ -463,5 +463,19 @@ test("no stale lost text once the reconnecting stops: on every change while it c
     await assert.rejects(ai.connect());
     assert.ok(seen.every(([lost, error]) => lost || error !== "The relay restarted."), JSON.stringify(seen));
     assert.equal(ai.error, "Could not connect to the relay: The relay refused the connection: unknown address");
+  }
+});
+
+test("screenPng: the display's PNG as base64; null where it cannot be made, never a rejection", async () => {
+  const frame = { width: 131, height: 64, pixels: Buffer.alloc(17 * 64).toString("base64"), annunciators: {} };
+  const png = Buffer.from(await screenPng(frame, "48gx"), "base64");
+  assert.deepEqual([...png.subarray(1, 4)], [80, 78, 71]);
+  assert.equal(await screenPng(null, "48gx"), null);
+  const saved = globalThis.CompressionStream;
+  globalThis.CompressionStream = undefined; // and no canvas in node: the fallback fails too
+  try {
+    assert.equal(await screenPng(frame, "48gx"), null);
+  } finally {
+    globalThis.CompressionStream = saved;
   }
 });
