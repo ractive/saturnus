@@ -107,19 +107,8 @@ test("run_rpl: the 48GX's run, its error and the 49G's mode; refused on the 42S"
   assert.equal(r.error, "+ Error: Too Few Arguments");
   assert.equal(r.ran, "+");
   assert.deepEqual(r.stack, []);
-  // A 49G in algebraic mode is switched to RPN first, and says so.
-  let alg = true;
-  const g = fake("49g", { run: { error: null, closed: true }, flags: () => ({ set: alg ? [-95] : [] }), setFlag: (flag, on) => { if (flag === -95) alg = on; return { keys: true }; }, commandLine: { active: false }, stack: [] });
-  const ran = await call(tools({ "49g": g }).run_rpl, { text: "1" });
-  assert.equal(ran.mode, "rpn");
-  assert.match(ran.switched, /algebraic.*RPN/);
-  const order = g.calls.map(([cmd]) => cmd).filter((cmd) => cmd === "setFlag" || cmd === "run");
-  assert.deepEqual(order, ["setFlag", "run"]);
-  assert.deepEqual(g.calls.find(([cmd]) => cmd === "setFlag"), ["setFlag", -95, false]);
-  // Already RPN: nothing switched.
-  const again = await call(tools({ "49g": g }).run_rpl, { text: "2" });
-  assert.equal(again.switched, undefined);
-  assert.equal(g.calls.filter(([cmd]) => cmd === "setFlag").length, 1);
+  const g = fake("49g", { run: { error: null, closed: true }, flags: { set: [-95] }, commandLine: { active: false }, stack: [] });
+  assert.equal((await call(tools({ "49g": g }).run_rpl, { text: "1" })).mode, "algebraic");
   await assert.rejects(call(tools({ "42s": fake("42s") }).run_rpl, { text: "1" }), /no RPL command line/);
 });
 

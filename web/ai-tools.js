@@ -56,7 +56,7 @@ Screens (48SX, 48GX, 49G): read_display, press_keys and run_rpl say in "screen" 
 
 Work in small steps: press or run, then read the display (read_display) or the stack to check what happened before the next step. press_keys and run_function return the display afterwards. Key names come from list_keys: digits are "0" to "9", operators "plus", "minus", "multiply", "divide", and a shifted function is the shift key, then the key ("leftshift", "sin"). A shift or ALPHA stays pending until the next key: look at the annunciators. Long presses are not possible; every press is a normal tap.
 
-RPL basics: numbers and objects go on the stack, commands take their arguments from it (1 2 + gives 3). Programs are « … », names 'X', strings "…", lists { … }. Store with 'NAME' STO or store_variable; run a program by its name. Character codes such as \\<< \\>> \\-> work in place of « » →. On the 49G, flag -95 set means algebraic mode (as it boots), where RPN text does not parse: run_rpl switches such a 49G to RPN mode first (clears flag -95), says so ("switched"), and leaves it in RPN mode; its result's "mode" is the mode afterwards. press_keys does not switch.
+RPL basics: numbers and objects go on the stack, commands take their arguments from it (1 2 + gives 3). Programs are « … », names 'X', strings "…", lists { … }. Store with 'NAME' STO or store_variable; run a program by its name. Character codes such as \\<< \\>> \\-> work in place of « » →. On the 49G, flag -95 set means algebraic mode, where RPN text does not parse: run_rpl says "mode": "algebraic"; type algebraic syntax there, or run CF(-95) to switch to RPN mode.
 
 On the 42S, the top row of keys are menu keys while a menu shows: EXIT (key "on") leaves it. On the 28S, a number being typed ends at a space or a command.
 
@@ -188,7 +188,7 @@ export function aiTools(deps) {
     {
       name: "run_rpl",
       title: "Run RPL",
-      description: "48SX, 48GX, 49G and 28S: types the text on a new command line and presses ENTER, as a person would, then waits until the calculator has finished. Refused while a command line is open (finish or cancel it first), and on the 48SX, 48GX and 49G while another screen has the keyboard (an input form, a choose box, a message, the graphics screen: the refusal says which and how to leave it; to_stack goes back). Returns the calculator's error message (null if none), the stack (48SX, 48GX, 49G) and the display as asked. A program's text is « … »; \\<< \\>> work too. A 49G in algebraic mode (flag -95 set, as it boots) is switched to RPN mode first and left there (\"switched\" in the result).",
+      description: "48SX, 48GX, 49G and 28S: types the text on a new command line and presses ENTER, as a person would, then waits until the calculator has finished. Refused while a command line is open (finish or cancel it first), and on the 48SX, 48GX and 49G while another screen has the keyboard (an input form, a choose box, a message, the graphics screen: the refusal says which and how to leave it; to_stack goes back). Returns the calculator's error message (null if none), the stack (48SX, 48GX, 49G) and the display as asked. A program's text is « … »; \\<< \\>> work too.",
       inputSchema: {
         type: "object",
         properties: {
@@ -215,19 +215,11 @@ export function aiTools(deps) {
           throw new Error(`The calculator shows ${screenPhrase(screen)}, not the stack: run_rpl would type into it. screen: ${JSON.stringify(screen.screen)}. next: ${screen.next} Or to_stack, which presses CANCEL until the stack is back.`);
         }
         await refuseOpenLine(t);
-        // RPL text does not parse in the 49G's algebraic mode (its boot
-        // default): switch to RPN (setFlag types CF(-95) and drops the
-        // mode's echo) and stay there.
-        let switched = null;
-        if (t.model === "49g" && (await modeOf(t)) === "algebraic") {
-          await t.backend.setFlag(-95, false);
-          switched = "The 49G was in algebraic mode (flag -95 set); run_rpl switched it to RPN mode first and leaves it there.";
-        }
         const r = await t.backend.run(text);
         const mode = t.model === "49g" ? await modeOf(t) : null;
         return display(t, String(input.display ?? "text"), {
           png,
-          extra: strip({ ran: text, error: r.error ?? null, running: Boolean(r.running), commandLineOpen: !r.closed, mode, switched }),
+          extra: strip({ ran: text, error: r.error ?? null, running: Boolean(r.running), commandLineOpen: !r.closed, mode }),
         });
       }, options?.signal),
     },
