@@ -82,8 +82,9 @@ impl Failure {
 }
 
 impl Exchange {
-    /// Start `command` on `wire` with [`config`]; input the calculator
-    /// sent before (the idle server's NAKs) is dropped first.
+    /// Start `command` on `wire` with the engine's Kermit settings (a
+    /// shorter timeout, fewer retries, no linger); input the calculator sent
+    /// before (the idle server's NAKs) is dropped first.
     pub fn new<L: Line + ?Sized>(
         wire: &mut Wire,
         m: &mut L,
