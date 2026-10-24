@@ -5,6 +5,8 @@ AddType application/wasm .wasm
 AddType text/javascript .js
 AddType application/json .json
 AddType application/manifest+json .webmanifest
+# The Claude Desktop extension (app/saturnus.mcpb, a zip): saved, not shown.
+AddType application/zip .mcpb
 # The docs (docs/, iteration 57): each page's Markdown beside it and
 # llms.txt, in UTF-8. A page is docs/<page>/index.html: Apache's own
 # DirectorySlash sends /saturnus/docs/48gx on to /saturnus/docs/48gx/

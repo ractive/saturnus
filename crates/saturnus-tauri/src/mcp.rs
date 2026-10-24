@@ -32,7 +32,10 @@
 //! CORS header, the per-user bearer token (the control API's
 //! `control-token`) compared in constant time on every request, bounded
 //! heads and bodies, at most [`MAX_CONNECTIONS`] requests served at once.
-//! The token is never logged and never in an answer.
+//! The token is never logged and never in an answer. As the control API's
+//! `/v1/hello`, a token-free `GET /hello?nonce=N` ([`HELLO`]) proves that
+//! the server holds the token, for the `.mcpb` forwarder (iteration 59,
+//! `web/mcpb/server/index.js`), which checks it before it sends the token.
 
 use std::collections::VecDeque;
 use std::net::TcpStream;
@@ -51,6 +54,8 @@ use serde_json::{Map, Value, json};
 pub const DEFAULT_PORT: u16 = 4842;
 /// The one path served.
 pub const PATH: &str = "/mcp";
+/// The token-free proof that the server holds the token ([`hello`]).
+pub const HELLO: &str = "/hello";
 /// The stateless revision.
 pub const MODERN: &str = "2026-07-28";
 /// The revisions of the legacy handshake, oldest first.
@@ -253,21 +258,38 @@ fn not_allowed(message: &str) -> Response {
     r
 }
 
+/// What a request that passed [`check`] asks for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Endpoint {
+    /// Token-free: the proof for `?nonce=` ([`HELLO`]).
+    Hello,
+    /// `POST /mcp` with the token.
+    Mcp,
+}
+
 /// The checks of the head, in order: `Host` and `Origin`, no `OPTIONS`,
-/// the token (before anything about the path is said), the path, the
-/// method.
-fn check(head: &Head, cfg: &Config) -> Result<(), Response> {
+/// the token-free hello, the token (before anything about the path is
+/// said), the path, the method.
+fn check(head: &Head, cfg: &Config) -> Result<Endpoint, Response> {
     guard::host_and_origin(head, cfg.port)
         .map_err(|Refusal { status, message }| refused(status, &message))?;
     let method = head.first.as_str();
     if method == "OPTIONS" {
         return Err(not_allowed("OPTIONS is refused (no CORS)"));
     }
+    let path = head.second.split('?').next().unwrap_or_default();
+    if path == HELLO {
+        if method != "GET" {
+            let mut r = refused(405, &format!("{method} is not allowed on {HELLO}"));
+            r.headers.push(("Allow", "GET".to_string()));
+            return Err(r);
+        }
+        return Ok(Endpoint::Hello);
+    }
     if !guard::bearer_matches(head, &cfg.token) {
         // No detail: not which part was wrong, nothing about the token.
         return Err(guard::unauthorized());
     }
-    let path = head.second.split('?').next().unwrap_or_default();
     if path != PATH {
         return Err(refused(404, &format!("no such endpoint: MCP is at {PATH}")));
     }
@@ -276,7 +298,27 @@ fn check(head: &Head, cfg: &Config) -> Result<(), Response> {
             "{method} is not allowed: this endpoint takes POST only (no event stream)"
         )));
     }
-    Ok(())
+    Ok(Endpoint::Mcp)
+}
+
+/// `GET /hello?nonce=N`: the token's proof for `N` (64 hex digits) and the
+/// bound port, `{"proof": "<hex>"}`, as the control API's `/v1/hello`. The
+/// `.mcpb` forwarder checks it before it sends the token, so a process
+/// that holds the port while the app is closed never receives it. It
+/// needs no slot and tells nothing about the token.
+fn hello(head: &Head, cfg: &Config) -> Response {
+    let nonce = head.second.split_once('?').and_then(|(_, q)| {
+        q.split('&')
+            .filter_map(|kv| kv.split_once('='))
+            .find(|(k, _)| *k == "nonce")
+            .map(|(_, v)| v)
+    });
+    match nonce {
+        Some(n) if n.len() == 64 && n.bytes().all(|b| b.is_ascii_hexdigit()) => {
+            json_response(200, &json!({"proof": cfg.token.proof(n, cfg.port)}))
+        }
+        _ => refused(400, "?nonce= must be 64 hex digits"),
+    }
 }
 
 /// Handle one request; `None` when the client is gone.
@@ -298,8 +340,10 @@ fn respond(
     }
     let checked = check(&head, cfg);
     drop(pending);
-    if let Err(r) = checked {
-        return Some(r);
+    match checked {
+        Ok(Endpoint::Hello) => return Some(hello(&head, cfg)),
+        Ok(Endpoint::Mcp) => {}
+        Err(r) => return Some(r),
     }
     let Some(_slot) = gate.admit() else {
         return Some(refused(503, "too many requests in progress; try again"));
@@ -1290,6 +1334,43 @@ mod tests {
 
     /// The control API's rules: Host, Origin, OPTIONS, no CORS, the token
     /// without detail, the path and the method, content type and caps.
+    /// The hello: the proof for the nonce and the bound port, without the
+    /// token; GET only; a malformed nonce refused; Host still checked.
+    #[test]
+    fn hello_proves_the_token_without_it() {
+        let f = fixture();
+        let nonce = "c".repeat(64);
+        let host = format!("Host: 127.0.0.1:{}\r\n", f.port);
+        let get = |target: &str, host: &str| {
+            raw(
+                f.port,
+                format!("GET {target} HTTP/1.1\r\n{host}\r\n").as_bytes(),
+            )
+        };
+        let (s, head, b) = get(&format!("/hello?nonce={nonce}"), &host);
+        assert_eq!(s, 200, "{head}");
+        let v: Value = serde_json::from_slice(&b).unwrap();
+        let t = token::testing::token_of(&f.token);
+        assert_eq!(v["proof"], t.proof(&nonce, f.port));
+        assert_ne!(v["proof"], t.proof(&nonce, f.port.wrapping_add(1)));
+        assert!(!String::from_utf8_lossy(&b).contains(&f.token) && !head.contains(&f.token));
+        for target in ["/hello", "/hello?nonce=xyz", "/hello?nonce=", "/hello?other=1"] {
+            assert_eq!(get(target, &host).0, 400, "{target}");
+        }
+        let (s, head, _) = raw(
+            f.port,
+            format!("POST /hello?nonce={nonce} HTTP/1.1\r\n{host}Content-Length: 0\r\n\r\n")
+                .as_bytes(),
+        );
+        assert_eq!(s, 405);
+        assert!(head.contains("Allow: GET"), "{head}");
+        let evil = "Host: evil.example\r\n";
+        assert_eq!(get(&format!("/hello?nonce={nonce}"), evil).0, 421);
+        // Nothing else is token-free.
+        assert_eq!(get(&format!("/hello/x?nonce={nonce}"), &host).0, 401);
+        assert!(f.window.seen.lock().unwrap().is_empty());
+    }
+
     #[test]
     fn the_control_api_rules_hold() {
         let f = fixture();

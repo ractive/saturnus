@@ -11,7 +11,8 @@
 // The desktop app's own (iteration 58, `openLocalDialog`, for web/ai-local.js):
 // the setting "Let AI apps on this computer use the calculators", the local
 // address with Copy, the same links and commands with the Authorization
-// header (shared/mcp-install.js), the state (off, on, the AI apps seen
+// header (shared/mcp-install.js), "Add to Claude Desktop" (the extension
+// the app carries, iteration 59), the state (off, on, the AI apps seen
 // lately), the port, and no pairing code.
 
 import { iconEl } from "./shared/components/icons.js";
@@ -260,7 +261,12 @@ export async function openLocalDialog(ai, doc = document) {
   const address = el("input", { class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
   const copy = copyButton("Copy");
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
-  const block = installBlock({ connector: "Claude and ChatGPT connect from the internet, so they cannot use this address." });
+  const block = installBlock({ connector: "Add to Claude Desktop installs an extension in Claude Desktop that starts saturnus when Claude needs a calculator. Claude on the web and ChatGPT connect from the internet, so they cannot use this address." });
+  // Claude Desktop runs local servers as programs, so it gets the extension
+  // the app carries (saturnus.mcpb, iteration 59) instead of the address.
+  const forClaudeDesktop = el("button", { type: "button", class: "small ai-claude", text: "Add to Claude Desktop" });
+  block.node.querySelector(".ai-install-row").append(forClaudeDesktop);
+  let claudeNote = null;
   const keyNote = el("p", { class: "ai-note", text: "The links and commands include a key that lets the AI app in. The AI app keeps it in its settings file. Turn this off to shut every AI app out." });
   const onPart = el("div", { class: "ai-install ai-on-part" }, addressRow, block.node, keyNote);
   const apps = el("ul", { class: "ai-apps" });
@@ -272,7 +278,7 @@ export async function openLocalDialog(ai, doc = document) {
   const done = el("button", { type: "button", text: "Done" });
   dialog.append(el("div", { class: "ai-box" },
     el("h2", { id: "ai-title", text: "Connect your AI app" }),
-    el("p", { text: "AI apps on this computer (Claude Code, Codex, VS Code, Cursor, …) can use the calculators in this app: read the display, press keys, run programs and look up commands. Nothing goes over the internet." }),
+    el("p", { text: "AI apps on this computer (Claude Desktop, Claude Code, Codex, VS Code, Cursor, …) can use the calculators in this app: read the display, press keys, run programs and look up commands. Nothing goes over the internet." }),
     onRow,
     status,
     onPart,
@@ -294,7 +300,7 @@ export async function openLocalDialog(ai, doc = document) {
     address.value = running ? s.address ?? "" : "";
     if (running) block.set({ url: s.address, headers: ai.mcp.headers });
     status.classList.toggle("error", Boolean(ai.error));
-    status.textContent = busy ? "Working…" : ai.error ?? (running ? "AI access is on. Add the address to your AI app." : "AI access is off.");
+    status.textContent = busy ? "Working…" : ai.error ?? claudeNote ?? (running ? "AI access is on. Add the address to your AI app." : "AI access is off.");
     const grants = running ? ai.mcp.grants : [];
     apps.replaceChildren(...grants.map((g) => el("li", {}, el("span", { class: "ai-app" }, el("strong", { text: g.client.name }), el("small", { text: ` ${agoText(g.secondsAgo ?? 0)}` })))));
     appsNote.textContent = grants.length ? "" : "No AI app has connected yet.";
@@ -310,7 +316,19 @@ export async function openLocalDialog(ai, doc = document) {
       render();
     }
   };
-  on.addEventListener("change", () => apply(on.checked));
+  on.addEventListener("change", () => {
+    claudeNote = null;
+    apply(on.checked);
+  });
+  forClaudeDesktop.addEventListener("click", async () => {
+    claudeNote = null;
+    busy = true;
+    render();
+    const opened = await ai.addToClaudeDesktop();
+    busy = false;
+    claudeNote = opened ? "Claude Desktop opens the extension: choose Install there." : null;
+    render();
+  });
   usePort.addEventListener("click", () => {
     const n = Number(port.value);
     if (!Number.isInteger(n) || n < 1024 || n > 65535) {

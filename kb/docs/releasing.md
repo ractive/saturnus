@@ -576,6 +576,25 @@ this one: one app, one identifier (`ch.ractive.saturnus`), one cask. What Files 
   the serial bytes come on a channel). The Linux packages' description
   names the `dialout` group.
 
+### The Claude Desktop extension
+
+Iteration 59 ([[iterations/iteration-59-mcpb]]): `saturnus.mcpb`, one
+static bundle for every user and platform (MCPB manifest 0.3, server type
+`node`: Claude Desktop runs the forwarder with its own Node). Sources in
+`web/mcpb/` (`manifest.json`, `server/index.mjs`); `web/mcpb/build.mjs`
+adds the workspace version, the tool list and the instructions from
+`web/ai-tools.js` (`server/offline.json`) and the icon, and writes a
+stored zip with fixed dates and order, so the same sources give the same
+bytes. It is never committed and no release workflow attaches it:
+`build.rs` builds it into the app's embedded page for "Add to Claude
+Desktop" (Node on the runner, which GitHub's images have; a production
+build without Node fails, any other build warns), and `web/site.sh`
+into the web app as `app/saturnus.mcpb` for the docs page `ai-apps`.
+`just mcpb` builds it by hand; `npx @anthropic-ai/mcpb validate
+manifest.json` on the unpacked manifest passes (mcpb 2.1.2). Its version
+is the app's, so every release carries a matching one. It is not signed
+(`mcpb sign` needs a certificate); Claude Desktop shows it as unsigned.
+
 ### The Homebrew cask
 
 `desktop.yml`'s `cask` job keeps the cask `saturnus-app` in

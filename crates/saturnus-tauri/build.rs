@@ -17,6 +17,12 @@
 //! build by the Tauri CLI without it fails here, any other build (clippy,
 //! the tests) only warns.
 //!
+//! The Claude Desktop extension, `saturnus.mcpb` (iteration 59), is built
+//! into the page by `web/mcpb/build.mjs`, which needs Node: "Add to Claude
+//! Desktop" opens it from there (`mcpb_open`). Without Node the CLI's
+//! production build fails here and any other build warns, as for the
+//! wasm package.
+//!
 //! Then points Tauri's code generation at that directory: `frontendDist`
 //! in `tauri.conf.json` stays `../../web`, which the Tauri CLI checks for
 //! and `cargo tauri dev` serves, and the embedded copy is set through
@@ -113,6 +119,30 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!(
             "cargo::warning=the page's wasm is not built ({}); Files' transfers and private calculators will not start. Run web/build.sh.",
             missing.join(", ")
+        );
+    }
+
+    // The extension for Claude Desktop, from the same sources as the web
+    // app's (web/site.sh), with the workspace's version.
+    println!(
+        "cargo::rerun-if-changed={}",
+        manifest.join("../../Cargo.toml").display()
+    );
+    let mcpb = std::process::Command::new("node")
+        .arg(web.join("mcpb/build.mjs"))
+        .arg(site.join("saturnus.mcpb"))
+        .output();
+    let failure = match mcpb {
+        Ok(out) if out.status.success() => None,
+        Ok(out) => Some(String::from_utf8_lossy(&out.stderr).trim().to_string()),
+        Err(e) => Some(format!("cannot run node ({e})")),
+    };
+    if let Some(why) = failure {
+        if production {
+            return Err(format!("the Claude Desktop extension was not built: {why}").into());
+        }
+        println!(
+            "cargo::warning=the Claude Desktop extension is not built ({why}); Add to Claude Desktop will not work. Install Node."
         );
     }
 

@@ -123,6 +123,12 @@ tx-xmodem-traces dir=env("SATURNUS_ROM_DIR", "roms"): web
 tx-page-trace dir=env("SATURNUS_ROM_DIR", "roms"): web
     SATURNUS_ROM_DIR="{{dir}}" node web/test/tx-record.mjs web/test/fixtures/tx-page.trace
 
+# The Claude Desktop extension (web/mcpb/build.mjs, iteration 59) into
+# OUT: the same bytes from the same sources. web/site.sh and the desktop
+# app's build.rs build it too; it is never committed. Needs Node.
+mcpb out="target/mcpb/saturnus.mcpb":
+    node web/mcpb/build.mjs "{{out}}"
+
 # The desktop app (CI's tauri job): clippy in the debug and the release
 # profile, and tests. On Linux it needs webkit2gtk-4.1 and libxdo
 # (kb/docs/ci.md).
