@@ -289,6 +289,25 @@ test("right after a cold boot the tools wait until the boot's question is answer
   assert.ok(c.calls.some(([cmd]) => cmd === "run"));
 });
 
+test("pure reads do not wait for the boot's question", async () => {
+  const c = fake("48gx", { uiState: AT_STACK, commandLine: { active: false }, stack: [{ type: "real", text: "1" }] });
+  c.store.state.starting = true;
+  const s = await call(tools({ "48gx": c }).read_stack);
+  assert.equal(s.depth, 1);
+  assert.equal((await call(tools({ "48gx": c }).read_display, { format: "text" })).stack.length, 1);
+});
+
+test("a call cancelled while it waits for the boot's question types nothing", async () => {
+  const c = fake("48gx", { run: { error: null, closed: true }, uiState: AT_STACK, commandLine: { active: false }, stack: [] });
+  c.store.state.starting = true;
+  const abort = new AbortController();
+  const ran = tools({ "48gx": c }).run_rpl.execute({ text: "1" }, { signal: abort.signal, client: { grantId: "g", id: "x", host: "x" } });
+  setTimeout(() => abort.abort(), 20);
+  await assert.rejects(ran, /Cancelled/);
+  c.store.state.starting = false;
+  assert.ok(!c.calls.some(([cmd]) => cmd === "run"));
+});
+
 test("press_keys and read_display say what has the keyboard; nothing at the stack", async () => {
   const c = fake("49g", { uiState: { ...IN_FORM, kind: "message", from: "display" }, commandLine: { active: false }, stack: [] });
   const r = await call(tools({ "49g": c }).press_keys, { keys: ["1"], display: "text" });

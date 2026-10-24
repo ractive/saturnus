@@ -81,13 +81,17 @@ export function aiTools(deps) {
   const pace = deps.pace ?? { first: 40, poll: 40, limit: SETTLE_MS };
   /** One call at a time per calculator: two AI calls would mix their keys. */
   const queues = new Map();
-  const onCalculator = async (input, fn, signal = null) => {
+  /** `presses`: the tool types or reads what has the keyboard, so it waits out a cold boot's question first. */
+  const onCalculator = async (input, fn, signal = null, { presses = false } = {}) => {
     const t = await targetOf(optionalString(input.calculator));
     const prev = queues.get(t.id) ?? Promise.resolve();
     // A call the AI app gave up on while it waited presses nothing.
     const run = prev.then(async () => {
       if (signal?.aborted) throw new Error("Cancelled");
-      await started(t);
+      if (presses) {
+        await started(t, signal);
+        if (signal?.aborted) throw new Error("Cancelled");
+      }
       return fn(t);
     });
     const tail = run.catch(() => {});
@@ -104,10 +108,11 @@ export function aiTools(deps) {
    * tools' own checks would refuse. Wait for the answer and for the
    * calculator to settle after it (a send would wait in the host anyway).
    */
-  const started = async (t) => {
+  const started = async (t, signal) => {
     if (!t.store.state.starting) return;
     const until = Date.now() + STARTING_MS;
     while (t.store.state.starting) {
+      if (signal?.aborted) throw new Error("Cancelled");
       if (Date.now() > until) throw new Error("The calculator is still starting (it answers its boot question). Try again in a moment.");
       await new Promise((r) => setTimeout(r, pace.poll));
     }
@@ -183,7 +188,7 @@ export function aiTools(deps) {
         t.backend.typeKeys(keys);
         await wait(t);
         return display(t, String(input.display ?? "both"), { png, extra: { pressed: keys.length, ...(await stillRunning(t)) } });
-      }, options?.signal),
+      }, options?.signal, { presses: true }),
     },
     {
       name: "run_rpl",
@@ -221,7 +226,7 @@ export function aiTools(deps) {
           png,
           extra: strip({ ran: text, error: r.error ?? null, running: Boolean(r.running), commandLineOpen: !r.closed, mode }),
         });
-      }, options?.signal),
+      }, options?.signal, { presses: true }),
     },
     {
       name: "to_stack",
@@ -252,7 +257,7 @@ export function aiTools(deps) {
           t.backend.typeKeys(["on"]);
           await wait(t);
         }
-      }, options?.signal),
+      }, options?.signal, { presses: true }),
     },
     {
       name: "read_stack",
@@ -366,7 +371,7 @@ export function aiTools(deps) {
         if (!command.steps) throw new Error(`${command.name} has no keys to press: it is typed into an equation in the Solver.`);
         await pressFunction(t.backend, t.store, index.km, command.steps, { pace });
         return display(t, String(input.display ?? "both"), { png, extra: { ran: command.name, keys: command.keysText, ...(await stillRunning(t)) } });
-      }, options?.signal),
+      }, options?.signal, { presses: true }),
     },
     {
       name: "lookup_command",

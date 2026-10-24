@@ -29,13 +29,16 @@ fn rom(file: &str) -> Option<Vec<u8>> {
     std::fs::read(PathBuf::from(dir).join(file)).ok()
 }
 
-/// A hand-moved clock.
+/// A hand-moved clock; with a tick, each reading moves it on that many
+/// ms (a slow host: the engine's turns cost wall time).
 #[derive(Default)]
-struct Manual(Cell<f64>);
+struct Manual(Cell<f64>, Cell<f64>);
 
 impl Clock for Manual {
     fn now_ms(&self) -> f64 {
-        self.0.get()
+        let t = self.0.get();
+        self.0.set(t + self.1.get());
+        t
     }
 }
 
@@ -240,6 +243,36 @@ fn the_owners_programs_need_rpn_mode_on_the_49g() {
             assert_eq!(h.stack(), ["{ 1 4 9 16 25 }"], "{file}");
         }
     }
+}
+
+/// On a host slower than the calculator the wall-time limit of a send
+/// (30 s) can come before `run`'s wait of 120 s emulated: once ENTER is
+/// pressed the reply then says `running`, as at the emulated cap, rather
+/// than failing.
+#[test]
+fn a_run_out_of_wall_time_after_enter_replies_running() {
+    let Some(rom) = rom("gxrom-r") else {
+        eprintln!("skipped: no gxrom-r in SATURNUS_ROM_DIR");
+        return;
+    };
+    let mut h = Host::boot(Model::Hp48gx, &rom);
+    h.run_until(3000.0);
+    // Each reading of the clock 10 ms on: a 20 ms step costs 10 ms of
+    // wall time, half the calculator's speed.
+    h.clock.1.set(10.0);
+    let start = h.now();
+    let r = h.run("« DO 0 DROP UNTIL 0 END » EVAL");
+    let wall = h.now() - start;
+    assert_eq!(r["error"], Value::Null, "{r}");
+    assert_eq!(r["running"], true, "{r}");
+    assert_eq!(r["closed"], true, "{r}");
+    let emulated = r["emulatedMs"].as_f64().unwrap();
+    assert!(wall > 30_000.0, "the wall limit came: {wall} ms");
+    assert!(
+        emulated < 120_000.0,
+        "before the emulated cap: {emulated} ms"
+    );
+    eprintln!("ran out of wall time after {wall:.0} ms ({emulated:.0} ms emulated)");
 }
 
 #[test]

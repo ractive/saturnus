@@ -505,6 +505,19 @@ impl Job {
         result
     }
 
+    /// End the wait after ENTER now, as if its cap had come (the reply
+    /// says `running`): true if the send was in that wait. The host's
+    /// wall-time limit ends a `run` this way once ENTER is pressed.
+    pub fn end_wait(&mut self, m: &Machine) -> bool {
+        match &mut self.press {
+            Some(Press::Settle { cap, .. }) => {
+                *cap = m.cycles();
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// Stop the send where it is, letting go of a key it holds (an error,
     /// or the host gave up).
     pub fn stop(&mut self, m: &mut Machine) {
@@ -1159,6 +1172,15 @@ impl Emulator {
                 self.typing = None;
                 Err(e)
             }
+        }
+    }
+
+    /// End a `run`'s wait after ENTER now ([`Job::end_wait`]): true if
+    /// the send was in it, and then it finishes within a few steps.
+    pub fn typing_end_wait(&mut self) -> bool {
+        match self.typing.as_mut() {
+            Some(job) => job.end_wait(&self.machine),
+            None => false,
         }
     }
 

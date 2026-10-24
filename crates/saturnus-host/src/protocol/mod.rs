@@ -73,7 +73,11 @@ pub const MAX_STATE_BYTES: usize = 4 * 1024 * 1024;
 /// Emulated ms one step of a send runs.
 pub const TYPING_STEP_MS: f64 = 20.0;
 /// Wall time a send may take in all, in ms (also the native key scripts').
+/// A `run` that reaches it after ENTER replies `running` instead.
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
+/// Steps a `run` cut short after ENTER may take to finish (reading the
+/// line, closing the 49G's error box and waiting after it).
+const WAIT_END_STEPS: usize = 64;
 /// Most bytes waiting for the calculator's UART (`serialWrite`): at 9600
 /// baud it takes about 840 a second, so this is many packets ahead.
 pub const MAX_SERIAL_PENDING: usize = 16 * 1024;
@@ -339,7 +343,6 @@ pub struct Engine {
     serial_out: SerialOut,
 }
 
-/// The string field `name` of `msg`.
 /// What one look at a sleeping machine's screen does for the boot's
 /// question (`recover.rs`).
 enum Look {
@@ -391,6 +394,7 @@ fn answer_boot(e: &mut Emulator, recover: &mut Option<Recover>) -> Result<bool> 
     Ok(false)
 }
 
+/// The string field `name` of `msg`.
 fn str_field<'a>(msg: &'a Value, name: &str) -> Result<&'a str> {
     msg.get(name)
         .and_then(Value::as_str)
@@ -727,7 +731,9 @@ impl Engine {
             speed: self.lp.speed,
             loop_state: self.lp.state(),
             busy: self.send.as_ref().is_some_and(|s| s.freezes),
-            starting: self.recover.is_some(),
+            // Only answered while the machine runs: paused or halted at
+            // the question, the keyboard is the user's to take.
+            starting: self.recover.is_some() && self.lp.running && self.halted.is_none(),
         }
     }
 
@@ -1702,6 +1708,22 @@ impl Engine {
         }
         let now = clock.now_ms();
         self.lp.work_ms += now - start;
+        // Out of wall time after ENTER: the wait ends as at its emulated
+        // cap, and the reply says `running` (the error is for typing).
+        if matches!(result, Ok(false))
+            && now - started > WALL_LIMIT_MS
+            && !transfer
+            && send.waiting.is_none()
+            && e.typing_end_wait()
+        {
+            for _ in 0..WAIT_END_STEPS {
+                result = e.typing_step(TYPING_STEP_MS);
+                if !matches!(result, Ok(false)) {
+                    break;
+                }
+                e.typing_end_wait();
+            }
+        }
         match result {
             Ok(false) if now - started > WALL_LIMIT_MS => self.end_typing(
                 clock,
