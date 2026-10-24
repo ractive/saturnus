@@ -289,16 +289,18 @@ impl fmt::Display for Error {
                 )
             }
             Error::NoCommandLine(model) => {
-                let what = if *model == Model::Hp28s {
-                    "has its command line read, but not its screens or typing"
+                let name = model.name().to_uppercase();
+                if *model == Model::Hp28s {
+                    write!(
+                        f,
+                        "the {name}'s command line is read, but not its screens or typing (those on the 48SX, 48GX and 49G only)"
+                    )
                 } else {
-                    "has no RPL command line to read or type into"
-                };
-                write!(
-                    f,
-                    "the {} {what} (48SX, 48GX and 49G only)",
-                    model.name().to_uppercase()
-                )
+                    write!(
+                        f,
+                        "the {name} has no RPL command line to read or type into (48SX, 48GX, 49G and 28S only)"
+                    )
+                }
             }
             Error::NotSetUp { home } => write!(
                 f,
