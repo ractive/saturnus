@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "saturnus": {
+      "type": "http",
+      "url": "http://127.0.0.1:${SATURNUS_MCP_PORT:-4842}/mcp",
+      "headersHelper": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/token-header.sh\""
+    }
+  }
+}

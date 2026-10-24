@@ -4510,3 +4510,28 @@ Found in the owner's first test with Codex 0.163 on 2026-10-23.
   disabled and a backdrop click does nothing; a line says why, with Close
   anyway (a way out on a phone, which has no Esc; Esc closes too). With
   AI access off, connecting or reconnecting, Done closes as before.
+
+## 2026-10-24 (iteration 60: the skill and plugin)
+
+- **The plugin's MCP entry signs in with a `headersHelper`, not iteration
+  59's forwarder.** Claude Code runs the command at each connection and takes
+  the headers it prints; `scripts/token-header.sh` reads the per-user
+  `control-token` (the same paths as `token::default_path`) and prints the
+  `Authorization` header. The token is in no file of the plugin, and the
+  plugin works before `saturnus mcp` exists. The port is
+  `${SATURNUS_MCP_PORT:-4842}`. Claude Code strips variables named like
+  credentials (TOKEN, KEY, …) from a plugin helper's environment, so
+  `SATURNUS_TOKEN_FILE` is not honoured there; the plugin's README says so.
+  Not tried on Windows (the helper is a POSIX shell script).
+- **One copy of the skill.** It lives in `plugins/saturnus/skills/saturnus/`;
+  the pi package is a root `package.json` (`"type": "module"`, which every
+  `.js` file in the repository already is) whose `pi.skills` names that
+  folder, so there is no second copy to keep in sync (hyalo vendors one into
+  its binary; saturnus has no such need).
+- **No `version` in `plugin.json`.** Without it Claude Code takes the git
+  commit as the version, so users get every change to the skill without a
+  bump that the release process would have to remember. `claude plugin
+  validate` warns about it.
+- **The helper lives in `scripts/`, not `bin/`.** Claude Code puts `bin/` on
+  the Bash tool's PATH, and claude.ai and Cowork refuse to install a plugin
+  that has one.
