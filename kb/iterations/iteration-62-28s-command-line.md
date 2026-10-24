@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 62: the AI tools see the 28S's command line"
 date: 2026-10-24
-status: planned
+status: in-progress
 tags:
   - iteration
   - ai
@@ -34,8 +34,8 @@ only tells the AI app to check the display first.
 
 ## Tasks
 
-- [ ] Research on the 28S ROM; findings in the wiki (commit to calculator-knowledgebase)
-- [ ] Reader and tests with the ROM (gated by SATURNUS_ROM_DIR)
-- [ ] run_rpl's refusal on the 28S, INSTRUCTIONS and descriptions, web tests
-- [ ] kb: decision-log entry; backlog item completed
+- [x] Research on the 28S ROM; findings in the wiki (commit to calculator-knowledgebase)
+- [x] Reader and tests with the ROM (gated by SATURNUS_ROM_DIR)
+- [x] run_rpl's refusal on the 28S, INSTRUCTIONS and descriptions, web tests
+- [x] kb: decision-log entry; backlog item completed
 - [ ] Owner: on the 28S with a line open, an AI app's run_rpl is refused and says so

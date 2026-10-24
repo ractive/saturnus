@@ -61,6 +61,27 @@ pub fn decode(bytes: &[u8]) -> String {
     s
 }
 
+/// The 28S's characters 128-147 as Unicode, from their glyphs (28S ROM,
+/// each shown by `CHR` and `DISP`); 128 shows blank. Its other codes
+/// above 127 have no glyph of their own.
+pub const HP28_HIGH: [char; 20] = [
+    ' ', '÷', '×', '√', '∫', 'Σ', '▶', 'π', '∂', '≤', '≥', '≠', 'α', '→', '←', 'µ', '¶', '°', '«',
+    '»',
+];
+
+/// 28S bytes as text: ASCII, then [`HP28_HIGH`]; 148-255, which the 28S
+/// shows as a block, become U+FFFD.
+pub fn decode_hp28(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|&b| match b {
+            0..=127 => char::from(b),
+            128..=147 => HP28_HIGH[usize::from(b - 128)],
+            _ => char::REPLACEMENT_CHARACTER,
+        })
+        .collect()
+}
+
 /// One HP byte as text.
 pub fn char_of(b: u8) -> String {
     decode(&[b])

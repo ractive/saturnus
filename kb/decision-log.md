@@ -4641,3 +4641,25 @@ For [[iterations/iteration-63-one-kermit-client]]:
 - **Messages**: a Kermit E packet in saturnus-kermit now reads
   `calculator error: X` (the engine's wording) instead of satx-core's
   `calculator: X`.
+
+## 2026-10-24 (iteration 62: the 28S's command line)
+
+Owner: "Try it" (backlog ai-28s-command-line).
+
+- **The 28S's line is read from RAM**, found by black-box observation on
+  the 2BB ROM in saturnus (type, diff RAM): the text reversed below the
+  pointer at #C006E (floor #C0069), as on the 48; #C015D bit 0 set while
+  a line is open; the cursor at #C0126. Wiki: `hardware/hp28s`
+  "Command line". The 28S zeroes the text when the line closes and
+  closes the line when it empties, so an open line always has text.
+- **Its own reader, not an `EditorLayout`** (`cmdline::read_hp28`):
+  the open bit and the modes sit in other nibbles than the 48's, and
+  `EditorLayout` also drives the typing engine and `uiState`, which
+  stay 48/49-only. `commandLine` answers on the 28S, decoded with the
+  28S's own characters 128-147 (`charset::decode_hp28`, the table
+  refgen already used).
+- **`run_rpl` refuses on the 28S while a line is open**, with the 48's
+  message; `read_display` text shows the 28S's line. The instructions
+  and descriptions lose the "check the display first" caveat. The
+  palette's 28S typing is unchanged (it still types into an open line,
+  after a space).

@@ -6,7 +6,7 @@
 // (the 42S, 27S, 17BII, 17B, 19BII; the 38G, 39G and 40G) a function is
 // pressed instead: its keys go to the key queue (`typeKeys`), after
 // leaving the menu the screen shows, if any, and (38G, 39G, 40G) going
-// to HOME. On the 28S, whose command line cannot be read, the text is
+// to HOME. On the 28S (its command line not read here) the text is
 // typed on its keys (keys28.js). `<sat-palette>` renders it; `web/test/`
 // drives it with a fake backend.
 
@@ -227,7 +227,7 @@ export class PaletteModel {
       this.noTyping = "no calculator is running";
       return;
     }
-    // The 28S's line cannot be read: its commands are typed on its keys
+    // The 28S's line is not read here: its commands are typed on its keys
     // (keys28.js), into the open line if there is one.
     if (this.store.state.booted === "28s") {
       this.commandLine = null;

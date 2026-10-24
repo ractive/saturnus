@@ -1,6 +1,6 @@
 // The 28S in Search: a command chosen is typed on its keys, as a person
-// would, then ENTER ("run"), or typed only ("insert"). The 28S's command
-// line cannot be read, so nothing is cleared: a name typed into an open
+// would, then ENTER ("run"), or typed only ("insert"). The palette does not
+// read the 28S's command line, so nothing is cleared: a name typed into an open
 // line is added to it after a space, and ENTER runs the whole line. The
 // commands that are keys (+, DROP, SWAP, ...) are pressed as keys. The
 // keys follow the generator's typing (crates/saturnus-refgen/src/hp28.rs,

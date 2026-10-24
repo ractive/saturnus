@@ -61,7 +61,7 @@ test("the palette model sends a 28S command as keys, reading the state first", a
   const data = JSON.parse(readFileSync(new URL("../commands.json", import.meta.url), "utf8"));
   const calls = [];
   const backend = {
-    commandLine: async () => { throw new Error("the 28S has a command line this cannot read"); },
+    commandLine: async () => { throw new Error("the palette does not read the 28S's command line"); },
     entryModes: async () => ({ lowercase: false, menuLock: false }),
     typeKeys: (keys) => calls.push(keys),
     stats: async () => ({ loop: "sleep" }),

@@ -4,7 +4,8 @@
 //! The ROM keeps the text reversed and NUL-terminated just below its
 //! temporary environments, with no length field; the cursor and the
 //! editor's flags sit in system RAM. Locations per model were found by
-//! observation (wiki: hardware/command-line).
+//! observation (wiki: hardware/command-line; the 28S: wiki:
+//! hardware/hp28s "Command line").
 
 use crate::error::Error;
 use saturnus_core::{Machine, Model};
@@ -98,7 +99,7 @@ impl EditorLayout {
     };
 
     /// The layout of `model`, or `None` for the aplet models, the Pioneers (42S, 27S,
-    /// 17BII, 17B), the 28S and the 19BII.
+    /// 17BII, 17B), the 28S (read by [`read_hp28`]) and the 19BII.
     pub fn of(model: Model) -> Option<EditorLayout> {
         match model {
             Model::Hp48sx => Some(Self::HP48SX),
@@ -123,6 +124,31 @@ impl EditorLayout {
     }
 }
 
+/// Where the 28S's ROM (2BB, its only revision) keeps its command line
+/// (wiki: hardware/hp28s "Command line"). The text is kept as on the
+/// 48, reversed below a pointer, and zeroed when the line closes; the
+/// line closes when it empties, so an open line always has text.
+#[derive(Clone, Copy, Debug)]
+pub struct Hp28;
+
+impl Hp28 {
+    /// Pointer just past the text's first character.
+    pub const TEXT_END_PTR: u32 = 0xC006E;
+    /// Pointer never above the byte under the text.
+    pub const FLOOR_PTR: u32 = 0xC0069;
+    /// The cursor, 5 nibbles, in characters from the start.
+    pub const CURSOR: u32 = 0xC0126;
+    /// Bit 0: a command line is open.
+    pub const OPEN: u32 = 0xC015D;
+    /// Bit 1 insert mode (the ROM starts in replace mode), bit 2
+    /// algebraic entry.
+    pub const ENTRY: u32 = 0xC00EE;
+    /// Bit 0: alpha entry mode (α, `«`, EDIT).
+    pub const ALPHA_ENTRY: u32 = 0xC00ED;
+    /// Bit 2: lowercase.
+    pub const LOWERCASE: u32 = 0xC00F0;
+}
+
 /// The editor as the ROM left it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Editor {
@@ -136,7 +162,8 @@ pub struct Editor {
     pub insert: bool,
     /// Algebraic entry mode (after `'`).
     pub algebraic: bool,
-    /// Program entry mode (after `«`, or ENTRY).
+    /// Program entry mode (after `«`, or ENTRY); on the 28S its alpha
+    /// entry mode (α, `«`, EDIT).
     pub program: bool,
     /// Lowercase lock.
     pub lowercase: bool,
@@ -179,33 +206,42 @@ fn bit(mem: &dyn Memory, addr: u32, b: u8) -> Result<bool> {
     Ok(nibble(mem, addr)? & (1 << b) != 0)
 }
 
+/// The text kept reversed and NUL-terminated below the pointer at
+/// `end_ptr`, reaching down to the pointer at `floor_ptr` at most.
+fn reversed_text(mem: &dyn Memory, end_ptr: u32, floor_ptr: u32) -> Result<Vec<u8>> {
+    let end = field(mem, end_ptr, 5)?;
+    let floor = field(mem, floor_ptr, 5)?;
+    if floor >= end {
+        return Err(Error::Memory(format!(
+            "the command line pointers (#{floor:05X}, #{end:05X}) are not the ROM's"
+        )));
+    }
+    let mut text = Vec::new();
+    let mut a = end;
+    while a >= floor + 2 {
+        a -= 2;
+        let b = field(mem, a, 2)? as u8;
+        if b == 0 {
+            break;
+        }
+        if text.len() >= MAX_CHARS {
+            return Err(Error::Memory(format!(
+                "the command line is longer than {MAX_CHARS} characters"
+            )));
+        }
+        text.push(b);
+    }
+    Ok(text)
+}
+
 /// Read the editor through `layout`.
 pub fn read(mem: &dyn Memory, layout: &EditorLayout) -> Result<Editor> {
     let active = bit(mem, layout.line, 1)?;
-    let mut text = Vec::new();
-    if active {
-        let end = field(mem, layout.text_end_ptr, 5)?;
-        let floor = field(mem, layout.stack_end_ptr, 5)?;
-        if floor >= end {
-            return Err(Error::Memory(format!(
-                "the command line pointers (#{floor:05X}, #{end:05X}) are not the ROM's"
-            )));
-        }
-        let mut a = end;
-        while a >= floor + 2 {
-            a -= 2;
-            let b = field(mem, a, 2)? as u8;
-            if b == 0 {
-                break;
-            }
-            if text.len() >= MAX_CHARS {
-                return Err(Error::Memory(format!(
-                    "the command line is longer than {MAX_CHARS} characters"
-                )));
-            }
-            text.push(b);
-        }
-    }
+    let text = if active {
+        reversed_text(mem, layout.text_end_ptr, layout.stack_end_ptr)?
+    } else {
+        Vec::new()
+    };
     let cursor = field(mem, layout.cursor, 5)? as usize;
     let keys = nibble(mem, layout.keys)?;
     let message = if layout.message_box {
@@ -229,17 +265,48 @@ pub fn read(mem: &dyn Memory, layout: &EditorLayout) -> Result<Editor> {
     })
 }
 
-/// The editor of `machine` (48SX, 48GX, 49G).
+/// Read the 28S's editor ([`Hp28`]). Its shift and α show on the
+/// annunciators, so `left_shift` and `alpha` stay false here, as do the
+/// fields it has no counterpart for.
+pub fn read_hp28(mem: &dyn Memory) -> Result<Editor> {
+    let active = bit(mem, Hp28::OPEN, 0)?;
+    let text = if active {
+        reversed_text(mem, Hp28::TEXT_END_PTR, Hp28::FLOOR_PTR)?
+    } else {
+        Vec::new()
+    };
+    let cursor = field(mem, Hp28::CURSOR, 5)? as usize;
+    Ok(Editor {
+        active,
+        cursor: if active { cursor.min(text.len()) } else { 0 },
+        text,
+        insert: bit(mem, Hp28::ENTRY, 1)?,
+        algebraic: bit(mem, Hp28::ENTRY, 2)?,
+        program: bit(mem, Hp28::ALPHA_ENTRY, 0)?,
+        lowercase: bit(mem, Hp28::LOWERCASE, 2)?,
+        ..Editor::default()
+    })
+}
+
+/// The editor of `machine` (48SX, 48GX, 49G, 28S).
 pub fn editor(machine: &Machine) -> Result<Editor> {
+    if machine.model() == Model::Hp28s {
+        return read_hp28(machine);
+    }
     read(machine, &EditorLayout::require(machine.model())?)
 }
 
 /// The command line of `machine`: open or not, its text and cursor.
 pub fn command_line(machine: &Machine) -> Result<CommandLine> {
     let e = editor(machine)?;
+    let text = if machine.model() == Model::Hp28s {
+        charset::decode_hp28(&e.text)
+    } else {
+        charset::decode(&e.text)
+    };
     Ok(CommandLine {
         active: e.active,
-        text: charset::decode(&e.text),
+        text,
         cursor: e.cursor,
     })
 }
@@ -302,6 +369,29 @@ mod tests {
         assert_eq!(read(&ram, &l).unwrap().text, b"AB");
         ram.put(l.stack_end_ptr, 0x90020, 5);
         assert!(read(&ram, &l).is_err());
+    }
+
+    #[test]
+    fn reads_the_28s_line() {
+        let mut ram = Ram::default();
+        // "AXC" as the 28S keeps it below #CFF70 (observed: 342414 for
+        // "ABC" at #CFF6A), the floor lower, cursor 2, insert mode, open.
+        ram.put(Hp28::TEXT_END_PTR, 0xCFF70, 5);
+        ram.put(Hp28::FLOOR_PTR, 0xCFF40, 5);
+        for (i, b) in b"CXA".iter().enumerate() {
+            ram.put(0xCFF6A + 2 * i as u32, u32::from(*b), 2);
+        }
+        ram.put(Hp28::CURSOR, 2, 5);
+        ram.put(Hp28::ENTRY, 2, 1);
+        ram.put(Hp28::OPEN, 1, 1);
+        let e = read_hp28(&ram).unwrap();
+        assert!(e.active && e.insert && !e.algebraic && !e.program);
+        assert_eq!(e.text, b"AXC");
+        assert_eq!(e.cursor, 2);
+        // Closed: nothing reported.
+        ram.put(Hp28::OPEN, 0, 1);
+        let e = read_hp28(&ram).unwrap();
+        assert!(!e.active && e.text.is_empty() && e.cursor == 0);
     }
 
     #[test]
