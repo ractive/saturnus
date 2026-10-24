@@ -22,7 +22,7 @@ Claude Desktop uses the calculators of the desktop app through an extension:
 1. In the desktop app, open **Connect your AI app…** and turn on "Let AI apps on this computer use the calculators".
 2. Choose **Add to Claude Desktop**. Claude Desktop shows the extension; choose **Install**. You can also [download the extension](../app/saturnus.mcpb) and open it with Claude Desktop.
 
-When Claude needs a calculator and saturnus is closed, the extension starts it. If you moved AI access to another port, set the same port in the extension's settings in Claude Desktop. The extension holds no key: it reads the key from the file the desktop app writes for your user account, and sends it only to saturnus on this computer, after saturnus has shown that it holds the same key.
+When Claude needs a calculator and saturnus is closed, the extension starts it. On Windows and Linux it finds saturnus only where its installers put it; otherwise start saturnus yourself. If you moved AI access to another port, set the same port in the extension's settings in Claude Desktop. The extension holds no key: it reads the key from the file the desktop app writes for your user account, and sends it only to saturnus on this computer, after saturnus has shown that it holds the same key.
 
 ## The saturnus skill
 

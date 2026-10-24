@@ -6,7 +6,7 @@
 // app is closed, the start of the app (recorded, not run:
 // SATURNUS_MCPB_LAUNCH_FILE), AI access off, and the token never on stdout
 // or stderr.
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
@@ -68,6 +68,7 @@ async function fakeEndpoint(port, { token = TOKEN, proof = null, answer } = {}) 
       const msg = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       requests.push({ msg, headers: req.headers });
       const a = answer?.(msg, req) ?? defaultAnswer(msg);
+      if (a.hold) return; // never answered (closed by close())
       res.writeHead(a.status ?? 200, { "Content-Type": a.type ?? "application/json", ...(a.headers ?? {}) });
       res.end(a.body === undefined ? "" : typeof a.body === "string" ? a.body : JSON.stringify(a.body));
     });
@@ -83,12 +84,19 @@ function defaultAnswer(msg) {
   return { body: { jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text: `ran ${msg.params?.name}` }] } } };
 }
 
+/** Every forwarder started, killed at the end (a failed test leaves no process behind). */
+const children = new Set();
+after(() => {
+  for (const c of children) if (c.exitCode === null) c.kill();
+});
+
 /** The forwarder as a child process: `send(msg)`, `next(id)`, `out` (stdout lines), `err` (stderr). */
 function forwarder(env) {
   const child = spawn(process.execPath, [SCRIPT], {
     env: { PATH: process.env.PATH, HOME: process.env.HOME, SATURNUS_MCPB_WAIT_MS: "1500", ...env },
     stdio: ["pipe", "pipe", "pipe"],
   });
+  children.add(child);
   const out = [];
   let err = "";
   const waiters = [];
@@ -277,11 +285,16 @@ test("a server without the proof never gets the token", async () => {
   const launches = join(t.dir, "launches");
   const f = forwarder({ SATURNUS_TOKEN_FILE: t.file, SATURNUS_MCP_PORT: String(port), SATURNUS_MCPB_LAUNCH_FILE: launches });
   try {
+    // What needs no calculator still works, from the bundle.
     f.send(INIT);
-    assert.match((await f.next(1)).error.message, /Something else answers on port/);
+    assert.equal((await f.next(1)).result.serverInfo.name, "saturnus");
     f.send({ jsonrpc: "2.0", method: "notifications/initialized" });
+    f.send({ jsonrpc: "2.0", id: 3, method: "tools/list" });
+    assert.equal((await f.next(3)).result.tools.length, OFFLINE.tools.length);
     f.send({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "read_display", arguments: {} } });
-    assert.match((await f.next(2)).error.message, /the key was not sent/);
+    const call = await f.next(2);
+    assert.equal(call.result.isError, true);
+    assert.match(call.result.content[0].text, /Something else answers on port .* the key was not sent/);
     await f.stop();
     assert.equal(ep.requests.length, 0);
     assert.ok(!existsSync(launches));
@@ -317,6 +330,7 @@ test("a call starts the app and goes through once it answers, after the client's
     assert.equal(ep.requests[0].msg.params.clientInfo.name, "claude-ai");
     assert.equal(ep.requests[1].headers["mcp-session-id"], "s".repeat(64));
     assert.equal(f.out.filter((l) => JSON.parse(l).id === 2).length, 1, "one answer for the call");
+    assert.ok(ep.hellos.length >= ep.requests.length, "a fresh proof before the replay and each retry");
     await f.stop();
     assertClean(f);
   } finally {
@@ -357,6 +371,46 @@ test("AI access off, a refused key and a missing key file give clear errors with
     await g.stop();
     assert.ok(!existsSync(join(t.dir, "launches")), "no key file: AI access was never on, nothing to start for");
   } finally {
+    t.cleanup();
+  }
+});
+
+test("an answer without a message, a cancelled call and a closed stdin", async () => {
+  const t = tempToken();
+  const port = await freePort();
+  const ep = await fakeEndpoint(port, {
+    answer: (msg, req) => {
+      if (msg.params?.name === "empty") return { status: 200, body: "" };
+      if (msg.params?.name === "stream") return { type: "text/event-stream", body: 'event: message\ndata: {"jsonrpc":"2.0","method":"notifications/x"}\n\n' };
+      if (msg.params?.name === "slow") return { hold: req };
+      return null;
+    },
+  });
+  const f = forwarder({ SATURNUS_TOKEN_FILE: t.file, SATURNUS_MCP_PORT: String(port) });
+  try {
+    f.send({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "empty", arguments: {} } });
+    assert.match((await f.next(1)).error.message, /gave no answer/);
+    f.send({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "stream", arguments: {} } });
+    assert.match((await f.next(2)).error.message, /without an answer/);
+    // Cancelled while the app works on it: no answer at all.
+    f.send({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "slow", arguments: {} } });
+    const until = Date.now() + 5000;
+    while (!ep.requests.some((r) => r.msg.id === 3) && Date.now() < until) await new Promise((r) => setTimeout(r, 20));
+    f.send({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 3 } });
+    f.send({ jsonrpc: "2.0", id: 4, method: "ping" });
+    await f.next(4);
+    // A call in flight when stdin closes: the forwarder exits at once.
+    f.send({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "slow", arguments: {} } });
+    const until5 = Date.now() + 5000;
+    while (!ep.requests.some((r) => r.msg.id === 5) && Date.now() < until5) await new Promise((r) => setTimeout(r, 20));
+    const t0 = Date.now();
+    await f.stop();
+    assert.ok(Date.now() - t0 < 3000, "exits promptly");
+    const ids = f.out.map((l) => JSON.parse(l).id);
+    assert.ok(!ids.includes(3) && !ids.includes(5), `no answer for cancelled or abandoned calls: ${ids}`);
+    assertClean(f);
+  } finally {
+    await ep.close();
     t.cleanup();
   }
 });

@@ -24,8 +24,10 @@
 // Windows and Linux the installed program, best effort) and waits for the
 // endpoint up to 20 s; then, or with AI access off, the call's answer is
 // START. A call the just-started app answers "not ready" (its window is
-// still loading) is asked again within that time. The forwarder never
-// turns AI access on.
+// still loading) is asked again within that time (5 s when the user
+// started it). The forwarder never turns AI access on. Something else on
+// the port: the same offline answers, and a call gets otherMessage().
+// Windows and Linux: starting the app is best effort.
 //
 // stdout carries MCP only; diagnostics go to stderr.
 //
@@ -63,6 +65,8 @@ const MAX_ANSWER = 64 * 1024 * 1024;
 const LAUNCH_AGAIN_MS = 60_000;
 const SHORT_WAIT_MS = 2000;
 const POLL_MS = 250;
+/** A call answered "not ready" when this forwarder did not start the app is asked again this long. */
+const NOT_READY_RETRY_MS = 5000;
 
 const log = (msg) => process.stderr.write(`saturnus extension: ${msg}\n`);
 
@@ -178,11 +182,15 @@ function windowsApp(env) {
   return null;
 }
 
-/** Start the desktop app, detached; whether a start was tried. */
+/**
+ * Start the desktop app, detached; resolves to whether it started (the
+ * program ran: `spawn`, not `error`). Best effort on Windows and Linux,
+ * where the installed program is looked for in its usual places.
+ */
 export function launch(env = process.env, platform = process.platform) {
   if (env.SATURNUS_MCPB_LAUNCH_FILE) {
     appendFileSync(env.SATURNUS_MCPB_LAUNCH_FILE, "launch\n");
-    return true;
+    return Promise.resolve(true);
   }
   let cmd;
   let args = [];
@@ -196,17 +204,24 @@ export function launch(env = process.env, platform = process.platform) {
   }
   if (!cmd) {
     log("the saturnus app was not found in its usual places; start it yourself");
-    return false;
+    return Promise.resolve(false);
   }
-  try {
-    const child = spawn(cmd, args, { detached: true, stdio: "ignore", windowsHide: false });
-    child.on("error", (e) => log(`cannot start the saturnus app (${e.code ?? e.message})`));
-    child.unref();
-    return true;
-  } catch (e) {
-    log(`cannot start the saturnus app (${e.code ?? e.message})`);
-    return false;
-  }
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(cmd, args, { detached: true, stdio: "ignore", windowsHide: false });
+      child.once("spawn", () => {
+        child.unref();
+        resolve(true);
+      });
+      child.once("error", (e) => {
+        log(`cannot start the saturnus app (${e.code ?? e.message})`);
+        resolve(false);
+      });
+    } catch (e) {
+      log(`cannot start the saturnus app (${e.code ?? e.message})`);
+      resolve(false);
+    }
+  });
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -296,9 +311,10 @@ export class Forwarder {
       this.inFlight.get(msg.params?.requestId)?.abort();
       return;
     }
-    // Others go to the app when it runs (it takes them, 202), never start it.
+    // Others go to the app when it runs (it takes them, 202), never start
+    // it; post() sends nothing without the proof.
     const t = readToken(tokenPath(this.env, this.platform), this.platform);
-    if (!t.token || (await hello(this.port, t.token)) !== "up") return;
+    if (!t.token) return;
     try {
       await this.post(msg, t.token);
     } catch {
@@ -306,40 +322,60 @@ export class Forwarder {
     }
   }
 
+  /** Abort every call in flight (stdin closed: nobody reads the answers). */
+  abortAll() {
+    for (const c of this.inFlight.values()) c.abort();
+  }
+
   async request(msg) {
     const { id, method } = msg;
-    if (method === "initialize") this.initialize = msg;
-    const t = readToken(tokenPath(this.env, this.platform), this.platform);
-    if (!t.token) {
-      if (!t.missing) log(t.problem);
-      return this.write(this.offlineAnswer(msg) ?? this.error(id, t.problem));
-    }
-    let state = await hello(this.port, t.token);
-    if (state === "other") return this.write(this.error(id, this.otherMessage()));
-    if (state === "down") {
-      const answer = this.offlineAnswer(msg);
-      if (answer) return this.write(answer);
-      state = await this.start(t.token);
-      if (state === "other") return this.write(this.error(id, this.otherMessage()));
-      if (state !== "up") return this.write(method === "tools/call" ? { jsonrpc: "2.0", id, result: { content: [{ type: "text", text: START }], isError: true } } : this.error(id, START));
-    }
-    if (method !== "initialize" && !isModern(msg)) await this.replayInitialize(t.token);
+    // Registered before anything waits, so a cancellation at any point
+    // finds it; an aborted call never gets an answer.
     const controller = new AbortController();
+    const { signal } = controller;
     this.inFlight.set(id, controller);
+    const write = (m) => {
+      if (!signal.aborted) this.write(m);
+    };
+    const toolError = (text) => (method === "tools/call" ? { jsonrpc: "2.0", id, result: { content: [{ type: "text", text }], isError: true } } : this.error(id, text));
+    const began = Date.now();
     try {
-      let answers = this.answers(msg, await this.post(msg, t.token, controller.signal));
-      // Just started: the endpoint answers before the window has loaded
-      // its tools. Asked again until it has, within the wait for the app.
-      const until = this.lastLaunch + this.waitMs;
-      while (answers.length === 1 && notReady(answers[0]) && Date.now() < until && !controller.signal.aborted) {
-        await sleep(POLL_MS);
-        answers = this.answers(msg, await this.post(msg, t.token, controller.signal));
+      if (method === "initialize") this.initialize = msg;
+      const t = readToken(tokenPath(this.env, this.platform), this.platform);
+      if (!t.token) {
+        if (!t.missing) log(t.problem);
+        return write(this.offlineAnswer(msg) ?? this.error(id, t.problem));
       }
-      for (const m of answers) this.write(m);
+      let state = await hello(this.port, t.token);
+      if (signal.aborted) return;
+      if (state !== "up") {
+        // Closed, or something else on the port (an older saturnus, another
+        // program): what needs no calculator is answered from the bundle.
+        const answer = this.offlineAnswer(msg);
+        if (answer) return write(answer);
+        if (state === "down") state = await this.start(t.token);
+        if (signal.aborted) return;
+        if (state === "other") return write(toolError(this.otherMessage()));
+        if (state !== "up") return write(toolError(START));
+      }
+      if (method !== "initialize" && !isModern(msg)) await this.replayInitialize(t.token);
+      if (signal.aborted) return;
+      let answers = this.answers(msg, await this.post(msg, t.token, signal));
+      // Just started: the endpoint answers before the window has loaded
+      // its tools. Asked again until it has, within the wait for the app
+      // (or a few seconds when the user started it).
+      const until = Math.max(this.lastLaunch + this.waitMs, began + NOT_READY_RETRY_MS);
+      while (answers.length === 1 && notReady(answers[0]) && Date.now() < until && !signal.aborted) {
+        await sleep(POLL_MS);
+        if (signal.aborted) return;
+        answers = this.answers(msg, await this.post(msg, t.token, signal));
+      }
+      for (const m of answers) write(m);
     } catch (e) {
-      if (controller.signal.aborted) return; // cancelled: no answer
+      if (signal.aborted) return; // cancelled: no answer
+      if (e.code === "ENOPROOF") return write(toolError(e.state === "other" ? this.otherMessage() : START));
       log(`the app closed the connection (${e.code ?? e.message})`);
-      this.write(this.error(id, "saturnus closed during the call. Start it again, then try again."));
+      write(this.error(id, "saturnus closed during the call. Start it again, then try again."));
     } finally {
       this.inFlight.delete(id);
     }
@@ -356,7 +392,7 @@ export class Forwarder {
       let limit = SHORT_WAIT_MS;
       if (now - this.lastLaunch > LAUNCH_AGAIN_MS) {
         this.lastLaunch = now;
-        if (launch(this.env, this.platform)) limit = this.waitMs;
+        if (await launch(this.env, this.platform)) limit = this.waitMs;
       }
       const end = Date.now() + Math.min(limit, this.waitMs);
       for (;;) {
@@ -382,8 +418,16 @@ export class Forwarder {
     await this.replaying;
   }
 
-  /** POST `msg` to the endpoint with its headers; the HTTP answer. */
+  /**
+   * POST `msg` to the endpoint with its headers, after a fresh proof that
+   * the endpoint holds the token (every POST: a replay, each retry); the
+   * HTTP answer. Without the proof nothing is sent: an error with code
+   * ENOPROOF and the hello's `state`.
+   */
   async post(msg, token, signal = null) {
+    const state = await hello(this.port, token);
+    if (state !== "up") throw Object.assign(new Error(`no proof (${state})`), { code: "ENOPROOF", state });
+    if (signal?.aborted) throw Object.assign(new Error("cancelled"), { code: "ABORT_ERR" });
     const body = Buffer.from(JSON.stringify(msg), "utf8");
     const headers = {
       Authorization: `Bearer ${token}`,
@@ -417,8 +461,13 @@ export class Forwarder {
   /** The messages for the client from the app's answer `r` to `msg`. */
   answers(msg, r) {
     const type = String(r.headers["content-type"] ?? "").split(";")[0].trim().toLowerCase();
-    if (type === "text/event-stream") return sseMessages(r.body.toString("utf8"));
-    if (r.status === 202 || r.body.length === 0) return r.status < 300 ? [] : [this.error(msg.id, START)];
+    if (type === "text/event-stream") {
+      const events = sseMessages(r.body.toString("utf8"));
+      // The stream must end with the request's answer, or the client would wait for ever.
+      if (!events.some((m) => m && m.id === msg.id && ("result" in m || "error" in m))) events.push(this.error(msg.id, "saturnus ended the call without an answer. Try again."));
+      return events;
+    }
+    if (r.status === 202 || r.body.length === 0) return [this.error(msg.id, r.status < 300 ? "saturnus gave no answer. Try again." : START)];
     let v;
     try {
       v = JSON.parse(r.body.toString("utf8"));
@@ -468,15 +517,15 @@ export function main() {
   }
   const fwd = new Forwarder({ write: (m) => process.stdout.write(`${JSON.stringify(m)}\n`), offline });
   const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
-  const pending = new Set();
   rl.on("line", (line) => {
-    const p = fwd.handle(line).catch((e) => log(`unexpected: ${e.message}`));
-    pending.add(p);
-    p.finally(() => pending.delete(p));
+    fwd.handle(line).catch((e) => log(`unexpected: ${e.message}`));
   });
-  // stdin closed: the calls in flight still answer, then the process ends by itself (no exit, which could cut stdout short).
+  // stdin closed: Claude Desktop is gone or stopped the server. The calls
+  // in flight are aborted (nobody reads their answers) and the process
+  // ends once what was written has reached stdout.
   rl.on("close", () => {
-    Promise.allSettled([...pending]).then(() => log("stdin closed"));
+    fwd.abortAll();
+    process.stdout.write("", () => process.exit(0));
   });
 }
 

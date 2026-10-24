@@ -4,7 +4,7 @@
   "display_name": "saturnus calculators",
   "version": "",
   "description": "Use the HP calculators of the saturnus desktop app on this computer: read the display, press keys, run RPL and look up commands.",
-  "long_description": "Claude uses the calculators you have open in the saturnus desktop app: it reads the display, presses keys, runs RPL, stores programs on the 48 and 49 models and looks up commands in the reference. You watch the calculator while Claude works, and you allow each store or purge of a variable in saturnus first.\n\nTurn on \"Let AI apps on this computer use the calculators\" in saturnus (Connect your AI app). The extension starts saturnus when Claude needs a calculator. It reads the key from the file saturnus writes for your user account and sends it only to saturnus on this computer, after saturnus has proved it holds the same key. Nothing goes over the internet.",
+  "long_description": "Claude uses the calculators you have open in the saturnus desktop app: it reads the display, presses keys, runs RPL, stores programs on the 48 and 49 models and looks up commands in the reference. You watch the calculator while Claude works, and you allow each store or purge of a variable in saturnus first.\n\nTurn on \"Let AI apps on this computer use the calculators\" in saturnus (Connect your AI app). The extension starts saturnus when Claude needs a calculator (on Windows and Linux only if saturnus is installed in its usual place). It reads the key from the file saturnus writes for your user account and sends it only to saturnus on this computer, after saturnus has proved it holds the same key. Nothing goes over the internet.",
   "author": {
     "name": "James Bergamin",
     "url": "https://ractive.ch/saturnus/"
