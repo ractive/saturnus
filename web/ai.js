@@ -37,8 +37,20 @@ import "./shared/models.js";
 /** The app's version for the MCP server's info. */
 const VERSION = "1";
 
-/** The display as a PNG (a promise of base64), black on white at 3× (web/screenshot.js). */
-export function screenPng(frame, model) {
+/**
+ * A promise of the display as a PNG, base64, black on white at 3×
+ * (web/screenshot.js); null where none can be made.
+ */
+export async function screenPng(frame, model) {
+  try {
+    return await displayPng(frame, model);
+  } catch {
+    return null;
+  }
+}
+
+/** The display as a PNG, a promise of base64; throws or rejects where it cannot be made. */
+function displayPng(frame, model) {
   const bin = atob(frame.pixels);
   const row = Math.ceil(frame.width / 8);
   const px = new Uint8Array(frame.width * frame.height);

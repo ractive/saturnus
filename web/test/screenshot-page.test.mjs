@@ -109,6 +109,16 @@ test("Copy screen puts a 4x PNG on the clipboard, Save screen saves one, on thre
   }
 });
 
+test("without CompressionStream (an older browser) the copy is the canvas's RGBA PNG, the same pixels", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  assert.equal(await p.ev(fake("48gx")), "48gx");
+  await p.ev("window.CompressionStream = undefined; true");
+  await p.click("#copy-screen");
+  const copied = await p.until("window.copied", "copied by the fallback");
+  assert.deepEqual(copied, { types: ["image/png"], png: true, type: "image/png", width: 524, height: 288, depth: 8, colourType: 6, same: true });
+});
+
 test("the shortcut copies; the look follows the panel's choice", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;

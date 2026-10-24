@@ -10,8 +10,8 @@
 //                  with `frame`, `keysDown` and `busy`
 //   reference      the command reference (web/palette.js ReferenceLoader:
 //                  `index(model)`)
-//   png(frame, model)  the display as a PNG, base64; null where none can
-//                  be made
+//   png(frame, model)  a promise of the display as a PNG, base64 (null
+//                  where none can be made)
 //
 // Everything goes through the protocol's commands (web/protocol.md);
 // nothing here is new to the calculator.
@@ -564,7 +564,8 @@ async function display(t, format, { pixels = false, png = null, extra = {} } = {
     }
   }
   if (pixels) text.pixels = pixelRows(frame);
-  const image = wantImage && png ? await png(frame, t.model) : null;
+  // An image that cannot be made leaves the text (the deps contract).
+  const image = wantImage && png ? await (async () => png(frame, t.model))().catch(() => null) : null;
   if (!image) return text;
   const content = [{ type: "image", data: image, mimeType: "image/png" }, { type: "text", text: JSON.stringify(text) }];
   return { content, structuredContent: text };

@@ -147,6 +147,42 @@ test("more colours, more bits: 2, 4 and 8 bits a pixel", async () => {
   }
 });
 
+test("without CompressionStream: the same image as RGBA through a canvas", async () => {
+  const saved = { cs: globalThis.CompressionStream, doc: globalThis.document, id: globalThis.ImageData };
+  const drawn = [];
+  let blobOut = new Blob([Uint8Array.from([1, 2, 3])]);
+  globalThis.CompressionStream = undefined;
+  globalThis.ImageData = class { constructor(data, w, h) { Object.assign(this, { data, width: w, height: h }); } };
+  globalThis.document = {
+    createElement: (tag) => {
+      assert.equal(tag, "canvas");
+      const canvas = {
+        getContext: () => ({ putImageData: (img, x, y) => drawn.push({ img, x, y, canvas: [canvas.width, canvas.height] }) }),
+        toBlob: (cb, type) => { assert.equal(type, "image/png"); cb(blobOut); },
+      };
+      return canvas;
+    },
+  };
+  try {
+    const { f, pixels } = frame(131, 16, { rad: true });
+    const want = screenRgba(f, pixels, "42s", "lcd", 4);
+    const bytes = await screenPng(f, pixels, "42s", "lcd", 4);
+    assert.deepEqual([...bytes], [1, 2, 3], "the canvas's PNG");
+    assert.equal(drawn.length, 1);
+    assert.deepEqual(drawn[0].canvas, [want.width, want.height]);
+    assert.deepEqual([drawn[0].img.width, drawn[0].img.height, drawn[0].x, drawn[0].y], [want.width, want.height, 0, 0]);
+    assert.ok(Buffer.from(drawn[0].img.data).equals(Buffer.from(want.data)), "the screen's RGBA, pixel for pixel");
+    // The blob and base64 forms follow; a canvas that makes nothing rejects.
+    assert.equal((await pngBlob(screenPng(f, pixels, "42s", "bw"))).size, 3);
+    blobOut = null;
+    await assert.rejects(screenPng(f, pixels, "42s", "bw"), /could not be made/);
+  } finally {
+    globalThis.CompressionStream = saved.cs;
+    globalThis.document = saved.doc;
+    globalThis.ImageData = saved.id;
+  }
+});
+
 test("the CRC is zlib's; the bytes as a blob and as base64", async () => {
   const sample = new TextEncoder().encode("IEND");
   assert.equal(crc32(sample), zlibCrc32(sample));

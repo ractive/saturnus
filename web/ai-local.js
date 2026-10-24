@@ -386,7 +386,7 @@ export class LocalAiAccess extends EventTarget {
     return { id: shown, model: shown, backend: v.backend, store: v.store };
   }
 
-  /** The display as a PNG (base64), as web/ai.js makes it. */
+  /** A promise of the display as a PNG, base64 (null where none can be made), as web/ai.js makes it. */
   png(frame, model) {
     return screenPng(frame, model);
   }

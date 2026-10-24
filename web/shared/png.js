@@ -1,8 +1,9 @@
 // Pixel images as indexed PNGs, encoded here (no canvas): a palette of
 // the image's colours and as few bits a pixel as it needs (1 for the two
 // colours of a screen or a GROB), scaled up in the rows with hard pixel
-// edges, the rows deflated by the browser's CompressionStream. And the
-// clipboard write. Pure (no DOM): web/test/png.test.mjs, `copyPng` in
+// edges, the rows deflated by the browser's CompressionStream (a canvas's
+// RGBA PNG where there is none). And the clipboard write. Pure but for
+// that fallback (no DOM): web/test/png.test.mjs, `copyPng` in
 // web/test/screenshot.test.mjs.
 
 /**
@@ -12,6 +13,8 @@
  * (no `ClipboardItem`, no `image/png` support) or the write failed.
  */
 export async function copyPng(blob, { clipboard = globalThis.navigator?.clipboard, Item = globalThis.ClipboardItem } = {}) {
+  // Observed on every path: a failed image unused here is no unhandled rejection.
+  Promise.resolve(blob).catch(() => {});
   if (!clipboard?.write || typeof Item !== "function") return false;
   if (typeof Item.supports === "function" && !Item.supports("image/png")) return false;
   try {
@@ -87,13 +90,53 @@ async function deflate(bytes) {
 }
 
 /**
+ * Whether this browser deflates (CompressionStream with "deflate": not
+ * in Safari before 16.4, Firefox before 113, an old WebKitGTK webview).
+ */
+function canDeflate() {
+  if (typeof globalThis.CompressionStream !== "function") return false;
+  try {
+    new globalThis.CompressionStream("deflate");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The fallback where the browser cannot deflate: the same image as RGBA,
+ * encoded by a canvas (an 8-bit RGBA PNG, larger, the same pixels).
+ */
+function canvasPng({ width, height, index, palette }, scale) {
+  const W = width * scale;
+  const H = height * scale;
+  const data = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    const row = Math.floor(y / scale) * width;
+    for (let x = 0; x < W; x++) {
+      const c = palette[index[row + Math.floor(x / scale)]];
+      data.set([c[0], c[1], c[2], 255], (y * W + x) * 4);
+    }
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  canvas.getContext("2d").putImageData(new ImageData(data, W, H), 0, 0);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b.arrayBuffer().then((a) => new Uint8Array(a))) : reject(new Error("the image could not be made"))), "image/png");
+  });
+}
+
+/**
  * An indexed PNG (colour type 3) of `width` by `height` pixels, each a
  * palette index in `index` (one byte a pixel), `palette` its colours
  * (`[r, g, b]`, 1 to 256 of them), scaled up `scale` times with hard
- * edges: a promise of the file's bytes.
+ * edges: a promise of the file's bytes. Where the browser cannot
+ * deflate, an RGBA PNG from a canvas instead (`canvasPng`).
  */
 export async function indexedPng({ width, height, index, palette }, scale = 1) {
   if (!palette.length) throw new Error("no colours");
+  if (!canDeflate()) return canvasPng({ width, height, index, palette }, scale);
   const depth = bitDepth(palette.length);
   const W = width * scale;
   const H = height * scale;
