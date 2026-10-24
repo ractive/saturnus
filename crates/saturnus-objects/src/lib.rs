@@ -16,6 +16,9 @@
 //! - [`prolog`]: object types by prolog and the size walk.
 //! - [`cmdline`]: the command line being edited (text, cursor, open or
 //!   not) and the editor's entry mode, alpha and shifts, from RAM.
+//! - [`screen`]: what has the keyboard (the stack, a command line, a
+//!   halted program, an input form, a choose or message box, the
+//!   graphics screen), from RAM.
 //! - [`error`]: [`DecodeError`] (nibbles that are not an object, and
 //!   where) and [`Error`] (everything else, such as memory the ROM has not
 //!   set up yet).
@@ -32,6 +35,7 @@ pub mod names;
 pub mod object;
 pub mod prolog;
 pub mod ram;
+pub mod screen;
 pub mod transfer;
 
 pub use cmdline::{CommandLine, Editor, EditorLayout, command_line};

@@ -217,9 +217,70 @@ test("run_rpl refuses while the user's command line is open, and types nothing",
   assert.ok(!c.calls.some(([cmd]) => cmd === "run"), "nothing typed");
 });
 
+/** `uiState` answers, as the protocol gives them. */
+const AT_STACK = { kind: "stack", from: "memory", stackInControl: true, halted: 0, commandLine: false };
+const IN_FORM = { kind: "inputForm", from: "memory", stackInControl: false, halted: 0, commandLine: false };
+
+test("run_rpl refuses while a form has the keyboard, with the screen and how to leave it", async () => {
+  // The owner's report: the 48GX in the PLOT form took UPDIR into a field.
+  const c = fake("48gx", { uiState: IN_FORM, commandLine: { active: false }, run: { closed: true } });
+  await assert.rejects(call(tools({ "48gx": c }).run_rpl, { text: "UPDIR" }), /an input form, not the stack.*screen: "input form".*CANCEL.*to_stack/s);
+  assert.ok(!c.calls.some(([cmd]) => cmd === "run"), "nothing typed");
+  // A halted program leaves the stack usable: run_rpl runs, and says so.
+  const halted = { ...AT_STACK, kind: "halted", halted: 1 };
+  const h = fake("48gx", { uiState: halted, commandLine: { active: false }, run: { closed: true }, stack: [] });
+  const r = await call(tools({ "48gx": h }).run_rpl, { text: "CONT" });
+  assert.equal(r.screen, "program halted");
+  assert.equal(r.haltedPrograms, 1);
+  assert.match(r.next, /CONT.*KILL/);
+});
+
+test("press_keys and read_display say what has the keyboard; nothing at the stack", async () => {
+  const c = fake("49g", { uiState: { ...IN_FORM, kind: "message", from: "display" }, commandLine: { active: false }, stack: [] });
+  const r = await call(tools({ "49g": c }).press_keys, { keys: ["1"], display: "text" });
+  assert.equal(r.screen, "message");
+  assert.match(r.next, /"enter".*closes it/);
+  const s = fake("48sx", { uiState: AT_STACK, commandLine: { active: false }, stack: [] });
+  const d = await call(tools({ "48sx": s }).read_display, { format: "text" });
+  assert.equal(d.screen, "stack");
+  assert.equal(d.next, undefined);
+  // Not on the key-driven models.
+  const k = await call(tools({ "42s": fake("42s") }).read_display, { format: "text" });
+  assert.equal(k.screen, undefined);
+});
+
+test("to_stack presses CANCEL until the stack has the keyboard, and says what it closed", async () => {
+  const states = [{ ...IN_FORM, kind: "chooseBox", from: "display" }, IN_FORM, AT_STACK];
+  const c = fake("48gx", { uiState: () => states[c.calls.filter(([cmd]) => cmd === "typeKeys").length], commandLine: { active: false }, stack: [] });
+  const r = await call(tools({ "48gx": c }).to_stack);
+  assert.deepEqual(r.closed, ["choose box", "input form"]);
+  assert.equal(r.pressed, 2);
+  assert.equal(r.screen, "stack");
+  assert.deepEqual(c.calls.filter(([cmd]) => cmd === "typeKeys").map(([, k]) => k), [["on"], ["on"]]);
+  // At the stack: nothing pressed.
+  const s = fake("48gx", { uiState: AT_STACK, commandLine: { active: false }, stack: [] });
+  assert.equal((await call(tools({ "48gx": s }).to_stack)).pressed, 0);
+  assert.ok(!s.calls.some(([cmd]) => cmd === "typeKeys"));
+  // Never a command line typed at the stack.
+  const l = fake("48gx", { uiState: { ...AT_STACK, kind: "commandLine", commandLine: true }, commandLine: { active: true, text: "12" } });
+  await assert.rejects(call(tools({ "48gx": l }).to_stack), /command line open \("12"\).*never cancels/s);
+  assert.ok(!l.calls.some(([cmd]) => cmd === "typeKeys"));
+  // A screen CANCEL does not leave: five presses, then the note.
+  const u = fake("48gx", { uiState: { ...IN_FORM, kind: "unknown" }, commandLine: { active: false }, stack: [] });
+  const stuck = (await call(tools({ "48gx": u }).to_stack)).structuredContent;
+  assert.equal(stuck.pressed, 5);
+  assert.equal(stuck.screen, "unknown");
+  assert.match(stuck.note, /Still not at the stack/);
+  // Only on the 48SX, 48GX and 49G.
+  await assert.rejects(call(tools({ "28s": fake("28s") }).to_stack), /48SX, 48GX and 49G/);
+  assert.ok(familyOf("49g").tools.includes("to_stack"));
+  assert.ok(!familyOf("28s").tools.includes("to_stack"));
+  assert.match(INSTRUCTIONS, /to_stack/);
+});
+
 test("the tools whose results carry calculator text say it is untrusted", () => {
   const t = tools({ "48gx": fake("48gx") });
-  for (const name of ["read_display", "read_stack", "list_variables", "read_variable", "press_keys", "run_rpl", "run_function"]) {
+  for (const name of ["read_display", "read_stack", "list_variables", "read_variable", "press_keys", "run_rpl", "to_stack", "run_function"]) {
     assert.equal(t[name].annotations?.untrustedContentHint, true, name);
   }
 });

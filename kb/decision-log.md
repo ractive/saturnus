@@ -4510,3 +4510,35 @@ Found in the owner's first test with Codex 0.163 on 2026-10-23.
   disabled and a backdrop click does nothing; a line says why, with Close
   anyway (a way out on a phone, which has no Esc; Esc closes too). With
   AI access off, connecting or reconnecting, Done closes as before.
+
+## 2026-10-24 (iteration 61: what is on the screen)
+
+Owner report: an AI app on the 48GX typed UPDIR and ENTER into the PLOT
+form's field with run_rpl, got "Invalid Syntax" and kept trying. Owner:
+read the state from memory rather than guess it from the display.
+
+- **The stack's loop is read from the return stack**, not from the
+  display: the frame under the key wait's four entries equals the outer
+  loop's frame at the bottom of the return stack (saved B and
+  `HeapStart`), at the stack only; every other loop puts its own frame
+  there. No ROM address is needed, so it holds on other revisions (49G
+  1.19-6 checked). Halted programs are counted the same way (copies of
+  the outer-loop frame). Wiki: `hardware/ui-state`.
+- **What is open is named from memory where RAM names it**: the graphics
+  screen (shown GROB = PICT), input forms (the temporaries `IF` on the
+  48GX, `IfMenu`/`CurrentField` on the 49G), the 49G's choose box
+  (`NbElm`). **The 48GX's choose and message boxes and the 49G's message
+  box are told from the display** (a shadowed frame; a dark row inside
+  for a choose box): RAM binds only unnamed temporaries for them. The
+  answer says which (`from`).
+- **No titles or message texts**: the built-in forms keep their title as
+  a graphic; the AI app sees them in the display image.
+- **`uiState`** is the protocol command; the tools' `screen` and `next`
+  come from it on the 48SX, 48GX and 49G. `run_rpl` refuses unless the
+  stack has the keyboard (a halted program is fine: CONT and KILL are
+  typed). **`to_stack`** presses CANCEL until the stack has the keyboard,
+  at most five times, reading the state after each press, and says what
+  it closed; it refuses at a command line typed at the stack.
+- **Extra screen kind `program input`**: another loop with the command
+  line open (INPUT; the 49G's equation writer uses the line the same
+  way), so the AI app types the answer instead of being told to leave.

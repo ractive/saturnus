@@ -140,6 +140,7 @@ commands! {
     ObjectAt = "objectAt",
     CommandLine = "commandLine",
     EntryModes = "entryModes",
+    UiState = "uiState",
     StoreFile = "storeFile",
     FetchFile = "fetchFile",
     Purge = "purge",
@@ -201,6 +202,7 @@ impl CommandKind {
             | C::WatchMemory
             | C::CommandLine
             | C::EntryModes
+            | C::UiState
             | C::Join
             | C::Ping
             | C::Attach

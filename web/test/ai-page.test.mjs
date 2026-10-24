@@ -5,7 +5,8 @@
 // and the MCP SDK client (tab-mcp's own test dependency) calling the tools
 // with a token put into the relay's store as tab-mcp's tests do (its OAuth
 // with the pairing code comes in its iteration 3). On a booted 48GX:
-// run_rpl, press_keys, the stack, store_variable allowed in the page's
+// run_rpl, press_keys, the PLOT form left with to_stack (iteration 61),
+// the stack, store_variable allowed in the page's
 // confirmation, read_variable, purge_variable refused there, the hidden tab
 // kept running while connected. On a booted 42S: run_function shows what
 // the keys show. Skipped without Chrome, web/pkg, Bun, the tab-mcp
@@ -214,7 +215,7 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   const client = await mcpClient(address, token);
   t.after(() => client.close());
   const names = (await client.listTools()).tools.map((x) => x.name);
-  assert.deepEqual(names.sort(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "purge_variable", "read_display", "read_stack", "read_variable", "run_function", "run_rpl", "store_variable"].concat("list_variables").sort());
+  assert.deepEqual(names.sort(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "purge_variable", "read_display", "read_stack", "read_variable", "run_function", "run_rpl", "store_variable", "to_stack"].concat("list_variables").sort());
 
   const list = await use(client, "list_calculators");
   assert.deepEqual(list.json.calculators.map((x) => [x.id, x.shown, x.family]), [["48gx", true, "rpl"]]);
@@ -223,6 +224,18 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   assert.equal(ran.error, false, ran.text);
   assert.equal(ran.json.error, undefined);
   assert.equal(ran.json.stack[0].text, "5");
+
+  // The owner's report (iteration 61): in the PLOT form run_rpl refuses
+  // and says how to leave; to_stack leaves.
+  const form = await use(client, "press_keys", { keys: ["rightshift", "8"], display: "text" });
+  assert.equal(form.json.screen, "input form", form.text);
+  assert.match(form.json.next, /CANCEL/);
+  const refused = await use(client, "run_rpl", { text: "UPDIR" });
+  assert.equal(refused.error, true);
+  assert.match(refused.text, /input form.*to_stack/s);
+  const left = await use(client, "to_stack");
+  assert.deepEqual(left.json.closed, ["input form"], left.text);
+  assert.equal(left.json.screen, "stack");
 
   const pressed = await use(client, "press_keys", { keys: ["4", "enter"] });
   assert.equal(pressed.error, false, pressed.text);

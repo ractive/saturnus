@@ -1147,7 +1147,10 @@ through the relay while the tab is open. Nothing is installed.
   28S (the 28S through its keys, as Search types); `read_stack`,
   `list_variables`, `read_variable`, `store_variable` and
   `purge_variable` on the 48SX, 48GX and 49G (the protocol's `stack`,
-  `memoryTree`, `editText`, `storeText`, `purge`); `run_function` on the
+  `memoryTree`, `editText`, `storeText`, `purge`); `to_stack` and each
+  result's `screen` and `next` on the 48SX, 48GX and 49G (the protocol's
+  `uiState`: what has the keyboard, read from memory; `run_rpl` refuses
+  unless the stack has it); `run_function` on the
   key-driven models (the reference's keys, pressed as Search's Enter does:
   `palette.js` `pressFunction`). A tool works on the calculator Calculator
   shows, or another running one by its id (a kept calculator Files runs,
