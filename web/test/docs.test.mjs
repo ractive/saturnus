@@ -184,7 +184,7 @@ test("the build: each page's HTML and its Markdown as written, the command files
     const { pages, written } = build(out, { csp: "default-src 'self'" });
     const rels = pages.map((p) => p.rel).sort();
     const sub = rels.filter((r) => r.includes("/"));
-    assert.deepEqual(rels.filter((r) => !r.includes("/")), [...MODEL_ORDER, "commands", "index", "saturn", "transfer"].sort());
+    assert.deepEqual(rels.filter((r) => !r.includes("/")), [...MODEL_ORDER, "ai-apps", "commands", "index", "saturn", "transfer"].sort());
     assert.ok(sub.length && sub.every((r) => /^(saturn|transfer)\//.test(r)), "sub-pages only under the two sections");
     for (const p of pages) {
       const { html, md } = pagePaths(p.rel);

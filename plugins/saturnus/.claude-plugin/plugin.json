@@ -1,0 +1,13 @@
+{
+  "name": "saturnus",
+  "displayName": "saturnus",
+  "description": "Use the HP calculators that saturnus emulates (48GX, 49G, 42S, 17BII, 38G and more): the saturnus skill, and the desktop app's calculators as MCP tools.",
+  "author": {
+    "name": "ractive",
+    "url": "https://github.com/ractive"
+  },
+  "homepage": "https://ractive.ch/saturnus/docs/ai-apps/",
+  "repository": "https://github.com/ractive/saturnus",
+  "license": "MIT",
+  "keywords": ["hp48", "hp49", "hp42s", "hp17bii", "hp38g", "rpl", "calculator", "emulator", "mcp"]
+}
