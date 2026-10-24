@@ -36,6 +36,6 @@ Kermit client users run.
 
 - [x] Decision: which client stays; decision-log entry
 - [x] Fold the other one into it; remove the duplicate
-- [ ] Tests: the transfer tests and the ROM-gated Kermit tests pass on the one client; satx e2e against saturnus (`just satx-e2e-saturnus 49g`)
-- [ ] kb: backlog item completed
+- [x] Tests: the transfer tests and the ROM-gated Kermit tests pass on the one client; satx e2e against saturnus (`just satx-e2e-saturnus 49g`)
+- [x] kb: backlog item completed
 - [ ] Owner: a file sent and received in Files on the web and in the desktop app

@@ -2,7 +2,7 @@
 title: "One Kermit client: the engine's Exchange and satx-core's Machine"
 type: backlog
 date: 2026-10-14
-status: planned
+status: completed
 priority: low
 tags:
   - backlog

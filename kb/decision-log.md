@@ -4634,6 +4634,10 @@ For [[iterations/iteration-63-one-kermit-client]]:
   `saturnus://` transport is a blocking `Transport` on wall-clock time
   and never used the mode; `just satx-e2e-saturnus` still runs satx-core's
   own client there, as satx runs it on real calculators.
+- **Same bytes**: the command reference regenerated in full on the one
+  client (`cargo test --release -p saturnus-refgen -- --include-ignored`:
+  every catalog, examples and keyed reference) came out byte for byte
+  the same as the committed one.
 - **Messages**: a Kermit E packet in saturnus-kermit now reads
   `calculator error: X` (the engine's wording) instead of satx-core's
   `calculator: X`.
