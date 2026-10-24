@@ -9,8 +9,9 @@
 //!
 //! - The RPL return stack (between the saved `HeapStart` and the saved B):
 //!   its bottom entries are the system outer loop's own frame; while the
-//!   stack has the keyboard, the frame right under the key wait's four
-//!   entries is that same outer-loop frame. Any other loop (a
+//!   stack has the keyboard, the sixth entry from the top (under the key
+//!   wait's four entries and the calling loop's own return into it) is
+//!   that same outer-loop frame. Any other loop (a
 //!   parameterized outer loop: forms, choose and message boxes, the
 //!   graphics screen, `INPUT`, `WAIT`, the interactive stack; the 48's
 //!   equation writer) puts its own frame there. A halted program leaves
@@ -44,6 +45,9 @@ const MAX_BINDINGS: u32 = 512;
 /// Entries the key wait itself puts on the return stack, above the loop
 /// that called it.
 const KEY_WAIT: u32 = 4;
+/// The entry from the top (1-based) that holds the calling loop's frame:
+/// under the key wait's entries and the loop's own return into the wait.
+const LOOP_FRAME: u32 = KEY_WAIT + 2;
 
 /// Where a model's ROM keeps what the screen state is read from (wiki:
 /// hardware/ui-state). The `*_ptr` fields hold 5-nibble pointers.
@@ -225,7 +229,7 @@ impl ReturnStack {
             return None;
         }
         let copies = self.entries.iter().filter(|&&e| e == outer).count() as u32;
-        let in_control = self.top(KEY_WAIT + 2)? == outer;
+        let in_control = self.top(LOOP_FRAME)? == outer;
         Some((in_control, copies.saturating_sub(1)))
     }
 }

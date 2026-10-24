@@ -22,7 +22,7 @@ function fake(model, answers = {}) {
       return (...args) => {
         calls.push([cmd, ...args]);
         if (cmd === "skin") return Promise.resolve({ keys: [{ name: "1", label: "1" }, { name: "enter", label: "ENTER" }, { name: "plus", label: "+" }, { name: "leftshift", label: "" }, { name: "sin", label: "SIN", left: "ASIN" }, { name: "on", label: "EXIT" }] });
-        if (cmd === "stats") return Promise.resolve({ loop: "sleep" });
+        if (cmd === "stats") return Promise.resolve(typeof answers.stats === "function" ? answers.stats() : answers.stats ?? { loop: "sleep" });
         if (cmd === "typeKeys") return undefined;
         const a = answers[cmd];
         if (a instanceof Error) return Promise.reject(a);
@@ -235,6 +235,21 @@ test("run_rpl refuses while a form has the keyboard, with the screen and how to 
   assert.match(r.next, /CONT.*KILL/);
 });
 
+test("while a program runs: run_rpl says so, results carry screen running, RAM is not read", async () => {
+  const c = fake("48gx", { stats: { loop: "frame" }, uiState: IN_FORM, commandLine: { active: false }, run: { closed: true }, stack: [] });
+  await assert.rejects(call(tools({ "48gx": c }).run_rpl, { text: "1" }), /still running a program.*screen: "running".*wait and read_display/s);
+  assert.ok(!c.calls.some(([cmd]) => cmd === "run" || cmd === "uiState"));
+  const d = await call(tools({ "48gx": c }).read_display, { format: "text" });
+  assert.equal(d.screen, "running");
+  assert.match(d.next, /ATTN/);
+  // run_rpl that returns still running: its screen is "running" too.
+  let n = 0;
+  const r = fake("48gx", { stats: () => ({ loop: n++ ? "frame" : "sleep" }), uiState: AT_STACK, commandLine: { active: false }, run: { closed: true, running: true }, stack: [] });
+  const ran = await call(tools({ "48gx": r }).run_rpl, { text: "« 1 1000 START NEXT » EVAL" });
+  assert.equal(ran.running, true);
+  assert.equal(ran.screen, "running");
+});
+
 test("press_keys and read_display say what has the keyboard; nothing at the stack", async () => {
   const c = fake("49g", { uiState: { ...IN_FORM, kind: "message", from: "display" }, commandLine: { active: false }, stack: [] });
   const r = await call(tools({ "49g": c }).press_keys, { keys: ["1"], display: "text" });
@@ -261,15 +276,35 @@ test("to_stack presses CANCEL until the stack has the keyboard, and says what it
   const s = fake("48gx", { uiState: AT_STACK, commandLine: { active: false }, stack: [] });
   assert.equal((await call(tools({ "48gx": s }).to_stack)).pressed, 0);
   assert.ok(!s.calls.some(([cmd]) => cmd === "typeKeys"));
-  // Never a command line typed at the stack.
-  const l = fake("48gx", { uiState: { ...AT_STACK, kind: "commandLine", commandLine: true }, commandLine: { active: true, text: "12" } });
-  await assert.rejects(call(tools({ "48gx": l }).to_stack), /command line open \("12"\).*never cancels/s);
-  assert.ok(!l.calls.some(([cmd]) => cmd === "typeKeys"));
-  // A screen CANCEL does not leave: five presses, then the note.
-  const u = fake("48gx", { uiState: { ...IN_FORM, kind: "unknown" }, commandLine: { active: false }, stack: [] });
+  // Never where CANCEL could drop typing or stop a program: refused, nothing pressed.
+  const refusals = [
+    [{ ...AT_STACK, kind: "commandLine", commandLine: true }, /command line.*"enter"/s],
+    [{ ...IN_FORM, commandLine: true }, /input form with a field being edited.*keeps what is typed/s],
+    [{ ...IN_FORM, kind: "input", commandLine: true }, /program input.*decided/s],
+    [{ ...AT_STACK, kind: "halted", halted: 1 }, /halted program.*CONT.*KILL/s],
+    [{ ...IN_FORM, kind: "unknown" }, /another screen.*read_display/s],
+  ];
+  for (const [state, why] of refusals) {
+    const x = fake("48gx", { uiState: state, commandLine: { active: state.commandLine, text: "12" }, stack: [] });
+    await assert.rejects(call(tools({ "48gx": x }).to_stack), why, state.kind);
+    assert.ok(!x.calls.some(([cmd]) => cmd === "typeKeys"), state.kind);
+  }
+  // A running program: not read from RAM, refused, never ATTN.
+  const busy = fake("48gx", { stats: { loop: "frame" }, uiState: IN_FORM });
+  await assert.rejects(call(tools({ "48gx": busy }).to_stack), /running program.*wait and read_display/s);
+  assert.ok(!busy.calls.some(([cmd]) => cmd === "typeKeys" || cmd === "uiState"));
+  // Reaching such a screen after closing one: stops and reports.
+  const into = [{ ...IN_FORM, kind: "message", from: "display" }, { ...IN_FORM, kind: "input", commandLine: true }];
+  const m = fake("48gx", { uiState: () => into[Math.min(m.calls.filter(([cmd]) => cmd === "typeKeys").length, 1)], commandLine: { active: true }, stack: [] });
+  const stopped = (await call(tools({ "48gx": m }).to_stack)).structuredContent;
+  assert.deepEqual(stopped.closed, ["message"]);
+  assert.equal(stopped.screen, "program input");
+  assert.match(stopped.note, /^Stopped: /);
+  // A box CANCEL does not close: five presses, then the note.
+  const u = fake("48gx", { uiState: { ...IN_FORM, kind: "message" }, commandLine: { active: false }, stack: [] });
   const stuck = (await call(tools({ "48gx": u }).to_stack)).structuredContent;
   assert.equal(stuck.pressed, 5);
-  assert.equal(stuck.screen, "unknown");
+  assert.equal(stuck.screen, "message");
   assert.match(stuck.note, /Still not at the stack/);
   // Only on the 48SX, 48GX and 49G.
   await assert.rejects(call(tools({ "28s": fake("28s") }).to_stack), /48SX, 48GX and 49G/);
