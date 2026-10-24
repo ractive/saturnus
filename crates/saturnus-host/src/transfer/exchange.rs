@@ -60,7 +60,7 @@ pub enum Failure {
 
 /// `kermit-proto`'s defaults with a shorter timeout, fewer retries and no
 /// linger (the next command comes after the turnaround anyway).
-pub fn config() -> Config {
+pub(super) fn config() -> Config {
     let mut c = Config::default();
     c.timeout = TIMEOUT;
     c.retries = RETRIES;
@@ -93,7 +93,7 @@ impl Exchange {
     }
 
     /// [`Exchange::new`] with `config`.
-    pub fn with<L: Line + ?Sized>(
+    pub(super) fn with<L: Line + ?Sized>(
         wire: &mut Wire,
         m: &mut L,
         command: Command,

@@ -48,7 +48,7 @@ use exchange::*;
 use ops::*;
 use run::*;
 
-pub use exchange::{Exchange, Failure, Transcript, config};
+pub use exchange::{Exchange, Failure, Transcript};
 pub use ops::{
     BACKUP_MARGIN, BACKUP_NO_ROOM, BACKUP_VARIABLE, Op, REPLACE_VARIABLE, SCREEN_VARIABLE,
     TEXT_VARIABLE, Target, may_serve, store_bytes, trim_fetched,
