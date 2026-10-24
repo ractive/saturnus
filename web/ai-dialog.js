@@ -14,26 +14,33 @@
 // header (shared/mcp-install.js), the state (off, on, the AI apps seen
 // lately), the port, and no pairing code.
 
+import { iconEl } from "./shared/components/icons.js";
 import { el } from "./shared/dom.js";
 import { externalLink } from "./shared/ext-links.js";
 import { CODEX_FEATURE, installTargets } from "./shared/mcp-install.js";
 
 const COPY_FAILED = "Press ⌘C or Ctrl+C";
 
+/** A Copy button: the copy icon, then `label` (in a span copyText changes). */
+function copyButton(label, cls = null) {
+  return el("button", { type: "button", class: cls }, iconEl("copy", "ic-sm"), el("span", { text: label }));
+}
+
 /**
- * Copy `text` from `button`'s click: "Copied" on it for two seconds, or,
- * when the browser refuses, `select()` (which shows and selects the text)
- * and the keys to press.
+ * Copy `text` from a copyButton's click: "Copied" on it for two seconds,
+ * or, when the browser refuses, `select()` (which shows and selects the
+ * text) and the keys to press.
  */
 async function copyText(button, label, text, select) {
+  const words = button.querySelector("span");
   try {
     await navigator.clipboard.writeText(text);
-    button.textContent = "Copied";
+    words.textContent = "Copied";
   } catch {
     select();
-    button.textContent = COPY_FAILED;
+    words.textContent = COPY_FAILED;
   }
-  setTimeout(() => { button.textContent = label; }, 2000);
+  setTimeout(() => { words.textContent = label; }, 2000);
 }
 
 /**
@@ -48,13 +55,13 @@ export async function openAiDialog(ai, doc = document) {
   const dialog = el("dialog", { class: "ai", "aria-labelledby": "ai-title" });
   const status = el("p", { class: "ai-status", role: "status" });
   const address = el("input", { class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
-  const copy = el("button", { type: "button", text: "Copy" });
+  const copy = copyButton("Copy");
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
   const block = installBlock({ newOnly: true });
   const install = block.node;
   const codeText = el("span");
   const codeValue = el("strong", { class: "ai-code-value" });
-  const copyCode = el("button", { type: "button", class: "small", text: "Copy code" });
+  const copyCode = copyButton("Copy code", "small");
   const code = el("p", { class: "ai-code", hidden: true }, codeText, " ", copyCode);
   const apps = el("ul", { class: "ai-apps" });
   const appsNote = el("p", { class: "ai-note" });
@@ -100,7 +107,7 @@ export async function openAiDialog(ai, doc = document) {
     if (pc && codeValue.textContent !== pc.code) {
       codeValue.textContent = pc.code;
       codeText.replaceChildren("When your AI app asks for a code, enter ", codeValue, ".");
-      copyCode.textContent = "Copy code";
+      copyCode.querySelector("span").textContent = "Copy code";
     }
     // Lost: why, and that it connects again by itself (the client library reconnects).
     status.classList.toggle("error", Boolean(ai.error) && !ai.lost);
@@ -188,8 +195,8 @@ export async function openAiDialog(ai, doc = document) {
 export function installBlock({ connector: connectorText = null, newOnly = false } = {}) {
   const cursor = el("a", { class: "button small", text: "Add to Cursor" });
   const vscode = el("a", { class: "button small", text: "Add to VS Code" });
-  const forClaude = el("button", { type: "button", class: "small", text: "Copy for Claude Code" });
-  const forCodex = el("button", { type: "button", class: "small", text: "Copy for Codex" });
+  const forClaude = copyButton("Copy for Claude Code", "small");
+  const forCodex = copyButton("Copy for Codex", "small");
   const cmd = el("textarea", { class: "input ai-cmd", readonly: true, rows: 1, hidden: true, "aria-label": "Command", spellcheck: "false" });
   const connector = el("p", { class: "ai-note" });
   const codexNote = el("p", { class: "ai-note", hidden: !newOnly });
@@ -251,7 +258,7 @@ export async function openLocalDialog(ai, doc = document) {
   const onRow = el("label", { class: "switch ai-keep" }, on, el("span", {}, "Let AI apps on this computer use the calculators", el("small", { text: "Off by default. Turning it off stops access at once." })));
   const status = el("p", { class: "ai-status", role: "status" });
   const address = el("input", { class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
-  const copy = el("button", { type: "button", text: "Copy" });
+  const copy = copyButton("Copy");
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
   const block = installBlock({ connector: "Claude and ChatGPT connect from the internet, so they cannot use this address." });
   const keyNote = el("p", { class: "ai-note", text: "The links and commands include a key that lets the AI app in. The AI app keeps it in its settings file. Turn this off to shut every AI app out." });
