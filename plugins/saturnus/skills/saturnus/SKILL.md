@@ -46,7 +46,8 @@ Many problems come from keys landing in a screen you did not expect. Signs:
   gives its shifted function or a letter.
 
 The way out: read the display, then press CANCEL or EXIT once and read again.
-CANCEL is key `"on"` on the 48, 49 and 38G to 40G, and EXIT is key `"on"` on
+CANCEL is key `"on"` on the 48, 49 and 38G to 40G, ATTN is key `"on"` on the
+28S, and EXIT is key `"on"` on
 the 42S; the 17BII, 17B, 19BII and 27S have their own EXIT key (`"exit"`) and
 ⇧ MAIN. Repeat until the stack (RPL models), HOME (38G to 40G) or the main
 menu is back. A message box with OK takes the OK menu key or ENTER.
@@ -90,9 +91,11 @@ Worked tasks (a program on the 48GX, a loan on the 17BII, a linear fit on the
   `lookup_command` and `"model": "48sx"`.
 - **Documented ROM bugs.** `lookup_command` carries them in its `note`: for
   example the 48SX's HMS+ for sums that carry into the next hour, and the
-  38G's ACOT, which ignores the angle mode. The 42S's COMB and PERM can repeat
-  an "Invalid Data" error after the arguments are swapped, until any
-  arithmetic clears it ([42S docs](https://ractive.ch/saturnus/docs/42s.md)).
+  38G's ACOT, which ignores the angle mode. A 1991 report says some 42S
+  revisions repeat "Invalid Data" from COMB and PERM after the arguments are
+  swapped, until any arithmetic clears it; it is not confirmed on the
+  emulated ROM and has no note, so check your input first
+  ([42S docs](https://ractive.ch/saturnus/docs/42s.md)).
 - **Confirmations.** `store_variable` and `purge_variable` wait until the
   user allows them in the app. If one is declined, do not retry it with keys:
   ask the user.

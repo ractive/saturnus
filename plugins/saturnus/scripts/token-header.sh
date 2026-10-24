@@ -35,7 +35,8 @@ if [ ! -r "$file" ]; then
   exit 1
 fi
 
-token=$(tr -d ' \t\r\n' < "$file")
+# As token.rs's read(): only the ends trimmed, upper-case hex accepted and lower-cased.
+token=$(tr -d '\r' < "$file" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | sed -e '/^$/d' | tr 'A-F' 'a-f')
 case "$token" in
   *[!0-9a-f]*) ok=0 ;;
   *) ok=1 ;;
