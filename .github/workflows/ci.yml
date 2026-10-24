@@ -281,6 +281,11 @@ jobs:
           # Only main saves (PRs restore main's caches): PR caches filled
           # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      # The app's build script builds the Claude Desktop extension with Node
+      # (web/mcpb/build.mjs, iteration 59): a fixed Node, not the image's.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
       - name: Linux libraries
         run: |
           sudo apt-get update
@@ -312,6 +317,11 @@ jobs:
           # evicted main's (kb/docs/ci.md); a cold build is ~3.5 minutes,
           # in parallel with the other jobs.
           save-if: false
+      # The app's build script builds the Claude Desktop extension with Node
+      # (web/mcpb/build.mjs, iteration 59): a fixed Node, not the image's.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
       - run: cargo test -p saturnus-tauri --locked -q
 
   # Every commit a pull request brings has the author email

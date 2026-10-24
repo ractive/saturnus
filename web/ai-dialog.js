@@ -324,9 +324,10 @@ export async function openLocalDialog(ai, doc = document) {
     claudeNote = null;
     busy = true;
     render();
-    const opened = await ai.addToClaudeDesktop();
+    const path = await ai.addToClaudeDesktop();
     busy = false;
-    claudeNote = opened ? "Claude Desktop opens the extension: choose Install there." : null;
+    // Neutral: on Windows and Linux the app cannot tell whether Claude Desktop opened it.
+    claudeNote = path ? `Choose Install in Claude Desktop. If it does not open, open ${path} with it.` : null;
     render();
   });
   usePort.addEventListener("click", () => {

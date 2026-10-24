@@ -340,16 +340,16 @@ export class LocalAiAccess extends EventTarget {
   /**
    * "Add to Claude Desktop": the app opens the extension it carries
    * (saturnus.mcpb, iteration 59), so Claude Desktop shows its install
-   * dialog. Resolves to whether it opened; else `error` says why.
+   * dialog. Resolves to the file's path (to open by hand if Claude Desktop
+   * does not), or null; then `error` says why.
    */
   async addToClaudeDesktop() {
     this.failure = null;
     try {
-      await this.invoke("mcpb_open");
-      return true;
+      return String(await this.invoke("mcpb_open"));
     } catch (err) {
       this.failure = String(err?.message ?? err);
-      return false;
+      return null;
     } finally {
       this.changed();
     }

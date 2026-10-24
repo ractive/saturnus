@@ -35,7 +35,7 @@
 //! The token is never logged and never in an answer. As the control API's
 //! `/v1/hello`, a token-free `GET /hello?nonce=N` ([`HELLO`]) proves that
 //! the server holds the token, for the `.mcpb` forwarder (iteration 59,
-//! `web/mcpb/server/index.js`), which checks it before it sends the token.
+//! `web/mcpb/server/index.mjs`), which checks it before it sends the token.
 
 use std::collections::VecDeque;
 use std::net::TcpStream;
@@ -1333,8 +1333,6 @@ mod tests {
         }
     }
 
-    /// The control API's rules: Host, Origin, OPTIONS, no CORS, the token
-    /// without detail, the path and the method, content type and caps.
     /// The hello: the proof for the nonce and the bound port, without the
     /// token; GET only; a malformed nonce refused; Host still checked.
     #[test]
@@ -1377,6 +1375,8 @@ mod tests {
         assert!(f.window.seen.lock().unwrap().is_empty());
     }
 
+    /// The control API's rules: Host, Origin, OPTIONS, no CORS, the token
+    /// without detail, the path and the method, content type and caps.
     #[test]
     fn the_control_api_rules_hold() {
         let f = fixture();

@@ -38,7 +38,10 @@ const SETUP = `(async () => {
         }
         return { ...t.status };
       }
-      if (cmd === "mcpb_open" && t.mcpbError) throw new Error(t.mcpbError);
+      if (cmd === "mcpb_open") {
+        if (t.mcpbError) throw new Error(t.mcpbError);
+        return "/cache/saturnus.mcpb";
+      }
       if (cmd === "mcp_reply") replies.get(args.id)?.(args);
       return null;
     } },
@@ -115,7 +118,7 @@ test("the desktop dialog: the setting, the address with its header, the apps, th
   // Add to Claude Desktop: the app opens its extension; a failure says why.
   await ev(`[...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === "Add to Claude Desktop").click(), true`);
   d = await until(`(${DIALOG}).status.includes("Install") && (${DIALOG})`, "the extension opened");
-  assert.equal(d.status, "Claude Desktop opens the extension: choose Install there.");
+  assert.equal(d.status, "Choose Install in Claude Desktop. If it does not open, open /cache/saturnus.mcpb with it.");
   assert.deepEqual(await ev(`window.t.calls.filter((c) => c[0] === "mcpb_open").length`), 1);
   await ev(`window.t.mcpbError = "Claude Desktop did not open the extension.", [...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === "Add to Claude Desktop").click(), true`);
   d = await until(`(${DIALOG}).error && (${DIALOG})`, "the extension's error");

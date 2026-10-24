@@ -587,8 +587,9 @@ adds the workspace version, the tool list and the instructions from
 stored zip with fixed dates and order, so the same sources give the same
 bytes. It is never committed and no release workflow attaches it:
 `build.rs` builds it into the app's embedded page for "Add to Claude
-Desktop" (Node on the runner, which GitHub's images have; a production
-build without Node fails, any other build warns), and `web/site.sh`
+Desktop" (Node 24 from a pinned `actions/setup-node` in `desktop.yml`
+and in `ci.yml`'s tauri jobs; a production build without Node fails,
+any other build warns), and `web/site.sh`
 into the web app as `app/saturnus.mcpb` for the docs page `ai-apps`.
 `just mcpb` builds it by hand; `npx @anthropic-ai/mcpb validate
 manifest.json` on the unpacked manifest passes (mcpb 2.1.2). Its version

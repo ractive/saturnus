@@ -572,9 +572,11 @@ pub const MCPB_FILE: &str = "saturnus.mcpb";
 /// "Add to Claude Desktop": the extension from the embedded page, written
 /// to the app's cache folder and opened with the system, so Claude
 /// Desktop shows its install dialog. It holds no token (the forwarder in
-/// it reads the token file), so it is the same file for every user.
+/// it reads the token file), so it is the same file for every user. The
+/// file's path, for the page's note (open it by hand if Claude Desktop
+/// does not).
 #[tauri::command]
-pub async fn mcpb_open(app: AppHandle) -> Result<(), String> {
+pub async fn mcpb_open(app: AppHandle) -> Result<String, String> {
     use tauri::Manager as _;
     let bytes = app
         .asset_resolver()
@@ -588,7 +590,8 @@ pub async fn mcpb_open(app: AppHandle) -> Result<(), String> {
         .map_err(|e| format!("cannot find the app's cache folder ({e})"))?;
     crate::transfer::blocking(move || {
         let path = write_mcpb(&dir, &bytes)?;
-        open_with_system(&path)
+        open_with_system(&path)?;
+        Ok(path.display().to_string())
     })
     .await
 }
@@ -605,8 +608,16 @@ fn write_mcpb(dir: &std::path::Path, bytes: &[u8]) -> Result<PathBuf, String> {
     Ok(path)
 }
 
+/// How long `xdg-open` may take to say whether it opened the file.
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+const OPENER_WAIT: Duration = Duration::from_secs(10);
+
 /// Open `path` with the system's handler for its type (Claude Desktop
-/// for `.mcpb`). On macOS `open` says when no app takes the file.
+/// for `.mcpb`). macOS `open` and `xdg-open` say by their exit status
+/// when no app took the file. Windows: `explorer.exe` with the path as
+/// one argument (std quotes it, spaces and all; no shell, so `&` or `^`
+/// in a user name mean nothing); its exit status says nothing, so the
+/// page's note names the path to open by hand.
 fn open_with_system(path: &std::path::Path) -> Result<(), String> {
     let not_opened = || {
         format!(
@@ -626,22 +637,40 @@ fn open_with_system(path: &std::path::Path) -> Result<(), String> {
             Err(not_opened())
         }
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
-        #[cfg(target_os = "windows")]
-        let mut cmd = {
-            let mut c = std::process::Command::new("rundll32");
-            c.arg("url.dll,FileProtocolHandler");
-            c
-        };
-        #[cfg(not(target_os = "windows"))]
-        let mut cmd = std::process::Command::new("xdg-open");
-        let mut child = cmd.arg(path).spawn().map_err(|_| not_opened())?;
+        let mut child = std::process::Command::new("explorer.exe")
+            .arg(path)
+            .spawn()
+            .map_err(|_| not_opened())?;
         // Waited for on its own thread: no zombie, and the dialog is not held.
         std::thread::spawn(move || {
             let _ = child.wait();
         });
         Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let mut child = std::process::Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map_err(|_| not_opened())?;
+        let end = Instant::now() + OPENER_WAIT;
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) if status.success() => return Ok(()),
+                Ok(Some(_)) | Err(_) => return Err(not_opened()),
+                Ok(None) if Instant::now() >= end => {
+                    // Still running (some openers stay with the app): it
+                    // started something; reaped on its own thread.
+                    std::thread::spawn(move || {
+                        let _ = child.wait();
+                    });
+                    return Ok(());
+                }
+                Ok(None) => std::thread::sleep(Duration::from_millis(50)),
+            }
+        }
     }
 }
 
@@ -853,9 +882,6 @@ mod tests {
         assert_eq!(apps[0]["name"], "claude-code");
     }
 
-    /// The setting: off by default, kept, turning it on starts the
-    /// endpoint with its header, off stops it and ends the calls; a busy
-    /// port says who has it; a port below 1024 is refused.
     /// The extension is written whole into a folder made for it, and
     /// again over an older copy; no part file is left.
     #[test]
@@ -884,6 +910,9 @@ mod tests {
         assert!(bytes.windows(13).any(|w| w == b"manifest.json"));
     }
 
+    /// The setting: off by default, kept, turning it on starts the
+    /// endpoint with its header, off stops it and ends the calls; a busy
+    /// port says who has it; a port below 1024 is refused.
     #[test]
     fn the_setting_starts_and_stops_the_endpoint() {
         let dir = saturnus_drive::loopback::token::testing::TempDir::new("mcp-app");
