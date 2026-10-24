@@ -71,10 +71,10 @@ saturnus-refgen generates the command reference (names, menus,
                 examples run on the emulator) into saturnus-cli/data;
                 not published
 saturnus-kermit Kermit host for the ROM-gated tests and saturnus-refgen:
-                saturnus-host's emulated wire blocked on (the same wire
-                the products step in turns), satx-core's sans-I/O
-                Machine on its clock, typed eval and variables; not
-                published
+                saturnus-host's emulated wire and Kermit client
+                (`transfer::Exchange`, which the products step in
+                turns) run to the end of each transaction, satx-core's
+                reply parsers, typed eval and variables; not published
 kermit-proto,   the sans-IO Kermit and XModem protocols, build for
 xmodem-proto    wasm32
 satx-core       satx's library: transports (serial, TCP, saturnus

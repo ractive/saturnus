@@ -48,6 +48,7 @@ use exchange::*;
 use ops::*;
 use run::*;
 
+pub use exchange::{Exchange, Failure, Transcript};
 pub use ops::{
     BACKUP_MARGIN, BACKUP_NO_ROOM, BACKUP_VARIABLE, Op, REPLACE_VARIABLE, SCREEN_VARIABLE,
     TEXT_VARIABLE, Target, may_serve, store_bytes, trim_fetched,
@@ -67,7 +68,7 @@ use saturnus_objects::{
 
 use crate::typing::{Job, Verb};
 use crate::wire::{
-    FINISH_SETTLE, IDLE_WAIT, MIN_WAIT, RETRIES, SERVER_CAP, TIMEOUT, Wire, WireStep, cycles,
+    FINISH_SETTLE, IDLE_WAIT, Line, MIN_WAIT, RETRIES, SERVER_CAP, TIMEOUT, Wire, WireStep, cycles,
 };
 
 /// Largest file `storeFile` takes (the 49G's RAM is 512 KiB, a 48's at

@@ -192,20 +192,6 @@ pub(crate) struct CalcOps<'a> {
 }
 
 impl CalcOps<'_> {
-    /// [`validate_name`], without the Windows device names on an emulated
-    /// link: there a name never becomes a file of the host, and the
-    /// emulator's own hosts accept every plain name.
-    fn check_name(&self, name: &str) -> Result<()> {
-        if !self.k.emulated_link {
-            return validate_name(name);
-        }
-        if saturnus_objects::transfer::is_plain_name(name) {
-            Ok(())
-        } else {
-            Err(Error::Name(name.to_string()))
-        }
-    }
-
     /// [`Calculator::sync`].
     pub(crate) async fn sync(&mut self) -> Result<()> {
         let marker = self.st.marker();
@@ -293,21 +279,16 @@ impl CalcOps<'_> {
         self.host_once(command, timeout).await
     }
 
-    /// [`host`](Calculator::host) with a reply timeout of `timeout`. On an
-    /// emulated link
-    /// ([`Machine::set_emulated_link`](crate::Machine::set_emulated_link))
-    /// the `C` keeps the session's retries instead.
+    /// [`host`](Calculator::host) with a reply timeout of `timeout`.
     async fn host_once(&mut self, command: &str, timeout: Duration) -> Result<StackReply> {
         let normal = self.k.config().clone();
         let mut once = normal.clone();
         once.timeout = timeout;
-        if !self.k.emulated_link {
-            once.first_packet_retries = Some(0);
-            once.nak_grace = timeout;
-            once.first_packet_nak_window = Some(HOST_NAK_WINDOW);
-            once.first_packet_nak_grace = Some(HOST_NAK_GRACE.min(timeout));
-            once.first_packet_nak_byte_time = Some(HOST_BYTE_TIME);
-        }
+        once.first_packet_retries = Some(0);
+        once.nak_grace = timeout;
+        once.first_packet_nak_window = Some(HOST_NAK_WINDOW);
+        once.first_packet_nak_grace = Some(HOST_NAK_GRACE.min(timeout));
+        once.first_packet_nak_byte_time = Some(HOST_BYTE_TIME);
         self.k.set_config(once);
         let result = self.host_retrying(command).await;
         self.k.set_config(normal);
@@ -393,7 +374,7 @@ impl CalcOps<'_> {
             _ => path,
         };
         for name in components {
-            self.check_name(name)?;
+            validate_name(name)?;
         }
         self.exec(&["HOME".to_string()]).await?;
         for name in components {
@@ -538,7 +519,7 @@ impl CalcOps<'_> {
 
     /// [`Calculator::get`].
     pub(crate) async fn get(&mut self, name: &str, mode: TransferMode) -> Result<Vec<u8>> {
-        self.check_name(name)?;
+        validate_name(name)?;
         self.set_transfer_mode(mode).await?;
         let transcript = self.k.transact(Command::Get(encode(name)?)).await?;
         let [file]: [_; 1] = transcript.files.try_into().map_err(|files: Vec<_>| {
@@ -560,7 +541,7 @@ impl CalcOps<'_> {
         data: &[u8],
         mode: TransferMode,
     ) -> Result<String> {
-        self.check_name(name)?;
+        validate_name(name)?;
         self.set_transfer_mode(mode).await?;
         let file = OutgoingFile {
             name: encode(name)?,

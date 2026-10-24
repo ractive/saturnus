@@ -282,8 +282,6 @@ pub struct Machine {
     result: Option<Result<Reply>>,
     /// Seed of the next [`CalcState`] (after an abort).
     seed: u64,
-    /// See [`Machine::set_emulated_link`].
-    emulated_link: bool,
 }
 
 impl fmt::Debug for Machine {
@@ -312,24 +310,7 @@ impl Machine {
             task: None,
             result: None,
             seed: seed.rotate_left(17) ^ 0xA5A5_A5A5_A5A5_A5A5,
-            emulated_link: false,
         }
-    }
-
-    /// Whether the link is an emulated calculator driven in its own
-    /// emulated time (default `false`): a clock that runs while the
-    /// calculator idles and stops while it computes, and a host that drops
-    /// the idle server's input itself before each operation. Then a host
-    /// command's `C` may be resent after a timeout with the session's
-    /// retries (a `C` that timed out on such a clock was not taken, so it
-    /// cannot run twice; on a real calculator it is sent once, see
-    /// [`Calculator::run`](crate::Calculator::run)), and no input is read
-    /// and discarded before a host command (on an emulator that read runs
-    /// the calculator); names are checked without the Windows device names
-    /// (no name becomes a host file). Takes effect with the next
-    /// [`Machine::start`].
-    pub fn set_emulated_link(&mut self, on: bool) {
-        self.emulated_link = on;
     }
 
     /// Begin `op`; its first bytes are ready for [`Machine::poll_transmit`]
@@ -339,7 +320,6 @@ impl Machine {
         let Some(mut core) = self.core.take() else {
             return Err(Busy);
         };
-        core.kermit.emulated_link = self.emulated_link;
         self.link.set_now(now);
         self.link.clear_error();
         self.result = None;
@@ -667,66 +647,47 @@ mod tests {
         assert_eq!(sent[1..], ["DROP", "G D"]);
     }
 
-    /// A `C` the calculator never took: sent once (the default) it is
-    /// `NoReply`; on an emulated link the second one runs.
+    /// A `C` the calculator never took is sent once: `NoReply`.
     #[test]
-    fn a_lost_host_command_is_resent_only_on_an_emulated_link() {
-        for resend in [false, true] {
-            let log = Arc::default();
-            let mut server = crate::calc::tests::fake_server(Arc::clone(&log), |cmd: &str| {
-                assert_eq!(cmd, "1");
-                "1:      1\r\n".into()
-            });
-            let mut lost = false;
-            let mut peer = |bytes: &[u8]| {
-                let is_c = bytes
-                    .iter()
-                    .position(|&b| b == 0x01)
-                    .and_then(|i| bytes.get(i + 3))
-                    == Some(&b'C');
-                if is_c && !lost {
-                    lost = true;
-                    return Vec::new();
-                }
-                server(bytes)
-            };
-            let mut clock = Instant::now();
-            let mut m = Machine::new(clock, options(Duration::from_secs(1)), 7);
-            m.set_emulated_link(resend);
-            m.start(clock, Op::Run("1".into())).unwrap();
-            let result = run(&mut m, &mut clock, &mut peer);
-            if resend {
-                let Reply::Stack(stack) = result.unwrap() else {
-                    panic!("not a stack");
-                };
-                assert_eq!(stack.levels, ["1"]);
-            } else {
-                assert!(matches!(result, Err(Error::NoReply { .. })), "{result:?}");
+    fn a_lost_host_command_is_not_resent() {
+        let log = Arc::default();
+        let mut server = crate::calc::tests::fake_server(Arc::clone(&log), |cmd: &str| {
+            assert_eq!(cmd, "1");
+            "1:      1\r\n".into()
+        });
+        let mut lost = false;
+        let mut peer = |bytes: &[u8]| {
+            let is_c = bytes
+                .iter()
+                .position(|&b| b == 0x01)
+                .and_then(|i| bytes.get(i + 3))
+                == Some(&b'C');
+            if is_c && !lost {
+                lost = true;
+                return Vec::new();
             }
-        }
+            server(bytes)
+        };
+        let mut clock = Instant::now();
+        let mut m = Machine::new(clock, options(Duration::from_secs(1)), 7);
+        m.start(clock, Op::Run("1".into())).unwrap();
+        let result = run(&mut m, &mut clock, &mut peer);
+        assert!(matches!(result, Err(Error::NoReply { .. })), "{result:?}");
     }
 
-    /// A Windows device name is refused before anything is sent, except on
-    /// an emulated link, where no name becomes a host file.
+    /// A Windows device name is refused before anything is sent.
     #[test]
-    fn device_names_are_refused_only_on_a_real_link() {
-        for emulated in [false, true] {
-            let mut clock = Instant::now();
-            let mut m = Machine::new(clock, options(Duration::from_millis(50)), 7);
-            m.set_emulated_link(emulated);
-            m.set_events(false);
-            let op = Op::Get {
-                name: "AUX".into(),
-                mode: TransferMode::Binary,
-            };
-            m.start(clock, op).unwrap();
-            let result = run(&mut m, &mut clock, &mut |_: &[u8]| Vec::new());
-            assert_eq!(
-                matches!(result, Err(Error::Name(_))),
-                !emulated,
-                "{emulated}: {result:?}"
-            );
-        }
+    fn device_names_are_refused() {
+        let mut clock = Instant::now();
+        let mut m = Machine::new(clock, options(Duration::from_millis(50)), 7);
+        m.set_events(false);
+        let op = Op::Get {
+            name: "AUX".into(),
+            mode: TransferMode::Binary,
+        };
+        m.start(clock, op).unwrap();
+        let result = run(&mut m, &mut clock, &mut |_: &[u8]| Vec::new());
+        assert!(matches!(result, Err(Error::Name(_))), "{result:?}");
     }
 
     /// A 48GX-like XModem sender (checksum, 128-byte blocks) answering the

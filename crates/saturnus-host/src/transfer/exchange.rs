@@ -1,5 +1,7 @@
 //! One Kermit transaction on the emulated wire: `kermit-proto`'s client
-//! stepped in turns.
+//! stepped in turns. The one Kermit client of the emulated calculator:
+//! the engine's hidden writes step it in turns, `saturnus-kermit` (the
+//! reference generator, the ROM-gated Kermit tests) runs it to its end.
 
 use super::*;
 
@@ -12,10 +14,14 @@ pub(super) fn is_answer(input: &[u8]) -> bool {
 
 /// What one Kermit transaction produced.
 #[derive(Debug, Default)]
-pub(super) struct Transcript {
-    pub(super) files: Vec<Vec<u8>>,
-    pub(super) stored: Vec<String>,
-    pub(super) text: Vec<u8>,
+pub struct Transcript {
+    /// The files received (GET), the discarded ones left out.
+    pub files: Vec<Vec<u8>>,
+    /// The names the calculator stored sent files under (SEND).
+    pub stored: Vec<String>,
+    /// The server's text (host command and directory replies), raw HP
+    /// bytes.
+    pub text: Vec<u8>,
 }
 
 /// Where a transaction's driver is.
@@ -29,7 +35,7 @@ pub(super) enum Phase {
 
 /// One Kermit transaction in progress.
 #[derive(Debug)]
-pub(super) struct Exchange {
+pub struct Exchange {
     pub(super) client: Client,
     pub(super) sending: bool,
     pub(super) out: VecDeque<Vec<u8>>,
@@ -43,7 +49,7 @@ pub(super) struct Exchange {
 
 /// Why a Kermit transaction failed.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) enum Failure {
+pub enum Failure {
     /// The calculator refused it with an E packet: its server is alive
     /// and waits for the next command.
     Remote(String),
@@ -66,18 +72,31 @@ pub(super) fn ms_cycles(m: &Machine, ms: u64) -> u64 {
     ms * u64::from(m.model().clock_hz()) / 1000
 }
 
+impl Failure {
+    /// The message.
+    pub fn message(&self) -> &str {
+        match self {
+            Failure::Remote(e) | Failure::Link(e) => e,
+        }
+    }
+}
+
 impl Exchange {
-    pub(super) fn new(
+    /// Start `command` on `wire` with the engine's Kermit settings (a
+    /// shorter timeout, fewer retries, no linger); input the calculator sent
+    /// before (the idle server's NAKs) is dropped first.
+    pub fn new<L: Line + ?Sized>(
         wire: &mut Wire,
-        m: &mut Machine,
+        m: &mut L,
         command: Command,
     ) -> crate::Result<Exchange> {
         Self::with(wire, m, command, config())
     }
 
-    pub(super) fn with(
+    /// [`Exchange::new`] with `config`.
+    pub(super) fn with<L: Line + ?Sized>(
         wire: &mut Wire,
-        m: &mut Machine,
+        m: &mut L,
         command: Command,
         config: Config,
     ) -> crate::Result<Exchange> {
@@ -99,11 +118,12 @@ impl Exchange {
         })
     }
 
-    /// Run until `stop` (a cycle count); the transcript once done.
-    pub(super) fn step(
+    /// Run until `stop` (a cycle count); the transcript once done. Fails
+    /// when the machine or the wire does (the read cap).
+    pub fn step<L: Line + ?Sized>(
         &mut self,
         wire: &mut Wire,
-        m: &mut Machine,
+        m: &mut L,
         stop: u64,
     ) -> crate::Result<Option<Result<Transcript, Failure>>> {
         loop {
@@ -152,7 +172,7 @@ impl Exchange {
         }
     }
 
-    pub(super) fn events(&mut self) {
+    fn events(&mut self) {
         while let Some(event) = self.client.poll_event() {
             match event {
                 Event::FileStart { name } if self.sending => {

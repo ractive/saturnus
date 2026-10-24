@@ -4606,6 +4606,42 @@ read the state from memory rather than guess it from the display.
   (`mcpb_open`: the asset written to the app's cache folder and opened
   with the system), so it works offline and matches the app's version.
 
+## 2026-10-24 (iteration 63: one Kermit client)
+
+For [[iterations/iteration-63-one-kermit-client]]:
+
+- **The engine's client stays; saturnus-kermit moves onto it.**
+  `saturnus_host::transfer::Exchange` (`kermit-proto`'s `Client` stepped
+  on the emulated wire, what Files' writes and the desktop app run) is
+  now public and generic over the wire's `Line`; saturnus-kermit's
+  `Link::transact` runs it to the end of each transaction, through the
+  session's `Line` so its limits, trace and the read cap hold.
+  saturnus-kermit's `Server` keeps its operations (host command, `G D`,
+  the path, `cd`, GET and SEND with flag -35 cached, `G F`) as a few
+  lines each over it, parsing with satx-core's reply parsers.
+- **Why not the other way.** The engine taking satx-core's `Machine`
+  would make `saturnus-host` depend on satx-core, which depends on
+  `saturnus-host` and `saturnus-drive` for its `saturnus://` transport:
+  Cargo refuses the cycle, so the transport would have had to leave
+  satx-core first. It would also put an async future, a mutex-shared
+  mailbox and satx's stall watchdog into every engine turn under wasm
+  and change the code users run, against "users see no change". This
+  way the engine's code and the Worker's pacing are untouched (the
+  type only became public and generic).
+- **satx-core loses `Machine::set_emulated_link`**, which only
+  saturnus-kermit set (decision of the satx fold): satx's `C` is always
+  sent once and device names are always refused. satx's in-process
+  `saturnus://` transport is a blocking `Transport` on wall-clock time
+  and never used the mode; `just satx-e2e-saturnus` still runs satx-core's
+  own client there, as satx runs it on real calculators.
+- **Same bytes**: the command reference regenerated in full on the one
+  client (`cargo test --release -p saturnus-refgen -- --include-ignored`:
+  every catalog, examples and keyed reference) came out byte for byte
+  the same as the committed one.
+- **Messages**: a Kermit E packet in saturnus-kermit now reads
+  `calculator error: X` (the engine's wording) instead of satx-core's
+  `calculator: X`.
+
 ## 2026-10-24 (iteration 62: the 28S's command line)
 
 Owner: "Try it" (backlog ai-28s-command-line).

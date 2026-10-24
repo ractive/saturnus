@@ -131,8 +131,6 @@ pub(crate) struct KermitCore {
     last_end: Option<Instant>,
     /// See [`Session::answered`].
     answered: bool,
-    /// See [`Machine::set_emulated_link`](crate::Machine::set_emulated_link).
-    pub(crate) emulated_link: bool,
     /// The watchdog's limit instead of [`stall_limit`] of the config (tests
     /// shorten it below what the client's own retries take).
     pub(crate) stall_limit: Option<Duration>,
@@ -147,7 +145,6 @@ impl KermitCore {
             turnaround: options.turnaround,
             last_end: None,
             answered: false,
-            emulated_link: false,
             stall_limit: None,
         }
     }
@@ -176,7 +173,7 @@ impl KermitCore {
         if let Some(end) = self.last_end {
             self.link.sleep_until(end + self.turnaround).await;
         }
-        if matches!(command, Command::Host(_)) && !self.emulated_link {
+        if matches!(command, Command::Host(_)) {
             self.discard_pending().await?;
         }
         let result = self.run(command).await;
