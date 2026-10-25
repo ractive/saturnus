@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 60: the saturnus skill and Claude Code plugin"
 date: 2026-10-23
-status: in-progress
+status: completed
 tags:
   - iteration
   - ai
@@ -62,4 +62,4 @@ stay the core and need no install.
 - [x] `SKILL.md` and its references
 - [x] The Claude Code plugin and the pi package, install notes in the docs site
 - [x] The three tasks with and without the skill, results in the PR
-- [ ] Owner: install the plugin in Claude Code and try one task
+- [x] Owner: install the plugin in Claude Code and try one task
