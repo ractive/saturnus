@@ -16,8 +16,7 @@ Owner 2026-10-25: a menu key's tooltip (F1–F6 on the 49G, the six
 unlabelled keys A–F on the 48SX and 48GX) names the command the screen
 shows above it, with its full name from the command reference: EXPA shows
 "EXPAN · Expand products". 48SX, 48GX and 49G first; the other models are
-researched separately (see the research note this iteration links once
-written).
+researched separately (see [[research/menu-tooltips-other-models]]).
 
 ## How
 
