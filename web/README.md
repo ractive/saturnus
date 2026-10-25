@@ -378,14 +378,18 @@ forms").
    calculator has the keys, the labels it reaches light up on the
    calculator. (`shiftclick.js`; the host's key queue decides about the
    shift, `keyDown` with `shift`.) What a model's keys do beyond their
-   print (`hiddenkeys.js`, the 48GX so far) goes into the tooltips and,
-   for an unprinted function with an empty slot, an outlined ghost
-   label shown while its modifier is held, in the key's whole label
-   area (the other shift's label hidden meanwhile); ⌃ also lights the printed
-   application labels whose left shift is their command menu. The ON
+   print (`hiddenkeys.js`, every model's table from its wiki keyboard
+   page) goes into the tooltips and, for an unprinted function with an
+   empty slot, an outlined ghost label shown while its modifier is
+   held, in the key's whole label area (the other shift's label hidden
+   meanwhile); a modifier also lights the printed application labels
+   whose command menu its shift opens (⌃ on the 48GX, ⌥ on the 48SX).
+   A function of a shift held down while the key is pressed (the 49G)
+   is a tooltip line only: a modifier click taps the shift. The ON
    key's menu (a long press or a right-click; `onkeys.js`) plays the
-   model's ON combinations as held keys; a plain press on ON waits for
-   its release there, so a long press never sends ON.
+   model's ON combinations as held keys, all going down in the same
+   instant; a plain press on ON waits for its release there, so a long
+   press never sends ON.
 3. Screen images (`screenshot.js`): Copy screen and Save screen in the
    panel, their palette commands and shortcuts, and the display's menu
    (a right-click on it, a long press on a phone) take the display as a

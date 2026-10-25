@@ -1,13 +1,14 @@
-// What the 48GX's keys do beyond their print (web/hiddenkeys.js): the
-// data against the skin's labels, the tooltip lines, which slot takes a
-// ghost label, and the ON combinations
-// (web/onkeys.js): the table, what a press on ON does, and a combination
-// played as held keys. `node --test web/test/` (just web-test).
+// What the keys do beyond their print (web/hiddenkeys.js), per model:
+// the tooltip lines (held-shift ones too), which slot takes a ghost
+// label, and the ON combinations (web/onkeys.js): the tables, what a
+// press on ON does, and a combination played as held keys. The tables
+// against the real skins: web/test/hiddenkeys-skins.test.mjs. `node
+// --test web/test/` (just web-test).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { HIDDEN_KEYS, ghostSlot, hiddenOf, menuLabels, shiftedText } from "../hiddenkeys.js";
-import { ON_COMBOS, onCombos, onPointerDown, playCombo, runCombo } from "../onkeys.js";
+import { HIDDEN_KEYS, ghostFits, ghostSlot, heldText, hiddenOf, labelRoom, menuLabels, shiftedText } from "../hiddenkeys.js";
+import { ON_COMBOS, chordOf, emulatedPause, onCombos, onPointerDown, playCombo, runCombo } from "../onkeys.js";
 import { clickHints } from "../shiftclick.js";
 
 // The 48GX skin's labels of the keys concerned (crates/saturnus-host/src/skins/hp48gx.rs).
@@ -31,10 +32,11 @@ test("the table: entries of a known kind and shift; the 48GX's menu keys are its
       assert.ok(e.label, `${model} ${e.key}: label`);
       assert.ok(!e.ghost || e.kind === "unprinted", `${model} ${e.key}: a ghost is for an unprinted function`);
     }
-    const seen = list.map((e) => `${e.key} ${e.shift}`);
-    assert.equal(new Set(seen).size, seen.length, `${model}: one entry per key and shift`);
+    for (const e of list.filter((e) => e.held)) assert.equal(e.kind, "unprinted", `${model} ${e.key}: a held function is unprinted`);
+    const seen = list.map((e) => `${e.key} ${e.shift} ${Boolean(e.held)}`);
+    assert.equal(new Set(seen).size, seen.length, `${model}: one entry per key, shift and held`);
   }
-  assert.deepEqual(hiddenOf("48sx", "right"), {});
+  assert.deepEqual(hiddenOf("42s", "right"), {});
   assert.deepEqual([...menuLabels("48gx").keys()].sort(), ["1", "2", "3", "4", "5", "6", "7", "8", "9", "cst", "prg", "up", "var"]);
   assert.deepEqual(menuLabels("48gx").get("7"), { shift: "left", label: "SOLVE" });
   assert.equal(menuLabels("49g").size, 0);
@@ -81,14 +83,118 @@ test("a ghost takes an empty slot only", () => {
   assert.equal(ghostSlot(GX[7], "left", hiddenOf("48gx", "7")), null, "a menu has no ghost");
 });
 
-test("the ON combinations of the 48GX, and none elsewhere", () => {
-  assert.deepEqual(onCombos("48gx").map((c) => [c.title, c.keys.join("+")]), [
-    ["Restart", "on+c"], ["Self-test", "on+d"], ["Print display", "on+1"], ["Reset memory…", "on+a+f"],
+test("the ON combinations per model, as the menu writes them", () => {
+  const menu = (m) => onCombos(m).map((c) => `${c.title} ${chordOf(c)}`);
+  assert.deepEqual(menu("48gx"), ["Restart ON+C", "Self-test ON+D", "Print display ON+1", "Reset memory… ON+A+F"]);
+  assert.deepEqual(menu("48sx"), ["Restart ON+C", "Self-test ON+D", "Print display ON+MTH", "Reset memory… ON+A+F"]);
+  assert.deepEqual(menu("49g"), ["Restart ON+F3", "Self-test… ON+F4", "Reset memory… ON+F1+F6"]);
+  assert.deepEqual(menu("28s"), ["Restart ON+▲", "Print display ON+L", "Clear memory… ON+INS+▶"]);
+  assert.deepEqual(menu("38g"), ["Restart ON+menu key 3", "Clear memory… ON+menu keys 1 and 6"]);
+  assert.deepEqual(menu("39g"), ["Restart ON+menu key 3", "Self-test ON+menu key 4", "Clear memory… ON+menu keys 1 and 6"]);
+  assert.deepEqual(menu("40g"), menu("39g"));
+  assert.deepEqual(menu("42s"), ["Restart EXIT+√x", "Self-test EXIT+LN", "Clear memory… EXIT+Σ++XEQ"]);
+  for (const m of ["27s", "17b", "17bii"]) assert.deepEqual(menu(m), ["Restart CLR+menu key 3", "Clear memory… CLR+menu keys 1 and 6"]);
+  assert.deepEqual(menu("19bii"), ["Restart ON+menu key 3", "Print display ON+PRNT", "Clear memory… ON+menu keys 1 and 6"]);
+  assert.deepEqual(onCombos("nope"), []);
+  assert.equal(Object.keys(ON_COMBOS).length, 12);
+  for (const [m, list] of Object.entries(ON_COMBOS)) {
+    assert.ok(list.every((c) => c.keys[0] === "on"), `${m}: ON first`);
+    // Every combination that clears memory asks first, and only those
+    // (and the 49G's tests menu, whose test 9 formats the flash).
+    assert.deepEqual(list.filter((c) => c.ask).map((c) => c.id), m === "49g" ? ["self-test", "reset-memory"] : ["reset-memory"], `${m}: what asks`);
+    assert.ok(list.find((c) => c.id === "reset-memory").description.endsWith("Asks first."), `${m}: says it asks`);
+  }
+  assert.equal(onCombos("48sx").find((c) => c.id === "reset-memory").hold >= 1000, true, "the 48SX's reset is held a second");
+  assert.equal(onCombos("49g").find((c) => c.id === "reset-memory").ask.body.includes("NO (F6)"), true);
+  const tests = onCombos("49g").find((c) => c.id === "self-test");
+  assert.match(tests.description, /9 formats the flash\. Asks first\.$/);
+  assert.match(tests.ask.body, /formats the flash memory/);
+});
+
+// The 48SX (wiki: hardware/hp48sx-keyboard), with its skin's labels (crates/saturnus-host/src/skins/hp48sx.rs).
+const SX = {
+  prg: { name: "prg", label: "PRG", left: "I/O", right: "" },
+  cst: { name: "cst", label: "CST", left: "MODES", right: "" },
+  9: { name: "9", label: "9", left: "ALGEBRA", right: "" },
+  2: { name: "2", label: "2", left: "STACK", right: "ARG" },
+  backspace: { name: "backspace", label: "⬅", left: "DROP", right: "CLR" },
+  left: { name: "left", label: "◀", left: "GRAPH", right: "" },
+  mth: { name: "mth", label: "MTH", left: "PRINT", right: "" },
+};
+
+test("the 48SX: application names on the left, their other menus and unprinted functions on the right", () => {
+  const sx = (k) => clickHints(k, TWO, true, hiddenOf("48sx", k.name));
+  assert.deepEqual(sx(SX.prg), ["⌃-click: I/O", "⌥-click: Kermit server (not printed)"]);
+  assert.deepEqual(sx(SX.cst), ["⌃-click: MODES", "⌥-click: MODES customization menu"]);
+  assert.deepEqual(sx(SX[9]), ["⌃-click: ALGEBRA", "⌥-click: Equation Catalog (not printed)"]);
+  assert.deepEqual(sx(SX[2]), ["⌃-click: STACK (LAST STACK, the stack before the last command line)", "⌥-click: ARG (LAST ARG, the last command's arguments)"]);
+  assert.deepEqual(sx(SX.backspace), ["⌃-click: DROP", "⌥-click: CLR (clears the whole stack, with no confirmation)"]);
+  assert.deepEqual(sx(SX.left), ["⌃-click: GRAPH", "⌥-click: in a command line, the cursor to its start (not printed)"]);
+  assert.deepEqual(sx(SX.mth), ["⌃-click: PRINT"], "→ MTH does nothing: no line");
+  // ⌥ lights the left-printed application whose menu → opens, in green.
+  const menus = menuLabels("48sx");
+  assert.deepEqual([...menus.keys()].sort(), ["5", "6", "7", "8", "cst", "var"]);
+  assert.deepEqual(menus.get("7"), { shift: "right", label: "SOLVE" });
+  // Ghosts: in the empty right slot, none for a command-line function.
+  assert.equal(ghostSlot(SX.prg, "right", hiddenOf("48sx", "prg")), "SERVER");
+  assert.equal(ghostSlot(SX[9], "right", hiddenOf("48sx", "9")), "EQ CAT");
+  assert.equal(ghostSlot(SX.left, "right", hiddenOf("48sx", "left")), null);
+  assert.equal(ghostSlot(SX.cst, "right", hiddenOf("48sx", "cst")), null, "a menu has no ghost");
+});
+
+test("the 49G: a held shift is a tooltip line of its own, never a ghost or a glow", () => {
+  const g = (k, mac = true) => clickHints(k, TWO, mac, hiddenOf("49g", k.name));
+  assert.deepEqual(g({ name: "mode", label: "MODE", left: "CUSTOM", right: "END" }), [
+    "⌃-click: CUSTOM", "⌥-click: END", "With the left shift held down: MODES menu (not printed)",
   ]);
-  assert.deepEqual(onCombos("48sx"), []);
-  assert.deepEqual(Object.keys(ON_COMBOS), ["48gx"]);
-  assert.ok(onCombos("48gx").every((c) => c.keys[0] === "on"));
-  assert.deepEqual(onCombos("48gx").filter((c) => c.ask).map((c) => c.id), ["reset-memory"], "only Reset memory asks");
+  const right = { name: "right", label: "▶", left: "", right: "" };
+  assert.deepEqual(g(right, false), [
+    "Ctrl+click: SWAP, as ▶; in a command line, the cursor to its end (not printed)",
+    "Alt+click: XModem server; in a command line, the cursor to its end; in algebraic mode it types XSERV() (not printed)",
+    "With the right shift held down: Kermit server (not printed)",
+  ]);
+  assert.equal(ghostSlot(right, "right", hiddenOf("49g", "right")), "XSERV", "the tapped server's ghost");
+  assert.equal(ghostSlot(right, "left", hiddenOf("49g", "right")), null, "SWAP as ▶: no ghost");
+  assert.deepEqual(g({ name: "a", label: "F1", left: "Y=", right: "" }), ["⌃-click: Y= (algebraic mode; in RPN mode hold the left shift down)"]);
+  assert.equal(heldText("left", hiddenOf("49g", "7")), null);
+  assert.equal(heldText("right", hiddenOf("49g", "7")), "With the right shift held down: SOLVE menu (not printed)");
+  assert.equal(menuLabels("49g").size, 0, "no glow for held menus");
+});
+
+test("a ghost needs a label slot: twice the label size free above the key", () => {
+  // A row of keys with labels, and a pad of keys close under each other.
+  const s = {
+    small: 15,
+    keys: [
+      { name: "a", rect: [0, 0, 80, 40] },
+      { name: "b", rect: [0, 100, 80, 40] },
+      { name: "up", rect: [200, 0, 80, 40] },
+      { name: "right", rect: [240, 65, 80, 40] },
+      { name: "far", rect: [400, 300, 80, 40] },
+    ],
+  };
+  const key = (n) => s.keys.find((k) => k.name === n);
+  assert.equal(labelRoom(s, key("b")), 60);
+  assert.equal(labelRoom(s, key("right")), 25, "the pad key under ▲, sideways overlapping");
+  assert.equal(labelRoom(s, key("far")), Infinity, "nothing above");
+  assert.equal(ghostFits(s, key("b")), true);
+  assert.equal(ghostFits(s, key("right")), false, "25 < 2 × 15: no ghost");
+  assert.equal(ghostFits(s, key("far")), true);
+});
+
+test("one-shift models: the one shift, both modifiers; the SETUP bracket; the 19BII's OFF ghost", () => {
+  const ONE = new Set(["shift", "alpha"]);
+  const plot = { name: "plot", label: "PLOT", left: "" };
+  assert.deepEqual(clickHints(plot, ONE, true, hiddenOf("38g", "plot")), ["⌃- or ⌥-click: SETUP-PLOT, the plot setup view (the SETUP bracket)"]);
+  assert.equal(ghostSlot(plot, "left", hiddenOf("38g", "plot")), null, "named by the bracket: no ghost");
+  assert.deepEqual(clickHints({ name: "up", label: "▲", left: "" }, ONE, false, hiddenOf("39g", "up")), ["Ctrl+click or Alt+click: the beginning of a list; in HOME, the oldest entry (not printed)"]);
+  assert.match(hiddenOf("40g", "symb").left.label, /where the aplet has one/);
+  const on = { name: "on", label: "ON", left: "" };
+  assert.deepEqual(clickHints(on, ONE, true, hiddenOf("19bii", "on")), ["⌃- or ⌥-click: OFF (not printed)"]);
+  assert.equal(ghostSlot(on, "left", hiddenOf("19bii", "on")), "OFF");
+  assert.deepEqual(clickHints({ name: "alpha", label: "α", left: "MENUS" }, ONE, true, hiddenOf("28s", "alpha")), ["⌃- or ⌥-click: MENUS (Menu Lock: A to R select their menus unshifted until pressed again)"]);
+  assert.deepEqual(clickHints({ name: "a", label: "", left: "" }, ONE, true, hiddenOf("28s", "a")), ["⌃- or ⌥-click: in a command line, deletes everything left of the cursor (not printed)"]);
+  for (const m of ["42s", "27s", "17b", "17bii"]) assert.equal((HIDDEN_KEYS[m] ?? []).length, 0, `${m}: nothing unprinted`);
 });
 
 test("a press on ON: a right-click is the menu, a modifier click the shifted press, else it waits", () => {
@@ -129,6 +235,38 @@ test("a combination: all down, the others released before ON", async () => {
   assert.equal(await playCombo(m.backend, m.store, ["on", "a", "f"]), true);
   assert.deepEqual(m.sent, ["down on", "down a", "down f", "up f", "up a", "up on"]);
   assert.equal(m.watchers.size, 0, "stopped watching");
+});
+
+test("a combination held longer: released only `hold` ms after the machine has them all", async () => {
+  const m = machine();
+  const timers = [];
+  const p = playCombo(m.backend, m.store, ["on", "a", "f"], { hold: 1200, setTimer: (f, ms) => { timers.push([f, ms]); return timers.length; }, clearTimer: () => {} });
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  assert.deepEqual(m.sent, ["down on", "down a", "down f"], "held");
+  const held = timers.find(([, ms]) => ms === 1200);
+  assert.ok(held, "a timer for the hold");
+  held[0]();
+  assert.equal(await p, true);
+  assert.deepEqual(m.sent, ["down on", "down a", "down f", "up f", "up a", "up on"]);
+});
+
+test("a hold in emulated time: waits for the calculator's own time, owed sleep included, capped at ten times in wall time", async () => {
+  let emulated = 0;
+  let owed = 0;
+  let wall = 0;
+  const backend = { stats: async () => ({ emulatedMs: emulated, owedMs: owed }) };
+  // The calculator runs at half speed: 25 ms of its time per 50 ms slept.
+  await emulatedPause(backend, 1000, { sleep: async (t) => { wall += t; emulated += t / 2; }, now: () => wall });
+  assert.equal(emulated >= 1000, true);
+  assert.equal(wall, 2000, "twice the wall time at half speed");
+  // Asleep, its owed time counts.
+  emulated = 0; wall = 0;
+  await emulatedPause(backend, 500, { sleep: async (t) => { wall += t; owed += t; }, now: () => wall });
+  assert.equal(wall, 500);
+  // A calculator that does not run: given up after ten times the hold.
+  owed = 0; wall = 0;
+  await emulatedPause(backend, 100, { sleep: async (t) => { wall += t; }, now: () => wall });
+  assert.equal(wall, 1000);
 });
 
 test("a combination the machine does not take is released after the timeout", async () => {
