@@ -4718,7 +4718,18 @@ saturnus".
   `.row-sub`: the side panel's list pattern), each Disconnect labelled
   with the app's name for a screen reader.
 - **One primary button**: Connect while it shows, else Done. Before,
-  nothing was primary once connected.
+  nothing was primary once connected. New address moved under the
+  address as a link (PR 229 review): in the actions row it was first
+  in the DOM and, on a phone, last on the screen, so Tab ran backwards.
+- **Lost keeps the steps** (PR 229 review): while the client reconnects
+  by itself the address and code sections stay, dimmed, with the last
+  address, every Copy and link off and the code box empty, so the
+  dialog does not collapse under a user copying the address; they go
+  only when AI access is off. The status line is a live region and is
+  left alone unless its words change (a new code or a grant used to
+  rewrite it, and some screen readers said it again). The dots in the
+  empty code box have empty alt text and a visually hidden "No code
+  yet." beside them.
 - **Same words, same behaviour.** The texts are the owner's; the Codex
   line and the notes stay, muted. Done still waits for an AI app. The
   desktop app's dialog takes the same look (the state line, the step

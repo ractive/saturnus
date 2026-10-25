@@ -281,7 +281,11 @@ dialog.ai {
   user-select: all;
   -webkit-user-select: all;
 }
-.ai-code-value[data-empty]::before { content: "······"; color: var(--muted); user-select: none; }
+/* The dots while no code is there: for the eye only (the alt text is empty; a visually hidden "No code yet." says it). */
+.ai-code-value[data-empty]::before { content: "······"; content: "······" / ""; color: var(--muted); user-select: none; }
+/* The connection lost: the steps stay to read from, dimmed, their links and Copy off. */
+.ai-step.ai-dim { opacity: 0.6; }
+.ai-install-row a.button.disabled { pointer-events: none; background: transparent; border-color: var(--border-disabled); box-shadow: none; color: var(--ink-disabled); }
 .ai-code-copy { min-width: 8.5em; }
 .ai-note { color: var(--muted); font-size: var(--fs-md); }
 .ai-notes { display: flex; flex-direction: column; gap: var(--s1); padding-top: var(--s2); border-top: 1px solid var(--rule-soft); }
@@ -296,7 +300,7 @@ dialog.ai {
 .ai-app small, .ai-keep small { color: var(--muted); }
 .ai-keep small { display: block; }
 .ai-keep { padding-top: var(--s2); border-top: 1px solid var(--rule-soft); }
-.ai-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.ai-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--s2); }
 .ai-gap { flex: 1 1 auto; }
 /* A narrow screen: a sheet at the bottom, its buttons the width of it. */
 @media (max-width: 560px) {
@@ -311,9 +315,7 @@ dialog.ai {
     border-radius: var(--r-xl) var(--r-xl) 0 0;
   }
   .ai-box { padding-bottom: calc(var(--s3) + var(--safe-b)); }
-  .ai-actions > button:not(.link) { flex: 1 1 auto; }
-  .ai-actions > .ai-gap { display: none; }
-  .ai-actions > .link { flex-basis: 100%; order: 1; }
+  .ai-actions > button { flex: 1 1 auto; }
 }
 /* tab-mcp's own confirmation before store_variable and purge_variable
    (vendor/tab-mcp-client 0.7 on: styled through its custom properties,

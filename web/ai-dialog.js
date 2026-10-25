@@ -52,7 +52,11 @@ async function copyText(button, label, text, select) {
  */
 function statusLine() {
   const node = el("p", { class: "ai-status", role: "status", "data-tone": "off" });
+  let shown = null;
   const set = (tone, text) => {
+    // A live region: left alone unless it changes, or a screen reader says it again.
+    if (shown === `${tone}\n${text}`) return;
+    shown = `${tone}\n${text}`;
     node.dataset.tone = tone;
     node.classList.toggle("error", tone === "error");
     node.textContent = text;
@@ -92,10 +96,12 @@ export async function openAiDialog(ai, doc = document) {
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
   const block = installBlock({ newOnly: true });
   const install = block.node;
-  const addStep = el("section", { class: "ai-step", "aria-labelledby": "ai-step-add" }, stepHeading("ai-step-add", 1, "Add this address to your AI app as an MCP server"), addressRow, install);
+  const fresh = el("button", { type: "button", class: "link", text: "New address" });
+  const addStep = el("section", { class: "ai-step", "aria-labelledby": "ai-step-add" }, stepHeading("ai-step-add", 1, "Add this address to your AI app as an MCP server"), addressRow, el("p", { class: "ai-note" }, fresh), install);
   const codeValue = el("strong", { class: "ai-code-value", "data-empty": true });
+  const noCode = el("span", { class: "visually-hidden", text: "No code yet." });
   const copyCode = copyButton("Copy code", "ai-code-copy");
-  const code = el("div", { class: "ai-code" }, codeValue, copyCode);
+  const code = el("div", { class: "ai-code" }, codeValue, noCode, copyCode);
   const codeStep = el("section", { class: "ai-step", "aria-labelledby": "ai-step-code" },
     stepHeading("ai-step-code", 2, "When your AI app asks for a code, enter this one"),
     code,
@@ -106,7 +112,6 @@ export async function openAiDialog(ai, doc = document) {
   const keepRow = el("label", { class: "switch ai-keep" }, keep, el("span", {}, "Keep AI access on", el("small", { text: "Connect again when the app opens." })));
   const connect = el("button", { type: "button", class: "primary", text: "Connect" });
   const off = el("button", { type: "button", text: "Turn off" });
-  const fresh = el("button", { type: "button", class: "link", text: "New address" });
   const done = el("button", { type: "button", class: "primary", text: "Done" });
   const closeAnyway = el("button", { type: "button", class: "link", text: "Close anyway" });
   const doneNote = el("p", { class: "ai-note ai-done-note", hidden: true }, "Done works once your AI app is connected: closing now ends the pairing code. ", closeAnyway);
@@ -126,7 +131,7 @@ export async function openAiDialog(ai, doc = document) {
       el("p", { class: "ai-note ai-phone", hidden: !matchMedia("(pointer: coarse) and (max-width: 999px)").matches, text: "On a phone, keep this tab in front while your AI app uses it: the phone pauses tabs in the background. Open both apps in split screen, or use your AI app on another device." }),
       el("p", { class: "ai-note" }, "What passes through the relay, and what it keeps: ", externalLink("https://ractive.ch/tab-mcp/", "privacy notice"), ".")),
     keepRow,
-    el("div", { class: "ai-actions" }, fresh, el("span", { class: "ai-gap" }), off, connect, done),
+    el("div", { class: "ai-actions" }, off, connect, done),
     doneNote,
   ));
 
@@ -134,14 +139,23 @@ export async function openAiDialog(ai, doc = document) {
   // pairing code the app is about to ask for, so Done and the backdrop
   // wait; Close anyway (and Esc) close on purpose.
   let waiting = false;
+  // The address last shown: while the connection is lost (the client reconnects by
+  // itself, the address stays) the steps stay, dimmed, with it, so the user can go
+  // on copying; they go only when AI access is off.
+  let lastAddress = "";
   const render = () => {
     const state = ai.state;
     const mcp = ai.mcp;
     const on = state === "connected";
-    address.value = on ? mcp.address : "";
-    addStep.hidden = !on;
-    codeStep.hidden = !on;
-    if (on) block.set({ url: mcp.address, headers: mcp.headers ?? {} });
+    const lost = !on && ai.lost;
+    if (on) lastAddress = mcp.address;
+    address.value = on || lost ? lastAddress : "";
+    addStep.hidden = !on && !lost;
+    codeStep.hidden = !on && !lost;
+    for (const step of [addStep, codeStep]) step.classList.toggle("ai-dim", lost);
+    if (on || lost) block.set({ url: lastAddress, headers: mcp?.headers ?? {} });
+    block.setEnabled(on);
+    copy.disabled = !on;
     // The code's box stays while none is there yet (the relay sends one right away): nothing moves when it comes.
     const pc = on ? mcp.pairingCode : undefined;
     if ((pc?.code ?? "") !== codeValue.textContent) {
@@ -149,6 +163,7 @@ export async function openAiDialog(ai, doc = document) {
       copyCode.querySelector("span").textContent = "Copy code";
     }
     codeValue.toggleAttribute("data-empty", !pc);
+    noCode.hidden = Boolean(pc);
     copyCode.disabled = !pc;
     // Lost: why, and that it connects again by itself (the client library reconnects).
     if (ai.lost) status.set("lost", `${ai.error ?? "The connection to the relay broke."} Reconnecting…`);
@@ -282,7 +297,17 @@ export function installBlock({ connector: connectorText = null, newOnly = false 
   });
   copyFor(forClaude, "Copy for Claude Code", "claude-code");
   copyFor(forCodex, "Copy for Codex", "codex");
-  return { node, set, cursor, vscode, forClaude, forCodex, cmd };
+  /** The links and Copy buttons usable or not (the connection lost: the address stays to read, not to add). */
+  const setEnabled = (enabled) => {
+    for (const a of [cursor, vscode]) {
+      a.classList.toggle("disabled", !enabled);
+      if (enabled) a.removeAttribute("aria-disabled");
+      else a.setAttribute("aria-disabled", "true");
+    }
+    forClaude.disabled = !enabled;
+    forCodex.disabled = !enabled;
+  };
+  return { node, set, setEnabled, cursor, vscode, forClaude, forCodex, cmd };
 }
 
 /** "just now", "3 min ago". */

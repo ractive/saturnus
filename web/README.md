@@ -1083,12 +1083,15 @@ through the relay while the tab is open. Nothing is installed.
   moves when it changes; one click selects it) with Copy code; the
   connected apps as card rows, each with Disconnect; the notes; **Keep
   AI access on** (connect again when the app opens, kept as
-  `saturnus.aiKeepOn`); Turn off, New address (the apps of the old one
-  lose access), and Connect or Done, whichever shows, as the one primary
-  button. While AI access is on and no app is connected, Done and the
-  backdrop do not close it, since closing ends the pairing code; a line
-  says so, with Close anyway (Esc closes too). Not in the desktop app
-  (its own dialog, `openLocalDialog`, has the same look).
+  `saturnus.aiKeepOn`); Turn off, and Connect or Done, whichever shows,
+  as the one primary button. New address (the apps of the old one lose
+  access) is a link under the address. While the connection is lost
+  (the client reconnects by itself) the steps stay, dimmed, with the
+  last address to read from and every Copy and link off; they go when
+  AI access is off. While AI access is on and no app is connected, Done
+  and the backdrop do not close it, since closing ends the pairing code;
+  a line says so, with Close anyway (Esc closes too). Not in the desktop
+  app (its own dialog, `openLocalDialog`, has the same look).
 - **The sidebar entry** (`app.js` `watchAi`, `ai-log.js` `aiView`,
   iteration 56) says the state: "Connect your AI app…" (off; why it went
   off below it), "AI access: connecting…", "AI access on · no app yet"

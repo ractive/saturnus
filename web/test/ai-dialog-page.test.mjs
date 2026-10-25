@@ -64,6 +64,10 @@ const DIALOG = `(() => {
     codexNote: [...d.querySelectorAll(".ai-note")].some((p) => shown(p) && p.textContent.includes("mcp_2026_07_28")),
     status: [q(".ai-status").dataset.tone, q(".ai-status").textContent],
     primary: [...d.querySelectorAll("button.primary")].filter((b) => shown(b)).map((b) => b.textContent),
+    address: shown(q(".ai-address")) ? q(".ai-address").value : null,
+    dim: [...d.querySelectorAll(".ai-step.ai-dim")].length,
+    copyDisabled: [...d.querySelectorAll("dialog.ai button")].filter((b) => b.textContent.startsWith("Copy")).map((b) => b.disabled),
+    linksDisabled: [...d.querySelectorAll(".ai-install-row a")].map((a) => a.getAttribute("aria-disabled") === "true"),
   };
 })()`;
 
@@ -145,6 +149,41 @@ test("the browser dialog: Done waits for an AI app, the code has Copy, Codex get
   assert.deepEqual(await ev(`[...document.querySelectorAll("dialog.ai .ai-apps li")].map((li) => [li.querySelector(".row-title").textContent, li.querySelector(".row-sub").textContent.trim(), li.querySelector("button").getAttribute("aria-label")])`), [["Codex", "chatgpt.com", "Disconnect Codex"]]);
   await click("Done");
   await until(ev, `window.t.done === true`, "closed by Done");
+});
+
+test("the browser dialog: lost keeps the steps, dimmed, with the address to read; the status is not said again unchanged", { timeout: 60_000 }, async (t) => {
+  const ev = await open(t);
+  if (!ev) return;
+  // The status's text node stays the same node across renders that change nothing in it.
+  await ev(`window.t.node = document.querySelector("dialog.ai .ai-status").firstChild, true`);
+  await ev(`window.t.ai.mcp.pairingCode = { code: "482913", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), window.t.ai.changed(), true`);
+  await until(ev, `(${DIALOG})?.code === "482913"`, "the code");
+  assert.equal(await ev(`document.querySelector("dialog.ai .ai-status").firstChild === window.t.node`), true, "the live region was left alone");
+  // New address sits under the address, in the DOM where it is seen; the actions are the buttons alone.
+  assert.deepEqual(await ev(`[...document.querySelectorAll("dialog.ai .ai-actions button")].map((b) => b.textContent)`), ["Turn off", "Connect", "Done"]);
+  assert.equal(await ev(`document.querySelector("dialog.ai .ai-step .ai-address")?.closest(".ai-step").contains([...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === "New address"))`), true);
+
+  // Lost: the client reconnects by itself; the steps stay with the last address, dimmed and off, the code box empty.
+  await ev(`window.t.ai.state = "disconnected", window.t.ai.lost = true, window.t.ai.error = "The connection to the relay broke.", window.t.ai.mcp.address = undefined, window.t.ai.mcp.pairingCode = undefined, window.t.ai.changed(), true`);
+  let d = await until(ev, `(${DIALOG})?.status[0] === "lost" && (${DIALOG})`, "lost");
+  assert.equal(d.status[1], "The connection to the relay broke. Reconnecting…");
+  assert.equal(d.address, ADDRESS, "the address stays to read");
+  assert.equal(d.dim, 2);
+  assert.equal(d.code, null);
+  assert.deepEqual(d.copyDisabled, [true, true, true, true], "every Copy off");
+  assert.deepEqual(d.linksDisabled, [true, true]);
+  assert.equal(await ev(`document.querySelector("dialog.ai .ai-status").firstChild !== window.t.node`), true, "a changed status is said");
+  // Back: everything usable again.
+  await ev(`window.t.ai.state = "connected", window.t.ai.lost = false, window.t.ai.error = null, window.t.ai.mcp.address = ${JSON.stringify(ADDRESS)}, window.t.ai.changed(), true`);
+  d = await until(ev, `(${DIALOG})?.status[0] === "on" && (${DIALOG})`, "back");
+  assert.equal(d.dim, 0);
+  assert.deepEqual(d.copyDisabled, [false, false, false, true], "Copy code waits for a code");
+  assert.deepEqual(d.linksDisabled, [false, false]);
+  // Off: the steps go.
+  await ev(`window.t.ai.state = "disconnected", window.t.ai.changed(), true`);
+  d = await until(ev, `(${DIALOG})?.status[0] === "off" && (${DIALOG})`, "off");
+  assert.equal(d.address, null);
+  assert.equal(d.codeBox, null);
 });
 
 test("the browser dialog: with AI access off, Done closes it", { timeout: 60_000 }, async (t) => {
