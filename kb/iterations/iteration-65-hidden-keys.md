@@ -30,7 +30,8 @@ the drawn calculator, and give the ON combinations a menu. 48GX only; the
    Alt) already lights the labels that click reaches and dims the others.
    An unprinted function whose label slot above the key is empty appears
    there while its modifier is held, in that shift's colour but drawn so
-   it does not pass for print (outlined or dashed), and is gone when the
+   it does not pass for print (in italics, lit like the printed labels; owner
+   2026-10-25: outlined and dashed did not glow), and is gone when the
    modifier is released: ⌥ shows SERVER above ▶. Owner 2026-10-25: the
    ghost takes the key's whole label area at full size, and the printed
    label it would share it with (SWAP above ▶, VIEW above ▼, which that

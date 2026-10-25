@@ -27,11 +27,12 @@ test("⌥ shows SERVER above ▶ at full size only while held, SWAP hidden meanw
   assert.equal(await p.visible('[data-ghost="right"]'), false, "no ghost at rest");
   assert.equal(await p.visible('[data-ghost="down"]'), false);
   assert.equal(await p.ev(`document.querySelector('.skin [data-ghost="right"]').textContent`), "SERVER");
-  assert.equal(await p.ev(`document.querySelector('.skin [data-ghost="right"]').getAttribute("fill")`), "none", "outlined, not print");
+  assert.equal(await p.ev(`document.querySelector('.skin [data-ghost="right"]').getAttribute("font-style")`), "italic", "italic, not print");
 
   await p.modifier("alt", true);
   await p.lit("glow-right");
   assert.equal(await p.visible('[data-ghost="right"]'), true, "⌥: SERVER");
+  assert.match(await p.ev(`getComputedStyle(document.querySelector('.skin [data-ghost="right"]')).filter`), /glow-right/, "lit like the labels it reaches");
   assert.equal(await p.visible('[data-ghost="down"]'), true, "⌥: REVIEW above ▼");
   const swap = `[...document.querySelectorAll(".skin .print text")].find((n) => n.textContent === "SWAP")`;
   assert.equal(await p.ev(`getComputedStyle(${swap}).visibility`), "hidden", "SWAP hidden while ⌥ is held");
