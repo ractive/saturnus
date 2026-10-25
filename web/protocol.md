@@ -681,7 +681,7 @@ and the Tauri app; `saturnus run` keeps none):
   ROM's wakes) has not changed: an idle calculator is never written,
   which matters for the 49G, whose state carries its 2 MB flash. A boot,
   restored or cold, is not a change.
-- The state is saved **5 s after the last change**, and at once when the
+- The state is saved **1 s after the last change**, and at once when the
   page is hidden (`visibility`), but only once the machine has
   **settled**: no send or write in progress, the CPU asleep with no key
   down or queued, not halted. A save due while the machine computes or a

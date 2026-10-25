@@ -13,6 +13,9 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { session, sleep } from "./chrome.mjs";
 
+/** The engine's auto-save delay (`AUTO_SAVE_MS`, wall ms). */
+const AUTO_SAVE_MS = 1_000;
+
 /** Poll `expression` in the page until it is truthy, at most `ms`. */
 async function until(ev, expression, ms, what) {
   const end = Date.now() + ms;
@@ -93,7 +96,15 @@ test("the calculator keeps its state across a reload", { timeout: 180_000 }, asy
     const typed = await ev(READ);
     assert.deepEqual(typed, { stack: ["1"], line: "2" });
     await until(ev, `window.__saved > ${coldSaves}`, 15_000, "the state saved after the delay");
-    const saves = await ev("window.__saved");
+    // A slow runner can space the presses past the delay, so a save may
+    // have landed mid-sequence with the last key's still to come: wait
+    // for a quiet spell longer than the delay before counting.
+    let saves = await ev("window.__saved");
+    for (let quiet = Date.now(); Date.now() - quiet < AUTO_SAVE_MS + 1_500; ) {
+      await sleep(200);
+      const now = await ev("window.__saved");
+      if (now !== saves) [saves, quiet] = [now, Date.now()];
+    }
     await sleep(7_000);
     assert.equal(await ev("window.__saved"), saves, "idle: nothing written");
 

@@ -4794,3 +4794,25 @@ saturnus".
   so the warning and New address stay.
 - The WebSocket URL now carries the address id (`/tab?a=`) for the
   relay's routing; the page builds no tab URL itself, nothing to do.
+
+## 2026-10-25 (auto-save 1 s after the last change)
+
+- **The auto-save delay is 1 s, not 5 s** (`DELAY_MS` in
+  `protocol/autosave.rs`, exported as `AUTO_SAVE_MS`). Supersedes "about
+  5 s after the last change" of 2026-10-08 (iteration 27); the rest of
+  that design stands. Why: the save at once when the page is hidden does
+  not land on a reload, because the page's Worker, which holds the
+  machine and writes IndexedDB, goes with the page. So a reload within
+  the delay of a change lost it: the owner reported it on the 49G. 1 s
+  narrows that window to about what a person needs to reach for the
+  reload; it does not close it (backlog `save-off-the-machine-thread`).
+- **Tradeoff, accepted.** On the desktop app the save is a synchronous,
+  fsynced write on the runner thread (`StateDir::save`), the thread that
+  runs the machine. At 1 s the 49G's 2.6 MB state (its 2 MB flash
+  inside) is written more often, and a key pressed during the write
+  waits until it ends. An idle calculator is still never written. Taking
+  the write off that thread (a latest-wins writer) and saving the flash
+  only when it changed are in backlog `save-off-the-machine-thread`.
+- The tests whose waits were longer than the new delay now wait less
+  than it and check that no timed save came first, so the hidden and
+  reboot paths stay tested on their own.

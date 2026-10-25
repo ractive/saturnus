@@ -17,7 +17,7 @@
 //! it settles.
 
 /// Wall ms from the last change to its save.
-pub const DELAY_MS: f64 = 5_000.0;
+pub const DELAY_MS: f64 = 1_000.0;
 
 /// What is owed to the host's store.
 #[derive(Clone, Debug, Default)]
@@ -106,9 +106,9 @@ mod tests {
         let mut a = on();
         a.touch(1_000.0);
         assert_eq!(a.due(), Some(1_000.0 + DELAY_MS));
-        assert!(!a.poll(3_000.0, 1.0, true), "too early");
-        assert!(a.poll(6_000.0, 1.0, true));
-        assert!(!a.poll(6_001.0, 1.0, true), "once");
+        assert!(!a.poll(1_000.0 + DELAY_MS / 2.0, 1.0, true), "too early");
+        assert!(a.poll(1_000.0 + DELAY_MS, 1.0, true));
+        assert!(!a.poll(1_001.0 + DELAY_MS, 1.0, true), "once");
         assert!(!a.poll(60_000.0, 1.0, true), "nothing new");
     }
 
@@ -116,12 +116,12 @@ mod tests {
     fn each_change_moves_the_save_on() {
         let mut a = on();
         a.touch(0.0);
-        a.touch(4_000.0);
+        a.touch(DELAY_MS * 0.8);
         assert!(
-            !a.poll(5_000.0, 1.0, true),
+            !a.poll(DELAY_MS, 1.0, true),
             "the delay counts from the last"
         );
-        assert!(a.poll(9_000.0, 1.0, true));
+        assert!(a.poll(DELAY_MS * 1.8, 1.0, true));
         assert!(!a.poll(20_000.0, 1.0, true), "once");
     }
 

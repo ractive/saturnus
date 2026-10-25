@@ -7,6 +7,9 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **A calculator's state is kept 1 s after the last change, not 5 s.**
+  A reload a few seconds after a change brought back the state from
+  before it (the save on leaving the page does not always land).
 - **A key's tooltip writes its commands in capitals.** It starts with
   the printed label: "NXT (alpha L)" in place of "nxt (alpha L)"; a
   glyph or math label adds the key's name, "▶ (RIGHT, alpha R)". The
