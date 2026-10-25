@@ -11,7 +11,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CALL_LIMIT_MS, CONFIRM_LIMIT_MS, LocalAiAccess, invalidArguments, listTools, mapAnnotations, toCallToolResult, validate } from "../ai-local.js";
-import { AiAccess } from "../ai.js";
+import { AiAccess, screenPng } from "../ai.js";
 import { aiTools, INSTRUCTIONS } from "../ai-tools.js";
 
 const turn = () => new Promise((r) => setTimeout(r, 0));
@@ -233,6 +233,19 @@ test("the setting, the state and the log's notes", async () => {
   tauri.core.invoke = async () => { throw new Error("Port 5000 is in use by pid 1 (x). Choose another port."); };
   await ai.set(true);
   assert.match(ai.error, /in use/);
+});
+
+test("the screen image follows the Screen images setting unless the call names a look", async () => {
+  const frame = { width: 131, height: 64, pixels: Buffer.alloc(17 * 64).toString("base64"), annunciators: {} };
+  let setting = "lcd";
+  const ai = new LocalAiAccess({ calculatorView: () => fakeView(), tauri: fakeTauri(), confirm: fakeConfirm("allow").module, doc: {}, look: () => setting });
+  const lcd = await screenPng(frame, "48gx", "lcd");
+  const bw = await screenPng(frame, "48gx", "bw");
+  assert.notEqual(lcd, bw);
+  assert.equal(await ai.png(frame, "48gx"), lcd);
+  setting = "bw";
+  assert.equal(await ai.png(frame, "48gx"), bw);
+  assert.equal(await ai.png(frame, "48gx", "lcd"), lcd);
 });
 
 test("MCP's shape of tools and results, as tab-mcp's client makes it", () => {

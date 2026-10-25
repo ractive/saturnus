@@ -510,6 +510,31 @@ test("no stale lost text once the reconnecting stops: on every change while it c
   }
 });
 
+test("screenPng in a look: the LCD's colours or black on white; AiAccess takes the setting when a call names none", async () => {
+  const frame = { width: 131, height: 64, pixels: Buffer.alloc(17 * 64).toString("base64"), annunciators: {} };
+  const plte = (b64) => { const png = Buffer.from(b64, "base64"); const at = png.indexOf("PLTE"); return [...png.subarray(at + 4, at + 4 + png.readUInt32BE(at - 4))]; };
+  const bw = await screenPng(frame, "48gx", "bw");
+  const lcd = await screenPng(frame, "48gx", "lcd");
+  assert.ok(["255,255,255,0,0,0", "0,0,0,255,255,255"].includes(plte(bw).join()), plte(bw).join());
+  assert.notDeepEqual(plte(lcd), plte(bw));
+  assert.equal(await screenPng(frame, "48gx"), lcd, "LCD by default");
+  let setting = "bw";
+  const f = fakeHub();
+  const ai = new AiAccess({ calculatorView: () => null, relay: "http://127.0.0.1:1", storage: null, hub: f.hub, roms: f.roms, look: () => setting });
+  assert.equal(await ai.png(frame, "48gx"), bw);
+  setting = "lcd";
+  assert.equal(await ai.png(frame, "48gx"), lcd);
+  assert.equal(await ai.png(frame, "48gx", "bw"), bw, "the call's look over the setting");
+});
+
+test("the AI's LCD image ignores the calculator's contrast: turned light, the ink stays as at power-on", async () => {
+  const base = { width: 131, height: 64, pixels: Buffer.alloc(17 * 64, 0x0f).toString("base64"), annunciators: {}, contrastRange: [0, 31], contrastDefault: 13 };
+  const normal = await screenPng({ ...base, contrast: 13 }, "48gx", "lcd");
+  assert.equal(await screenPng({ ...base, contrast: 0 }, "48gx", "lcd"), normal, "lightest");
+  assert.equal(await screenPng({ ...base, contrast: 31 }, "48gx", "lcd"), normal, "darkest");
+  assert.equal(await screenPng({ ...base, contrastRange: undefined }, "48gx", "lcd"), normal, "no contrast sent");
+});
+
 test("screenPng: the display's PNG as base64; null where it cannot be made, never a rejection", async () => {
   const frame = { width: 131, height: 64, pixels: Buffer.alloc(17 * 64).toString("base64"), annunciators: {} };
   const png = Buffer.from(await screenPng(frame, "48gx"), "base64");

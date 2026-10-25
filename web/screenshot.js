@@ -132,11 +132,12 @@ function mix(a, b, t) {
 
 /**
  * The colours of a pixel on and off: the LCD's at the frame's contrast
- * (as sat-calculator.js draws them), or black and white.
+ * (as sat-calculator.js draws them), or at `darkness` where one is given
+ * (web/contrast.js, e.g. `AT_DEFAULT`), or black and white.
  */
-export function screenColors(frame, look) {
+export function screenColors(frame, look, { darkness } = {}) {
   if (look === "bw") return { on: [0, 0, 0], off: [255, 255, 255] };
-  const d = frame.contrastRange ? contrastDarkness(frame.contrast, frame.contrastRange, frame.contrastDefault) : 1;
+  const d = darkness ?? (frame.contrastRange ? contrastDarkness(frame.contrast, frame.contrastRange, frame.contrastDefault) : 1);
   return { on: mix(LCD_BG, LCD_INK, d), off: mix(LCD_BG, LCD_INK, offTint(d)) };
 }
 
@@ -196,10 +197,10 @@ export function screenRgba(frame, pixels, model, look = "lcd", scale = SCALE) {
 /**
  * The screen as an indexed PNG's bytes (a promise): two colours, one bit
  * a pixel, `scale` image pixels per LCD pixel, in `look` (the same image
- * as `screenRgba`).
+ * as `screenRgba`); `darkness` as `screenColors` takes it.
  */
-export function screenPng(frame, pixels, model, look = "lcd", scale = SCALE) {
-  return twoColourPng(screenBits(frame, pixels, model), screenColors(frame, look), scale);
+export function screenPng(frame, pixels, model, look = "lcd", scale = SCALE, { darkness } = {}) {
+  return twoColourPng(screenBits(frame, pixels, model), screenColors(frame, look, { darkness }), scale);
 }
 
 /**

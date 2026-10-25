@@ -32,7 +32,7 @@
 
 import { aiTools, INSTRUCTIONS, titleOf } from "./ai-tools.js";
 import { AiLog } from "./ai-log.js";
-import { keepsRunning, screenPng } from "./ai.js";
+import { keepsRunning, screenPng, settingLook } from "./ai.js";
 
 /** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its UI chunk's `confirmInPage`). */
 export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-m7p94t5t.min.js";
@@ -222,6 +222,7 @@ export class LocalAiAccess extends EventTarget {
     doc = globalThis.document,
     now = () => Date.now(),
     allowDelayMs = undefined,
+    look = settingLook,
   } = {}) {
     super();
     this.local = true;
@@ -231,6 +232,8 @@ export class LocalAiAccess extends EventTarget {
     this.doc = doc;
     this.now = now;
     this.allowDelayMs = allowDelayMs;
+    /** The look of the tools' screen images when a call names none: the "Screen images" setting (tests give a fake). */
+    this.look = look;
     /** The endpoint's state (`mcp_status`); the header only from the commands, never from an event. */
     this.status = { enabled: false, running: false, port: 4842, defaultPort: 4842, address: null, error: null, apps: [] };
     /** What went wrong on this side (a command refused). */
@@ -291,7 +294,7 @@ export class LocalAiAccess extends EventTarget {
         calculators: () => this.calculators(),
         target: (id) => this.target(id),
         reference: { index: (m) => this.reference().then((r) => r.index(m)) },
-        png: (frame, model) => this.png(frame, model),
+        png: (frame, model, look) => this.png(frame, model, look),
       });
       for (const t of this.tools) if (t.annotations?.consequentialHint) this.consequential.add(t.name);
       const listen = this.tauri.event.listen;
@@ -437,9 +440,9 @@ export class LocalAiAccess extends EventTarget {
     return { id: shown, model: shown, backend: v.backend, store: v.store };
   }
 
-  /** A promise of the display as a PNG, base64 (null where none can be made), as web/ai.js makes it. */
-  png(frame, model) {
-    return screenPng(frame, model);
+  /** A promise of the display as a PNG, base64 (null where none can be made) in `look` (else the setting's), as web/ai.js makes it. */
+  png(frame, model, look) {
+    return screenPng(frame, model, look ?? this.look());
   }
 
   /** A call from the app's endpoint: answered with `mcp_reply`. */
