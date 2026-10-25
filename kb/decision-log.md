@@ -4727,12 +4727,23 @@ saturnus".
   dark; the page test (`web/test/ai-dialog-page.test.mjs`, Chrome)
   measures the code's box empty, with a code, and after the code
   changed, once the dialog's entrance animation (a scale) has ended.
-- **tab-mcp client 0.6.0** vendored (from 0.5.1), for its confirmation
-  that counts the delay only while the page is visible and focused, the
-  invisible characters shown as escapes, and the schema check at
-  registration. Nothing of it touches the page: the tools are
-  registered before `connect()` and their schemas compile (the e2e
-  against a local relay lists all 13), the page passes neither
-  `confirmDelayMs` nor `identityTimeoutMs`, `grants` is only read, and
-  the page has its own dialog, not `showConnectDialog`. The desktop
-  app's confirmation points at the new UI chunk.
+- **tab-mcp client 0.7.0** vendored (from 0.5.1, past 0.6.0 the same
+  day). 0.6.0: the confirmation counts its delay only while the page is
+  visible and focused, shows invisible characters as escapes, and
+  checks each schema at registration. Nothing of it touches the page:
+  the tools are registered before `connect()` and their schemas
+  compile (the e2e against a local relay lists all 13), the page passes
+  neither `confirmDelayMs` nor `identityTimeoutMs`, `grants` is only
+  read, and the page has its own connect dialog, not
+  `showConnectDialog`. 0.7.0: the library's dialogs have a designed
+  look from a constructed stylesheet, with more custom properties and
+  classes to style them. The page shows one of them, the confirmation
+  before store_variable and purge_variable (in the browser through the
+  client, in the desktop app through the vendored `confirmDialog`), and
+  styles it through the properties alone: the tokens for muted text,
+  the surface (`--track`, under the arguments), the accent and its ink
+  (the primary button, "Don't allow", the safe choice), `--error` for
+  danger, the focus ring, the shadow and the backdrop, beside the font,
+  colours, border, radius and padding it already set. No class
+  overrides, so the library's own layout stays. The desktop app's
+  confirmation points at the new UI chunk.

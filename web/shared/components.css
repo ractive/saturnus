@@ -316,14 +316,24 @@ dialog.ai {
   .ai-actions > .link { flex-basis: 100%; order: 1; }
 }
 /* tab-mcp's own confirmation before store_variable and purge_variable
-   (vendor/tab-mcp-client: styled through these properties only). */
+   (vendor/tab-mcp-client 0.7 on: styled through its custom properties,
+   the page's tokens; its primary button, "Don't allow", in the accent as
+   the page's primary ones; the arguments on the track). */
 :root {
   --tab-mcp-font: var(--fs-base)/var(--lh) var(--font);
   --tab-mcp-color: var(--ink);
   --tab-mcp-background: var(--panel);
+  --tab-mcp-muted: var(--muted);
+  --tab-mcp-surface: var(--track);
+  --tab-mcp-accent: var(--accent);
+  --tab-mcp-accent-text: var(--accent-ink);
+  --tab-mcp-danger: var(--error);
+  --tab-mcp-focus: var(--accent);
   --tab-mcp-border: 1px solid var(--rule);
   --tab-mcp-radius: var(--r-xl);
   --tab-mcp-padding: var(--s4) var(--gutter) var(--s3);
+  --tab-mcp-shadow: var(--shadow-3);
+  --tab-mcp-backdrop: var(--backdrop);
   --tab-mcp-mono: var(--mono);
   --tab-mcp-title-size: var(--fs-lg);
 }
