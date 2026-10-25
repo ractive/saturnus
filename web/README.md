@@ -380,7 +380,7 @@ forms").
    shift, `keyDown` with `shift`.) What a model's keys do beyond their
    print (`hiddenkeys.js`, every model's table from its wiki keyboard
    page) goes into the tooltips and, for an unprinted function with an
-   empty slot, an outlined ghost label shown while its modifier is
+   empty slot, an italic ghost label, lit like the printed ones, shown while its modifier is
    held, in the key's whole label area (the other shift's label hidden
    meanwhile); a modifier also lights the printed application labels
    whose command menu its shift opens (⌃ on the 48GX, ⌥ on the 48SX).

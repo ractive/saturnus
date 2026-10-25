@@ -1399,7 +1399,7 @@ export class SatCalculator extends HTMLElement {
       const ink = side === "left" ? s.leftInk : s.rightInk;
       const ghost = svg("text", {
         x: x + w / 2, y: base, "font-size": s.small, "text-anchor": "middle",
-        fill: "none", stroke: ink, "stroke-width": 0.9, "stroke-dasharray": "2.5 1.2",
+        fill: ink, "font-style": "italic",
         class: `ghost ghost-${side}`, "data-ghost": k.name, "aria-hidden": "true",
       }, layer, text);
       this.fitLater(ghost, w + 34);
