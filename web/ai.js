@@ -30,7 +30,8 @@ import { HubClient, hubRunning } from "./shared/calc-hub.js";
 import { KEYS, aiSecretKey } from "./shared/storage-names.js";
 import { relayUrl } from "./ai-relay.js";
 import { keptRomBytes, keptRoms } from "./tx/kept-roms.js";
-import { screenPng as screenPngBytes } from "./screenshot.js";
+import { lookOf, screenPng as screenPngBytes } from "./screenshot.js";
+import { prefs } from "./shared/prefs.js";
 import { pngBase64 } from "./shared/png.js";
 import "./shared/models.js";
 
@@ -38,26 +39,32 @@ import "./shared/models.js";
 const VERSION = "1";
 
 /**
- * A promise of the display as a PNG, base64, black on white at 3×
- * (web/screenshot.js); null where none can be made.
+ * A promise of the display as a PNG, base64, at 3× in `look` ("lcd": the
+ * LCD's colours, "bw": black on white; web/screenshot.js, as Copy screen
+ * makes it); null where none can be made.
  */
-export async function screenPng(frame, model) {
+export async function screenPng(frame, model, look = "lcd") {
   try {
-    return await displayPng(frame, model);
+    return await displayPng(frame, model, lookOf(look));
   } catch {
     return null;
   }
 }
 
 /** The display as a PNG, a promise of base64; throws or rejects where it cannot be made. */
-function displayPng(frame, model) {
+function displayPng(frame, model, look) {
   const bin = atob(frame.pixels);
   const row = Math.ceil(frame.width / 8);
   const px = new Uint8Array(frame.width * frame.height);
   for (let y = 0; y < frame.height; y++) {
     for (let x = 0; x < frame.width; x++) px[y * frame.width + x] = (bin.charCodeAt(y * row + (x >> 3)) >> (7 - (x & 7))) & 1;
   }
-  return pngBase64(screenPngBytes(frame, px, model, "bw", 3));
+  return pngBase64(screenPngBytes(frame, px, model, look, 3));
+}
+
+/** The app's "Screen images" setting (the store's `screenLook`, kept in prefs as it changes). */
+export function settingLook() {
+  return lookOf(prefs.get("screenLook"));
 }
 
 /**
@@ -111,10 +118,13 @@ export class AiAccess extends EventTarget {
     roms = { kept: (models) => keptRoms(undefined, models), bytes: (sha256) => keptRomBytes(sha256) },
     client = () => import("./vendor/tab-mcp-client/tab-mcp-client.min.js"),
     now = () => Date.now(),
+    look = settingLook,
   } = {}) {
     super();
     /** The clock, for the log and the waits it notes (tests give a fake). */
     this.now = now;
+    /** The look of the tools' screen images when a call names none: the "Screen images" setting (tests give a fake). */
+    this.look = look;
     /** Counts the user's Turn offs: a connect that outlived one says nothing. */
     this.offs = 0;
     /** While the page itself ends the session (Turn off, a new address): the client's reconnecting stops, not refused. */
@@ -215,7 +225,7 @@ export class AiAccess extends EventTarget {
         server: { name: "saturnus", title: "saturnus calculators", version: VERSION, instructions: INSTRUCTIONS },
         storageKey: aiSecretKey(origin),
       });
-      for (const tool of aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), existing: (id) => this.existing(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, png: screenPng })) {
+      for (const tool of aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), existing: (id) => this.existing(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, png: (frame, model, look) => this.png(frame, model, look) })) {
         await mcp.registerTool(tool);
         if (tool.annotations?.consequentialHint) this.consequential.add(tool.name);
       }
@@ -375,6 +385,11 @@ export class AiAccess extends EventTarget {
     this.attached.clear();
     this.lobby?.close();
     this.lobby = null;
+  }
+
+  /** A promise of the display as a PNG, base64 (null where none can be made) in `look` (else the setting's). */
+  png(frame, model, look) {
+    return screenPng(frame, model, look ?? this.look());
   }
 
   /** Calculator's parts for the tools (`{backend, store, reference}`), or null before it is mounted. */

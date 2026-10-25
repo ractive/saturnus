@@ -302,6 +302,25 @@ test("an image that fails to be made leaves the display's text", async () => {
   }
 });
 
+test("the image's look: the call's look, else undefined for the app's setting; every tool with an image takes look", async () => {
+  const looks = [];
+  const png = async (frame, model, look) => { looks.push(look); return "PNG"; };
+  const c = fake("48gx", { commandLine: { active: false }, stack: [] });
+  const t = tools({ "48gx": c }, { png });
+  for (const name of ["read_display", "press_keys", "run_rpl", "to_stack", "run_function"]) {
+    assert.deepEqual(t[name].inputSchema.properties.look.enum, ["lcd", "bw"], name);
+  }
+  for (const name of ["read_stack", "list_keys", "lookup_command"]) assert.equal(t[name].inputSchema.properties.look, undefined, name);
+  await call(t.read_display);
+  await call(t.read_display, { look: "bw" });
+  await call(t.press_keys, { keys: ["1"], look: "lcd" });
+  await call(t.read_display, { look: "sepia" });
+  assert.deepEqual(looks, [undefined, "bw", "lcd", undefined]);
+  const r = await call(t.read_display, { look: "bw" });
+  assert.equal(r.content[0].data, "PNG");
+  assert.equal(r.structuredContent.look, undefined, "the text part is unchanged");
+});
+
 test("calls on one calculator run one after the other", async () => {
   const order = [];
   let release;
