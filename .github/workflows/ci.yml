@@ -196,11 +196,11 @@ jobs:
           # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo check --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p kermit-proto -p xmodem-proto -p satx-core
-      # satx has its own rust-version (1.89, rustyline's file locks).
+      # satx has its own rust-version (1.95, rustyline 19 uses cfg_select!).
       - name: satx with its rust-version
         run: |
-          rustup toolchain install 1.89.0 --profile minimal
-          cargo +1.89.0 check --locked -p satx
+          rustup toolchain install 1.95.0 --profile minimal
+          cargo +1.95.0 check --locked -p satx
 
   # The core crate must build for wasm32 (no I/O, no threads); the browser
   # app's package is what web/build.sh produces with wasm-pack, and the
