@@ -704,6 +704,46 @@ test("the divider says its width and limits from the start", { timeout: 120_000 
   assert.deepEqual([min, now, width], ["80", "200", "200"], "the kept width");
 });
 
+test("just over 1000px with the panel shown, the view fits the window: its close in view, its divider on its edge, its handles' widths the ones laid out", { timeout: 120_000 }, async (t) => {
+  const p = await page(t, { width: 1010, height: 800 });
+  if (!p) return;
+  const fits = async (what) => {
+    const g = await p.ev(`(() => {
+      const r = (q) => document.querySelector(q).getBoundingClientRect();
+      const mid = (q) => r(q).x + r(q).width / 2;
+      return { inner: innerWidth, close: r(".layer-close").right, layerX: r("sat-explorer").x, layerW: r("sat-explorer").width,
+        layerHandle: mid("#layer-resize"), panelR: r("#panel").right, panelHandle: mid("#panel-resize"), stage: r("#stage").width };
+    })()`);
+    assert.ok(g.close <= g.inner, `${what}: the close at ${g.close}, the window ${g.inner} wide`);
+    assert.ok(Math.abs(g.layerHandle - g.layerX) <= 2, `${what}: the view's divider at ${g.layerHandle}, its edge at ${g.layerX}`);
+    assert.ok(Math.abs(g.panelHandle - g.panelR) <= 2, `${what}: the panel's divider at ${g.panelHandle}, its edge at ${g.panelR}`);
+    assert.ok(g.layerW >= 380, `${what}: the view ${g.layerW} wide`);
+    assert.ok(g.stage >= 300, `${what}: the calculator ${g.stage} wide`);
+    return g;
+  };
+  await fits("the default widths");
+  // A panel kept at 480px (dragged in a wider window), before the page clamps it: the CSS alone.
+  await p.ev(`document.getElementById("calculator-view").style.setProperty("--panel-w", "480px"), true`);
+  await fits("a 480px panel");
+  // The same width kept, the page loaded: the handles say the widths laid out, within their limits.
+  await p.ev(`localStorage.setItem("saturnus.panelWidth", "480")`);
+  await p.load();
+  await fits("a kept 480px panel");
+  const aria = (q) => p.ev(`(() => {
+    const h = document.querySelector(${JSON.stringify(q)});
+    return ["aria-valuemin", "aria-valuenow", "aria-valuemax"].map((a) => Number(h.getAttribute(a)));
+  })()`);
+  for (const [handle, box, k] of [["#panel-resize", "#panel", "ArrowRight"], ["#layer-resize", "sat-explorer", "ArrowLeft"]]) {
+    await p.ev(`document.querySelector(${JSON.stringify(handle)}).focus()`);
+    await p.key(k);
+    const [min, now, max] = await aria(handle);
+    const width = Math.round(await p.ev(`document.querySelector(${JSON.stringify(box)}).getBoundingClientRect().width`));
+    assert.ok(min <= now && now <= max, `${handle}: ${min} <= ${now} <= ${max}`);
+    assert.equal(now, width, `${handle}: the width laid out`);
+    await fits(`after ${k} on ${handle}`);
+  }
+});
+
 test("Cmd/Ctrl+E follows the keys: the view's selection, or after the calculator took them its command line or level 1", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
