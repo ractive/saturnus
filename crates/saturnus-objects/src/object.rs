@@ -1052,14 +1052,7 @@ impl<'a> Decoder<'a> {
             }
             ObjectType::Array => self.array(n, at, size)?,
             ObjectType::SymbolicMatrix => self.symbolic_matrix(n, body, depth)?,
-            ObjectType::Program => {
-                let elements = self.elements(n, body, depth)?;
-                Object::Program {
-                    source: self
-                        .names
-                        .map(|_| decompile::program(&elements, &self.settings)),
-                }
-            }
+            ObjectType::Program => self.secondary(n, body, depth)?.0,
             ObjectType::Algebraic => self.symbolic(n, body, depth)?.0,
             ObjectType::XlibName => element_object(self.xlib(n, body)?),
             _ => unknown(prolog, &n[at..at + size]),
@@ -1074,6 +1067,17 @@ impl<'a> Decoder<'a> {
             source: self
                 .names
                 .and_then(|_| decompile::algebraic(&elements, &self.settings)),
+        };
+        Ok((object, elements))
+    }
+
+    /// The program whose body starts at `body`, and its elements.
+    fn secondary(&self, n: &[u8], body: usize, depth: usize) -> Result<(Object, Vec<Element>)> {
+        let elements = self.elements(n, body, depth)?;
+        let object = Object::Program {
+            source: self
+                .names
+                .map(|_| decompile::program(&elements, &self.settings)),
         };
         Ok((object, elements))
     }
@@ -1107,6 +1111,12 @@ impl<'a> Decoder<'a> {
                 let (object, elements) = self.symbolic(n, at + 5, depth + 1)?;
                 Ok((Element::Symbolic { object, elements }, size))
             }
+            Some(ObjectType::Program) if depth < MAX_DEPTH => {
+                self.charge(1)?;
+                let size = object_size(n, at)?;
+                let (object, elements) = self.secondary(n, at + 5, depth + 1)?;
+                Ok((Element::Secondary { object, elements }, size))
+            }
             Some(_) => {
                 let (obj, size) = self.object(n, at, depth + 1)?;
                 Ok((Element::Object(obj), size))
@@ -1127,6 +1137,7 @@ impl<'a> Decoder<'a> {
             xlib: Some((lib, cmd)),
             arity: info.and_then(|i| i.arity),
             silent: false,
+            syntax: None,
         })
     }
 
@@ -1143,6 +1154,7 @@ impl<'a> Decoder<'a> {
                     xlib: Some((info.library, info.number)),
                     arity: info.arity,
                     silent: info.silent,
+                    syntax: info.syntax,
                 });
             }
             if let Some(m) = t.unit_markers() {
@@ -1172,6 +1184,7 @@ impl<'a> Decoder<'a> {
             xlib: None,
             arity: None,
             silent: false,
+            syntax: None,
         };
         match read(p, 5).and_then(ObjectType::from_prolog) {
             // Unreadable, a primitive (its prolog is its own code), code
@@ -1370,7 +1383,9 @@ struct Cost {
 /// An element of a list or tagged object as an object.
 fn element_object(e: Element) -> Object {
     match e {
-        Element::Object(o) | Element::Symbolic { object: o, .. } => o,
+        Element::Object(o)
+        | Element::Symbolic { object: o, .. }
+        | Element::Secondary { object: o, .. } => o,
         Element::Command {
             name,
             address,

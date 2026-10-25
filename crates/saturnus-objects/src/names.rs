@@ -157,7 +157,30 @@ pub struct CommandInfo<'a> {
     /// such as the word that quotes a program inside a program: the ROM's
     /// decompiler shows nothing for it.
     pub silent: bool,
+    /// What the command marks in the 49G's algebraic-mode syntax, for the
+    /// two unnamed structure words that carry it ([`Syntax`]).
+    pub syntax: Option<Syntax>,
 }
+
+/// The 49G's two unnamed structure words that embed an expression typed in
+/// algebraic-mode syntax in RPL (observed in RAM on ROM 2.10 and 1.19-6,
+/// commands 30 and 31 of the structure library, which the 48 has not:
+/// wiki: protocols/rpl-libraries "Algebraic-mode expressions").
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Syntax {
+    /// The next object is an expression in algebraic-mode syntax: the
+    /// ROM writes it between backquotes (`` `CF(-95)` ``). The 49G's
+    /// algebraic mode compiles every command line it evaluates so, and
+    /// keeps it as the history echo.
+    Algebraic,
+    /// Inside such an expression, the next object quoted (`'A'`).
+    Quote,
+}
+
+/// Command numbers of [`Syntax::Algebraic`] and [`Syntax::Quote`] in the
+/// structure library.
+const ALGEBRAIC_WORD: usize = 30;
+const QUOTE_WORD: usize = 31;
 
 /// The unit operators: ROM pointers to five empty lists (wiki:
 /// protocols/rpl-libraries "Unit operators").
@@ -359,12 +382,18 @@ impl NameTable {
 
     fn info<'s>(&'s self, lib: &'s Library, c: usize) -> Option<CommandInfo<'s>> {
         let name = lib.names.get(c).and_then(|n| n.as_deref());
+        let silent = name.is_none() && Some(lib.id) == self.structure;
         Some(CommandInfo {
             library: lib.id,
             number: u16::try_from(c).ok()?,
             name,
             arity: lib.arity.get(c).copied().flatten(),
-            silent: name.is_none() && Some(lib.id) == self.structure,
+            silent,
+            syntax: match c {
+                ALGEBRAIC_WORD if silent => Some(Syntax::Algebraic),
+                QUOTE_WORD if silent => Some(Syntax::Quote),
+                _ => None,
+            },
         })
     }
 
