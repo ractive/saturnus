@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 61: the AI tools say what is on the screen"
 date: 2026-10-24
-status: in-progress
+status: completed
 tags:
   - iteration
   - ai
@@ -64,4 +64,4 @@ If the research finds no reliable signal, fall back to the display alone for
 - [x] `screen` and `next` in the tools' results, run_rpl's refusal, `to_stack`
 - [x] INSTRUCTIONS and tool descriptions; web tests
 - [x] kb: decision-log entry
-- [ ] Owner: an AI app on the 48GX opens PLOT, gets out with the hint, runs RPL again
+- [x] Owner: an AI app on the 48GX opens PLOT, gets out with the hint, runs RPL again
