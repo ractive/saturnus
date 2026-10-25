@@ -278,8 +278,9 @@ fn a_write_is_never_saved_half_done() {
             reply = h.take(tag);
         }
         reply.unwrap().unwrap();
-        // Hidden: saved as soon as it has settled, without the delay.
-        h.run_until(h.now() + 1_000.0);
+        // Hidden: saved as soon as it has settled, without the delay: a
+        // window well inside the delay, so only the urgent save fits.
+        h.run_until(h.now() + AUTO_SAVE_MS / 4.0);
         assert_eq!(h.saves.len(), before + 1, "{model:?}: saved once settled");
         assert!(
             h.engine

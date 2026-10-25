@@ -13,6 +13,7 @@ use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use saturnus_host::protocol::AUTO_SAVE_MS;
 use saturnus_tauri::runner::{Request, Sink, StateDir, spawn, spawn_with};
 use serde_json::{Value, json};
 
@@ -178,12 +179,18 @@ fn wait_for(events: &Collect, what: &str, ok: impl Fn(&Collect) -> bool) {
 /// the 48SX clears memory for about 1 s (dozing in between) and drops a
 /// key pressed in its first ~550 ms.
 fn settled(tx: &Sender<Request>, events: &Collect) {
+    settled_after(tx, events, 1500.0);
+}
+
+/// [`settled`] after `ms` of emulated time instead of 1.5 s: short enough
+/// to come before the auto-save's delay ([`AUTO_SAVE_MS`]).
+fn settled_after(tx: &Sender<Request>, events: &Collect, ms: f64) {
     let emulated = |tx: &Sender<Request>| {
         call(tx, json!({"cmd": "stats"})).unwrap()["emulatedMs"]
             .as_f64()
             .unwrap()
     };
-    let until = emulated(tx) + 1500.0;
+    let until = emulated(tx) + ms;
     let tx2 = tx.clone();
     wait_for(events, "the ROM idle", move |e| {
         emulated(&tx2) >= until
@@ -833,7 +840,12 @@ fn keeps_the_calculator_across_restarts() {
     // Hidden (the window closing): an unsaved change is saved at once.
     let before = count(&events, "autoSaved");
     call(&tx, json!({"cmd": "run", "text": "DROP"})).unwrap();
-    settled(&tx, &events);
+    settled_after(&tx, &events, AUTO_SAVE_MS * 0.3);
+    assert_eq!(
+        count(&events, "autoSaved"),
+        before,
+        "the delay ran out before the window was hidden: the test proves nothing"
+    );
     call(&tx, json!({"cmd": "visibility", "hidden": true})).unwrap();
     assert_eq!(
         count(&events, "autoSaved"),
@@ -842,9 +854,15 @@ fn keeps_the_calculator_across_restarts() {
     );
 
     // A reboot within the delay of a change restores the newest state.
+    let before = count(&events, "autoSaved");
     call(&tx, json!({"cmd": "run", "text": "5"})).unwrap();
-    settled(&tx, &events);
+    settled_after(&tx, &events, AUTO_SAVE_MS * 0.3);
     let newest = call(&tx, json!({"cmd": "stack"})).unwrap();
+    assert_eq!(
+        count(&events, "autoSaved"),
+        before,
+        "the delay ran out before the reboot: the test proves nothing"
+    );
     let booted = call_file(&tx, json!({"cmd": "boot", "model": "48sx"}), &rom).unwrap();
     assert_eq!(booted["restored"], true, "{booted}");
     assert_eq!(call(&tx, json!({"cmd": "stack"})).unwrap(), newest);
@@ -852,7 +870,7 @@ fn keeps_the_calculator_across_restarts() {
     // A fresh start right after a change: cold, and the kept state is
     // gone, the old machine's save not written back.
     call(&tx, json!({"cmd": "run", "text": "7"})).unwrap();
-    settled(&tx, &events);
+    settled_after(&tx, &events, AUTO_SAVE_MS * 0.3);
     let booted = call_file(
         &tx,
         json!({"cmd": "boot", "model": "48sx", "fresh": true}),

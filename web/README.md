@@ -436,7 +436,7 @@ forms").
    this browser) sets it after every start and every state loaded, once
    the calculator has slept 1.5 s.
 5. The calculator keeps its state, as a real one keeps its memory when
-   turned off: about 5 s after the last key (once a computation, typing
+   turned off: about 1 s after the last key (once a computation, typing
    or a transfer has finished), and at once when the page is hidden, the
    page saves the calculator's state automatically. After a reload the
    model starts as it was left: the same stack, variables, mode and
