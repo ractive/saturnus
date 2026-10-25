@@ -31,28 +31,40 @@ the drawn calculator, and give the ON combinations a menu. 48GX only; the
    An unprinted function whose label slot above the key is empty appears
    there while its modifier is held, in that shift's colour but drawn so
    it does not pass for print (outlined or dashed), and is gone when the
-   modifier is released: ⌥ shows SERVER above ▶. The skin's label fitting
-   keeps it inside the slot; where the slot is taken or the text does not
-   fit, the function stays in the tooltip only.
+   modifier is released: ⌥ shows SERVER above ▶. Owner 2026-10-25: the
+   ghost takes the key's whole label area at full size, and the printed
+   label it would share it with (SWAP above ▶, VIEW above ▼, which that
+   modifier does not reach) is hidden while the modifier is held and back
+   on its release; nothing is squeezed beside it. A ghost too wide at full
+   size gets the skin's normal fitting for a single label. Where the
+   ghost's own slot holds print, the function stays in the tooltip only.
 3. **Left-shifted application menus.** ← on an application key opens its
    command menu (← 7 the SOLVE menu) while only the right-shift label
    (SOLVE) is printed. Holding ⌃ lights that label in the left shift's
    violet, as ⌥ lights it in its own green: ⌥ 7 a green SOLVE (the
    application), ⌃ 7 a violet SOLVE (its menu). No ghost label, no layout
-   change. The tooltip writes the menu with a ≡: `⌃-click: SOLVE ≡`,
-   `⌥-click: SOLVE`.
+   change. The tooltip writes the menu in words (owner 2026-10-25, not
+   with a ≡): `⌃-click: SOLVE menu`, `⌥-click: SOLVE`.
 4. **The ON combinations.** A long press or a right-click on the ON key
    opens a menu: Restart (ON+C, clears the stack, keeps the variables),
    Self-test (ON+D), Print display (ON+1), Reset memory (ON+A+F, asked
    first). The same four in the command palette. The side panel's Reset
    stays as it is.
 
+Strictly data-driven (owner 2026-10-25): per model a table of
+unprinted and misleading shifted functions (key, shift, label text,
+kind: unprinted, note or menu; a one-shift model's one shift) and the
+ON menu's chords (they differ per model); the UI knows nothing of a
+model beyond its table. The other eleven models follow from a sweep of
+each, written into the wiki first, then added to the tables (in this
+PR or a follow-up).
+
 ## Tasks
 
-- [ ] The 48GX's unprinted and misleading shifted functions as data, each citing the wiki page
-- [ ] Tooltips show them, "(not printed)" or the note
-- [ ] Ghost labels in empty slots while ⌃ or ⌥ is held
-- [ ] ⌃ lights an application key's label in violet where ← opens its menu
-- [ ] The ON key's menu (long press, right-click) and the four palette entries
-- [ ] Page tests; screenshots at 1280 and 390 wide with ⌃ and ⌥ held
+- [x] The 48GX's unprinted and misleading shifted functions as data, each citing the wiki page
+- [x] Tooltips show them, "(not printed)" or the note
+- [x] Ghost labels in empty slots while ⌃ or ⌥ is held
+- [x] ⌃ lights an application key's label in violet where ← opens its menu
+- [x] The ON key's menu (long press, right-click) and the four palette entries
+- [x] Page tests; screenshots at 1280 and 390 wide with ⌃ and ⌥ held
 - [ ] Owner: hold ⌃ and ⌥ on the 48GX, read the tooltips, try the ON menu

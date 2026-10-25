@@ -22,6 +22,7 @@ import { MemoryView } from "./memory.js";
 import { lockZoom } from "./nozoom.js";
 import { MemoryWrites, calculatorFiles, dropRefusal, screenRefusal } from "./writes.js";
 import { ReferenceLoader } from "./palette.js";
+import { onCombos, runCombo } from "./onkeys.js";
 import { lookOf } from "./screenshot.js";
 import { installServiceWorker, keepScreenOnWhileComputing } from "./pwa.js";
 import { loadIcons } from "./shared/components/icons.js";
@@ -287,6 +288,12 @@ function appActions(backend, store, memory, bindings, ai = null) {
       { id: "load", title: "Load state", description: "Loads the state you saved for this model; asks first.", off: s.canLoad ? null : "No saved state for this model", keywords: "load state restore snapshot", run: () => setTimeout(() => ui.controls.loadState(), 0) },
       { id: "load-file", title: "Load state from a file…", description: "Loads a .sat file; asks first.", keywords: "load state restore snapshot file open import sat", run: () => setTimeout(() => ui.controls.loadStateFromFile(), 0) },
       { id: "save-file", title: "Save state to a file…", description: "The calculator's whole state as a .sat file. A 49G state contains the 49G's ROM.", keywords: "save state snapshot file download export sat", run: () => ui.controls.saveStateToFile() },
+      // The ON combinations (web/onkeys.js), as the ON key's menu has them; after the palette has closed (Reset memory asks).
+      ...onCombos(s.booted).map((c) => ({
+        id: `on-${c.id}`, title: `${c.title.replace(/…$/, "")} (${c.keys.map((k) => k.toUpperCase()).join("+")})${c.ask ? "…" : ""}`, description: c.description,
+        keywords: `on key combination ${c.keys.join(" ")} ${c.title.toLowerCase()}`, off: s.running ? null : "The calculator is paused",
+        run: () => setTimeout(() => runCombo(c, backend, store), 0),
+      })),
       // After the palette has closed, which gives the focus back to the page.
       { id: "fresh", title: "Start fresh", description: "Restart with empty memory, like a new calculator. Asks first; your saved state stays.", keywords: "start fresh new cold boot clear memory wipe empty", run: () => setTimeout(() => ui.controls.startFresh(), 0) },
     ] : []),

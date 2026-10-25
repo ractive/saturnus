@@ -466,8 +466,20 @@
    labels a click with it reaches light up, every other label fades. */
 :where(#calculator-view) .skin svg.glow-left .shift-left { filter: url(#glow-left); }
 :where(#calculator-view) .skin svg.glow-right .shift-right { filter: url(#glow-right); }
-:where(#calculator-view) .skin svg.glow-left :is(.keys, .print) text:not(.shift-left),
-:where(#calculator-view) .skin svg.glow-right :is(.keys, .print) text:not(.shift-right) { opacity: 0.4; }
+:where(#calculator-view) .skin svg.glow-left :is(.keys, .print) text:not(.shift-left, .menu-left, .ghost),
+:where(#calculator-view) .skin svg.glow-right :is(.keys, .print) text:not(.shift-right, .menu-right, .ghost) { opacity: 0.4; }
+/* An application key whose other shift opens its command menu (web/hiddenkeys.js,
+   ← 7 on the 48GX): that shift's modifier lights the printed label in its colour. */
+:where(#calculator-view) .skin svg.glow-left .menu-left { filter: url(#glow-left); }
+:where(#calculator-view) .skin svg.glow-right .menu-right { filter: url(#glow-right); }
+/* Ghost labels (sat-calculator.js `drawGhosts`): an unprinted function,
+   outlined, shown only while its modifier is held, in the key's whole
+   label area; the printed label of the other shift is hidden meanwhile. */
+:where(#calculator-view) .skin .ghost { visibility: hidden; }
+:where(#calculator-view) .skin svg.glow-left .ghost.ghost-left,
+:where(#calculator-view) .skin svg.glow-right .ghost.ghost-right { visibility: visible; }
+:where(#calculator-view) .skin svg.glow-left .ghost-yield-left,
+:where(#calculator-view) .skin svg.glow-right .ghost-yield-right { visibility: hidden; }
 @media (prefers-reduced-motion: no-preference) {
   :where(#calculator-view) .skin :is(.keys, .print) text { transition: opacity var(--t) var(--ease); }
 }

@@ -14,6 +14,8 @@ import { linkSites } from "../shared/ext-links.js";
 import { inDesktopApp } from "../shared/site-links.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, keyTitle, modifierOf, shiftFor } from "../shiftclick.js";
+import { ghostSlot, hiddenOf, menuLabels } from "../hiddenkeys.js";
+import { ON_LONG_PRESS, onCombos, onPointerDown, runCombo } from "../onkeys.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenPng } from "../screenshot.js";
 import { copyPng, pngBlob } from "../shared/png.js";
 import { closeMenu, openMenu, openMenuKey } from "../shared/components/menu.js";
@@ -415,6 +417,8 @@ export class SatCalculator extends HTMLElement {
     this.skinWindowFill = "";
     /** Text elements to squeeze into a width once the skin is laid out. */
     this.skinFits = [];
+    /** Printed labels a modifier lights too, by key (web/hiddenkeys.js `menuLabels`). */
+    this.skinMenus = new Map();
     /** The drawn model's key names and typing rules (letter map, shifts). */
     this.keyNames = new Set();
     this.typing = null;
@@ -435,6 +439,8 @@ export class SatCalculator extends HTMLElement {
     this.pointerDown = new Map();
     /** Which key's contextmenu belongs to a pointer press, and which is Firefox's Ctrl+click. */
     this.contextClicks = new ContextClicks();
+    /** A press on ON waiting for its release or its long press (`onMenu`): `{id, at, timer}`, or null. */
+    this.onPending = null;
     /** Edge to edge (`setEdge`), and the face's boxes once measured (`edgeBoxes`). */
     this.edge = false;
     /** Edge to edge, whether the case is cropped to the face (`CROP`). */
@@ -493,6 +499,8 @@ export class SatCalculator extends HTMLElement {
     // Keys held when the window loses the focus or the page goes to the
     // background (a phone's app switcher) would never see their release.
     const releaseAll = () => {
+      // A press on ON still waiting is dropped: no menu opens in the background.
+      this.cancelOn();
       this.keyboardDown.clear();
       this.pointerDown.clear();
       this.backend.keyUpAll();
@@ -502,6 +510,7 @@ export class SatCalculator extends HTMLElement {
       if (document.hidden) releaseAll();
     });
     this.watchModifiers();
+    this.keysWhileOnHeld();
     // A long press on the calculator is a held key, not a context menu;
     // on the display it is the display's menu (`displayMenu`).
     this.ui.skin.addEventListener("contextmenu", (e) => {
@@ -1064,6 +1073,8 @@ export class SatCalculator extends HTMLElement {
 
   /** Press key `name`; with `shift`, a shifted press (the host taps the shift unless it is on). */
   pressKey(name, shift = null) {
+    // Another key while ON waits: ON goes down first, held (ON and +, by hand).
+    if (name !== "on") this.flushOn();
     const action = keyAction(this.store.state, name, this.keyNames);
     if (action === "pulse") this.pulseNoRom();
     if (action !== "press") return false;
@@ -1098,15 +1109,21 @@ export class SatCalculator extends HTMLElement {
     return name && this.keyNames.has(name) ? name : null;
   }
 
-  onKeyDown(e) {
+  /**
+   * A key from the keyboard. `held`: ON's pointer is down past its menu
+   * (`keysWhileOnHeld`), and the focus, in that menu, is not asked about.
+   */
+  onKeyDown(e, held = false) {
     if (e.defaultPrevented) return;
     const t = e.target;
-    if (t instanceof HTMLSelectElement || t instanceof HTMLInputElement || t instanceof HTMLButtonElement) return;
-    // A dialog and the memory view keep the keys while the focus is inside
-    // them (the event's path, as a handler there may have redrawn its target).
-    if (e.composedPath().some((n) => n instanceof Element && n.matches("dialog[open], sat-explorer"))) return;
-    // A modal dialog (the palette, the shortcuts) keeps the keys even when nothing in it has the focus.
-    if ([...document.querySelectorAll("dialog[open]")].some(isModal)) return;
+    if (!held) {
+      if (t instanceof HTMLSelectElement || t instanceof HTMLInputElement || t instanceof HTMLButtonElement) return;
+      // A dialog and the memory view keep the keys while the focus is inside
+      // them (the event's path, as a handler there may have redrawn its target).
+      if (e.composedPath().some((n) => n instanceof Element && n.matches("dialog[open], sat-explorer"))) return;
+      // A modal dialog (the palette, the shortcuts) keeps the keys even when nothing in it has the focus.
+      if ([...document.querySelectorAll("dialog[open]")].some(isModal)) return;
+    }
     // A binding first: ON, alpha or a shift (it may be a combination);
     // a key bound to an app action is the page's (app.js).
     const id = this.bindings?.match(e) ?? null;
@@ -1220,6 +1237,82 @@ export class SatCalculator extends HTMLElement {
     root.classList.toggle("glow-right", side === "right");
   }
 
+  // ---------------------------------------------------------- the ON key
+
+  /**
+   * A plain press on ON of a model with ON combinations (web/onkeys.js):
+   * nothing is sent yet. Released before `ON_LONG_PRESS`, it is ON (a
+   * tap); held, the ON key's menu opens and ON is never pressed (CANCEL
+   * would close an open command line first). Another key pressed while
+   * the pointer is still down, also once the menu is open, closes the
+   * menu and sends ON at once, held, before that key (`flushOn`): a hand
+   * holding ON for a chord (ON and +), at any speed.
+   */
+  waitOn(e) {
+    this.cancelOn();
+    const at = { x: e.clientX, y: e.clientY };
+    this.onPending = { id: e.pointerId, at, menu: false, timer: setTimeout(() => this.onHeld(), ON_LONG_PRESS) };
+  }
+
+  /** The press on ON held long (or the browser's own long press): its menu, the pointer still down. */
+  onHeld() {
+    const p = this.onPending;
+    if (!p || p.menu) return;
+    clearTimeout(p.timer);
+    p.menu = true;
+    this.onMenu(p.at);
+  }
+
+  /** Forget a waiting press on ON. */
+  cancelOn() {
+    if (this.onPending) clearTimeout(this.onPending.timer);
+    this.onPending = null;
+  }
+
+  /** A waiting press on ON goes down now, held until its pointer is up; its menu, if open, closes. */
+  flushOn() {
+    const p = this.onPending;
+    if (!p) return;
+    this.cancelOn();
+    if (p.menu && openMenuKey() === "on-key") closeMenu();
+    if (this.pressKey("on")) this.pointerDown.set(p.id, "on");
+  }
+
+  /**
+   * A key from the keyboard while ON's pointer is still down and its menu
+   * open (the menu has the focus and would take the key): heard first,
+   * it closes the menu and presses ON, held, then the key (`flushOn`).
+   * Escape (ON's own key) is left to the menu, which closes.
+   */
+  keysWhileOnHeld() {
+    window.addEventListener("keydown", (e) => {
+      if (!this.onPending?.menu || openMenuKey() !== "on-key" || e.key === "Escape" || !shown()) return;
+      e.stopPropagation();
+      this.onKeyDown(e, true);
+    }, true);
+  }
+
+  /** The ON key's menu at `at` (the pointer): the model's ON combinations. */
+  onMenu(at) {
+    const combos = onCombos(this.skinModel);
+    if (!combos.length || !isLive(this.store.state)) return;
+    openMenu({
+      at,
+      key: "on-key",
+      label: "ON combinations",
+      items: [
+        { note: "ON held with other keys" },
+        ...combos.map((c) => ({
+          text: c.title,
+          hint: c.keys.map((k) => k.toUpperCase()).join("+"),
+          title: c.description,
+          danger: Boolean(c.ask),
+          run: () => runCombo(c, this.backend, this.store),
+        })),
+      ],
+    });
+  }
+
   // ---------------------------------------------------------- skin
 
   /** Remember `t` to squeeze to `max` units wide once it can be measured. */
@@ -1247,9 +1340,12 @@ export class SatCalculator extends HTMLElement {
     // Wells leave a little more air between the key and its labels.
     const base = y - (k.well ? 8 : 5);
     const size = s.small;
+    let single = null;
     if (k.left && k.right) {
       const a = svg("text", { x: x - 3, y: base, "font-size": size, fill: s.leftInk, class: "shift-left" }, layer, k.left);
       const b = svg("text", { x: x + w + 3, y: base, "font-size": size, fill: s.rightInk, "text-anchor": "end", class: "shift-right" }, layer, k.right);
+      this.markMenu(k, a, k.left);
+      this.markMenu(k, b, k.right);
       // Each label keeps to its share of the room above the key.
       const room = w + 6;
       const la = Math.max(1, k.left.length);
@@ -1261,7 +1357,46 @@ export class SatCalculator extends HTMLElement {
         x: x + w / 2, y: base, "font-size": size, "text-anchor": "middle",
         fill: k.left ? s.leftInk : s.rightInk, class: k.left ? "shift-left" : "shift-right",
       }, layer, k.left || k.right);
+      this.markMenu(k, t, k.left || k.right);
       this.fitLater(t, w + 34);
+      single = t;
+    }
+    this.drawGhosts(layer, s, k, base, single);
+  }
+
+  /**
+   * Where a shift opens the menu of the application printed on key `k`
+   * (← 7 the SOLVE menu on the 48GX), that shift's modifier lights the
+   * printed label `t` (text `text`) too, in its own colour (style.css).
+   */
+  markMenu(k, t, text) {
+    const m = this.skinMenus.get(k.name);
+    if (m && m.label === text) t.classList.add(`menu-${m.shift}`);
+  }
+
+  /**
+   * The ghost labels of key `k` (web/hiddenkeys.js): an unprinted
+   * function whose slot is empty, outlined in its shift's colour so it
+   * does not pass for print, shown only while that shift's modifier is
+   * held (style.css). It takes the key's whole label area at full size,
+   * fitted as a single label is; the printed label of the other shift
+   * (`print`, which that modifier does not reach) is hidden meanwhile and
+   * back on the release (owner 2026-10-25).
+   */
+  drawGhosts(layer, s, k, base, print) {
+    const extra = hiddenOf(this.skinModel, k.name);
+    const [x, , w] = wellRect(k);
+    for (const side of ["left", "right"]) {
+      const text = ghostSlot(k, side, extra);
+      if (!text) continue;
+      const ink = side === "left" ? s.leftInk : s.rightInk;
+      const ghost = svg("text", {
+        x: x + w / 2, y: base, "font-size": s.small, "text-anchor": "middle",
+        fill: "none", stroke: ink, "stroke-width": 0.9, "stroke-dasharray": "2.5 1.2",
+        class: `ghost ghost-${side}`, "data-ghost": k.name, "aria-hidden": "true",
+      }, layer, text);
+      this.fitLater(ghost, w + 34);
+      print?.classList.add(`ghost-yield-${side}`);
     }
   }
 
@@ -1287,7 +1422,9 @@ export class SatCalculator extends HTMLElement {
   drawKey(keys, s, k) {
     const [x, y, w, h] = k.rect;
     const g = svg("g", { class: "skey", "data-key": k.name }, keys);
-    svg("title", {}, g, [keyTitle(k), ...clickHints(k, this.keyNames, this.isMac)].join("\n"));
+    const combos = k.name === "on" ? onCombos(this.skinModel) : [];
+    const onLine = combos.length ? [`Long press or right-click: ${combos.map((c) => c.title.replace(/…$/, "")).join(", ")}`] : [];
+    svg("title", {}, g, [keyTitle(k), ...clickHints(k, this.keyNames, this.isMac, hiddenOf(this.skinModel, k.name)), ...onLine].join("\n"));
     // Hit area a little larger than the key and its well, as the grid's buttons are.
     const [wx, wy, ww, wh] = wellRect(k);
     const pad = k.well ? 3 : 6;
@@ -1340,6 +1477,17 @@ export class SatCalculator extends HTMLElement {
       try { g.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
       const mod = e.pointerType === "mouse" ? modifierOf(e) : null;
       this.contextClicks.pointerdown(k.name, e);
+      if (combos.length && isLive(this.store.state)) {
+        const what = onPointerDown(e, mod);
+        if (what === "menu") {
+          this.onMenu({ x: e.clientX, y: e.clientY });
+          return;
+        }
+        if (what === "wait") {
+          this.waitOn(e);
+          return;
+        }
+      }
       if (this.pressKey(k.name, shiftFor(mod, k.name, this.keyNames))) this.pointerDown.set(e.pointerId, k.name);
     });
     // Firefox on macOS sends a Ctrl+click as `contextmenu` without a
@@ -1347,10 +1495,25 @@ export class SatCalculator extends HTMLElement {
     // minimum time). A `contextmenu` that follows a `pointerdown` is that
     // press's (web/shiftclick.js, `ContextClicks`).
     g.addEventListener("contextmenu", (e) => {
+      const ours = this.contextClicks.awaiting.has(k.name);
       const mod = this.contextClicks.contextmenu(k.name, e);
+      // A right-click no press came with (or a browser's own long press):
+      // the ON key's menu, once, in place of a waiting press.
+      if (!ours && !mod && combos.length && isLive(this.store.state)) {
+        if (this.onPending) this.onHeld();
+        else if (openMenuKey() !== "on-key") this.onMenu({ x: e.clientX, y: e.clientY });
+        return;
+      }
       if (mod && this.pressKey(k.name, shiftFor(mod, k.name, this.keyNames))) this.releaseKey(k.name);
     });
     const up = (e) => {
+      if (k.name === "on" && this.onPending?.id === e.pointerId) {
+        // A tap: ON, as a tap (the host holds it the minimum time); after its menu opened, nothing.
+        const { menu } = this.onPending;
+        this.cancelOn();
+        if (!menu && e.type !== "pointercancel" && this.pressKey("on")) this.releaseKey("on");
+        return;
+      }
       if (this.pointerDown.get(e.pointerId) !== k.name) return;
       this.pointerDown.delete(e.pointerId);
       this.releaseKey(k.name);
@@ -1375,10 +1538,12 @@ export class SatCalculator extends HTMLElement {
     if (seq !== this.renderSeq) return;
     this.skinKeys.clear();
     this.skinFits = [];
+    this.cancelOn();
     this.skinWindow = null;
     this.skinWindowFill = "";
     this.skinData = s;
     this.skinModel = model;
+    this.skinMenus = menuLabels(model);
     this.faceBoxes = null;
     this.geom = null;
     // Edge to edge, the room around the face takes the case's colour.

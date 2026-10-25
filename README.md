@@ -246,7 +246,11 @@ paused or halted, a send in progress and the last message.
 
 **Keys.** Click or tap the keys. Ctrl+click presses a key's left-shifted
 function, Alt/Option+click its right-shifted one, and holding Ctrl or
-Alt lights the labels they reach. On the computer keyboard, letters,
+Alt lights the labels they reach. On the 48GX, functions no label
+names show while their modifier is held (Alt: SERVER above ▶), each
+key's tooltip lists them, and a long press or a right-click on ON
+offers Restart (ON+C), Self-test (ON+D), Print display (ON+1) and
+Reset memory (ON+A+F). On the computer keyboard, letters,
 digits, `+ - * /`, `.`, Space, Enter, Backspace, Delete (DEL), the
 arrows, `'`, `^` and F1-F6 (the menu keys) type as printed. ON (Escape),
 α (Tab), the shifts and the app's actions are shortcuts you can change
