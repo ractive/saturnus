@@ -989,6 +989,7 @@ pub fn run() {
                 mcp_app::mcp_status,
                 mcp_app::mcp_set,
                 mcp_app::mcpb_open,
+                mcp_app::mcp_install_open,
                 $($extra),*
             ]
         };

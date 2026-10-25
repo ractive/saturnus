@@ -3,7 +3,8 @@
 // headless Chrome, with web/ai-local.js's LocalAiAccess on a fake Tauri
 // bridge (no app, no ROM): the setting off by default, turned on (the
 // local address, the Cursor and VS Code links and the Claude Code and
-// Codex commands with the Authorization header), Add to Claude Desktop,
+// Codex commands with the Authorization header, the links opened by the
+// app), Add to Claude Desktop,
 // the AI apps seen, a busy
 // port's error, another port, turned off. A store_variable call opens
 // tab-mcp's own confirmation (the vendored dialog); Always allow lets the
@@ -41,6 +42,10 @@ const SETUP = `(async () => {
       if (cmd === "mcpb_open") {
         if (t.mcpbError) throw new Error(t.mcpbError);
         return "/cache/saturnus.mcpb";
+      }
+      if (cmd === "mcp_install_open") {
+        if (t.installError) throw new Error(t.installError);
+        return null;
       }
       if (cmd === "mcp_reply") replies.get(args.id)?.(args);
       return null;
@@ -124,6 +129,19 @@ test("the desktop dialog: the setting, the address with its header, the apps, th
   d = await until(`(${DIALOG}).error && (${DIALOG})`, "the extension's error");
   assert.equal(d.status, "Claude Desktop did not open the extension.");
   await ev(`window.t.mcpbError = null, true`);
+
+  // Add to VS Code, Add to Cursor: the app opens the link (the webview follows no vscode: link); a failure says why.
+  await ev(`[...document.querySelectorAll("dialog.ai a")].find((a) => a.textContent === "Add to VS Code").click(), true`);
+  await until(`window.t.calls.some((c) => c[0] === "mcp_install_open")`, "the VS Code link opened");
+  await ev(`[...document.querySelectorAll("dialog.ai a")].find((a) => a.textContent === "Add to Cursor").click(), true`);
+  const opened = await until(`(() => { const u = window.t.calls.filter((c) => c[0] === "mcp_install_open").map((c) => c[1].url); return u.length === 2 && u; })()`, "the Cursor link opened");
+  assert.ok(opened[0].startsWith("vscode:mcp/install?") && opened[1].startsWith("cursor://anysphere.cursor-deeplink/mcp/install?"), String(opened.map((u) => u.slice(0, 50))));
+  assert.equal(await ev(`location.href.startsWith("http")`), true, "the page stays");
+  await ev(`window.t.installError = "VS Code did not open. Install VS Code, then try again.", [...document.querySelectorAll("dialog.ai a")].find((a) => a.textContent === "Add to VS Code").click(), true`);
+  d = await until(`(${DIALOG}).error && (${DIALOG})`, "the link's error");
+  assert.equal(d.status, "VS Code did not open. Install VS Code, then try again.");
+  await ev(`window.t.installError = null, [...document.querySelectorAll("dialog.ai a")].find((a) => a.textContent === "Add to Cursor").click(), true`);
+  d = await until(`!(${DIALOG}).error && (${DIALOG})`, "the error cleared");
 
   // An AI app seen.
   await ev(`window.t.status.apps = [{ name: "Claude Code", secondsAgo: 130 }], window.t.emit("mcp-status", null), true`);

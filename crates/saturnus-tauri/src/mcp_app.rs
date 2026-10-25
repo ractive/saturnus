@@ -674,6 +674,69 @@ fn open_with_system(path: &std::path::Path) -> Result<(), String> {
     }
 }
 
+/// The install links "Add to Cursor" and "Add to VS Code" may open
+/// (web/shared/mcp-install.js), with the app each opens: the webview
+/// does not hand other schemes to the system.
+const INSTALL_LINKS: [(&str, &str); 3] = [
+    ("vscode:mcp/install?", "VS Code"),
+    ("vscode-insiders:mcp/install?", "VS Code Insiders"),
+    ("cursor://anysphere.cursor-deeplink/mcp/install?", "Cursor"),
+];
+
+/// The app `url` opens: one of [`INSTALL_LINKS`]' prefixes followed by a
+/// percent-encoded query (printable ASCII, no spaces or quotes, so no
+/// opener reads it as more than one argument); else none.
+fn install_app(url: &str) -> Option<&'static str> {
+    let (prefix, app) = INSTALL_LINKS.iter().find(|(p, _)| url.starts_with(p))?;
+    let query = &url[prefix.len()..];
+    let plain = query.bytes().all(|b| b.is_ascii_graphic() && b != b'"');
+    (!query.is_empty() && plain).then_some(*app)
+}
+
+/// "Add to Cursor", "Add to VS Code": open the page's install link `url`
+/// with the system, which hands it to that app. Only [`INSTALL_LINKS`];
+/// the link carries the access token, so no error names it.
+#[tauri::command]
+pub async fn mcp_install_open(url: String) -> Result<(), String> {
+    let app = install_app(&url).ok_or("not an install link of Cursor or VS Code")?;
+    crate::transfer::blocking(move || open_link(&url, app)).await
+}
+
+/// Open the install link `url` for `app` with the platform's opener:
+/// macOS `open` says by its exit status when no app takes the scheme;
+/// `rundll32` and `xdg-open` are waited for on their own thread.
+fn open_link(url: &str, app: &str) -> Result<(), String> {
+    let not_opened = || format!("{app} did not open. Install {app}, then try again.");
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("open")
+            .arg(url)
+            .status()
+            .map_err(|_| not_opened())?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(not_opened())
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        #[cfg(target_os = "windows")]
+        let mut cmd = {
+            let mut c = std::process::Command::new("rundll32");
+            c.arg("url.dll,FileProtocolHandler");
+            c
+        };
+        #[cfg(not(target_os = "windows"))]
+        let mut cmd = std::process::Command::new("xdg-open");
+        let mut child = cmd.arg(url).spawn().map_err(|_| not_opened())?;
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
+        Ok(())
+    }
+}
+
 /// The app's state of AI access; [`start_in_background`] starts its
 /// endpoint once it is managed.
 pub fn setup(app: &AppHandle, file: Option<PathBuf>) -> Local {
@@ -893,6 +956,43 @@ mod tests {
         let path = write_mcpb(&cache, b"PK\x03\x04new").unwrap();
         assert_eq!(std::fs::read(&path).unwrap(), b"PK\x03\x04new");
         assert!(!cache.join(format!("{MCPB_FILE}.part")).exists());
+    }
+
+    /// Only Cursor's and VS Code's install links open, with a plain query.
+    #[test]
+    fn only_install_links_open() {
+        assert_eq!(
+            install_app("vscode:mcp/install?%7B%22name%22%7D"),
+            Some("VS Code")
+        );
+        assert_eq!(
+            install_app("vscode-insiders:mcp/install?%7B%7D"),
+            Some("VS Code Insiders")
+        );
+        assert_eq!(
+            install_app(
+                "cursor://anysphere.cursor-deeplink/mcp/install?name=saturnus&config=e30%3D"
+            ),
+            Some("Cursor")
+        );
+        for url in [
+            "vscode:mcp/install?",
+            "vscode:mcp/install?a b",
+            "vscode:mcp/install?{\"name\"}",
+            "vscode:mcp/install?a\nb",
+            "vscode:mcp/install?\u{e9}",
+            "vscode://file/etc/passwd",
+            "vscode:extension/x.y",
+            "VSCODE:mcp/install?x",
+            " vscode:mcp/install?x",
+            "cursor://anysphere.cursor-deeplink/mcp/installx?x",
+            "cursor://evil/mcp/install?x",
+            "https://example.com/vscode:mcp/install?x",
+            "file:///Applications/Calculator.app",
+            "",
+        ] {
+            assert_eq!(install_app(url), None, "{url:?}");
+        }
     }
 
     /// The page's copy of the extension (built by build.rs when Node is
