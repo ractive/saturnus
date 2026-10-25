@@ -4,7 +4,8 @@
 // records the presses (web/test/hiddenkeys-helpers.mjs). Checked: on the
 // 48SX ⌥ shows SERVER over PRG (I/O hidden meanwhile) and lights the
 // left-printed MODES green, where → opens its other menu; on the 49G the
-// held-shift lines in the tooltips; on the 38G (one shift) both
+// held-shift lines in the tooltips and no ghosts in its cursor pad, and
+// its tests menu asks first; on the 38G (one shift) both
 // modifiers light the one shift's labels, the SETUP bracket's functions
 // in the tooltips, its ON menu, and Clear memory asks first; the 19BII's
 // OFF ghost over ON; the 42S's menu named after its EXIT key. With
@@ -58,25 +59,32 @@ test("48SX: ⌥ shows SERVER over PRG and lights MODES green; the ON menu has ON
   assert.deepEqual(await p.sent(), ["down on", "down mth", "up mth", "up on"]);
 });
 
-test("49G: held-shift functions in the tooltips, no ghost for them; ⌥ shows XSERV and REVIEW; ON+F keys", { timeout: 120_000 }, async (t) => {
+test("49G: held-shift functions in the tooltips; no ghosts in the cursor pad, which has no label slot; ON+F keys", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   assert.equal(await p.ev(fake("49g")), "49g");
   assert.equal(await title(p, "mode"), "MODE (alpha H)\n⌃-click: CUSTOM\n⌥-click: END\nWith the left shift held down: MODES menu (not printed)");
-  assert.equal(await title(p, "right"), "▶ (RIGHT)\n⌃-click: SWAP, as ▶; in a command line, the cursor to its end (not printed)\n⌥-click: XModem server (not printed)\nWith the right shift held down: Kermit server (not printed)");
+  assert.equal(await title(p, "right"), "▶ (RIGHT)\n⌃-click: SWAP, as ▶; in a command line, the cursor to its end (not printed)\n⌥-click: XModem server; in a command line, the cursor to its end; in algebraic mode it types XSERV() (not printed)\nWith the right shift held down: Kermit server (not printed)");
   assert.equal(await title(p, "a"), "F1 (A, alpha A)\n⌃-click: Y= (algebraic mode; in RPN mode hold the left shift down)");
   await p.modifier("alt", true);
   await p.lit("glow-right");
-  assert.equal(await p.visible('[data-ghost="right"]'), true, "XSERV over ▶");
-  assert.equal(await p.visible('[data-ghost="down"]'), true, "REVIEW over ▼");
-  assert.deepEqual(await p.ev(`[...document.querySelectorAll(".skin .ghost")].map((n) => n.textContent).sort()`), ["REVIEW", "XSERV"], "held functions have no ghost");
+  assert.equal(await p.ev(`document.querySelectorAll(".skin .ghost").length`), 0, "no ghost: the cursor pad has no label slot, held functions never have one");
   await shot(p, "hidden-keys-49g-alt-1280.png");
   await p.modifier("alt", false);
   await p.click("on", { button: "right" });
-  assert.deepEqual(await p.menu(), ["RestartON+F3", "Self-testON+F4", "Reset memory…ON+F1+F6"]);
+  assert.deepEqual(await p.menu(), ["RestartON+F3", "Self-test…ON+F4", "Reset memory…ON+F1+F6"]);
   await p.pick("Restart");
   for (let i = 0; i < 50 && (await p.sent()).length < 4; i++) await sleep(50);
   assert.deepEqual(await p.sent(), ["down on", "down c", "up c", "up on"], "F3 is the key c");
+  // The tests menu asks first: its test 9 formats the flash.
+  await p.ev("window.sent = []");
+  await p.click("on", { button: "right" });
+  await p.pick("Self-test");
+  for (let i = 0; i < 50 && !(await p.ev(`!!document.querySelector("dialog.confirm[open]")`)); i++) await sleep(50);
+  assert.match(await p.ev(`document.querySelector("dialog.confirm").textContent`), /formats the flash/);
+  await p.ev(`[...document.querySelectorAll("dialog.confirm button")].find((b) => b.textContent === "Cancel").click(), true`);
+  await sleep(200);
+  assert.deepEqual(await p.sent(), [], "Cancel: nothing pressed");
 });
 
 test("38G: one shift for both modifiers, the SETUP bracket's functions, its ON menu; Clear memory asks", { timeout: 120_000 }, async (t) => {

@@ -65,7 +65,11 @@ export const ON_COMBOS = {
   // 48's A to F.
   "49g": [
     { id: "restart", title: "Restart", keys: ["on", "c"], chord: "ON+F3", description: "ON+F3: clears the stack and keeps the variables." },
-    { id: "self-test", title: "Self-test", keys: ["on", "d"], chord: "ON+F4", description: "ON+F4: the \"Tests\" menu; a digit picks a test, Q reboots." },
+    // The Tests menu lists "9 FROM Format", a format of the flash (observed).
+    {
+      id: "self-test", title: "Self-test…", keys: ["on", "d"], chord: "ON+F4", description: "ON+F4: the \"Tests\" menu; a digit picks a test, Q reboots; 9 formats the flash. Asks first.",
+      ask: { title: "Open the 49G's tests menu?", body: "A digit picks a test and Q reboots. Test 9 (FROM Format) formats the flash memory, erasing what is stored in it. Saved states are not touched.", action: "Open tests" },
+    },
     { id: "reset-memory", title: "Reset memory…", keys: ["on", "a", "f"], chord: "ON+F1+F6", description: "ON+F1+F6: the calculator asks \"Try To Recover Memory?\"; NO clears it. Asks first.", ask: RECOVER(["F6", "F1"]) },
   ],
   // wiki: hardware/hp28s-keyboard ("ON-key combinations": Owner's Manual
@@ -142,42 +146,48 @@ export function onPointerDown(e, modifier) {
 /**
  * Play `keys` as one combination on `backend`, watching `store`'s
  * `keysDown`: every key down at once (in order, in one go), held until
- * the machine has them all down and `hold` ms more, then the others
- * released before the first (ON). Resolves true,
- * or false when the machine has not taken them within `timeout` ms:
- * then its own keys are released, in reverse order (keys the user holds
- * stay down).
+ * the machine has them all down and `hold` ms more (`pause(hold)`, by
+ * default wall time; `runCombo` counts emulated time), then the others
+ * released before the first (ON). Resolves true, or false when the
+ * machine has not taken them within `timeout` ms (waiting for the keys
+ * to go down, and again for them to come up): then its own keys are
+ * released, in reverse order (keys the user holds stay down).
  */
-export function playCombo(backend, store, keys, { hold = 0, timeout = 5000, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+export function playCombo(backend, store, keys, { hold = 0, pause = null, timeout = 5000, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
   const [first, ...rest] = keys;
+  const wait = pause ?? ((ms) => new Promise((r) => setTimer(r, ms)));
   return new Promise((resolve) => {
     let phase = "down";
     let stop = () => {};
-    let holding = null;
-    const timer = setTimer(() => {
-      stop();
-      if (holding !== null) clearTimer(holding);
-      for (const k of [...keys].reverse()) backend.keyUp(k);
-      resolve(false);
-    }, timeout + hold);
+    let timer = null;
+    const arm = () => {
+      timer = setTimer(() => {
+        phase = "failed";
+        stop();
+        for (const k of [...keys].reverse()) backend.keyUp(k);
+        resolve(false);
+      }, timeout);
+    };
     const release = () => {
       phase = "up";
+      arm();
       for (const k of [...rest].reverse()) backend.keyUp(k);
     };
     const check = (down) => {
       const now = new Set(down ?? []);
       if (phase === "down" && keys.every((k) => now.has(k))) {
+        clearTimer(timer);
         if (hold > 0) {
           // Held `hold` ms more (the 48SX's memory reset wants a second).
           phase = "hold";
-          holding = setTimer(() => {
-            holding = null;
+          wait(hold).then(() => {
+            if (phase !== "hold") return;
             release();
             check(store.state.keysDown);
-          }, hold);
-        } else {
-          release();
+          });
+          return;
         }
+        release();
       }
       if (phase === "up" && rest.every((k) => !now.has(k))) {
         phase = "done";
@@ -187,9 +197,26 @@ export function playCombo(backend, store, keys, { hold = 0, timeout = 5000, setT
         resolve(true);
       }
     };
+    arm();
     stop = store.watch(["keysDown"], (s) => check(s.keysDown));
     for (const k of keys) backend.keyDown(k);
   });
+}
+
+/**
+ * Wait until the calculator has run `ms` of its own time (`stats`:
+ * emulated time, and what it owes the clock while asleep), so a hold
+ * lasts as long for the ROM at any speed and when the page lags; at
+ * most ten times `ms` of wall time.
+ */
+export async function emulatedPause(backend, ms, { sleep = (t) => new Promise((r) => setTimeout(r, t)), now = () => performance.now() } = {}) {
+  const at = async () => {
+    const s = await backend.stats();
+    return s.emulatedMs + (s.owedMs ?? 0);
+  };
+  const t0 = await at();
+  const end = now() + 10 * ms;
+  while ((await at()) - t0 < ms && now() < end) await sleep(50);
 }
 
 /**
@@ -215,7 +242,7 @@ export async function runCombo(combo, backend, store, ask = confirmAction) {
   playing = true;
   let ok = false;
   try {
-    ok = await playCombo(backend, store, combo.keys, { hold: combo.hold ?? 0 });
+    ok = await playCombo(backend, store, combo.keys, { hold: combo.hold ?? 0, pause: (ms) => emulatedPause(backend, ms) });
   } finally {
     playing = false;
   }

@@ -88,16 +88,25 @@ the data model, not into the UI:
   no gesture for a held one, so it is a tooltip line only ("With the
   left shift held down: MODES menu (not printed)"), with no ghost and
   no glow.
+- No ghost where the key has no label slot of usable size (review of
+  PR 240): at least twice the skin's label size free above the key, up
+  to the nearest key above it, decided from the skin's geometry
+  (`ghostFits`). The 49G's cursor pad has none (XSERV and REVIEW were
+  drawn tiny between the arrows), so its functions stay in the
+  tooltips.
 - An unprinted function that works only in one context (a command
   line, a list, the edit line) has a tooltip line and no ghost; one
   named elsewhere on the face (the 38G's SETUP bracket) says so in
   place of "not printed".
 - An ON combination has a `chord` as the menu writes it (ON+F3,
   EXIT+√x, ON+menu keys 1 and 6) and an optional `hold` (the 48SX's
-  ON+A+F, held a second); its keys always go down in the same instant,
+  ON+A+F, held a second of emulated time); its keys always go down in the same instant,
   which the Pioneers' memory clear needs (tried on the 42S, 17BII and
   19BII ROMs). The menu is named after the key's print (EXIT on the
-  42S, CLR on the 27S, 17B and 17BII). Every memory clear asks first.
+  42S, CLR on the 27S, 17B and 17BII). Every memory clear asks first,
+  and so does the 49G's tests menu, whose test 9 (FROM Format) formats
+  the flash. Whether the 48SX's ROM then shows "Try To Recover
+  Memory?" is not checked: `uiState` reads that screen as the stack.
 
 Left out, as the wiki gives no way out or no visible result: the
 self-tests of the 38G, 28S and the Pioneers other than the 42S, ON+F5

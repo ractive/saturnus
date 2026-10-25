@@ -13,10 +13,13 @@ the desktop app and the web page share one version.
   SERVER over PRG, EQ CAT over 9, CLVAR over DEL and lights MODES,
   MEMORY, SOLVE, PLOT, STAT and UNITS green where → opens their other
   menu; STACK, CMD, ARG and MENU say they are LAST STACK and the rest;
-  its ON menu prints with ON+MTH and holds ON+A+F a second. The 49G:
+  its ON menu prints with ON+MTH and holds ON+A+F a second of the
+  calculator's own time. The 49G:
   the tooltips add what a held shift does ("With the left shift held
-  down: MODES menu"), ⌥ shows XSERV over ▶ (the XModem server; held,
-  Kermit); its ON menu uses F3, F4 and F1+F6. The 28S, 38G, 39G, 40G
+  down: MODES menu") and → ▶'s two servers (tapped XModem, held
+  Kermit); its cursor pad has no label slot, so no ghosts there; its ON
+  menu uses F3, F4 (the tests menu, asked first: test 9 formats the
+  flash) and F1+F6. The 28S, 38G, 39G, 40G
   and 19BII: the shifted cursor and SETUP functions in the tooltips,
   OFF over the 19BII's ON. ON menus everywhere (EXIT on the 42S, CLR on
   the 27S, 17B and 17BII), each memory clear asked first; the keys of a

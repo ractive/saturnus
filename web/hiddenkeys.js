@@ -19,8 +19,9 @@
  *   `label (not printed)` (`aside` in place of "not printed" where the
  *   function is named elsewhere on the face, as the 38G's SETUP bracket),
  *   and `ghost` (short, as print would be) is drawn in the empty slot
- *   while that shift's modifier is held. A function that works only in
- *   one context (a command line, a list) has no ghost;
+ *   while that shift's modifier is held, where the key has a label slot
+ *   of usable size (`ghostFits`). A function that works only in one
+ *   context (a command line, a list) has no ghost;
  * - "note": the printed label does something its name does not say; the
  *   tooltip writes `ARG (label)`;
  * - "menu": the shift opens a command menu of application `label`,
@@ -99,8 +100,9 @@ export const HIDDEN_KEYS = {
     { key: "space", shift: "right", held: true, kind: "unprinted", label: "types ;" },
     { key: "right", shift: "right", held: true, kind: "unprinted", label: "Kermit server" },
     // → ▶ tapped: "XModem server: Xmodem Server Waiting for command";
-    // in algebraic mode it types XSERV() (observed).
-    { key: "right", shift: "right", kind: "unprinted", label: "XModem server", ghost: "XSERV" },
+    // in a command line the cursor to its end; in algebraic mode it
+    // types XSERV() (observed).
+    { key: "right", shift: "right", kind: "unprinted", label: "XModem server; in a command line, the cursor to its end; in algebraic mode it types XSERV()", ghost: "XSERV" },
     // "Other unprinted functions": the cursor keys have no shift labels.
     { key: "down", shift: "right", kind: "unprinted", label: "the menu's labels in full", ghost: "REVIEW" },
     { key: "up", shift: "right", kind: "unprinted", label: "the interactive stack, as ▲" },
@@ -200,6 +202,32 @@ export function ghostSlot(k, side, extra = {}) {
   const e = extra[side];
   if (e?.kind !== "unprinted" || !e.ghost || k[side]) return null;
   return e.ghost;
+}
+
+/**
+ * The free height above key `k` of skin `s`, in skin units: from the
+ * key's top up to the nearest key above that overlaps it sideways
+ * (unbounded when none). Its label slot.
+ */
+export function labelRoom(s, k) {
+  const [x, y, w] = k.rect;
+  let room = Infinity;
+  for (const o of s.keys) {
+    const [ox, oy, ow, oh] = o.rect;
+    if (o !== k && ox < x + w && ox + ow > x && oy + oh <= y) room = Math.min(room, y - (oy + oh));
+  }
+  return room;
+}
+
+/**
+ * Whether key `k` has a label slot a ghost can use: at least twice the
+ * skin's label size (`s.small`) free above it, the label and the air the
+ * skin leaves around it. The 49G's cursor pad has none (its keys sit
+ * close under each other, with no print): its unprinted functions stay
+ * in the tooltips.
+ */
+export function ghostFits(s, k) {
+  return labelRoom(s, k) >= 2 * s.small;
 }
 
 /**

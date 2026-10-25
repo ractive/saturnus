@@ -4,13 +4,14 @@
 // key exists, an unprinted function sits in an empty slot, a note on a
 // printed label, a menu on an empty slot with the application printed
 // under the other shift; a one-shift model uses its one shift ("left");
-// every combination's keys exist, ON first. `node --test web/test/`
+// every combination's keys exist, ON first; which keys have a label slot
+// for a ghost (none in the 49G's cursor pad). `node --test web/test/`
 // (just web-test).
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { HIDDEN_KEYS, ghostSlot, hiddenOf } from "../hiddenkeys.js";
+import { HIDDEN_KEYS, ghostFits, ghostSlot, hiddenOf } from "../hiddenkeys.js";
 import { ON_COMBOS } from "../onkeys.js";
 
 const pkg = await import("../pkg/saturnus_web.js");
@@ -76,3 +77,12 @@ for (const model of MODELS) {
     }
   });
 }
+
+test("ghosts only where the skin leaves a label slot: none in the 49G's cursor pad, all on the 48SX, 48GX and 19BII", async () => {
+  const fits = async (model) => {
+    const s = await skin(model);
+    return (HIDDEN_KEYS[model] ?? []).filter((e) => e.ghost).map((e) => [e.key, ghostFits(s, s.keys.find((k) => k.name === e.key))]);
+  };
+  assert.deepEqual(await fits("49g"), [["right", false], ["down", false]]);
+  for (const m of ["48sx", "48gx", "19bii"]) assert.ok((await fits(m)).every(([, ok]) => ok), m);
+});

@@ -14,7 +14,7 @@ import { linkSites } from "../shared/ext-links.js";
 import { inDesktopApp } from "../shared/site-links.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, keyTitle, modifierOf, shiftFor } from "../shiftclick.js";
-import { ghostSlot, hiddenOf, menuLabels } from "../hiddenkeys.js";
+import { ghostFits, ghostSlot, hiddenOf, menuLabels } from "../hiddenkeys.js";
 import { ON_LONG_PRESS, chordOf, onCombos, onPointerDown, runCombo } from "../onkeys.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenPng } from "../screenshot.js";
 import { copyPng, pngBlob } from "../shared/png.js";
@@ -1389,6 +1389,8 @@ export class SatCalculator extends HTMLElement {
    * back on the release (owner 2026-10-25).
    */
   drawGhosts(layer, s, k, base, print) {
+    // No ghost where the key has no label slot of usable size (the 49G's cursor pad).
+    if (!ghostFits(s, k)) return;
     const extra = hiddenOf(this.skinModel, k.name);
     const [x, , w] = wellRect(k);
     for (const side of ["left", "right"]) {
