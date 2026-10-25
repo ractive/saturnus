@@ -1130,7 +1130,7 @@ through the relay while the tab is open. Nothing is installed.
   TAB_MCP_STORE=memory NODE_ENV=development bun packages/tab-mcp/src/main.ts`
   in the tab-mcp checkout (or its Docker image). Without a relay nothing
   of it loads.
-- **The client** is tab-mcp's browser library (0.5.1), vendored in
+- **The client** is tab-mcp's browser library (0.6.0), vendored in
   `vendor/tab-mcp-client/` (its self-contained build, with
   `vendor.json`: source, version, SHA-256s) by `just vendor-tab-mcp`
   (`scripts/vendor-tab-mcp-client.sh`: the npm package, its version and
