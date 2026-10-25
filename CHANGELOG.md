@@ -7,6 +7,10 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The Memory pane closes at every window width.** With the window
+  just over 1000px wide and the side panel open, the pane was wider
+  than the room left beside the calculator and its close button lay
+  past the window's edge. It now takes only the room there is.
 - **"Connect your AI app" is easier to follow.** The browser's dialog
   shows the state under its title, then the two steps: the address with
   the ways to add it to your AI app, and the pairing code, large in a
