@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 64: the 49G types right after a boot and takes long programs"
 date: 2026-10-24
-status: in-progress
+status: completed
 tags:
   - iteration
   - saturnus-host
@@ -75,4 +75,4 @@ Owner 2026-10-24: start it.
 - [x] Fix the long program send
 Not done (owner 2026-10-24): run_rpl does not switch a 49G in algebraic mode to RPN; the tools report `mode` and the instructions tell the AI to run CF(-95) itself.
 - [x] Wiki findings, decision-log entry
-- [ ] Owner: on a freshly started 49G, an AI app's first run_rpl with a program of several lines works
+- [x] Owner: on a freshly started 49G, an AI app's first run_rpl with a program of several lines works
