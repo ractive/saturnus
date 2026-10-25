@@ -7,6 +7,14 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **"Connect your AI app" is easier to follow.** The browser's dialog
+  shows the state under its title, then the two steps: the address with
+  the ways to add it to your AI app, and the pairing code, large in a
+  box like a display, with Copy code. The connected apps are rows with
+  their Disconnect. The same wording, on a phone too. The desktop app's
+  dialog has the same look, and so does the question before a variable
+  is stored or purged (tab-mcp's client 0.7.0, styled with the page's
+  colours).
 - **One Kermit client for the emulated calculator.** The ROM-gated
   Kermit tests and the reference generator (`saturnus-kermit`) run the
   Kermit client of the app's hidden writes

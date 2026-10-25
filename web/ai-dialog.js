@@ -1,12 +1,13 @@
 // "Connect your AI app" (iteration 55): the dialog of AI access
 // (web/ai.js) in the page's own look (shared/components.css, `dialog.ai`):
-// the MCP address with Copy, links and commands that add it to the
-// common AI apps (shared/mcp-install.js), the state, the pairing code
-// once the relay sends one (tab-mcp's OAuth, its iteration 3), the AI
-// apps connected with Disconnect each, "Keep AI access on", and Connect, Turn off or New
-// address. Opened from Search and from Calculator's panel; one at a time.
-// While it is open the relay is asked for pairing codes (tab-mcp
-// `startPairing`).
+// the state under the title, then step 1, the MCP address with Copy and
+// the links and commands that add it to the common AI apps
+// (shared/mcp-install.js), step 2, the pairing code once the relay sends
+// one (tab-mcp's OAuth, its iteration 3) in a box like a display, the AI
+// apps connected with Disconnect each, "Keep AI access on", and Connect,
+// Turn off or New address. Opened from Search and from Calculator's
+// panel; one at a time. While it is open the relay is asked for pairing
+// codes (tab-mcp `startPairing`).
 //
 // The desktop app's own (iteration 58, `openLocalDialog`, for web/ai-local.js):
 // the setting "Let AI apps on this computer use the calculators", the local
@@ -45,50 +46,92 @@ async function copyText(button, label, text, select) {
 }
 
 /**
+ * The state line of a dialog: a dot in the state's colour before the
+ * words (`tone`: on, off, lost, error, busy; the CSS colours it), the
+ * words themselves in `text`.
+ */
+function statusLine() {
+  const node = el("p", { class: "ai-status", role: "status", "data-tone": "off" });
+  let shown = null;
+  const set = (tone, text) => {
+    // A live region: left alone unless it changes, or a screen reader says it again.
+    if (shown === `${tone}\n${text}`) return;
+    shown = `${tone}\n${text}`;
+    node.dataset.tone = tone;
+    node.classList.toggle("error", tone === "error");
+    node.textContent = text;
+  };
+  return { node, set };
+}
+
+/** A step's heading (`id` for its section's label): its number in a ring, then `title`. */
+function stepHeading(id, n, title) {
+  return el("h3", { id }, el("span", { class: "ai-step-n", "aria-hidden": "true", text: String(n) }), el("span", { class: "visually-hidden", text: `Step ${n}: ` }), title);
+}
+
+/** A connected app's row: its name, its host below, and `action` at the right. */
+function appRow(name, sub, action = null) {
+  return el("li", { class: "card-row" }, el("span", { class: "ai-app row-main" }, el("strong", { class: "row-title", text: name }), sub ? el("small", { class: "row-sub", text: ` ${sub}` }) : null), action);
+}
+
+/**
  * Open the dialog for `ai` (an `AiAccess`), from a click: connects first
  * when not connected (the click is the user's choice). Resolves when it
  * closes.
+ *
+ * The order is the order of the work: the state under the title, then
+ * step 1 (the address and the ways to add it), step 2 (the pairing
+ * code, shown like a display, kept the same size whether or not a code
+ * is there), the connected apps, the notes, the setting and the
+ * buttons. The steps show while AI access is on.
  */
 export async function openAiDialog(ai, doc = document) {
   if (ai.local) return openLocalDialog(ai, doc);
   doc.querySelector("dialog.ai")?.close();
   const opener = doc.activeElement;
   const dialog = el("dialog", { class: "ai", "aria-labelledby": "ai-title" });
-  const status = el("p", { class: "ai-status", role: "status" });
+  const status = statusLine();
   const address = el("input", { class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
   const copy = copyButton("Copy");
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
   const block = installBlock({ newOnly: true });
   const install = block.node;
-  const codeText = el("span");
-  const codeValue = el("strong", { class: "ai-code-value" });
-  const copyCode = copyButton("Copy code", "small");
-  const code = el("p", { class: "ai-code", hidden: true }, codeText, " ", copyCode);
-  const apps = el("ul", { class: "ai-apps" });
+  const fresh = el("button", { type: "button", class: "link", text: "New address" });
+  const addStep = el("section", { class: "ai-step", "aria-labelledby": "ai-step-add" }, stepHeading("ai-step-add", 1, "Add this address to your AI app as an MCP server"), addressRow, el("p", { class: "ai-note" }, fresh), install);
+  const codeValue = el("strong", { class: "ai-code-value", "data-empty": true });
+  const noCode = el("span", { class: "visually-hidden", text: "No code yet." });
+  const copyCode = copyButton("Copy code", "ai-code-copy");
+  const code = el("div", { class: "ai-code" }, codeValue, noCode, copyCode);
+  const codeStep = el("section", { class: "ai-step", "aria-labelledby": "ai-step-code" },
+    stepHeading("ai-step-code", 2, "When your AI app asks for a code, enter this one"),
+    code,
+    el("p", { class: "ai-note", text: "A new code appears every 2 minutes and after each use." }));
+  const apps = el("ul", { class: "ai-apps card" });
   const appsNote = el("p", { class: "ai-note" });
   const keep = el("input", { type: "checkbox", id: "ai-keep" });
   const keepRow = el("label", { class: "switch ai-keep" }, keep, el("span", {}, "Keep AI access on", el("small", { text: "Connect again when the app opens." })));
   const connect = el("button", { type: "button", class: "primary", text: "Connect" });
   const off = el("button", { type: "button", text: "Turn off" });
-  const fresh = el("button", { type: "button", class: "link", text: "New address" });
-  const done = el("button", { type: "button", text: "Done" });
+  const done = el("button", { type: "button", class: "primary", text: "Done" });
   const closeAnyway = el("button", { type: "button", class: "link", text: "Close anyway" });
   const doneNote = el("p", { class: "ai-note ai-done-note", hidden: true }, "Done works once your AI app is connected: closing now ends the pairing code. ", closeAnyway);
   dialog.append(el("div", { class: "ai-box" },
-    el("h2", { id: "ai-title", text: "Connect your AI app" }),
-    el("p", { text: "Your AI app (Claude, ChatGPT, Claude Code, …) can use the calculators in this tab: read the display, press keys, run programs and look up commands. Add this address to it as an MCP server." }),
-    addressRow,
-    install,
-    code,
-    status,
-    el("h3", { text: "Connected apps" }),
-    apps,
-    appsNote,
-    el("p", { class: "ai-note", text: "The AI app can press any key and run any command, as you can. Storing or purging a variable through its store and purge tools asks you here first. While an AI app is connected, the calculators keep running when this tab is in the background." }),
-    el("p", { class: "ai-note ai-phone", hidden: !matchMedia("(pointer: coarse) and (max-width: 999px)").matches, text: "On a phone, keep this tab in front while your AI app uses it: the phone pauses tabs in the background. Open both apps in split screen, or use your AI app on another device." }),
-    el("p", { class: "ai-note" }, "What passes through the relay, and what it keeps: ", externalLink("https://ractive.ch/tab-mcp/", "privacy notice"), "."),
+    el("header", { class: "ai-head" },
+      el("h2", { id: "ai-title", text: "Connect your AI app" }),
+      status.node),
+    el("p", { class: "ai-lead", text: "Your AI app (Claude, ChatGPT, Claude Code, …) can use the calculators in this tab: read the display, press keys, run programs and look up commands." }),
+    addStep,
+    codeStep,
+    el("section", { class: "ai-step", "aria-labelledby": "ai-step-apps" },
+      el("h3", { id: "ai-step-apps", text: "Connected apps" }),
+      apps,
+      appsNote),
+    el("div", { class: "ai-notes" },
+      el("p", { class: "ai-note", text: "The AI app can press any key and run any command, as you can. Storing or purging a variable through its store and purge tools asks you here first. While an AI app is connected, the calculators keep running when this tab is in the background." }),
+      el("p", { class: "ai-note ai-phone", hidden: !matchMedia("(pointer: coarse) and (max-width: 999px)").matches, text: "On a phone, keep this tab in front while your AI app uses it: the phone pauses tabs in the background. Open both apps in split screen, or use your AI app on another device." }),
+      el("p", { class: "ai-note" }, "What passes through the relay, and what it keeps: ", externalLink("https://ractive.ch/tab-mcp/", "privacy notice"), ".")),
     keepRow,
-    el("div", { class: "ai-actions" }, fresh, el("span", { class: "ai-gap" }), off, connect, done),
+    el("div", { class: "ai-actions" }, off, connect, done),
     doneNote,
   ));
 
@@ -96,44 +139,59 @@ export async function openAiDialog(ai, doc = document) {
   // pairing code the app is about to ask for, so Done and the backdrop
   // wait; Close anyway (and Esc) close on purpose.
   let waiting = false;
+  // The address last shown: while the connection is lost (the client reconnects by
+  // itself, the address stays) the steps stay, dimmed, with it, so the user can go
+  // on copying; they go only when AI access is off.
+  let lastAddress = "";
   const render = () => {
     const state = ai.state;
     const mcp = ai.mcp;
-    address.value = state === "connected" ? mcp.address : "";
-    addressRow.hidden = state !== "connected";
-    install.hidden = state !== "connected";
-    if (state === "connected") block.set({ url: mcp.address, headers: mcp.headers ?? {} });
-    const pc = mcp?.pairingCode;
-    code.hidden = !pc;
-    if (pc && codeValue.textContent !== pc.code) {
-      codeValue.textContent = pc.code;
-      codeText.replaceChildren("When your AI app asks for a code, enter ", codeValue, ".");
+    const on = state === "connected";
+    const lost = !on && ai.lost;
+    if (on) lastAddress = mcp.address;
+    address.value = on || lost ? lastAddress : "";
+    addStep.hidden = !on && !lost;
+    codeStep.hidden = !on && !lost;
+    for (const step of [addStep, codeStep]) step.classList.toggle("ai-dim", lost);
+    if (on || lost) block.set({ url: lastAddress, headers: mcp?.headers ?? {} });
+    block.setEnabled(on);
+    copy.disabled = !on;
+    // The code's box stays while none is there yet (the relay sends one right away): nothing moves when it comes.
+    const pc = on ? mcp.pairingCode : undefined;
+    if ((pc?.code ?? "") !== codeValue.textContent) {
+      codeValue.textContent = pc?.code ?? "";
       copyCode.querySelector("span").textContent = "Copy code";
     }
+    codeValue.toggleAttribute("data-empty", !pc);
+    noCode.hidden = Boolean(pc);
+    copyCode.disabled = !pc;
     // Lost: why, and that it connects again by itself (the client library reconnects).
-    status.classList.toggle("error", Boolean(ai.error) && !ai.lost);
-    status.textContent = ai.lost
-      ? `${ai.error ?? "The connection to the relay broke."} Reconnecting…`
-      : ai.error ?? (state === "connected" ? "AI access is on. Your AI app can connect now." : state === "connecting" ? "Connecting…" : "AI access is off.");
-    const grants = state === "connected" ? mcp.grants : [];
+    if (ai.lost) status.set("lost", `${ai.error ?? "The connection to the relay broke."} Reconnecting…`);
+    else if (ai.error) status.set("error", ai.error);
+    else if (on) status.set("on", "AI access is on. Your AI app can connect now.");
+    else if (state === "connecting") status.set("busy", "Connecting…");
+    else status.set("off", "AI access is off.");
+    const grants = on ? mcp.grants : [];
     apps.replaceChildren(...grants.map((g) => {
-      const b = el("button", { type: "button", class: "small", text: "Disconnect" });
+      const b = el("button", { type: "button", class: "small", text: "Disconnect", "aria-label": `Disconnect ${g.client.name || g.client.host}` });
       b.addEventListener("click", () => {
         if (!ai.revoke(g.grantId)) {
           ai.error = "Connect again first: only a connected tab can disconnect an app.";
           render();
         }
       });
-      return el("li", {}, el("span", { class: "ai-app" }, el("strong", { text: g.client.name || g.client.host }), g.client.host ? el("small", { text: ` ${g.client.host}` }) : null), b);
+      return appRow(g.client.name || g.client.host, g.client.host, b);
     }));
     appsNote.textContent = grants.length ? "" : "No AI app is connected yet.";
     appsNote.hidden = grants.length > 0;
     keep.checked = ai.keepOn;
     connect.hidden = state !== "disconnected";
     off.hidden = state === "disconnected" && !ai.lost;
-    fresh.hidden = state !== "connected";
-    waiting = state === "connected" && grants.length === 0;
+    fresh.hidden = !on;
+    waiting = on && grants.length === 0;
     done.disabled = waiting;
+    // One primary button: Connect while it shows, else Done.
+    done.classList.toggle("primary", connect.hidden);
     doneNote.hidden = !waiting;
   };
 
@@ -239,7 +297,17 @@ export function installBlock({ connector: connectorText = null, newOnly = false 
   });
   copyFor(forClaude, "Copy for Claude Code", "claude-code");
   copyFor(forCodex, "Copy for Codex", "codex");
-  return { node, set, cursor, vscode, forClaude, forCodex, cmd };
+  /** The links and Copy buttons usable or not (the connection lost: the address stays to read, not to add). */
+  const setEnabled = (enabled) => {
+    for (const a of [cursor, vscode]) {
+      a.classList.toggle("disabled", !enabled);
+      if (enabled) a.removeAttribute("aria-disabled");
+      else a.setAttribute("aria-disabled", "true");
+    }
+    forClaude.disabled = !enabled;
+    forCodex.disabled = !enabled;
+  };
+  return { node, set, setEnabled, cursor, vscode, forClaude, forCodex, cmd };
 }
 
 /** "just now", "3 min ago". */
@@ -257,7 +325,7 @@ export async function openLocalDialog(ai, doc = document) {
   const dialog = el("dialog", { class: "ai ai-local", "aria-labelledby": "ai-title" });
   const on = el("input", { type: "checkbox", id: "ai-on" });
   const onRow = el("label", { class: "switch ai-keep" }, on, el("span", {}, "Let AI apps on this computer use the calculators", el("small", { text: "Off by default. Turning it off stops access at once." })));
-  const status = el("p", { class: "ai-status", role: "status" });
+  const status = statusLine();
   const address = el("input", { class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
   const copy = copyButton("Copy");
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
@@ -268,22 +336,23 @@ export async function openLocalDialog(ai, doc = document) {
   block.node.querySelector(".ai-install-row").append(forClaudeDesktop);
   let claudeNote = null;
   const keyNote = el("p", { class: "ai-note", text: "The links and commands include a key that lets the AI app in. The AI app keeps it in its settings file. Turn this off to shut every AI app out." });
-  const onPart = el("div", { class: "ai-install ai-on-part" }, addressRow, block.node, keyNote);
-  const apps = el("ul", { class: "ai-apps" });
+  const onPart = el("section", { class: "ai-step ai-on-part" }, el("h3", { text: "Add this address to your AI app as an MCP server" }), addressRow, block.node, keyNote);
+  const apps = el("ul", { class: "ai-apps card" });
   const appsNote = el("p", { class: "ai-note" });
-  const appsPart = el("div", { class: "ai-apps-part" }, el("h3", { text: "Connected apps" }), apps, appsNote);
+  const appsPart = el("section", { class: "ai-step ai-apps-part" }, el("h3", { text: "Connected apps" }), apps, appsNote);
   const port = el("input", { class: "input ai-port", type: "number", min: "1024", max: "65535", id: "ai-port" });
   const usePort = el("button", { type: "button", class: "small", text: "Use this port" });
   const portRow = el("div", { class: "ai-address-row ai-port-row" }, el("label", { for: "ai-port", text: "Port" }), port, usePort);
   const done = el("button", { type: "button", text: "Done" });
   dialog.append(el("div", { class: "ai-box" },
-    el("h2", { id: "ai-title", text: "Connect your AI app" }),
-    el("p", { text: "AI apps on this computer (Claude Desktop, Claude Code, Codex, VS Code, Cursor, …) can use the calculators in this app: read the display, press keys, run programs and look up commands. Nothing goes over the internet." }),
+    el("header", { class: "ai-head" },
+      el("h2", { id: "ai-title", text: "Connect your AI app" }),
+      status.node),
+    el("p", { class: "ai-lead", text: "AI apps on this computer (Claude Desktop, Claude Code, Codex, VS Code, Cursor, …) can use the calculators in this app: read the display, press keys, run programs and look up commands. Nothing goes over the internet." }),
     onRow,
-    status,
     onPart,
     appsPart,
-    el("p", { class: "ai-note", text: "The AI app can press any key and run any command, as you can. Storing or purging a variable through its store and purge tools asks you here first. While an AI app is connected, the calculator keeps running when this window is in the background." }),
+    el("div", { class: "ai-notes" }, el("p", { class: "ai-note", text: "The AI app can press any key and run any command, as you can. Storing or purging a variable through its store and purge tools asks you here first. While an AI app is connected, the calculator keeps running when this window is in the background." })),
     portRow,
     el("div", { class: "ai-actions" }, el("span", { class: "ai-gap" }), done),
   ));
@@ -299,10 +368,13 @@ export async function openLocalDialog(ai, doc = document) {
     appsPart.hidden = !running;
     address.value = running ? s.address ?? "" : "";
     if (running) block.set({ url: s.address, headers: ai.mcp.headers });
-    status.classList.toggle("error", Boolean(ai.error));
-    status.textContent = busy ? "Working…" : ai.error ?? claudeNote ?? (running ? "AI access is on. Add the address to your AI app." : "AI access is off.");
+    if (busy) status.set("busy", "Working…");
+    else if (ai.error) status.set("error", ai.error);
+    else if (claudeNote) status.set(running ? "on" : "off", claudeNote);
+    else if (running) status.set("on", "AI access is on. Add the address to your AI app.");
+    else status.set("off", "AI access is off.");
     const grants = running ? ai.mcp.grants : [];
-    apps.replaceChildren(...grants.map((g) => el("li", {}, el("span", { class: "ai-app" }, el("strong", { text: g.client.name }), el("small", { text: ` ${agoText(g.secondsAgo ?? 0)}` })))));
+    apps.replaceChildren(...grants.map((g) => appRow(g.client.name, agoText(g.secondsAgo ?? 0))));
     appsNote.textContent = grants.length ? "" : "No AI app has connected yet.";
     appsNote.hidden = grants.length > 0;
   };

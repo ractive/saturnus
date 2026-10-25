@@ -34,7 +34,7 @@ import { AiLog } from "./ai-log.js";
 import { keepsRunning, screenPng } from "./ai.js";
 
 /** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its UI chunk's export). */
-export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-xh7shp5z.min.js";
+export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-n9c73wge.min.js";
 /** The time limit of a tool call (ms), for the app's endpoint; one that asks the user first gets longer. */
 export const CALL_LIMIT_MS = 120_000;
 export const CONFIRM_LIMIT_MS = 300_000;
