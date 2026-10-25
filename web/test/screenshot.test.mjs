@@ -102,6 +102,9 @@ test("4x with hard edges, in the LCD's colours or black on white", () => {
   const dark = { ...f, contrast: 25 };
   assert.ok(screenColors(dark, "lcd").on[0] < screenColors(f, "lcd").on[0]);
   assert.deepEqual(screenColors(dark, "bw"), { on: [0, 0, 0], off: [255, 255, 255] });
+  // A darkness given (the AI's images) stands for the frame's contrast.
+  assert.deepEqual(screenColors({ ...f, contrast: 0 }, "lcd", { darkness: 0.9 }), screenColors(dark, "lcd", { darkness: 0.9 }));
+  assert.deepEqual(screenColors(f, "lcd", { darkness: 1 }).on, LCD_INK);
   // The annunciators in the image too.
   let inStrip = 0;
   for (let y = 0; y < ANN_H * 4; y++) for (let x = 0; x < 524; x++) inStrip += at(bw, x, y)[0] === 0 ? 1 : 0;

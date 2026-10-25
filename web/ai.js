@@ -32,6 +32,7 @@ import { relayUrl } from "./ai-relay.js";
 import { keptRomBytes, keptRoms } from "./tx/kept-roms.js";
 import { lookOf, screenPng as screenPngBytes } from "./screenshot.js";
 import { prefs } from "./shared/prefs.js";
+import { AT_DEFAULT } from "./contrast.js";
 import { pngBase64 } from "./shared/png.js";
 import "./shared/models.js";
 
@@ -41,7 +42,10 @@ const VERSION = "1";
 /**
  * A promise of the display as a PNG, base64, at 3× in `look` ("lcd": the
  * LCD's colours, "bw": black on white; web/screenshot.js, as Copy screen
- * makes it); null where none can be made.
+ * makes it); null where none can be made. The LCD's colours are those of
+ * the power-on contrast whatever the calculator's (`AT_DEFAULT`): turned
+ * light (ON-), the ink would be nearly gone, and on the key-driven models
+ * the image is all the AI reads of the screen.
  */
 export async function screenPng(frame, model, look = "lcd") {
   try {
@@ -59,7 +63,7 @@ function displayPng(frame, model, look) {
   for (let y = 0; y < frame.height; y++) {
     for (let x = 0; x < frame.width; x++) px[y * frame.width + x] = (bin.charCodeAt(y * row + (x >> 3)) >> (7 - (x & 7))) & 1;
   }
-  return pngBase64(screenPngBytes(frame, px, model, look, 3));
+  return pngBase64(screenPngBytes(frame, px, model, look, 3, { darkness: AT_DEFAULT }));
 }
 
 /** The app's "Screen images" setting (the store's `screenLook`, kept in prefs as it changes). */

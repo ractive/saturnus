@@ -11,7 +11,8 @@ the desktop app and the web page share one version.
   press_keys, run_rpl, to_stack and run_function return the display in
   the LCD's colours or black on white, as the setting says (before:
   always black on white); a call's optional `look` ("lcd", "bw")
-  overrides it.
+  overrides it. The AI's LCD image is drawn at the normal contrast, so
+  a display turned light still reads.
 - **A calculator's state is kept 1 s after the last change, not 5 s.**
   A reload a few seconds after a change brought back the state from
   before it (the save on leaving the page does not always land).
