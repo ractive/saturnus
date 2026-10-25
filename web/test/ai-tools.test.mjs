@@ -33,7 +33,7 @@ function fake(model, answers = {}) {
   return { id: model, model, backend, store: { state: { frame: FRAME, keysDown: [], busy: false } }, calls };
 }
 
-function tools(targets, { shown = Object.keys(targets)[0], png = async () => "PNG" } = {}) {
+function tools(targets, { shown = Object.keys(targets)[0], png = async () => "PNG", existing } = {}) {
   const list = Object.values(targets).map((t) => ({ id: t.id, model: t.model, title: t.model, rom: "rom", shown: t.id === shown }));
   const all = aiTools({
     calculators: async () => list,
@@ -42,6 +42,7 @@ function tools(targets, { shown = Object.keys(targets)[0], png = async () => "PN
       if (!t) throw new Error(`No calculator ${id}`);
       return t;
     },
+    existing: existing ?? (async (id) => targets[id] ?? null),
     reference,
     png,
     pace: PACE,
@@ -77,6 +78,76 @@ test("list_calculators: each with its family's tools; none running says what to 
   assert.ok(r.calculators[1].tools.includes("run_function"));
   const none = aiTools({ calculators: async () => [], target: async () => null, reference });
   assert.match((await call(none[0])).note, /No calculator is running/);
+});
+
+test("the 49G's mode: list_calculators, read_stack and read_display; left out where it cannot be read and on other models", async () => {
+  const g = fake("49g", { flags: { set: [-95] }, commandLine: { active: false }, stack: [{ type: "real", value: 1, text: "1" }] });
+  const gx = fake("48gx", { flags: { set: [] }, commandLine: { active: false }, stack: [] });
+  const t = tools({ "49g": g, "48gx": gx });
+  const list = (await call(t.list_calculators)).calculators;
+  assert.equal(list[0].mode, "algebraic");
+  assert.ok(!("mode" in list[1]), "no mode on the 48GX");
+  assert.ok(!gx.calls.some(([cmd]) => cmd === "flags"), "the 48GX's flags not read");
+  assert.equal((await call(t.read_stack)).mode, "algebraic");
+  assert.equal((await call(t.read_display, { format: "text" })).mode, "algebraic");
+  assert.ok(!("mode" in (await call(t.read_stack, { calculator: "48gx" }))));
+  assert.ok(!("mode" in (await call(t.read_display, { calculator: "48gx", format: "text" }))));
+  assert.ok(!g.calls.some(([cmd]) => cmd === "typeKeys"), "no key pressed");
+  // RPN mode.
+  const rpn = fake("49g", { flags: { set: [-3] }, commandLine: { active: false }, stack: [] });
+  assert.equal((await call(tools({ "49g": rpn }).list_calculators)).calculators[0].mode, "rpn");
+  // Still starting, or the flags not readable: no mode rather than a guess.
+  const starting = fake("49g", { flags: { set: [-95] }, stack: [] });
+  starting.store.state.starting = true;
+  assert.ok(!("mode" in (await call(tools({ "49g": starting }).list_calculators)).calculators[0]));
+  assert.ok(!("mode" in (await call(tools({ "49g": starting }).read_stack))));
+  const unreadable = fake("49g", { flags: new Error("not ready"), commandLine: { active: false }, stack: [] });
+  assert.ok(!("mode" in (await call(tools({ "49g": unreadable }).list_calculators)).calculators[0]));
+  assert.ok(!("mode" in (await call(tools({ "49g": unreadable }).read_stack))));
+});
+
+test("list_calculators never attaches: no mode for a 49G without a target yet", async () => {
+  let attaches = 0;
+  const bg = fake("49g", { flags: { set: [-95] }, commandLine: { active: false }, stack: [] });
+  const all = aiTools({
+    calculators: async () => [{ id: "49g", model: "49g", title: "49g", rom: "rom", shown: false }],
+    target: async () => { attaches++; return bg; },
+    existing: async () => null,
+    reference,
+    pace: PACE,
+  });
+  const t = Object.fromEntries(all.map((x) => [x.name, x]));
+  const one = (await call(t.list_calculators)).calculators[0];
+  assert.equal(one.family, "rpl");
+  assert.ok(!("mode" in one));
+  assert.equal(attaches, 0, "the listing attached nothing");
+  assert.ok(!bg.calls.length, "nothing read");
+  // read_stack attaches and gives it.
+  assert.equal((await call(t.read_stack, { calculator: "49g" })).mode, "algebraic");
+  assert.equal(attaches, 1);
+  // Without an `existing` dep, no mode either.
+  const bare = aiTools({ calculators: async () => [{ id: "49g", model: "49g", title: "49g", rom: "rom", shown: true }], target: async () => { attaches++; return bg; }, reference });
+  assert.ok(!("mode" in (await call(bare[0])).calculators[0]));
+  assert.equal(attaches, 1);
+});
+
+test("list_calculators reads the mode after the calls queued for that calculator", async () => {
+  let algebraic = true;
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const g = fake("49g", {
+    flags: () => ({ set: algebraic ? [-95] : [] }),
+    run: async () => { await gate; algebraic = false; return { error: null, closed: true }; },
+    commandLine: { active: false },
+    stack: [],
+  });
+  const t = tools({ "49g": g });
+  const run = call(t.run_rpl, { text: "CF(-95)" });
+  const listed = call(t.list_calculators);
+  await new Promise((r) => setTimeout(r, 5));
+  release();
+  assert.equal((await run).mode, "rpn");
+  assert.equal((await listed).calculators[0].mode, "rpn", "read after the queued CF(-95)");
 });
 
 test("press_keys: checks the names first, presses, waits, returns the display", async () => {

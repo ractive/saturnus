@@ -7,6 +7,13 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **An AI learns the 49G's mode before its first `run_rpl`.**
+  `list_calculators`, `read_stack` and `read_display` now say
+  `"mode": "algebraic"` or `"rpn"` on the 49G, read from flag -95 in
+  memory (no key pressed), as `run_rpl` did. An AI can run `CF(-95)`
+  first instead of failing with "Invalid Syntax". `list_calculators`
+  gives it only for a 49G the app shows or a tool already used (a
+  listing connects to nothing); it is left out while the 49G starts.
 - **AI tools take all of the 48's character codes.** `run_rpl` and
   `store_variable` typed a code such as `\GS` with its backslash, so `'\GS(I=0,1000,1/I!)' \->NUM`
   gave "Invalid Syntax" on the 48GX. Now every code of the ASCII

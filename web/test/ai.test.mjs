@@ -50,6 +50,21 @@ test("parallel calls for one calculator share one attach", { timeout: 2000 }, as
   assert.equal(await ai.target("48gx"), ta, "and kept for the next call");
 });
 
+test("existing never attaches: null for a background calculator until a tool attached it", { timeout: 2000 }, async () => {
+  const f = fakeHub(["49g"]);
+  const ai = access(f);
+  assert.equal(await ai.existing("49g"), null);
+  assert.equal(f.attachers().length, 0, "nothing attached");
+  assert.ok(!f.clients.some((c) => c.attaches), "no attach sent");
+  const a = ai.target("49g");
+  while (!f.gates.length) await turn();
+  await turn();
+  f.gates.forEach((g) => g.resolve());
+  const t = await a;
+  assert.equal(await ai.existing("49g"), t, "the attached one");
+  assert.equal(f.attachers().length, 1);
+});
+
 test("turned off while an attach waits: its connection is closed, the call fails", { timeout: 2000 }, async () => {
   const f = fakeHub();
   const ai = access(f);
