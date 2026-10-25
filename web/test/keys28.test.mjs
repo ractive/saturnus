@@ -86,4 +86,8 @@ test("the 48's character codes the 28S has keys for become its characters; the o
   assert.equal(fromCodes28("\\pi \\<= \\>= \\=/ \\.S \\.d \\^o \\Gm"), "π ≤ ≥ ≠ ∫ ∂ ° µ");
   assert.equal(fromCodes28("« 1 2 + »"), "« 1 2 + »", "text without codes is unchanged");
   for (const t of ["\\oo", "\\Ga", "\\160", "\\\\", "a\\"]) assert.throws(() => fromCodes28(t), /28S cannot type .*no backslash key/, t);
+  assert.throws(() => fromCodes28("1 \\160"), /cannot type the code \\160: it has no backslash key/);
+  assert.throws(() => fromCodes28("1 \\oo"), /cannot type the code \\oo:/);
+  assert.throws(() => fromCodes28("1 \\ab"), /cannot type a backslash \(before "ab", which is no code\):/);
+  assert.throws(() => fromCodes28("1 \\"), /cannot type a backslash \(at the end\):/);
 });

@@ -45,6 +45,9 @@ const CODES28 = {
   "\\.d": "∂", "\\<=": "≤", "\\>=": "≥", "\\=/": "≠", "\\^o": "°", "\\Gm": "µ",
 };
 
+/** The 48's mnemonic codes (charset.rs), only to name one in the 28S's refusal. */
+const CODES48 = String.raw`\<) \x- \.V \v/ \.S \GS \|> \pi \.d \<= \>= \=/ \Ga \-> \<- \|v \|^ \Gg \Gd \Ge \Gn \Gh \Gl \Gr \Gs \Gt \Gw \GD \PI \GW \[] \oo \<< \^o \Gm \>> \.x \O/ \Gb \:-`.split(" ");
+
 /**
  * `text` with the 48's translation codes the 28S can type (`CODES28`)
  * turned into their characters. Any other backslash is an error that
@@ -60,7 +63,12 @@ export function fromCodes28(text) {
     }
     const code = text.slice(i, i + 3);
     if (!CODES28[code]) {
-      throw new Error(`The 28S cannot type ${text.slice(i, i + 3)}: it has no backslash key, and of the 48's character codes it takes only ${Object.keys(CODES28).join(" ")} (for ${Object.values(CODES28).join(" ")}).`);
+      const takes = `of the 48's character codes it takes only ${Object.keys(CODES28).join(" ")} (for ${Object.values(CODES28).join(" ")})`;
+      const number = text.slice(i, i + 4);
+      const what = /^\\\d{3}$/.test(number) ? `the code ${number}`
+        : CODES48.includes(code) ? `the code ${code}`
+        : text.length > i + 1 ? `a backslash (before "${text.slice(i + 1, i + 3)}", which is no code)` : "a backslash (at the end)";
+      throw new Error(`The 28S cannot type ${what}: it has no backslash key, and ${takes}.`);
     }
     out += CODES28[code];
     i += 3;

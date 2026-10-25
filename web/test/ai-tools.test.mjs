@@ -129,7 +129,7 @@ test("run_rpl on the 28S types the 48's codes it has keys for, and refuses the o
   await call(t.run_rpl, { text: "\\<< 1 \\>>", display: "text" });
   const typed = c.calls.find(([cmd]) => cmd === "typeKeys")[1];
   assert.deepEqual(typed, ["space", "program", "space", "1", "space", "shift", "program", "enter"]);
-  await assert.rejects(call(t.run_rpl, { text: "1 \\oo" }), /28S cannot type \\oo: it has no backslash key/);
+  await assert.rejects(call(t.run_rpl, { text: "1 \\oo" }), /28S cannot type the code \\oo: it has no backslash key/);
   assert.equal(c.calls.filter(([cmd]) => cmd === "typeKeys").length, 1, "nothing typed for \\oo");
 });
 
