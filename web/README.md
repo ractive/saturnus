@@ -380,7 +380,8 @@ forms").
    shift, `keyDown` with `shift`.) What a model's keys do beyond their
    print (`hiddenkeys.js`, the 48GX so far) goes into the tooltips and,
    for an unprinted function with an empty slot, an outlined ghost
-   label shown while its modifier is held; ⌃ also lights the printed
+   label shown while its modifier is held, in the key's whole label
+   area (the other shift's label hidden meanwhile); ⌃ also lights the printed
    application labels whose left shift is their command menu. The ON
    key's menu (a long press or a right-click; `onkeys.js`) plays the
    model's ON combinations as held keys; a plain press on ON waits for

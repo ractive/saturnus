@@ -473,11 +473,11 @@
 :where(#calculator-view) .skin svg.glow-left .menu-left { filter: url(#glow-left); }
 :where(#calculator-view) .skin svg.glow-right .menu-right { filter: url(#glow-right); }
 /* Ghost labels (sat-calculator.js `drawGhosts`): an unprinted function,
-   outlined, shown only while its modifier is held and where it fits
-   (`placeGhost`); the printed label beside it moves to its own side. */
-:where(#calculator-view) .skin :is(.ghost, .ghost-mate) { visibility: hidden; }
-:where(#calculator-view) .skin svg.glow-left :is(.ghost.ghost-left, .ghost-mate.ghost-mate-left),
-:where(#calculator-view) .skin svg.glow-right :is(.ghost.ghost-right, .ghost-mate.ghost-mate-right) { visibility: visible; }
+   outlined, shown only while its modifier is held, in the key's whole
+   label area; the printed label of the other shift is hidden meanwhile. */
+:where(#calculator-view) .skin .ghost { visibility: hidden; }
+:where(#calculator-view) .skin svg.glow-left .ghost.ghost-left,
+:where(#calculator-view) .skin svg.glow-right .ghost.ghost-right { visibility: visible; }
 :where(#calculator-view) .skin svg.glow-left .ghost-yield-left,
 :where(#calculator-view) .skin svg.glow-right .ghost-yield-right { visibility: hidden; }
 @media (prefers-reduced-motion: no-preference) {

@@ -31,9 +31,13 @@ the drawn calculator, and give the ON combinations a menu. 48GX only; the
    An unprinted function whose label slot above the key is empty appears
    there while its modifier is held, in that shift's colour but drawn so
    it does not pass for print (outlined or dashed), and is gone when the
-   modifier is released: ⌥ shows SERVER above ▶. The skin's label fitting
-   keeps it inside the slot; where the slot is taken or the text does not
-   fit, the function stays in the tooltip only.
+   modifier is released: ⌥ shows SERVER above ▶. Owner 2026-10-25: the
+   ghost takes the key's whole label area at full size, and the printed
+   label it would share it with (SWAP above ▶, VIEW above ▼, which that
+   modifier does not reach) is hidden while the modifier is held and back
+   on its release; nothing is squeezed beside it. A ghost too wide at full
+   size gets the skin's normal fitting for a single label. Where the
+   ghost's own slot holds print, the function stays in the tooltip only.
 3. **Left-shifted application menus.** ← on an application key opens its
    command menu (← 7 the SOLVE menu) while only the right-shift label
    (SOLVE) is printed. Holding ⌃ lights that label in the left shift's

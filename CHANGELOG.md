@@ -12,7 +12,8 @@ the desktop app and the web page share one version.
   "⌥-click: Kermit server (not printed)" on ▶, "ARG (LASTARG)" on EEX,
   "⌃-click: SOLVE menu" on 7 (left shift on an application key opens
   its command menu). Holding ⌥ (Alt) shows SERVER above ▶ and REVIEW
-  above ▼ as outlined ghost labels; holding ⌃ (Ctrl) lights SOLVE,
+  above ▼ as outlined ghost labels, in place of SWAP and VIEW (which ⌥
+  does not reach) until it is released; holding ⌃ (Ctrl) lights SOLVE,
   PLOT, I/O and the other application labels in the left shift's
   colour. Sources: wiki `hardware/hp48gx-keyboard`.
 - **The 48GX's ON key has a menu.** A long press or a right-click on ON

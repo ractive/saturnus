@@ -1,12 +1,12 @@
 // What the 48GX's keys do beyond their print (web/hiddenkeys.js): the
 // data against the skin's labels, the tooltip lines, which slot takes a
-// ghost label and where it goes, and the ON combinations
+// ghost label, and the ON combinations
 // (web/onkeys.js): the table, what a press on ON does, and a combination
 // played as held keys. `node --test web/test/` (just web-test).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GHOST_MIN_SCALE, GHOST_PAD, HIDDEN_KEYS, ghostPlacement, ghostSlot, hiddenOf, menuLabels, shiftedText } from "../hiddenkeys.js";
+import { HIDDEN_KEYS, ghostSlot, hiddenOf, menuLabels, shiftedText } from "../hiddenkeys.js";
 import { ON_COMBOS, onCombos, onPointerDown, playCombo, runCombo } from "../onkeys.js";
 import { clickHints } from "../shiftclick.js";
 
@@ -81,27 +81,6 @@ test("a ghost takes an empty slot only", () => {
   assert.equal(ghostSlot(GX[7], "left", hiddenOf("48gx", "7")), null, "a menu has no ghost");
 });
 
-test("a ghost beside a printed label: the pair's sides, squeezed alike, or none", () => {
-  const key = { x: 559, w: 64 };
-  // SWAP 56 and SERVER 75 wide: 78 units of room, both squeezed by 78/131.
-  const p = ghostPlacement({ ...key, side: "right", ghostWidth: 75, mateWidth: 56 });
-  assert.deepEqual(p.ghost, { x: 559 + 64 + GHOST_PAD, anchor: "end", max: 75 * (78 / 131) });
-  assert.deepEqual(p.mate, { x: 559 - GHOST_PAD, anchor: "start", max: 56 * (78 / 131) });
-  // Short enough: not squeezed.
-  assert.deepEqual(ghostPlacement({ ...key, side: "left", ghostWidth: 30, mateWidth: 30 }), {
-    ghost: { x: 559 - GHOST_PAD, anchor: "start", max: null }, mate: { x: 559 + 64 + GHOST_PAD, anchor: "end", max: null },
-  });
-  // Too long: the tooltip only.
-  assert.equal(ghostPlacement({ ...key, side: "right", ghostWidth: 120, mateWidth: 60 }), null);
-  assert.ok(78 / 180 < GHOST_MIN_SCALE);
-  // Alone: centred in a single label's room.
-  assert.deepEqual(ghostPlacement({ ...key, side: "right", ghostWidth: 50 }), { ghost: { x: 591, anchor: "middle", max: null }, mate: null });
-  assert.deepEqual(ghostPlacement({ ...key, side: "right", ghostWidth: 120 }), { ghost: { x: 591, anchor: "middle", max: 98 }, mate: null });
-  // Not measured (the skin not on screen): not yet.
-  assert.equal(ghostPlacement({ ...key, side: "right", ghostWidth: 0, mateWidth: 56 }), null);
-  assert.equal(ghostPlacement({ ...key, side: "right", ghostWidth: 75, mateWidth: 0 }), null);
-});
-
 test("the ON combinations of the 48GX, and none elsewhere", () => {
   assert.deepEqual(onCombos("48gx").map((c) => [c.title, c.keys.join("+")]), [
     ["Restart", "on+c"], ["Self-test", "on+d"], ["Print display", "on+1"], ["Reset memory…", "on+a+f"],
@@ -158,7 +137,7 @@ test("a combination the machine does not take is released after the timeout", as
   const p = playCombo(m.backend, m.store, ["on", "c"], { setTimer: (f) => { fire = f; return 1; }, clearTimer: () => {} });
   fire();
   assert.equal(await p, false);
-  assert.deepEqual(m.sent, ["down on", "down c", "up all"]);
+  assert.deepEqual(m.sent, ["down on", "down c", "up c", "up on"], "its own keys, in reverse");
 });
 
 test("Reset memory asks first; a paused calculator refuses", async () => {
@@ -175,4 +154,20 @@ test("Reset memory asks first; a paused calculator refuses", async () => {
   assert.equal(await runCombo(onCombos("48gx")[0], m.backend, m.store, async () => true), false);
   assert.deepEqual(m.sent, []);
   assert.equal(m.store.state.messageError, true);
+});
+
+test("a second combination is refused while one is being pressed", async () => {
+  // The machine takes no key until the test says so: the first combination waits.
+  const m = machine({ takes: false });
+  const restart = onCombos("48gx")[0];
+  const first = runCombo(restart, m.backend, m.store, async () => true);
+  await Promise.resolve();
+  assert.equal(await runCombo(restart, m.backend, m.store, async () => true), false);
+  assert.equal(m.store.state.message, "An ON combination is still being pressed.");
+  // Let the first finish: the machine takes the keys now.
+  for (const k of ["on", "c"]) m.store.state.keysDown.push(k);
+  for (const fn of [...m.watchers]) fn(m.store.state);
+  m.store.state.keysDown = [];
+  for (const fn of [...m.watchers]) fn(m.store.state);
+  assert.equal(await first, true);
 });

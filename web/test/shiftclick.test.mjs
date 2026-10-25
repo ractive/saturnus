@@ -218,6 +218,9 @@ test("a key's tooltip writes its commands in capitals, math as printed", () => {
   assert.equal(keyTitle({ name: "right", label: "▶", alpha: "R" }), "▶ (RIGHT, alpha R)");
   assert.equal(keyTitle({ name: "inv", label: "1/x" }), "1/x (INV)");
   assert.equal(keyTitle({ name: "on" }), "ON");
+  // A label that is the key's name adds nothing: "7", not "7 (7)".
+  assert.equal(keyTitle({ name: "7", label: "7" }), "7");
+  assert.equal(keyTitle({ name: "0", label: "0" }), "0");
   assert.deepEqual(clickHints({ name: "sin", left: "asin", right: "∂" }, TWO, false), ["Ctrl+click: ASIN", "Alt+click: ∂"]);
   assert.deepEqual(clickHints({ name: "sqrt", left: "x²", right: "x√y" }, TWO, true), ["⌃-click: x²", "⌥-click: x√y"]);
 });

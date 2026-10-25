@@ -144,7 +144,8 @@ export const caps = (text) => (isWord(text) ? text.toUpperCase() : text);
  */
 export function keyTitle(k) {
   const label = k.label || "";
-  const named = isWord(label) || !label ? null : k.name.toUpperCase();
+  // The name only where it says more than the label (not "7 (7)").
+  const named = isWord(label) || !label || label.toLowerCase() === k.name.toLowerCase() ? null : k.name.toUpperCase();
   const head = label ? caps(label) : k.name.toUpperCase();
   const extra = [named, k.alpha ? `alpha ${k.alpha}` : null].filter(Boolean);
   return extra.length ? `${head} (${extra.join(", ")})` : head;

@@ -78,38 +78,3 @@ export function ghostSlot(k, side, extra = {}) {
 export function menuLabels(model) {
   return new Map((HIDDEN_KEYS[model] ?? []).filter((e) => e.kind === "menu").map((e) => [e.key, { shift: e.shift, label: e.label }]));
 }
-
-/** How far a ghost pair may reach past the key on each side, and the gap between its two labels, in skin units. */
-export const GHOST_PAD = 10;
-export const GHOST_GAP = 6;
-/** The most a ghost (and its printed neighbour) is squeezed before it stays in the tooltip only. */
-export const GHOST_MIN_SCALE = 0.5;
-
-/**
- * Where the ghost of key `{x, w}` goes on `side` while its modifier is
- * held, from the measured widths of the ghost and of the printed label
- * of the other shift (`mateWidth`, null when there is none), or null when
- * it does not fit (squeezed below `GHOST_MIN_SCALE`) or could not be
- * measured. Alone, it is centred, as the skin draws a single label (room
- * `w + 34`); beside a printed label, the two take their sides as a
- * printed pair does, reaching `GHOST_PAD` past the key, both squeezed
- * alike: `{ghost, mate}`, each `{x, anchor, max}` (`max` null: its own width).
- */
-export function ghostPlacement({ x, w, side, ghostWidth, mateWidth = null }) {
-  if (!(ghostWidth > 0) || (mateWidth !== null && !(mateWidth > 0))) return null;
-  if (mateWidth === null) {
-    const room = w + 34;
-    const scale = Math.min(1, room / ghostWidth);
-    if (scale < GHOST_MIN_SCALE) return null;
-    return { ghost: { x: x + w / 2, anchor: "middle", max: scale < 1 ? room : null }, mate: null };
-  }
-  const room = w + 2 * GHOST_PAD - GHOST_GAP;
-  const scale = Math.min(1, room / (ghostWidth + mateWidth));
-  if (scale < GHOST_MIN_SCALE) return null;
-  const max = (width) => (scale < 1 ? width * scale : null);
-  const leftEdge = { x: x - GHOST_PAD, anchor: "start" };
-  const rightEdge = { x: x + w + GHOST_PAD, anchor: "end" };
-  return side === "right"
-    ? { ghost: { ...rightEdge, max: max(ghostWidth) }, mate: { ...leftEdge, max: max(mateWidth) } }
-    : { ghost: { ...leftEdge, max: max(ghostWidth) }, mate: { ...rightEdge, max: max(mateWidth) } };
-}

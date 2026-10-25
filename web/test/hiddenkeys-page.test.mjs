@@ -4,7 +4,7 @@
 // page believes a 48GX runs (as web/test/shiftclick-page.test.mjs) and
 // the backend's key presses are recorded, the machine taking each key at
 // once. Checked: a ghost label (SERVER above ▶) shows only while ⌥ is
-// held, the printed SWAP moving aside meanwhile; ⌃ lights SOLVE on 7;
+// held, at full size, the printed SWAP hidden meanwhile; ⌃ lights SOLVE on 7;
 // the tooltips; a right-click or a long press on ON opens its menu and
 // sends no ON, a tap sends ON, ⌃-click CONT; the menu plays ON+C as held
 // keys; Reset memory asks first; the 48SX keeps a plain ON. With
@@ -96,7 +96,7 @@ async function shot(p, name) {
   writeFileSync(join(dir, name), Buffer.from(data, "base64"));
 }
 
-test("⌥ shows SERVER above ▶ only while held, SWAP moved aside; ⌃ lights SOLVE on 7", { timeout: 120_000 }, async (t) => {
+test("⌥ shows SERVER above ▶ at full size only while held, SWAP hidden meanwhile; ⌃ lights SOLVE on 7", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
   assert.equal(await p.ev(fake("48gx")), "48gx");
@@ -109,22 +109,24 @@ test("⌥ shows SERVER above ▶ only while held, SWAP moved aside; ⌃ lights S
   await p.lit("glow-right");
   assert.equal(await p.visible('[data-ghost="right"]'), true, "⌥: SERVER");
   assert.equal(await p.visible('[data-ghost="down"]'), true, "⌥: REVIEW above ▼");
-  assert.equal(await p.visible(".ghost-yield-right"), false, "the centred SWAP gives way");
-  assert.equal(await p.visible(".ghost-mate.ghost-mate-right"), true, "SWAP at its own side");
-  // The ghost stays inside the slot (the key, its well and the pad) and clear of SWAP.
+  const swap = `[...document.querySelectorAll(".skin .print text")].find((n) => n.textContent === "SWAP")`;
+  assert.equal(await p.ev(`getComputedStyle(${swap}).visibility`), "hidden", "SWAP hidden while ⌥ is held");
+  // At full size in the key's whole label area: centred on the key, not squeezed.
   const box = await p.ev(`(() => {
-    const g = document.querySelector('.skin [data-ghost="right"]').getBBox();
-    const m = [...document.querySelectorAll(".skin .ghost-mate-right")].find((n) => n.textContent === "SWAP").getBBox();
+    const t = document.querySelector('.skin [data-ghost="right"]');
+    const g = t.getBBox();
     const k = document.querySelector("sat-calculator").skinKey("right").querySelector(".cap path").getBBox();
-    return { gl: g.x, gr: g.x + g.width, ml: m.x, mr: m.x + m.width, kl: k.x, kr: k.x + k.width };
+    return { squeezed: t.hasAttribute("textLength"), size: t.getAttribute("font-size"), mid: g.x + g.width / 2, keyMid: k.x + k.width / 2, width: g.width, keyWidth: k.width };
   })()`);
-  assert.ok(box.gl >= box.mr, `SERVER (${box.gl}) right of SWAP (${box.mr})`);
-  assert.ok(box.gr <= box.kr + 15 && box.ml >= box.kl - 15, `inside the slot: ${JSON.stringify(box)}`);
+  assert.equal(box.squeezed, false, "not squeezed");
+  assert.equal(box.size, await p.ev(`${swap}.getAttribute("font-size")`), "the print's size");
+  assert.ok(Math.abs(box.mid - box.keyMid) < 1, `centred: ${JSON.stringify(box)}`);
+  assert.ok(box.width > box.keyWidth, "wider than the key, as SERVER is at full size");
   await shot(p, "hidden-keys-alt-1280.png");
   await p.modifier("alt", false);
   await p.lit(null);
   assert.equal(await p.visible('[data-ghost="right"]'), false, "gone on release");
-  assert.equal(await p.visible(".ghost-yield-right"), true, "SWAP back");
+  assert.equal(await p.ev(`getComputedStyle(${swap}).visibility`), "visible", "SWAP back on release");
 
   await p.modifier("ctrl", true);
   await p.lit("glow-left");
@@ -141,7 +143,7 @@ test("⌥ shows SERVER above ▶ only while held, SWAP moved aside; ⌃ lights S
 
   const title = (k) => p.ev(`document.querySelector("sat-calculator").skinKey(${JSON.stringify(k)}).querySelector("title").textContent`);
   assert.equal(await title("right"), "▶ (RIGHT, alpha R)\n⌃-click: SWAP\n⌥-click: Kermit server (not printed)");
-  assert.equal(await title("7"), "7 (7)\n⌃-click: SOLVE menu\n⌥-click: SOLVE");
+  assert.equal(await title("7"), "7\n⌃-click: SOLVE menu\n⌥-click: SOLVE");
   assert.equal(await title("eex"), "EEX (alpha Z)\n⌃-click: PURG\n⌥-click: ARG (LASTARG)");
   assert.equal(await title("on"), "ON\n⌃-click: CONT\n⌥-click: OFF\nLong press or right-click: Restart, Self-test, Print display, Reset memory");
 });
@@ -219,6 +221,51 @@ test("ON: a right-click or a long press opens its menu and sends nothing; a tap 
   const names = await p.ev(`[...document.querySelectorAll(".palette .prow-action .prow-name")].map((n) => n.textContent)`);
   for (const name of ["Restart (ON+C)", "Self-test (ON+D)", "Print display (ON+1)", "Reset memory (ON+A+F)…"]) assert.ok(names.includes(name), `${name} in ${JSON.stringify(names)}`);
   await p.ev("window.saturnus.palette.close(), true");
+});
+
+test("a hand holding ON: another key pressed while ON is down, also after its menu opened, sends ON held, then the key", { timeout: 120_000 }, async (t) => {
+  const p = await page(t);
+  if (!p) return;
+  assert.equal(await p.ev(fake("48gx")), "48gx");
+  const [ox, oy] = await p.ev(`(() => { const r = document.querySelector("sat-calculator").skinKey("on").querySelector(".cap").getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+  const [cx, cy] = await p.ev(`(() => { const r = document.querySelector("sat-calculator").skinKey("c").querySelector(".cap").getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+  // Two fingers: ON held 700 ms (its menu opens), then C.
+  await p.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: ox, y: oy, id: 1 }] });
+  await sleep(700);
+  assert.notEqual(await p.menu(), null, "the menu opened");
+  assert.deepEqual(await p.sent(), []);
+  await p.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: ox, y: oy, id: 1 }, { x: cx, y: cy, id: 2 }] });
+  await sleep(100);
+  assert.deepEqual((await p.sent()).slice(0, 2), ["down on", "down c"], "ON held, then C");
+  assert.equal(await p.menu(), null, "the menu closed");
+  await p.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [{ x: ox, y: oy, id: 1 }] });
+  await p.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await sleep(150);
+  assert.deepEqual((await p.sent()).slice(2).sort(), ["up c", "up on"]);
+
+  // The keyboard: the mouse holds ON past its menu, F3 (the C menu key) comes.
+  await p.clear();
+  await p.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: ox, y: oy });
+  await p.send("Input.dispatchMouseEvent", { type: "mousePressed", x: ox, y: oy, button: "left", clickCount: 1 });
+  await sleep(700);
+  assert.notEqual(await p.menu(), null);
+  await p.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "F3", code: "F3", windowsVirtualKeyCode: 114 });
+  await sleep(100);
+  assert.deepEqual((await p.sent()).slice(0, 2), ["down on", "down c"], "ON held, then C from the keyboard");
+  await p.send("Input.dispatchKeyEvent", { type: "keyUp", key: "F3", code: "F3", windowsVirtualKeyCode: 114 });
+  await p.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: ox, y: oy, button: "left", clickCount: 1 });
+  await sleep(150);
+  assert.deepEqual((await p.sent()).slice(2).sort(), ["up c", "up on"]);
+
+  // A blur drops a waiting press: no menu opens in the background.
+  await p.clear();
+  await p.send("Input.dispatchMouseEvent", { type: "mousePressed", x: ox, y: oy, button: "left", clickCount: 1 });
+  await p.ev(`window.dispatchEvent(new Event("blur")), true`);
+  await sleep(700);
+  assert.equal(await p.menu(), null, "no menu after a blur");
+  await p.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: ox, y: oy, button: "left", clickCount: 1 });
+  await sleep(100);
+  assert.ok(!(await p.sent()).includes("down on"), "and no ON");
 });
 
 test("the 48SX has no ON menu: a right-click on ON is a press as before", { timeout: 120_000 }, async (t) => {

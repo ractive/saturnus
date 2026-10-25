@@ -56,8 +56,9 @@ export function onPointerDown(e, modifier) {
  * Play `keys` as one combination on `backend`, watching `store`'s
  * `keysDown`: each key down in order, held until the machine has them all
  * down, then the others released before the first (ON). Resolves true,
- * or false (everything released) when the machine has not taken them
- * within `timeout` ms.
+ * or false when the machine has not taken them within `timeout` ms:
+ * then its own keys are released, in reverse order (keys the user holds
+ * stay down).
  */
 export function playCombo(backend, store, keys, { timeout = 5000, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
   const [first, ...rest] = keys;
@@ -66,7 +67,7 @@ export function playCombo(backend, store, keys, { timeout = 5000, setTimer = set
     let stop = () => {};
     const timer = setTimer(() => {
       stop();
-      backend.keyUpAll();
+      for (const k of [...keys].reverse()) backend.keyUp(k);
       resolve(false);
     }, timeout);
     const check = (down) => {
@@ -90,17 +91,31 @@ export function playCombo(backend, store, keys, { timeout = 5000, setTimer = set
 
 /**
  * Run combination `combo` (an `onCombos` entry): asked first where it
- * asks; refused with a message while the calculator is paused. Resolves
+ * asks; refused with a message while the calculator is paused or
+ * another combination is still being pressed. Resolves
  * whether it was played.
  */
+let playing = false;
+
 export async function runCombo(combo, backend, store, ask = confirmAction) {
   if (!store.state.booted) return false;
+  if (playing) {
+    store.set({ message: "An ON combination is still being pressed.", messageError: true });
+    return false;
+  }
   if (!store.state.running) {
     store.set({ message: "The calculator is paused. Run it first.", messageError: true });
     return false;
   }
   if (combo.ask && !(await ask(combo.ask))) return false;
-  const ok = await playCombo(backend, store, combo.keys);
+  if (playing) return false;
+  playing = true;
+  let ok = false;
+  try {
+    ok = await playCombo(backend, store, combo.keys);
+  } finally {
+    playing = false;
+  }
   if (!ok) store.set({ message: `The calculator did not take ${combo.keys.map((k) => k.toUpperCase()).join("+")}.`, messageError: true });
   return ok;
 }
