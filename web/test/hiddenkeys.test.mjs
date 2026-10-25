@@ -6,7 +6,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GHOST_MIN_SCALE, GHOST_PAD, HIDDEN_KEYS, ghostPlacement, ghostSlot, hiddenOf, menuKeys, shiftedText } from "../hiddenkeys.js";
+import { GHOST_MIN_SCALE, GHOST_PAD, HIDDEN_KEYS, ghostPlacement, ghostSlot, hiddenOf, menuLabels, shiftedText } from "../hiddenkeys.js";
 import { ON_COMBOS, onCombos, onPointerDown, playCombo, runCombo } from "../onkeys.js";
 import { clickHints } from "../shiftclick.js";
 
@@ -23,11 +23,28 @@ const GX = {
 const TWO = new Set(["leftshift", "rightshift", "alpha"]);
 const hints = (k, mac = true) => clickHints(k, TWO, mac, hiddenOf("48gx", k.name));
 
-test("only the 48GX has a table; its menu keys are the thirteen application keys", () => {
-  assert.deepEqual(Object.keys(HIDDEN_KEYS), ["48gx"]);
+test("the table: entries of a known kind and shift; the 48GX's menu keys are its thirteen application keys", () => {
+  for (const [model, list] of Object.entries(HIDDEN_KEYS)) {
+    for (const e of list) {
+      assert.ok(["unprinted", "note", "menu"].includes(e.kind), `${model} ${e.key}: kind`);
+      assert.ok(["left", "right"].includes(e.shift), `${model} ${e.key}: shift`);
+      assert.ok(e.label, `${model} ${e.key}: label`);
+      assert.ok(!e.ghost || e.kind === "unprinted", `${model} ${e.key}: a ghost is for an unprinted function`);
+    }
+    const seen = list.map((e) => `${e.key} ${e.shift}`);
+    assert.equal(new Set(seen).size, seen.length, `${model}: one entry per key and shift`);
+  }
   assert.deepEqual(hiddenOf("48sx", "right"), {});
-  assert.deepEqual([...menuKeys("48gx")].sort(), ["1", "2", "3", "4", "5", "6", "7", "8", "9", "cst", "prg", "up", "var"]);
-  assert.equal(menuKeys("49g").size, 0);
+  assert.deepEqual([...menuLabels("48gx").keys()].sort(), ["1", "2", "3", "4", "5", "6", "7", "8", "9", "cst", "prg", "up", "var"]);
+  assert.deepEqual(menuLabels("48gx").get("7"), { shift: "left", label: "SOLVE" });
+  assert.equal(menuLabels("49g").size, 0);
+});
+
+test("a one-shift model's entries take both modifiers", () => {
+  const ONE = new Set(["shift", "alpha"]);
+  const extra = { left: { key: "x", shift: "left", kind: "unprinted", label: "Something" } };
+  assert.deepEqual(clickHints({ name: "x", label: "X", left: "" }, ONE, true, extra), ["⌃- or ⌥-click: Something (not printed)"]);
+  assert.deepEqual(clickHints({ name: "x", label: "X", left: "Y" }, ONE, false, { left: { kind: "note", label: "Z" } }), ["Ctrl+click or Alt+click: Y (Z)"]);
 });
 
 test("the tooltips say what the print does not", () => {
@@ -40,18 +57,17 @@ test("the tooltips say what the print does not", () => {
   assert.deepEqual(hints(GX.prg), ["⌃-click: CHARS menu", "⌥-click: CHARS"]);
   assert.deepEqual(hints(GX.nxt), ["⌃-click: PREV", "⌥-click: MENU"], "a key with nothing more");
   // An unprinted entry never covers a printed label, a note never stands alone.
-  assert.equal(shiftedText({ right: "X" }, "right", { right: { unprinted: "Y" } }), "X");
-  assert.equal(shiftedText({ right: "" }, "right", { right: { note: "Y" } }), null);
-  assert.equal(shiftedText({ right: "" }, "left", { left: { menu: true } }), null, "a menu needs the printed application");
+  assert.equal(shiftedText({ right: "X" }, "right", { right: { kind: "unprinted", label: "Y" } }), "X");
+  assert.equal(shiftedText({ right: "" }, "right", { right: { kind: "note", label: "Y" } }), null);
 });
 
 test("every entry fits the skin: unprinted ones in empty slots, notes and menus on printed labels", () => {
   for (const [name, k] of Object.entries(GX)) {
     const e = hiddenOf("48gx", name);
     for (const side of ["left", "right"]) {
-      if (e[side]?.unprinted) assert.equal(k[side], "", `${name} ${side} is not printed`);
-      if (e[side]?.note) assert.notEqual(k[side], "", `${name} ${side} is printed`);
-      if (e[side]?.menu) assert.ok(k.right && !k.left, `${name}: only the right label printed`);
+      if (e[side]?.kind === "unprinted") assert.equal(k[side], "", `${name} ${side} is not printed`);
+      if (e[side]?.kind === "note") assert.notEqual(k[side], "", `${name} ${side} is printed`);
+      if (e[side]?.kind === "menu") assert.ok(!k[side] && [k.left, k.right].includes(e[side].label), `${name}: the application's label printed under the other shift`);
     }
   }
 });
@@ -60,7 +76,7 @@ test("a ghost takes an empty slot only", () => {
   assert.equal(ghostSlot(GX.right, "right", hiddenOf("48gx", "right")), "SERVER");
   assert.equal(ghostSlot(GX.down, "right", hiddenOf("48gx", "down")), "REVIEW");
   assert.equal(ghostSlot(GX.right, "left", hiddenOf("48gx", "right")), null);
-  assert.equal(ghostSlot({ right: "SWAP" }, "right", { right: { unprinted: "x", ghost: "X" } }), null, "a taken slot");
+  assert.equal(ghostSlot({ right: "SWAP" }, "right", { right: { kind: "unprinted", label: "x", ghost: "X" } }), null, "a taken slot");
   assert.equal(ghostSlot(GX.eex, "right", hiddenOf("48gx", "eex")), null, "a note has no ghost");
   assert.equal(ghostSlot(GX[7], "left", hiddenOf("48gx", "7")), null, "a menu has no ghost");
 });

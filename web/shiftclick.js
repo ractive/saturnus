@@ -106,7 +106,7 @@ export function clickLabel(mod, isMac, short = false) {
 /**
  * A key's tooltip lines for its shifted labels (`left`, `right`, as the
  * skin has them): `⌃-click: PREV` on a Mac, `Ctrl+click: PREV` elsewhere.
- * A one-shift model's label takes both modifiers. `extra` (the key's
+ * A one-shift model's label (its `left`) takes both modifiers. `extra` (the key's
  * web/hiddenkeys.js entries) adds what the print does not say:
  * `⌥-click: Kermit server (not printed)`, `⌥-click: ARG (LASTARG)`,
  * `⌃-click: SOLVE menu`.
@@ -115,7 +115,8 @@ export function clickHints(k, keyNames, isMac, extra = {}) {
   if (k.name === "shift" || k.name === "leftshift" || k.name === "rightshift") return [];
   const click = (mod) => clickLabel(mod, isMac, true);
   if (keyNames.has("shift")) {
-    return k.left ? [`${isMac ? "⌃- or ⌥-click" : `${click("ctrl")} or ${click("alt")}`}: ${caps(k.left)}`] : [];
+    const text = shiftedText(k, "left", extra, caps);
+    return text ? [`${isMac ? "⌃- or ⌥-click" : `${click("ctrl")} or ${click("alt")}`}: ${text}`] : [];
   }
   const out = [];
   const left = shiftedText(k, "left", extra, caps);

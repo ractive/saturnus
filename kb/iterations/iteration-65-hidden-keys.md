@@ -47,6 +47,14 @@ the drawn calculator, and give the ON combinations a menu. 48GX only; the
    first). The same four in the command palette. The side panel's Reset
    stays as it is.
 
+Strictly data-driven (owner 2026-10-25): per model a table of
+unprinted and misleading shifted functions (key, shift, label text,
+kind: unprinted, note or menu; a one-shift model's one shift) and the
+ON menu's chords (they differ per model); the UI knows nothing of a
+model beyond its table. The other eleven models follow from a sweep of
+each, written into the wiki first, then added to the tables (in this
+PR or a follow-up).
+
 ## Tasks
 
 - [x] The 48GX's unprinted and misleading shifted functions as data, each citing the wiki page

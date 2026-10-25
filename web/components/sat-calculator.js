@@ -14,7 +14,7 @@ import { linkSites } from "../shared/ext-links.js";
 import { inDesktopApp } from "../shared/site-links.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, keyTitle, modifierOf, shiftFor } from "../shiftclick.js";
-import { ghostPlacement, ghostSlot, hiddenOf, menuKeys } from "../hiddenkeys.js";
+import { ghostPlacement, ghostSlot, hiddenOf, menuLabels } from "../hiddenkeys.js";
 import { ON_LONG_PRESS, onCombos, onPointerDown, runCombo } from "../onkeys.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenPng } from "../screenshot.js";
 import { copyPng, pngBlob } from "../shared/png.js";
@@ -417,8 +417,8 @@ export class SatCalculator extends HTMLElement {
     this.skinWindowFill = "";
     /** Text elements to squeeze into a width once the skin is laid out. */
     this.skinFits = [];
-    /** Keys whose right label ⌃ lights too (web/hiddenkeys.js `menuKeys`). */
-    this.skinMenus = new Set();
+    /** Printed labels a modifier lights too, by key (web/hiddenkeys.js `menuLabels`). */
+    this.skinMenus = new Map();
     /** The drawn model's key names and typing rules (letter map, shifts). */
     this.keyNames = new Set();
     this.typing = null;
@@ -1350,7 +1350,8 @@ export class SatCalculator extends HTMLElement {
     if (k.left && k.right) {
       const a = svg("text", { x: x - 3, y: base, "font-size": size, fill: s.leftInk, class: "shift-left" }, layer, k.left);
       const b = svg("text", { x: x + w + 3, y: base, "font-size": size, fill: s.rightInk, "text-anchor": "end", class: "shift-right" }, layer, k.right);
-      if (this.skinMenus.has(k.name)) b.classList.add("menu-left");
+      this.markMenu(k, a, k.left);
+      this.markMenu(k, b, k.right);
       // Each label keeps to its share of the room above the key.
       const room = w + 6;
       const la = Math.max(1, k.left.length);
@@ -1362,12 +1363,21 @@ export class SatCalculator extends HTMLElement {
         x: x + w / 2, y: base, "font-size": size, "text-anchor": "middle",
         fill: k.left ? s.leftInk : s.rightInk, class: k.left ? "shift-left" : "shift-right",
       }, layer, k.left || k.right);
-      // Where ← opens the application's menu, ⌃ lights its label too (in the left shift's colour).
-      if (k.right && this.skinMenus.has(k.name)) t.classList.add("menu-left");
+      this.markMenu(k, t, k.left || k.right);
       this.fitLater(t, w + 34);
       single = t;
     }
     this.drawGhosts(layer, s, k, base, single);
+  }
+
+  /**
+   * Where a shift opens the menu of the application printed on key `k`
+   * (← 7 the SOLVE menu on the 48GX), that shift's modifier lights the
+   * printed label `t` (text `text`) too, in its own colour (style.css).
+   */
+  markMenu(k, t, text) {
+    const m = this.skinMenus.get(k.name);
+    if (m && m.label === text) t.classList.add(`menu-${m.shift}`);
   }
 
   /**
@@ -1392,7 +1402,7 @@ export class SatCalculator extends HTMLElement {
       if (print) {
         mate = print.cloneNode(true);
         mate.classList.add("ghost-mate");
-        mate.classList.remove("menu-left");
+        mate.classList.remove("menu-left", "menu-right");
         mate.setAttribute("aria-hidden", "true");
         layer.append(mate);
       }
@@ -1544,7 +1554,7 @@ export class SatCalculator extends HTMLElement {
     this.skinWindowFill = "";
     this.skinData = s;
     this.skinModel = model;
-    this.skinMenus = menuKeys(model);
+    this.skinMenus = menuLabels(model);
     this.faceBoxes = null;
     this.geom = null;
     // Edge to edge, the room around the face takes the case's colour.

@@ -1,7 +1,9 @@
 // The ON-key combinations (iteration 65): ON held down while another
 // key (or two) is pressed. The ON key's menu on the skin (a long press or
 // a right-click, sat-calculator.js `onMenu`) and the command palette
-// (app.js) offer them per model; only the 48GX so far. A combination is
+// (app.js) offer them per model, from the table alone (the chords differ
+// by model); only the 48GX so far, the other models follow from a sweep
+// of each. A combination is
 // played as held keys (`keyDown` and `keyUp`, web/protocol.md): ON first,
 // the others while it is down, released once the machine has had them
 // all down. The rest is pure: web/test/onkeys.test.mjs.
