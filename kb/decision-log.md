@@ -4694,3 +4694,45 @@ Owner: "start it" (found by the modern-UI study, 2026-10-18).
   ChatGPT test): RPN programs need CF(-95) first, which the AI tools'
   instructions already say. Switching to RPN inside `run_rpl` is on
   hold (its own commit).
+
+## 2026-10-25 (the AI dialog's look; tab-mcp client 0.6.0)
+
+Owner: "how to make the connection dialogs look nicer, especially in
+saturnus".
+
+- **The dialog in the order of the work.** The state moved under the
+  title, with a dot in the state's colour (the sidebar's `ai-dot`
+  tones: the accent on, `--warn` lost, `--error`); the body is two
+  numbered steps (the address and the ways to add it; the pairing
+  code) and the connected apps, as sections apart by hairlines. Before,
+  the state sat between the code and the apps, and the code was bold
+  text in a sentence.
+- **The code like a display.** Six digits at 24 px in the mono face,
+  spaced, in the calculator display's tint (`--display`, `--inset`),
+  in a box of one width (7em) that is there, with dots, from the moment
+  AI access is on: the relay's code comes a moment later and changes
+  every 2 minutes and after each use, and nothing may move when it
+  does. Copy code is disabled until a code is there. One click selects
+  the digits (`user-select: all`).
+- **The apps as card rows** (`.card`, `.card-row`, `.row-title`,
+  `.row-sub`: the side panel's list pattern), each Disconnect labelled
+  with the app's name for a screen reader.
+- **One primary button**: Connect while it shows, else Done. Before,
+  nothing was primary once connected.
+- **Same words, same behaviour.** The texts are the owner's; the Codex
+  line and the notes stay, muted. Done still waits for an AI app. The
+  desktop app's dialog takes the same look (the state line, the step
+  heading over the address, the apps as rows).
+- **Checked in Firefox over ff-rdp** at 1100 px and 360 px, light and
+  dark; the page test (`web/test/ai-dialog-page.test.mjs`, Chrome)
+  measures the code's box empty, with a code, and after the code
+  changed, once the dialog's entrance animation (a scale) has ended.
+- **tab-mcp client 0.6.0** vendored (from 0.5.1), for its confirmation
+  that counts the delay only while the page is visible and focused, the
+  invisible characters shown as escapes, and the schema check at
+  registration. Nothing of it touches the page: the tools are
+  registered before `connect()` and their schemas compile (the e2e
+  against a local relay lists all 13), the page passes neither
+  `confirmDelayMs` nor `identityTimeoutMs`, `grants` is only read, and
+  the page has its own dialog, not `showConnectDialog`. The desktop
+  app's confirmation points at the new UI chunk.

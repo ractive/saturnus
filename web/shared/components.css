@@ -213,9 +213,14 @@ button.confirm-danger:hover:not(:disabled, [aria-disabled="true"]) { background:
 }
 
 /* "Connect your AI app" (web/ai-dialog.js): the confirmation's look,
-   wider, with the address, the connected apps and the setting. */
+   wider. Its order is the work's: the title with the state under it (a
+   dot in the state's colour), a line on what the AI app can do, then
+   the steps as sections apart by hairlines: the address and the ways to
+   add it, the pairing code shown like a display (`--display`, the
+   calculator's tint) with Copy code, the connected apps as card rows,
+   the notes, the setting and the buttons. */
 dialog.ai {
-  width: min(520px, calc(100vw - 2 * var(--gutter)));
+  width: min(540px, calc(100vw - 2 * var(--gutter)));
   max-height: calc(100dvh - 2 * var(--gutter));
   padding: 0;
   border: 1px solid var(--rule);
@@ -225,44 +230,90 @@ dialog.ai {
   box-shadow: var(--shadow-3);
 }
 .ai-box { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4) var(--gutter) var(--s3); }
-.ai-box h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-tight); }
-.ai-box h3 { margin: var(--s2) 0 0; font-size: var(--fs-base); font-weight: 600; }
+.ai-head { display: flex; flex-direction: column; gap: var(--s1); }
+.ai-box h2 { margin: 0; font-size: var(--fs-xl); font-weight: 600; line-height: var(--lh-tight); letter-spacing: -0.01em; }
+.ai-box h3 { margin: 0; display: flex; align-items: center; gap: var(--s2); font-size: var(--fs-base); font-weight: 600; line-height: var(--lh-tight); }
 .ai-box p { margin: 0; font-size: var(--fs-base); line-height: var(--lh); overflow-wrap: anywhere; }
+.ai-box a:not(.button) { color: var(--accent-text); text-underline-offset: 2px; }
+.ai-box code { font: var(--fs-sm)/1 var(--mono); padding: 1px 3px; border-radius: var(--r-sm); background: var(--track); color: var(--ink); }
+/* The state: a dot before the words, in the state's colour (on: the
+   accent; lost: --warn, being put right; error: --error; off and busy:
+   the track's strong grey). */
+.ai-status { display: flex; align-items: baseline; gap: var(--s2); color: var(--muted); font-size: var(--fs-md); }
+.ai-status::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--track-strong); align-self: center; }
+.ai-status[data-tone="on"]::before { background: var(--accent); }
+.ai-status[data-tone="lost"]::before { background: var(--warn); }
+.ai-status[data-tone="error"]::before { background: var(--error); }
+.ai-status.error { color: var(--error); }
+/* A step: a hairline above, its heading, then its parts. The number sits in a ring in the accent. */
+.ai-step { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--rule-soft); }
+.ai-step-n { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font-size: var(--fs-sm); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ai-address-row { display: flex; gap: var(--s2); }
-.ai-address-row[hidden] { display: none; }
 .ai-address { flex: 1 1 auto; min-width: 0; font-family: var(--mono); font-size: var(--fs-md); }
+/* Copy keeps its width when it says "Copied". */
+.ai-address-row > button { min-width: 6.5em; }
 .ai-install { display: flex; flex-direction: column; gap: var(--s2); }
-.ai-install[hidden], .ai-cmd[hidden] { display: none; }
 .ai-install-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
 .ai-install-row .ai-claude { grid-column: 1 / -1; }
 .ai-install-row a.button { min-height: max(28px, calc(var(--tap) - 8px)); padding: 0 var(--s2); font-size: var(--fs-md); border-radius: var(--r-sm); }
 .ai-cmd { width: 100%; box-sizing: border-box; padding: var(--s1) var(--s2); resize: none; font-family: var(--mono); font-size: var(--fs-sm); white-space: pre; overflow-x: auto; }
-.ai-code { font-weight: 600; }
-.ai-status { color: var(--muted); }
-.ai-status.error { color: var(--error); }
+/* The pairing code: six digits in the display's tint, as big as a
+   heading, spaced, in a box of one width (7em holds the six digits and
+   the dots that stand in while no code is there), so nothing moves
+   when a code comes or changes. One click selects it. */
+.ai-code { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
+.ai-code-value {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 7em;
+  min-height: 44px;
+  padding: var(--s1) var(--s3);
+  border-radius: var(--r-md);
+  background: var(--display);
+  color: var(--display-ink);
+  box-shadow: var(--inset);
+  font: 600 24px/1 var(--mono);
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+  -webkit-user-select: all;
+}
+.ai-code-value[data-empty]::before { content: "······"; color: var(--muted); user-select: none; }
+.ai-code-copy { min-width: 8.5em; }
 .ai-note { color: var(--muted); font-size: var(--fs-md); }
+.ai-notes { display: flex; flex-direction: column; gap: var(--s1); padding-top: var(--s2); border-top: 1px solid var(--rule-soft); }
 /* The desktop app's port (web/ai-dialog.js openLocalDialog). */
 .ai-port-row { align-items: center; }
 .ai-port { width: 7em; flex: 0 0 auto; }
-.ai-apps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s1); }
+.ai-apps { margin: 0; padding: 0; list-style: none; }
 .ai-apps:empty { display: none; }
-.ai-apps li { display: flex; align-items: center; gap: var(--s2); justify-content: space-between; }
+.ai-apps li { min-height: calc(var(--tap) + var(--s2)); }
 .ai-app { min-width: 0; overflow-wrap: anywhere; }
+.ai-app .row-title { white-space: normal; }
 .ai-app small, .ai-keep small { color: var(--muted); }
 .ai-keep small { display: block; }
+.ai-keep { padding-top: var(--s2); border-top: 1px solid var(--rule-soft); }
 .ai-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 .ai-gap { flex: 1 1 auto; }
+/* A narrow screen: a sheet at the bottom, its buttons the width of it. */
 @media (max-width: 560px) {
   dialog.ai {
     box-sizing: border-box;
     inset: auto 0 0 0;
     width: 100%;
     max-width: 100%;
+    max-height: calc(100dvh - var(--s6));
     margin: 0;
     border-width: 1px 0 0;
     border-radius: var(--r-xl) var(--r-xl) 0 0;
   }
   .ai-box { padding-bottom: calc(var(--s3) + var(--safe-b)); }
+  .ai-actions > button:not(.link) { flex: 1 1 auto; }
+  .ai-actions > .ai-gap { display: none; }
+  .ai-actions > .link { flex-basis: 100%; order: 1; }
 }
 /* tab-mcp's own confirmation before store_variable and purge_variable
    (vendor/tab-mcp-client: styled through these properties only). */

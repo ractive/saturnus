@@ -1070,18 +1070,25 @@ address, which the user adds to the AI app; the AI app calls the tools
 through the relay while the tab is open. Nothing is installed.
 
 - **Where**: Search's action "Connect your AI app…" and the link of that
-  name in Calculator's panel open its dialog (`ai-dialog.js`): the
-  address with Copy, the links and commands for the common AI apps
-  (`shared/mcp-install.js`; Copy for Codex also turns on Codex's feature
-  `mcp_2026_07_28`, for all its MCP servers, without which Codex 0.163 signs in to the relay but
-  lists no tools), the state, the pairing code with Copy code once the
-  relay sends one (tab-mcp's OAuth pairing: the user types it on the
-  relay's sign-in page), the connected apps each with Disconnect, **Keep
+  name in Calculator's panel open its dialog (`ai-dialog.js`), in the
+  order of the work: the state under the title (a dot in the state's
+  colour: the accent on, `--warn` lost, `--error`), then while AI access
+  is on step 1, the address with Copy and the links and commands for the
+  common AI apps (`shared/mcp-install.js`; Copy for Codex also turns on
+  Codex's feature `mcp_2026_07_28`, for all its MCP servers, without
+  which Codex 0.163 signs in to the relay but lists no tools), and step
+  2, the pairing code once the relay sends one (tab-mcp's OAuth pairing:
+  the user types it on the relay's sign-in page) in a box like a display
+  (`--display`, one width whether a code is there or not, so nothing
+  moves when it changes; one click selects it) with Copy code; the
+  connected apps as card rows, each with Disconnect; the notes; **Keep
   AI access on** (connect again when the app opens, kept as
-  `saturnus.aiKeepOn`), Turn off and New address (the apps of the old one
-  lose access). While AI access is on and no app is connected, Done and
-  the backdrop do not close it, since closing ends the pairing code; a
-  line says so, with Close anyway (Esc closes too). Not in the desktop app.
+  `saturnus.aiKeepOn`); Turn off, New address (the apps of the old one
+  lose access), and Connect or Done, whichever shows, as the one primary
+  button. While AI access is on and no app is connected, Done and the
+  backdrop do not close it, since closing ends the pairing code; a line
+  says so, with Close anyway (Esc closes too). Not in the desktop app
+  (its own dialog, `openLocalDialog`, has the same look).
 - **The sidebar entry** (`app.js` `watchAi`, `ai-log.js` `aiView`,
   iteration 56) says the state: "Connect your AI app…" (off; why it went
   off below it), "AI access: connecting…", "AI access on · no app yet"
