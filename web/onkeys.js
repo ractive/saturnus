@@ -1,18 +1,45 @@
 // The ON-key combinations (iteration 65): ON held down while another
-// key (or two) is pressed. The ON key's menu on the skin (a long press or
-// a right-click, sat-calculator.js `onMenu`) and the command palette
-// (app.js) offer them per model, from the table alone (the chords differ
-// by model); only the 48GX so far, the other models follow from a sweep
-// of each. A combination is
-// played as held keys (`keyDown` and `keyUp`, web/protocol.md): ON first,
-// the others while it is down, released once the machine has had them
-// all down. The rest is pure: web/test/onkeys.test.mjs.
+// key (or two) is pressed; on the 42S its EXIT key, on the 27S, 17B and
+// 17BII their CLR key, which sit where ON does. The ON key's menu on the
+// skin (a long press or a right-click, sat-calculator.js `onMenu`) and
+// the command palette (app.js) offer them per model, from the table
+// alone (the chords differ by model). A combination is played as held
+// keys (`keyDown` and `keyUp`, web/protocol.md): all of them sent in one
+// go, so they go down in the same instant (the Pioneers' memory clear
+// takes only that, wiki: hardware/hp42s-keyboard), held until the
+// machine has had them all down (and `hold` ms more where a model wants
+// a long hold), then released, ON last. The rest is pure:
+// web/test/onkeys.test.mjs.
 
 import { confirmAction } from "./shared/components/confirm.js";
 
+/** The question before a memory reset whose ROM then asks "Try To Recover Memory?" (the 48 series, the 49G). */
+const RECOVER = (no) => ({
+  title: "Reset the calculator's memory?",
+  body: `The calculator asks "Try To Recover Memory?" next: NO (${no[0]}) clears its variables and stack, YES (${no[1]}) tries to keep them. Saved states are not touched.`,
+  action: "Reset memory",
+});
+
+/** The question before a memory clear that asks nothing more (the 28S, the aplet and Pioneer models). */
+const CLEAR = {
+  title: "Clear the calculator's memory?",
+  body: "Everything in the calculator's memory is erased at once, as on a new calculator. Saved states are not touched.",
+  action: "Clear memory",
+};
+
+/** A menu key's combinations on the models whose six menu keys are a to f (numbered from the left). */
+const menuKeys = (on, restart, reset, extra = []) => [
+  { id: "restart", title: "Restart", keys: ["on", "c"], chord: `${on}+menu key 3`, description: restart },
+  ...extra,
+  { id: "reset-memory", title: "Clear memory…", keys: ["on", "a", "f"], chord: `${on}+menu keys 1 and 6`, description: `${reset} Asks first.`, ask: CLEAR },
+];
+
 /**
- * Per model: `{id, title, keys, description, ask?}`. `keys` are held in
- * order (ON first); `ask` is the question asked before (`confirmAction`).
+ * Per model: `{id, title, keys, chord?, description, ask?, hold?}`.
+ * `keys` are held in order (ON first); `chord` is how the menu and the
+ * palette write it (default the keys' names in capitals, ON+C); `ask` is
+ * the question asked before (`confirmAction`); `hold` the ms all keys
+ * stay down once the machine has them.
  */
 export const ON_COMBOS = {
   // wiki: hardware/hp48gx-keyboard ("ON-key combinations": FAQ 4.6, and
@@ -21,12 +48,72 @@ export const ON_COMBOS = {
     { id: "restart", title: "Restart", keys: ["on", "c"], description: "ON+C: clears the stack and keeps the variables." },
     { id: "self-test", title: "Self-test", keys: ["on", "d"], description: "ON+D: the calculator's interactive self-test." },
     { id: "print-display", title: "Print display", keys: ["on", "1"], description: "ON+1: sends the display to the printer." },
-    {
-      id: "reset-memory", title: "Reset memory…", keys: ["on", "a", "f"], description: "ON+A+F: the calculator asks \"Try To Recover Memory?\"; NO clears it. Asks first.",
-      ask: { title: "Reset the calculator's memory?", body: "The calculator asks \"Try To Recover Memory?\" next: NO (F) clears its variables and stack, YES (A) tries to keep them. Saved states are not touched.", action: "Reset memory" },
-    },
+    { id: "reset-memory", title: "Reset memory…", keys: ["on", "a", "f"], description: "ON+A+F: the calculator asks \"Try To Recover Memory?\"; NO clears it. Asks first.", ask: RECOVER("FA") },
+  ],
+  // wiki: hardware/hp48sx-keyboard ("ON-key combinations": Owner's
+  // Manual p. A-11 to A-13, 32-4, and ROM J on saturnus)
+  "48sx": [
+    { id: "restart", title: "Restart", keys: ["on", "c"], description: "ON+C: clears the stack and keeps the variables." },
+    { id: "self-test", title: "Self-test", keys: ["on", "d"], description: "ON+D: the calculator's interactive tests." },
+    // "Prints the display; the key's left-shift label is PRINT" (p. 32-4); ON+1 does nothing on the SX.
+    { id: "print-display", title: "Print display", keys: ["on", "mth"], description: "ON+MTH: sends the display to the printer." },
+    // "when A and F were held together with ON for a second or more; a half-second hold did nothing".
+    { id: "reset-memory", title: "Reset memory…", keys: ["on", "a", "f"], hold: 1200, description: "ON+A+F, held a second: the calculator asks \"Try To Recover Memory?\"; NO clears it. Asks first.", ask: RECOVER("FA") },
+  ],
+  // wiki: hardware/hp49g-keyboard ("ON-key combinations": User's Manual
+  // p. D-4, D-5, FAQ 5.8, and ROM 2.10 on saturnus); F1 to F6 take the
+  // 48's A to F.
+  "49g": [
+    { id: "restart", title: "Restart", keys: ["on", "c"], chord: "ON+F3", description: "ON+F3: clears the stack and keeps the variables." },
+    { id: "self-test", title: "Self-test", keys: ["on", "d"], chord: "ON+F4", description: "ON+F4: the \"Tests\" menu; a digit picks a test, Q reboots." },
+    { id: "reset-memory", title: "Reset memory…", keys: ["on", "a", "f"], chord: "ON+F1+F6", description: "ON+F1+F6: the calculator asks \"Try To Recover Memory?\"; NO clears it. Asks first.", ask: RECOVER(["F6", "F1"]) },
+  ],
+  // wiki: hardware/hp28s-keyboard ("ON-key combinations": Owner's Manual
+  // p. 20, 216, 217, and ROM 2BB on saturnus); the menu keys named by
+  // their cursor labels INS DEL ▲ ▼ ◀ ▶.
+  "28s": [
+    { id: "restart", title: "Restart", keys: ["on", "c"], chord: "ON+▲", description: "ON+▲ (third menu key): System Halt, clears the stack." },
+    { id: "print-display", title: "Print display", keys: ["on", "letterl"], chord: "ON+L", description: "ON+L: sends the display to the printer." },
+    { id: "reset-memory", title: "Clear memory…", keys: ["on", "a", "f"], chord: "ON+INS+▶", description: "ON+INS+▶ (menu keys 1 and 6): Memory Reset, \"Memory Lost\". Asks first.", ask: CLEAR },
+  ],
+  // wiki: hardware/hp38g-39g-keyboard ("ON-key combinations": 38G guide
+  // p. 9-8, and A1.67 on saturnus)
+  "38g": menuKeys("ON", "ON+menu key 3: reset, back to HOME with the history cleared.", "ON+menu keys 1 and 6: erases all memory (\"Memory Clear\")."),
+  // wiki: hardware/hp42s-keyboard ("EXIT-key combinations": Owner's
+  // Manual p. 261, 266-268, and the 42S ROM on saturnus)
+  "42s": [
+    { id: "restart", title: "Restart", keys: ["on", "sqrt"], chord: "EXIT+√x", description: "EXIT+√x: \"Machine Reset\", memory kept; also stops the self-test." },
+    { id: "self-test", title: "Self-test", keys: ["on", "ln"], chord: "EXIT+LN", description: "EXIT+LN: the self-test, repeating; Restart (EXIT+√x) stops it." },
+    // "only when EXIT and Σ+ went down in the same instant", as every combination here does.
+    { id: "reset-memory", title: "Clear memory…", keys: ["on", "sigmaplus", "xeq"], chord: "EXIT+Σ++XEQ", description: "EXIT+Σ++XEQ: clears all memory and flags (\"Memory Clear\"). Asks first.", ask: CLEAR },
+  ],
+  // wiki: hardware/hp19bii-keyboard ("ON-key combinations": Owner's
+  // Manual p. 204, 276, and the 19BII ROM on saturnus)
+  "19bii": [
+    { id: "restart", title: "Restart", keys: ["on", "c"], chord: "ON+menu key 3", description: "ON+menu key 3: \"MACHINE RESET\"." },
+    { id: "print-display", title: "Print display", keys: ["on", "prt"], chord: "ON+PRNT", description: "ON+PRNT: prints the display, menu labels included." },
+    { id: "reset-memory", title: "Clear memory…", keys: ["on", "a", "f"], chord: "ON+menu keys 1 and 6", description: "ON+menu keys 1 and 6: erases continuous memory (\"MEMORY LOST\"). Asks first.", ask: CLEAR },
   ],
 };
+// wiki: hardware/hp38g-39g-keyboard (39G/40G guide R-4, R-5, and
+// rom.39g on saturnus; the 40G gave the same): the 38G's two, and the
+// "Tests" menu behind menu key 4, which ON leaves.
+ON_COMBOS["39g"] = menuKeys("ON", "ON+menu key 3: reset, back to HOME with the history cleared.", "ON+menu keys 1 and 6: erases all memory (\"Memory Clear\").", [
+  { id: "self-test", title: "Self-test", keys: ["on", "d"], chord: "ON+menu key 4", description: "ON+menu key 4: the \"Tests\" menu; a digit picks a test, ON reboots to HOME." },
+]);
+ON_COMBOS["40g"] = ON_COMBOS["39g"];
+// wiki: hardware/hp27s-17b-17bii-keyboard ("CLR-key combinations": 27S
+// p. 195, 196, 17BII and 17B p. 218, and their ROMs on saturnus): CLR
+// sits where ON does; the memory clear only with all three keys going
+// down together, as every combination here does.
+for (const m of ["27s", "17b", "17bii"]) {
+  ON_COMBOS[m] = menuKeys("CLR", "CLR+menu key 3: \"MACHINE RESET\", memory kept.", "CLR+menu keys 1 and 6: erases continuous memory (\"MEMORY LOST\").");
+}
+
+/** How a combination is written: its `chord`, or its keys in capitals joined by +. */
+export function chordOf(combo) {
+  return combo.chord ?? combo.keys.map((k) => k.toUpperCase()).join("+");
+}
 
 /** The ON combinations of `model` (none for a model without a table). */
 export function onCombos(model) {
@@ -54,27 +141,43 @@ export function onPointerDown(e, modifier) {
 
 /**
  * Play `keys` as one combination on `backend`, watching `store`'s
- * `keysDown`: each key down in order, held until the machine has them all
- * down, then the others released before the first (ON). Resolves true,
+ * `keysDown`: every key down at once (in order, in one go), held until
+ * the machine has them all down and `hold` ms more, then the others
+ * released before the first (ON). Resolves true,
  * or false when the machine has not taken them within `timeout` ms:
  * then its own keys are released, in reverse order (keys the user holds
  * stay down).
  */
-export function playCombo(backend, store, keys, { timeout = 5000, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+export function playCombo(backend, store, keys, { hold = 0, timeout = 5000, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
   const [first, ...rest] = keys;
   return new Promise((resolve) => {
     let phase = "down";
     let stop = () => {};
+    let holding = null;
     const timer = setTimer(() => {
       stop();
+      if (holding !== null) clearTimer(holding);
       for (const k of [...keys].reverse()) backend.keyUp(k);
       resolve(false);
-    }, timeout);
+    }, timeout + hold);
+    const release = () => {
+      phase = "up";
+      for (const k of [...rest].reverse()) backend.keyUp(k);
+    };
     const check = (down) => {
       const now = new Set(down ?? []);
       if (phase === "down" && keys.every((k) => now.has(k))) {
-        phase = "up";
-        for (const k of [...rest].reverse()) backend.keyUp(k);
+        if (hold > 0) {
+          // Held `hold` ms more (the 48SX's memory reset wants a second).
+          phase = "hold";
+          holding = setTimer(() => {
+            holding = null;
+            release();
+            check(store.state.keysDown);
+          }, hold);
+        } else {
+          release();
+        }
       }
       if (phase === "up" && rest.every((k) => !now.has(k))) {
         phase = "done";
@@ -112,10 +215,10 @@ export async function runCombo(combo, backend, store, ask = confirmAction) {
   playing = true;
   let ok = false;
   try {
-    ok = await playCombo(backend, store, combo.keys);
+    ok = await playCombo(backend, store, combo.keys, { hold: combo.hold ?? 0 });
   } finally {
     playing = false;
   }
-  if (!ok) store.set({ message: `The calculator did not take ${combo.keys.map((k) => k.toUpperCase()).join("+")}.`, messageError: true });
+  if (!ok) store.set({ message: `The calculator did not take ${chordOf(combo)}.`, messageError: true });
   return ok;
 }

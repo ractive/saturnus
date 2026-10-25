@@ -1,6 +1,6 @@
 ---
 type: iteration
-title: "Iteration 65: the 48GX's unprinted key functions on the skin, and the ON combinations"
+title: "Iteration 65: unprinted key functions on the skin, and the ON combinations"
 date: 2026-10-25
 status: in-progress
 tags:
@@ -68,3 +68,44 @@ PR or a follow-up).
 - [x] The ON key's menu (long press, right-click) and the four palette entries
 - [x] Page tests; screenshots at 1280 and 390 wide with ⌃ and ⌥ held
 - [ ] Owner: hold ⌃ and ⌥ on the 48GX, read the tooltips, try the ON menu
+
+## The other eleven models (branch iter-65b/hidden-keys-all-models)
+
+The sweeps of the other models went into the wiki on 2026-10-25
+(calculator knowledgebase PR 22): `hardware/hp48sx-keyboard`,
+`hp49g-keyboard`, `hp28s-keyboard`, `hp38g-39g-keyboard`,
+`hp42s-keyboard`, `hp27s-17b-17bii-keyboard`, `hp19bii-keyboard`. The
+design above applies unchanged; what the 48GX did not need went into
+the data model, not into the UI:
+
+- A **menu** entry may sit on either shift and lights the printed
+  application label in its shift's colour: on the 48SX the application
+  names are printed under the left shift and → opens the other menu
+  (→ 7 the SOLVR menu), so ⌥ lights SOLVE green; its tooltip text
+  names that menu ("SOLVR menu of the current equation").
+- A **held** entry is a function of a shift held down while the key is
+  pressed (the 49G). A modifier click taps the shift and the skin has
+  no gesture for a held one, so it is a tooltip line only ("With the
+  left shift held down: MODES menu (not printed)"), with no ghost and
+  no glow.
+- An unprinted function that works only in one context (a command
+  line, a list, the edit line) has a tooltip line and no ghost; one
+  named elsewhere on the face (the 38G's SETUP bracket) says so in
+  place of "not printed".
+- An ON combination has a `chord` as the menu writes it (ON+F3,
+  EXIT+√x, ON+menu keys 1 and 6) and an optional `hold` (the 48SX's
+  ON+A+F, held a second); its keys always go down in the same instant,
+  which the Pioneers' memory clear needs (tried on the 42S, 17BII and
+  19BII ROMs). The menu is named after the key's print (EXIT on the
+  42S, CLR on the 27S, 17B and 17BII). Every memory clear asks first.
+
+Left out, as the wiki gives no way out or no visible result: the
+self-tests of the 38G, 28S and the Pioneers other than the 42S, ON+F5
+and ON+F6 on the 49G, ON+1 on the 38G, 39G and 40G (serial port only);
+the 40G's CAS menu key is no shifted function.
+
+- [x] Every model's table and ON combinations, each citing its wiki page
+- [x] Held-shift and context-only entries as tooltip lines
+- [x] Unit tests per model against the real skins, page tests (48SX, 49G, 38G, 19BII, 42S) and ROM checks per family
+- [x] Screenshots with a modifier held: 48SX, 49G, 38G, 19BII at 1280
+- [ ] Owner: hold ⌃ and ⌥ on the 48SX, 49G and a one-shift model, try the ON menus

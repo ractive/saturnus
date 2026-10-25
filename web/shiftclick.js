@@ -5,7 +5,7 @@
 // While one of the two modifiers is held, the skin lights the labels it
 // reaches (`ModifierGlow`). Pure, without the DOM: web/test/shiftclick.test.mjs.
 
-import { shiftedText } from "./hiddenkeys.js";
+import { heldText, shiftedText } from "./hiddenkeys.js";
 
 /** How long a modifier is held before the labels light, in ms: a chord (Ctrl+K) is quicker. */
 export const GLOW_DELAY = 150;
@@ -109,7 +109,9 @@ export function clickLabel(mod, isMac, short = false) {
  * A one-shift model's label (its `left`) takes both modifiers. `extra` (the key's
  * web/hiddenkeys.js entries) adds what the print does not say:
  * `⌥-click: Kermit server (not printed)`, `⌥-click: ARG (LASTARG)`,
- * `⌃-click: SOLVE menu`.
+ * `⌃-click: SOLVE menu`; and the functions of a shift held down while
+ * the key is pressed, which a click cannot give (the 49G):
+ * `With the left shift held down: MODES menu (not printed)`.
  */
 export function clickHints(k, keyNames, isMac, extra = {}) {
   if (k.name === "shift" || k.name === "leftshift" || k.name === "rightshift") return [];
@@ -123,6 +125,10 @@ export function clickHints(k, keyNames, isMac, extra = {}) {
   const right = shiftedText(k, "right", extra, caps);
   if (left) out.push(`${click("ctrl")}: ${left}`);
   if (right) out.push(`${click("alt")}: ${right}`);
+  for (const side of ["left", "right"]) {
+    const held = heldText(side, extra);
+    if (held) out.push(held);
+  }
   return out;
 }
 

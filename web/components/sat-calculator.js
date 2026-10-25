@@ -15,7 +15,7 @@ import { inDesktopApp } from "../shared/site-links.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, keyTitle, modifierOf, shiftFor } from "../shiftclick.js";
 import { ghostSlot, hiddenOf, menuLabels } from "../hiddenkeys.js";
-import { ON_LONG_PRESS, onCombos, onPointerDown, runCombo } from "../onkeys.js";
+import { ON_LONG_PRESS, chordOf, onCombos, onPointerDown, runCombo } from "../onkeys.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenPng } from "../screenshot.js";
 import { copyPng, pngBlob } from "../shared/png.js";
 import { closeMenu, openMenu, openMenuKey } from "../shared/components/menu.js";
@@ -1292,19 +1292,24 @@ export class SatCalculator extends HTMLElement {
     }, true);
   }
 
-  /** The ON key's menu at `at` (the pointer): the model's ON combinations. */
+  /**
+   * The ON key's menu at `at` (the pointer): the model's ON combinations,
+   * named after the key's print (EXIT on the 42S, CLR on the 27S, 17B and
+   * 17BII).
+   */
   onMenu(at) {
     const combos = onCombos(this.skinModel);
     if (!combos.length || !isLive(this.store.state)) return;
+    const on = this.skinData?.keys.find((k) => k.name === "on")?.label || "ON";
     openMenu({
       at,
       key: "on-key",
-      label: "ON combinations",
+      label: `${on} combinations`,
       items: [
-        { note: "ON held with other keys" },
+        { note: `${on} held with other keys` },
         ...combos.map((c) => ({
           text: c.title,
-          hint: c.keys.map((k) => k.toUpperCase()).join("+"),
+          hint: chordOf(c),
           title: c.description,
           danger: Boolean(c.ask),
           run: () => runCombo(c, this.backend, this.store),
