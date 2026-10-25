@@ -711,6 +711,8 @@ impl Emulator {
         self.shown_keys = None;
         self.menu_seen = None;
         self.shown_menu = None;
+        self.menu_dirty = true;
+        self.menu_force = true;
     }
 
     /// The `keys` event if the keys down changed since the last one, else

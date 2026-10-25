@@ -122,6 +122,17 @@ pub struct Emulator {
     /// gave.
     menu_seen: Option<[u32; 6]>,
     shown_menu: Option<Option<Vec<Option<softkeys::ShownKey>>>>,
+    /// The key presses the queue had started at the last look: a press
+    /// since may have changed what the signature does not see (ORDER,
+    /// a variable rewritten in place).
+    menu_presses: u64,
+    /// Read the keys again at the next look whatever the signature says:
+    /// a send or write ran, a state was loaded, memory poked.
+    menu_dirty: bool,
+    /// Send the next `menu` event even when it says what the last one
+    /// did, `null` included ([`Emulator::reshow`]: the page and the hub
+    /// may hold the keys of the machine as it was).
+    menu_force: bool,
     /// A send typing into the command line (see [`typing`]).
     typing: Option<typing::Job>,
     /// A write through the Kermit server (see [`transfer`]).
@@ -142,6 +153,9 @@ impl Emulator {
             menus: std::cell::RefCell::new(None),
             menu_seen: None,
             shown_menu: None,
+            menu_presses: 0,
+            menu_dirty: true,
+            menu_force: false,
             typing: None,
             transfer: None,
         })
@@ -160,6 +174,9 @@ impl Emulator {
             menus: std::cell::RefCell::new(None),
             menu_seen: None,
             shown_menu: None,
+            menu_presses: 0,
+            menu_dirty: true,
+            menu_force: false,
             typing: None,
             transfer: None,
         }
@@ -232,6 +249,7 @@ impl Emulator {
     /// plays into the loaded one. On error nothing changes.
     pub fn load_state(&mut self, data: &[u8]) -> Result<()> {
         self.machine.load_state(data)?;
+        self.menu_dirty = true;
         self.cycle_debt = 0.0;
         self.queue.clear();
         self.typing = None;
@@ -315,14 +333,28 @@ impl Emulator {
     /// changed ([`softkeys::signature`]).
     pub fn menu_if_changed(&mut self) -> Option<host::MenuKeys> {
         self.user_memory().ok()?;
+        if self.typing.is_some() || self.transfer.is_some() {
+            self.menu_dirty = true;
+            return None;
+        }
         let seen = softkeys::signature(&self.machine).ok();
-        if seen.is_some() && seen == self.menu_seen && self.shown_menu.is_some() {
+        let presses = self.queue.presses_started();
+        let same = seen.is_some()
+            && seen == self.menu_seen
+            && presses == self.menu_presses
+            && !self.menu_dirty
+            && self.shown_menu.is_some();
+        if same {
             return None;
         }
         self.menu_seen = seen;
+        self.menu_presses = presses;
+        self.menu_dirty = false;
         let keys = self.menu_keys().ok().flatten();
-        // A page starts with no menu keys known: none is not news.
-        if self.shown_menu.as_ref().unwrap_or(&None) == &keys {
+        let force = std::mem::take(&mut self.menu_force);
+        // A page starts with no menu keys known: none is not news, unless
+        // the machine changed under it (`menu_force`).
+        if !force && self.shown_menu.as_ref().unwrap_or(&None) == &keys {
             self.shown_menu = Some(keys);
             return None;
         }

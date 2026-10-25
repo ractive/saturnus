@@ -13,6 +13,7 @@ impl crate::Emulator {
         }
         self.release_keys();
         self.transfer = Some(Transfer::new(&self.machine, op)?);
+        self.menu_dirty = true;
         Ok(())
     }
 

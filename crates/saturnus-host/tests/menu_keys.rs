@@ -187,6 +187,32 @@ fn menu_keys_follow_the_screen() {
         act(&mut e, &["leftshift nxt"]);
         assert_eq!(labels(&e).unwrap(), r.mth_pages[0], "{what}: PREV");
 
+        // Menus whose definitions are programs that build them: the
+        // first list in the program is what the screen shows.
+        let built: &[(&str, [&str; 6])] = match r.model {
+            Model::Hp48sx => &[
+                ("prg", ["STK", "OBJ", "DSPL", "CTRL", "BRCH", "TEST"]),
+                (
+                    "leftshift 7",
+                    ["SOLVR", "ROOT", "NEW", "EDEQ", "STEQ", "CAT"],
+                ),
+                (
+                    "leftshift 8",
+                    ["PLOTR", "PTYPE", "NEW", "EDEQ", "STEQ", "CAT"],
+                ),
+            ],
+            Model::Hp48gx => &[("prg", ["BRCH", "TEST", "TYPE", "LIST", "GROB", "PICT"])],
+            _ => &[],
+        };
+        for (keys, want) in built {
+            act(&mut e, &[keys]);
+            assert_eq!(labels(&e).unwrap(), want, "{what}: {keys}");
+        }
+        if r.model == Model::Hp48sx {
+            // PLOTR's menu made PPAR in the current directory.
+            act(&mut e, &["r:'PPAR' PURGE"]);
+        }
+
         // A menu of commands, two pages: MTH's first submenu, NXT.
         act(&mut e, &[r.mth, "a"]);
         let first = labels(&e).unwrap();
@@ -240,6 +266,37 @@ fn menu_keys_follow_the_screen() {
         assert_eq!(json["type"], "menu");
         assert_eq!(e.menu_if_changed(), None);
 
+        // ORDER moves variables without changing HOME's size or the
+        // stack's depth: the next look after the send reads them again.
+        send(&mut e, "{ A3 A1 } ORDER");
+        let ev = e.menu_if_changed().expect("ORDER changed the VAR menu");
+        let order: Vec<String> = ev
+            .keys
+            .unwrap()
+            .iter()
+            .map(|k| k.as_ref().map_or("-".into(), |k| k.label.clone()))
+            .collect();
+        assert_eq!(
+            order,
+            ["A3", "A1", "SUBD", "A7", "A6", "A5"],
+            "{what}: ORDER"
+        );
+        assert_eq!(e.menu_if_changed(), None);
+        // A press through the key queue (the page's keyDown) is looked
+        // at again once the machine settles (every press counts, so
+        // ORDER typed by hand is seen too).
+        let presses = e.queue().presses_started();
+        assert!(e.press("nxt"));
+        e.release("nxt");
+        while e.keys_busy() || e.queue().presses_started() == presses {
+            e.run_slice(10.0, true).unwrap();
+        }
+        settle(e.machine_mut(), 5_000);
+        let ev = e.menu_if_changed().expect("NXT through the queue");
+        assert_eq!(ev.keys.unwrap()[0].as_ref().unwrap().label, "A4");
+        act(&mut e, &["leftshift nxt"]);
+        let _ = e.menu_if_changed();
+
         // Another screen draws its own keys: none known.
         let choose = match r.model {
             Model::Hp48sx => None,
@@ -252,9 +309,34 @@ fn menu_keys_follow_the_screen() {
             assert_eq!(labels(&e), None, "{what}: a choose box");
             let ev = e.menu_if_changed().expect("the keys went");
             assert_eq!(ev.keys, None);
+            let in_box = e.save_state();
+            // Again after a reshow (a new page, a poke): sent though null.
+            e.reshow();
+            assert_eq!(
+                e.menu_if_changed().map(|m| m.keys),
+                Some(None),
+                "{what}: reshow"
+            );
+            act(&mut e, &["on"]);
+            let _ = e.menu_if_changed();
+            assert!(e.menu_keys().unwrap().is_some(), "{what}: VAR again");
+            // A state loaded in the choose box: the keys go.
+            e.load_state(&in_box).unwrap();
+            e.reshow();
+            let ev = e.menu_if_changed().expect("the loaded state's keys");
+            assert_eq!(ev.keys, None, "{what}: loaded in a choose box");
             act(&mut e, &["on"]);
         }
     }
+}
+
+/// Type `text` and ENTER as the protocol's `run` does (`start_typing`).
+fn send(e: &mut Emulator, text: &str) {
+    e.start_typing("run", text).unwrap();
+    while !e.typing_step(50.0).unwrap() {}
+    let r = e.typing_result().unwrap();
+    assert_eq!(r.run.and_then(|x| x.error), None, "{text}");
+    settle(e.machine_mut(), 10_000);
 }
 
 fn ev_json(keys: &[Option<ShownKey>]) -> saturnus_host::host::MenuKeys {

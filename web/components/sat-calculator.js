@@ -1673,10 +1673,11 @@ export class SatCalculator extends HTMLElement {
    * the reference, loaded at the first menu of commands.
    */
   async showMenuKeys() {
+    // Bumped first: a reference load still pending for another skin is dropped.
+    const seq = ++this.menuSeq;
     const model = this.skinModel;
     const names = MENU_KEYS[model];
     if (!names) return;
-    const seq = ++this.menuSeq;
     const s = this.store?.state;
     const keys = s && s.booted === model ? s.menuKeys : null;
     let index = null;
@@ -1686,7 +1687,7 @@ export class SatCalculator extends HTMLElement {
       } catch {
         // No reference: the commands' names alone.
       }
-      if (seq !== this.menuSeq) return;
+      if (seq !== this.menuSeq || model !== this.skinModel) return;
     }
     const longName = longNames(index);
     for (const name of names) {

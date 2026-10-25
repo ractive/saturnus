@@ -43,11 +43,11 @@ pub struct MenuDef {
     pub submenus: Vec<(String, u32)>,
     /// Every key in key order, six to a page (the first page's keys,
     /// then the next page's after NXT), as the definition lists them.
+    /// For a definition that is a program building the menu, the keys
+    /// of the first list in it: on the ROMs tried that list is what the
+    /// screen shows (MTH and PRG on the 48SX and 48GX, the 48SX's SOLVE
+    /// and PLOT; `crates/saturnus-host/tests/menu_keys.rs`).
     pub keys: Vec<MenuKey>,
-    /// The definition is a program that builds the menu when it is
-    /// shown: `keys` are those of the first list in it, which the
-    /// program may change.
-    pub built: bool,
 }
 
 /// One key of a menu as its definition gives it.
@@ -586,7 +586,6 @@ impl<'a> Collect<'_, 'a> {
         } else if p == ObjectType::Program.prolog() {
             // A program that builds the menu: its list of keys (their
             // commands; not their order, which the program decides).
-            self.def.built = true;
             if let Some(El::Embedded(j, _)) = self
                 .r
                 .elements(i)
@@ -990,7 +989,6 @@ mod tests {
             ]
         );
         assert_eq!(m.get(2).unwrap().keys[2].text(), Some("T"));
-        assert!(!m.get(1).unwrap().built);
         let paths = m.paths(&[(1, "MATH".into())]);
         assert_eq!(paths[&2], "MATH TRIG");
         assert_eq!(paths[&3], "MENU 3");

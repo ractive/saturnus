@@ -600,28 +600,67 @@ impl<'a> UserMemory<'a> {
     }
 
     /// The variables of the current directory, newest first (the VAR
-    /// menu's order), sub-directories expanded.
+    /// menu's order): names, types and sizes only, no checksums, the
+    /// sub-directories not expanded. Walks HOME down to the current
+    /// directory only (its records, not their objects' contents).
     pub fn current_variables(&self) -> Result<Vec<Variable>> {
         let context = self.pointer(self.layout.context_ptr)?;
-        let home = self.pointer(self.layout.home_ptr)?;
-        let tree = self.tree()?;
-        if context == home {
-            return Ok(tree);
-        }
-        fn dir(vars: &[Variable], at: u32) -> Option<&Vec<Variable>> {
-            vars.iter().find_map(|v| {
-                let sub = v.variables.as_ref()?;
-                if v.address == at {
-                    Some(sub)
-                } else {
-                    dir(sub, at)
+        let home = self.home()?;
+        let n = &home.nibbles;
+        let mut offset_at = home.offset_at;
+        let mut depth = 0;
+        if context != home.addr {
+            'down: loop {
+                if depth > crate::prolog::MAX_DEPTH {
+                    return Err(Error::Memory("directories nested too deep".into()));
                 }
-            })
+                for r in records(n, offset_at, depth)? {
+                    let (from, to) = (home.addr + to_u32(r.object)?, home.addr + to_u32(r.end())?);
+                    let dir = crate::prolog::read_field(n, r.object, 5)
+                        == Some(ObjectType::Directory.prolog());
+                    if dir && (from..to).contains(&context) {
+                        offset_at = r.object + 8;
+                        depth += 1;
+                        if from == context {
+                            break 'down;
+                        }
+                        continue 'down;
+                    }
+                }
+                return Err(Error::Memory(format!(
+                    "the current directory (#{context:05X}) is not under HOME"
+                )));
+            }
         }
-        dir(&tree, context).cloned().ok_or_else(|| {
-            Error::Memory(format!(
-                "the current directory (#{context:05X}) is not under HOME"
-            ))
+        let rs = records(n, offset_at, depth)?;
+        rs.iter()
+            .rev()
+            .filter(|r| r.name_len != 0)
+            .map(|r| self.shallow_variable(n, home.addr, r))
+            .collect()
+    }
+
+    /// A variable's name, type and size (no checksum, no sub-directory).
+    fn shallow_variable(&self, n: &[u8], base: u32, r: &Record) -> Result<Variable> {
+        let name_bytes: Vec<u8> = (0..r.name_len)
+            .map(|i| {
+                crate::prolog::read_field(n, r.name_at + 2 + 2 * i, 2)
+                    .map(|b| (b & 0xFF) as u8)
+                    .ok_or_else(|| Error::Memory("name truncated".into()))
+            })
+            .collect::<Result<_>>()?;
+        let prolog = crate::prolog::read_field(n, r.object, 5)
+            .ok_or_else(|| Error::Memory("object truncated".into()))?;
+        let kind = ObjectType::from_prolog(prolog)
+            .or_else(|| self.pointer(prolog).ok().and_then(ObjectType::from_prolog))
+            .map_or("ROM Pointer", ObjectType::name);
+        Ok(Variable {
+            name: crate::charset::decode(&name_bytes),
+            kind: kind.to_string(),
+            size: (r.end() - r.start) as f64 / 2.0,
+            checksum: 0,
+            address: base + to_u32(r.object)?,
+            variables: None,
         })
     }
 
