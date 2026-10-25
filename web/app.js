@@ -88,12 +88,18 @@ function findParts() {
  * The resizable edges: the side panel's right edge and the memory view's
  * left edge. Widths in CSS pixels, kept per browser (`prefs`), within
  * these limits: the minimums keep every control whole, the memory view
- * leaves the calculator room.
+ * leaves the calculator its 300px, and beside an open memory view the
+ * panel leaves the view its minimum (style.css `--layer-col`, `--panel-col`).
  */
 const EDGES = {
-  panel: { handle: "panelResize", pref: "panelWidth", prop: "--panel-w", min: 236, max: () => 480, grows: 1 },
-  layer: { handle: "layerResize", pref: "layerWidth", prop: "--layer-w", min: 380, max: () => Math.max(380, Math.min(960, window.innerWidth - currentWidth("panel") - 320)), grows: -1 },
+  panel: { handle: "panelResize", pref: "panelWidth", prop: "--panel-w", min: 236, max: () => (layerBeside() ? Math.max(236, Math.min(480, window.innerWidth - 300 - 380)) : 480), grows: 1 },
+  layer: { handle: "layerResize", pref: "layerWidth", prop: "--layer-w", min: 380, max: () => Math.max(380, Math.min(960, window.innerWidth - currentWidth("panel") - 300)), grows: -1 },
 };
+
+/** The memory view open as a column beside the calculator (not over it). */
+function layerBeside() {
+  return root.classList.contains("layer-open") && !matchMedia(LAYER_COVERS).matches;
+}
 
 function currentWidth(edge) {
   const e = EDGES[edge];
@@ -157,6 +163,8 @@ function setLayerOpen(memory, open, { remember = true } = {}) {
   if (remember) prefs.set("layer", open ? "open" : "closed");
   if (open) setSheetOpen(false);
   else if (ui.layer.contains(document.activeElement)) document.activeElement.blur();
+  // The panel's kept width, clamped beside the view, back when it closes.
+  refit?.();
   return memory.setOpen(open);
 }
 

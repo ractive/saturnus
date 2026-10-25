@@ -16,6 +16,7 @@
 #calculator-view {
   height: 100%;
   display: grid;
+  --panel-col: var(--panel-w);
   grid-template-columns: var(--panel-w) 1fr;
   grid-template-rows: 100%;
   overflow: hidden;
@@ -546,11 +547,17 @@
    windows: a third column. Below 1000px: over the calculator, with a way
    back. */
 
-/* The view's width at most what the window leaves beside the panel and
-   the calculator's 300px: wider, its right edge (the close) would be cut
-   off (a window just over 1000px). */
-#calculator-view.layer-open { --layer-col: min(var(--layer-w), 100vw - var(--panel-w) - 300px); grid-template-columns: var(--panel-w) minmax(300px, 1fr) var(--layer-col); }
-#calculator-view.layer-open.panel-hidden { --layer-col: min(var(--layer-w), 100vw - 300px); grid-template-columns: 0 minmax(300px, 1fr) var(--layer-col); }
+/* The columns fit the window (else the view's right edge, its close,
+   would be cut off): the calculator keeps 300px, the view gives way down
+   to its 380px (app.js EDGES), then the side panel gives way; at 1000px,
+   where the view starts to lie beside the calculator, the panel keeps
+   320px. */
+#calculator-view.layer-open {
+  --layer-col: max(380px, min(var(--layer-w), 100vw - var(--panel-w) - 300px));
+  --panel-col: min(var(--panel-w), 100vw - 300px - var(--layer-col));
+  grid-template-columns: var(--panel-col) minmax(300px, 1fr) var(--layer-col);
+}
+#calculator-view.layer-open.panel-hidden { --layer-col: max(380px, min(var(--layer-w), 100vw - 300px)); grid-template-columns: 0 minmax(300px, 1fr) var(--layer-col); }
 
 /* The handles on the inner edges of the side panel and of the memory
    view: drag (or arrow keys) to resize, double-click for the default. */
@@ -577,7 +584,7 @@
 :where(#calculator-view) .resize:hover::after, :where(#calculator-view) .resize:focus-visible::after, :where(#calculator-view) .resize.dragging::after,
 :where(#calculator-view) .resize-tree:hover::after, :where(#calculator-view) .resize-tree:focus-visible::after, :where(#calculator-view) .resize-tree.dragging::after { width: 3px; left: 3px; background: var(--accent); }
 :where(#calculator-view) .resize:focus-visible, :where(#calculator-view) .resize-tree:focus-visible { outline: none; }
-:where(#calculator-view) .resize-panel { left: calc(var(--panel-w) - 5px); }
+:where(#calculator-view) .resize-panel { left: calc(var(--panel-col) - 5px); }
 :where(#calculator-view) .resize-layer { right: calc(var(--layer-col) - 5px); }
 #calculator-view.panel-hidden .resize-panel, #calculator-view:not(.layer-open) .resize-layer { display: none; }
 body.resizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
@@ -1470,7 +1477,7 @@ body.resizing * { cursor: col-resize !important; }
 
 /* Below 1000px the layer lies over the calculator. */
 @media (max-width: 999px) {
-  #calculator-view.layer-open, #calculator-view.layer-open.panel-hidden { grid-template-columns: var(--panel-w) 1fr; }
+  #calculator-view.layer-open, #calculator-view.layer-open.panel-hidden { --panel-col: var(--panel-w); grid-template-columns: var(--panel-w) 1fr; }
   #calculator-view.layer-open.panel-hidden { grid-template-columns: 0 1fr; }
   :where(#calculator-view) sat-explorer { grid-column: 2; z-index: 2; border-left: 0; }
   :where(#calculator-view) .layer-back { display: inline-flex; }
