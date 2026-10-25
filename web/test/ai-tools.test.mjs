@@ -79,6 +79,36 @@ test("list_calculators: each with its family's tools; none running says what to 
   assert.match((await call(none[0])).note, /No calculator is running/);
 });
 
+test("the 49G's mode: list_calculators, read_stack and read_display; left out where it cannot be read and on other models", async () => {
+  const g = fake("49g", { flags: { set: [-95] }, commandLine: { active: false }, stack: [{ type: "real", value: 1, text: "1" }] });
+  const gx = fake("48gx", { flags: { set: [] }, commandLine: { active: false }, stack: [] });
+  const t = tools({ "49g": g, "48gx": gx });
+  const list = (await call(t.list_calculators)).calculators;
+  assert.equal(list[0].mode, "algebraic");
+  assert.ok(!("mode" in list[1]), "no mode on the 48GX");
+  assert.ok(!gx.calls.some(([cmd]) => cmd === "flags"), "the 48GX's flags not read");
+  assert.equal((await call(t.read_stack)).mode, "algebraic");
+  assert.equal((await call(t.read_display, { format: "text" })).mode, "algebraic");
+  assert.ok(!("mode" in (await call(t.read_stack, { calculator: "48gx" }))));
+  assert.ok(!("mode" in (await call(t.read_display, { calculator: "48gx", format: "text" }))));
+  assert.ok(!g.calls.some(([cmd]) => cmd === "typeKeys"), "no key pressed");
+  // RPN mode.
+  const rpn = fake("49g", { flags: { set: [-3] }, commandLine: { active: false }, stack: [] });
+  assert.equal((await call(tools({ "49g": rpn }).list_calculators)).calculators[0].mode, "rpn");
+  // Still starting, or the flags not readable: no mode rather than a guess.
+  const starting = fake("49g", { flags: { set: [-95] }, stack: [] });
+  starting.store.state.starting = true;
+  assert.ok(!("mode" in (await call(tools({ "49g": starting }).list_calculators)).calculators[0]));
+  assert.ok(!("mode" in (await call(tools({ "49g": starting }).read_stack))));
+  const unreadable = fake("49g", { flags: new Error("not ready"), commandLine: { active: false }, stack: [] });
+  assert.ok(!("mode" in (await call(tools({ "49g": unreadable }).list_calculators)).calculators[0]));
+  assert.ok(!("mode" in (await call(tools({ "49g": unreadable }).read_stack))));
+  const unreachable = aiTools({ calculators: async () => [{ id: "49g", model: "49g", title: "49g", rom: "rom", shown: false }], target: async () => { throw new Error("not kept"); }, reference });
+  const one = (await call(unreachable[0])).calculators[0];
+  assert.equal(one.family, "rpl");
+  assert.ok(!("mode" in one));
+});
+
 test("press_keys: checks the names first, presses, waits, returns the display", async () => {
   const c = fake("48gx", { commandLine: { active: false }, stack: [{ type: "real", value: 3, text: "3" }] });
   const t = tools({ "48gx": c });
