@@ -198,7 +198,9 @@ test("the browser dialog: the address taken by another tab (a sibling: a line; e
   await ev(`window.t.ai.replaced = { sibling: false }, window.t.ai.error = "Another tab or program took over this page.", window.t.ai.changed(), true`);
   d = await until(ev, `(${DIALOG})?.replaced && (${DIALOG})`, "the warning");
   assert.equal(d.status[1], "Another tab or program took over this page.");
-  assert.deepEqual(d.primary, ["New address", "Connect"]);
+  // Only New address (a new secret): a Connect with the same secret could be taken over again.
+  assert.deepEqual(d.primary, ["New address"]);
+  assert.equal(await ev(`[...document.querySelectorAll("dialog.ai button")].some((b) => b.textContent === "Connect" && !b.closest("[hidden]"))`), false, "no Connect");
   // New address takes it back: the page's newAddress, then the warning goes with the state.
   await ev(`window.t.ai.newAddress = async () => { window.t.ai.replaced = null; window.t.ai.error = null; window.t.ai.state = "connected"; window.t.ai.changed(); }, true`);
   await ev(`document.querySelector("dialog.ai .ai-replaced button").click(), true`);

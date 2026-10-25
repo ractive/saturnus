@@ -1097,7 +1097,10 @@ through the relay while the tab is open. Nothing is installed.
   address's secret) the warning that another tab or program took over
   this page, framed, with New address, which takes the address back and
   disconnects its apps first (the client's `newAddress()`, 0.8); taken
-  over again meanwhile, the line says to try again. The library's own
+  over again meanwhile, the line says to try again. No Connect then: a
+  connect with the same secret, which the other holds too, could only
+  be taken over again. Turn off leaves the warning: turning access off
+  undoes no takeover. The library's own
   wording. Not in the desktop app (its own dialog, `openLocalDialog`, has
   the same look).
 - **The sidebar entry** (`app.js` `watchAi`, `ai-log.js` `aiView`,

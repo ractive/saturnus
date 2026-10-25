@@ -172,7 +172,10 @@ export async function openAiDialog(ai, doc = document) {
     noCode.hidden = Boolean(pc);
     copyCode.disabled = !pc;
     // Lost: why, and that it connects again by itself (the client library reconnects).
-    replacedNote.hidden = !(state === "disconnected" && ai.replaced && !ai.replaced.sibling);
+    // Taken over by another tab or program (not a sibling tab): a Connect with the same secret, which the
+    // other holds too, could only be taken over again, so only New address (a new secret) is offered.
+    const taken = state === "disconnected" && Boolean(ai.replaced) && !ai.replaced.sibling;
+    replacedNote.hidden = !taken;
     if (ai.lost) status.set("lost", `${ai.error ?? "The connection to the relay broke."} Reconnecting…`);
     else if (ai.error) status.set("error", ai.error);
     else if (on) status.set("on", "AI access is on. Your AI app can connect now.");
@@ -192,13 +195,13 @@ export async function openAiDialog(ai, doc = document) {
     appsNote.textContent = grants.length ? "" : "No AI app is connected yet.";
     appsNote.hidden = grants.length > 0;
     keep.checked = ai.keepOn;
-    connect.hidden = state !== "disconnected";
+    connect.hidden = state !== "disconnected" || taken;
     off.hidden = state === "disconnected" && !ai.lost;
     fresh.hidden = !on;
     waiting = on && grants.length === 0;
     done.disabled = waiting;
     // One primary button: Connect while it shows, else Done.
-    done.classList.toggle("primary", connect.hidden);
+    done.classList.toggle("primary", connect.hidden && !taken);
     doneNote.hidden = !waiting;
   };
 

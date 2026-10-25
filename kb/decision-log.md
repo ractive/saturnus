@@ -4785,6 +4785,12 @@ saturnus".
   framed in the dialog and a New address button; `newAddress()` of 0.8
   takes the address back first, and taken over again it rejects with
   reason `replaced`, which the page shows as "try again". Connecting
-  again clears it.
+  again clears it. While taken over by a non-sibling the dialog offers
+  no Connect (PR 234 review): a connect with the same secret, which
+  the other holds too, could only be taken over again; the library's
+  own dialog offers New address and Close alone. `newAddress()` also
+  clears the takeover's words at once, a failure brings its own.
+  Turning access off does not clear `replaced`: it undoes no takeover,
+  so the warning and New address stay.
 - The WebSocket URL now carries the address id (`/tab?a=`) for the
   relay's routing; the page builds no tab URL itself, nothing to do.

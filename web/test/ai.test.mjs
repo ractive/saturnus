@@ -404,7 +404,10 @@ test("turning AI access off ends the reconnecting; a refusal or another tab taki
     assert.deepEqual(ai.replaced, { sibling: false });
     assert.equal(ai.error, "Another tab or program took over this page.");
     Mcp.last.newAddress = () => Mcp.last.connect();
-    await ai.newAddress();
+    const made = ai.newAddress();
+    assert.equal(ai.replaced, null);
+    assert.equal(ai.error, null, "the takeover's words go as soon as the address is taken back");
+    await made;
     assert.equal(ai.replaced, null);
     assert.equal(ai.error, null);
     // Taken over again while it was taken back: the client's reason, in the dialog's words.

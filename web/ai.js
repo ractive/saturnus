@@ -344,6 +344,8 @@ export class AiAccess extends EventTarget {
   newAddress() {
     this.release();
     this.replaced = null;
+    // The takeover's words go while the address is taken back; a failure brings its own.
+    this.error = null;
     const made = this.byPage(() => this.mcp?.newAddress());
     made?.catch((err) => {
       this.error = err?.reason === "replaced" ? "It was taken over again before its AI apps were disconnected. Try again." : `Could not connect to the relay: ${err?.message ?? err}`;
