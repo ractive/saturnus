@@ -13,7 +13,7 @@ import { MODEL_TITLES, PIONEERS, emptyText, isLive, keyAction } from "../norom.j
 import { linkSites } from "../shared/ext-links.js";
 import { inDesktopApp } from "../shared/site-links.js";
 import { drawLogo } from "../logo.js";
-import { ContextClicks, ModifierGlow, clickHints, glowSide, modifierOf, shiftFor } from "../shiftclick.js";
+import { ContextClicks, ModifierGlow, clickHints, glowSide, keyTitle, modifierOf, shiftFor } from "../shiftclick.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenPng } from "../screenshot.js";
 import { copyPng, pngBlob } from "../shared/png.js";
 import { closeMenu, openMenu, openMenuKey } from "../shared/components/menu.js";
@@ -1287,8 +1287,7 @@ export class SatCalculator extends HTMLElement {
   drawKey(keys, s, k) {
     const [x, y, w, h] = k.rect;
     const g = svg("g", { class: "skey", "data-key": k.name }, keys);
-    const title = k.alpha ? `${k.name} (alpha ${k.alpha})` : k.name;
-    svg("title", {}, g, [title, ...clickHints(k, this.keyNames, this.isMac)].join("\n"));
+    svg("title", {}, g, [keyTitle(k), ...clickHints(k, this.keyNames, this.isMac)].join("\n"));
     // Hit area a little larger than the key and its well, as the grid's buttons are.
     const [wx, wy, ww, wh] = wellRect(k);
     const pad = k.well ? 3 : 6;

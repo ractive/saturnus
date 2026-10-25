@@ -7,6 +7,12 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **A key's tooltip writes its commands in capitals.** It starts with
+  the printed label: "NXT (alpha L)" in place of "nxt (alpha L)"; a
+  glyph or math label adds the key's name, "▶ (RIGHT, alpha R)". The
+  shifted functions are in capitals too (math such as x² stays as
+  printed), and on a Mac the shift clicks use the Mac's signs:
+  "⌃-click: PREV", "⌥-click: MENU".
 - **Every store or purge by an AI app asks.** On the web page the
   question before store_variable and purge_variable no longer offers
   "Always allow" (tab-mcp client 0.8.0, where it is off by default).

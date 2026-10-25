@@ -90,26 +90,56 @@ export function shiftFor(mod, key, keyNames) {
   return shiftKeyFor(mod, keyNames);
 }
 
-/** How a click with `mod` is written: `Control-click` on a Mac, `Alt+click` elsewhere. */
-export function clickLabel(mod, isMac) {
+/**
+ * How a click with `mod` is written: in text `Control-click` on a Mac (as
+ * Apple's prose writes it), `Alt+click` elsewhere; `short` (a tooltip) on
+ * a Mac with the signs of its menus, `⌃-click`, `⌥-click`.
+ */
+export function clickLabel(mod, isMac, short = false) {
+  if (isMac && short) return mod === "ctrl" ? "⌃-click" : "⌥-click";
   if (isMac) return mod === "ctrl" ? "Control-click" : "Option-click";
   return mod === "ctrl" ? "Ctrl+click" : "Alt+click";
 }
 
 /**
  * A key's tooltip lines for its shifted labels (`left`, `right`, as the
- * skin has them): `Control-click: PREV`. A one-shift model's label takes
- * both modifiers.
+ * skin has them): `⌃-click: PREV` on a Mac, `Ctrl+click: PREV` elsewhere.
+ * A one-shift model's label takes both modifiers.
  */
 export function clickHints(k, keyNames, isMac) {
   if (k.name === "shift" || k.name === "leftshift" || k.name === "rightshift") return [];
+  const click = (mod) => clickLabel(mod, isMac, true);
   if (keyNames.has("shift")) {
-    return k.left ? [`${clickLabel("ctrl", isMac)} or ${clickLabel("alt", isMac).toLowerCase()}: ${k.left}`] : [];
+    return k.left ? [`${isMac ? "⌃- or ⌥-click" : `${click("ctrl")} or ${click("alt")}`}: ${caps(k.left)}`] : [];
   }
   const out = [];
-  if (k.left) out.push(`${clickLabel("ctrl", isMac)}: ${k.left}`);
-  if (k.right) out.push(`${clickLabel("alt", isMac)}: ${k.right}`);
+  if (k.left) out.push(`${click("ctrl")}: ${caps(k.left)}`);
+  if (k.right) out.push(`${click("alt")}: ${caps(k.right)}`);
   return out;
+}
+
+/** Whether `text` is a word of letters (a command's name: NXT, sin, ln). */
+const isWord = (text) => /^[a-z]+$/i.test(text);
+
+/**
+ * A command in a tooltip, in capitals as the calculator writes it: `nxt`
+ * is NXT, the 39G's printed `ln` LN. Only a word of letters: math such as
+ * x², eˣ, √x or 1/x keeps its case, which is its meaning.
+ */
+export const caps = (text) => (isWord(text) ? text.toUpperCase() : text);
+
+/**
+ * A key's tooltip head: its printed label in capitals and its ALPHA
+ * letter, `NXT (alpha L)`. A label that is no word (a glyph or math: ▶,
+ * 1/x) adds the key's name, which list_keys and press_keys use:
+ * `▶ (RIGHT, alpha R)`.
+ */
+export function keyTitle(k) {
+  const label = k.label || "";
+  const named = isWord(label) || !label ? null : k.name.toUpperCase();
+  const head = label ? caps(label) : k.name.toUpperCase();
+  const extra = [named, k.alpha ? `alpha ${k.alpha}` : null].filter(Boolean);
+  return extra.length ? `${head} (${extra.join(", ")})` : head;
 }
 
 const MOD_KEYS = { Control: "ctrl", Alt: "alt" };
