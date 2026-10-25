@@ -138,7 +138,7 @@ tauri:
     cargo test -p saturnus-tauri --locked -q
 
 # The desktop app in development, with the page in web/ and its wasm
-# package (Files' workers; needs `cargo install tauri-cli --version 2.12.1
+# package (Files' workers; needs `cargo install tauri-cli --version 2.12.4
 # --locked`).
 app: web
     cd crates/saturnus-tauri && cargo tauri dev

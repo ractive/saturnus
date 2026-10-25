@@ -5,8 +5,8 @@ description = "Desktop app of saturnus: the web app with the emulator core linke
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-# time 0.3.47 and plist 1.10 (fixed advisories, Tauri-only dependencies) need 1.88.
-rust-version = "1.88"
+# Tauri 2.12 (tauri-build 2.7, the 2.7/2.8 plugins) needs 1.90.
+rust-version = "1.90"
 publish = false
 
 [[bin]]
@@ -16,7 +16,7 @@ path = "src/main.rs"
 [build-dependencies]
 # The front end assembled from web/ and handed to Tauri (build.rs).
 serde_json = "1"
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.7.4", features = [] }
 
 [dependencies]
 saturnus-core.workspace = true
@@ -27,8 +27,8 @@ serde_json = "1"
 # No libudev: on Linux the ports and their USB names come from sysfs, so
 # the app needs no libudev-dev to build.
 serialport = { version = "4.10.1", default-features = false }
-tauri = { version = "2", features = [] }
-tauri-plugin-dialog = "2"
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-dialog = "2.8.3"
 
 # Keeps macOS from napping the app (and so the emulated clock and the
 # transfers' timers) while its window is in the background; the same crate
