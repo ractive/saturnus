@@ -1439,7 +1439,7 @@ fn keys_in_a_row_are_saved_once() {
     let mut s = Saving::new(&sleeper());
     for _ in 0..10 {
         s.press("1");
-        s.run_until(s.clock.now_ms() + 1_000.0);
+        s.run_until(s.clock.now_ms() + AUTO_SAVE_MS / 2.0);
     }
     assert!(s.saves.is_empty(), "each key moves the save on");
     s.run_until(s.clock.now_ms() + AUTO_SAVE_MS);
