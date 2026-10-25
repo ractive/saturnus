@@ -5,7 +5,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ContextClicks, GLOW_DELAY, ModifierGlow, awaitsContextMenu, clickHints, glowSide, modifierOf, shiftFor, shiftKeyFor } from "../shiftclick.js";
+import { ContextClicks, GLOW_DELAY, ModifierGlow, awaitsContextMenu, clickHints, glowSide, keyTitle, modifierOf, shiftFor, shiftKeyFor } from "../shiftclick.js";
 
 const TWO = new Set(["leftshift", "rightshift", "alpha", "nxt", "enter"]);
 const ONE = new Set(["shift", "alpha", "enter"]);
@@ -45,12 +45,13 @@ test("a click asks for its modifier's shift, but not on a shift key", () => {
 });
 
 test("the tooltips name the clicks and their labels", () => {
-  assert.deepEqual(clickHints({ name: "nxt", left: "PREV", right: "MENU" }, TWO, true), ["Control-click: PREV", "Option-click: MENU"]);
+  assert.deepEqual(clickHints({ name: "nxt", left: "PREV", right: "MENU" }, TWO, true), ["⌃-click: PREV", "⌥-click: MENU"]);
   assert.deepEqual(clickHints({ name: "nxt", left: "PREV", right: "MENU" }, TWO, false), ["Ctrl+click: PREV", "Alt+click: MENU"]);
   assert.deepEqual(clickHints({ name: "nxt", right: "MENU" }, TWO, false), ["Alt+click: MENU"]);
-  assert.deepEqual(clickHints({ name: "enter", left: "ANS" }, ONE, true), ["Control-click or option-click: ANS"]);
+  assert.deepEqual(clickHints({ name: "enter", left: "ANS" }, ONE, true), ["⌃- or ⌥-click: ANS"]);
   assert.deepEqual(clickHints({ name: "leftshift" }, TWO, false), []);
   assert.deepEqual(clickHints({ name: "enter" }, ONE, false), []);
+  assert.deepEqual(clickHints({ name: "enter", left: "ANS" }, ONE, false), ["Ctrl+click or Alt+click: ANS"]);
 });
 
 /** A glow with a hand-driven clock: `tick()` fires the pending timer. */
@@ -208,4 +209,13 @@ test("a contextmenu that follows a pointerdown is that press's; Firefox's alone 
   k.contextmenu("enter", { ...NONE, button: 2 });
   assert.deepEqual(k.presses, ["ctrl nxt", "ctrl sin"]);
   assert.equal(awaitsContextMenu({ pointerType: "touch", button: 0, ctrlKey: true }), false);
+});
+
+test("a key's tooltip writes its commands in capitals, math as printed", () => {
+  assert.equal(keyTitle({ name: "nxt", label: "NXT", alpha: "L" }), "NXT (alpha L)");
+  assert.equal(keyTitle({ name: "sin", label: "sin", alpha: "S" }), "SIN (alpha S)");
+  assert.equal(keyTitle({ name: "right", alpha: "R" }), "RIGHT (alpha R)");
+  assert.equal(keyTitle({ name: "inv", label: "1/x" }), "1/x");
+  assert.deepEqual(clickHints({ name: "sin", left: "asin", right: "∂" }, TWO, false), ["Ctrl+click: ASIN", "Alt+click: ∂"]);
+  assert.deepEqual(clickHints({ name: "sqrt", left: "x²", right: "x√y" }, TWO, true), ["⌃-click: x²", "⌥-click: x√y"]);
 });

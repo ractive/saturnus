@@ -7,6 +7,10 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **A key's tooltip writes its commands in capitals.** "NXT (alpha L)"
+  in place of "nxt (alpha L)", the shifted ones too (math such as x²
+  stays as printed), and on a Mac the shift clicks with the Mac's
+  signs: "⌃-click: PREV", "⌥-click: MENU".
 - **An AI learns the 49G's mode before its first `run_rpl`.**
   `list_calculators`, `read_stack` and `read_display` now say
   `"mode": "algebraic"` or `"rpn"` on the 49G, read from flag -95 in

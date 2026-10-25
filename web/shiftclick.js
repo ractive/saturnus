@@ -96,20 +96,41 @@ export function clickLabel(mod, isMac) {
   return mod === "ctrl" ? "Ctrl+click" : "Alt+click";
 }
 
+/** A modifier's sign in a tooltip: ⌃ and ⌥ on a Mac, as its menus write them; Ctrl and Alt elsewhere. */
+const SIGNS = { mac: { ctrl: "⌃", alt: "⌥" }, other: { ctrl: "Ctrl", alt: "Alt" } };
+
 /**
  * A key's tooltip lines for its shifted labels (`left`, `right`, as the
- * skin has them): `Control-click: PREV`. A one-shift model's label takes
- * both modifiers.
+ * skin has them): `⌃-click: PREV` on a Mac, `Ctrl+click: PREV` elsewhere.
+ * A one-shift model's label takes both modifiers.
  */
 export function clickHints(k, keyNames, isMac) {
   if (k.name === "shift" || k.name === "leftshift" || k.name === "rightshift") return [];
+  const sign = isMac ? SIGNS.mac : SIGNS.other;
+  const click = (mod) => `${sign[mod]}${isMac ? "-" : "+"}click`;
   if (keyNames.has("shift")) {
-    return k.left ? [`${clickLabel("ctrl", isMac)} or ${clickLabel("alt", isMac).toLowerCase()}: ${k.left}`] : [];
+    return k.left ? [isMac ? `${sign.ctrl}- or ${sign.alt}-click: ${caps(k.left)}` : `${click("ctrl")} or ${click("alt")}: ${caps(k.left)}`] : [];
   }
   const out = [];
-  if (k.left) out.push(`${clickLabel("ctrl", isMac)}: ${k.left}`);
-  if (k.right) out.push(`${clickLabel("alt", isMac)}: ${k.right}`);
+  if (k.left) out.push(`${click("ctrl")}: ${caps(k.left)}`);
+  if (k.right) out.push(`${click("alt")}: ${caps(k.right)}`);
   return out;
+}
+
+/**
+ * A command in a tooltip, in capitals as the calculator writes it: `nxt`
+ * is NXT. Only a word of letters: math as printed (x², eˣ, √x, 1/x) keeps
+ * its case, which is its meaning.
+ */
+export const caps = (text) => (/^[a-z]{2,}$/i.test(text) ? text.toUpperCase() : text);
+
+/**
+ * A key's tooltip head: its printed label (else its name) in capitals, and
+ * its ALPHA letter: `NXT (alpha L)`.
+ */
+export function keyTitle(k) {
+  const head = caps(k.label || k.name);
+  return k.alpha ? `${head} (alpha ${k.alpha})` : head;
 }
 
 const MOD_KEYS = { Control: "ctrl", Alt: "alt" };
