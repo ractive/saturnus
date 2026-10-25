@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 58: the desktop app's calculators for AI apps, on this computer"
 date: 2026-10-23
-status: in-progress
+status: completed
 tags:
   - iteration
   - desktop
@@ -83,4 +83,4 @@ config file (accepted, option b).
 - [x] `web/ai-local.js`: the tools from `aiTools`, confirmation, Always allow, the AI's calls (tab-mcp's local entry or saturnus's own)
 - [x] The setting, the port, the dialog for the desktop with the install links
 - [x] kb: [[docs/control-api-security]] extended to the MCP endpoint, a decision-log entry
-- [ ] Owner: Claude Code and Cursor against the desktop app on macOS: list the calculators, run RPL on the 48GX, a confirmation, Always allow, the AI's calls, the setting off ends it
+- [x] Owner: Claude Code and Cursor against the desktop app on macOS: list the calculators, run RPL on the 48GX, a confirmation, Always allow, the AI's calls, the setting off ends it
