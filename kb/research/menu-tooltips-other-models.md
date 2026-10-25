@@ -114,7 +114,7 @@ write: if one of them draws labels without the buffer, the tooltip must
 fall back for it.
 
 **28S: menu number and page.** Two nibbles at #C0151 (low nibble first)
-hold the menu's number and two at #C0154 the index of the first label
+hold the menu's number and two at #C0153 the index of the first label (corrected 2026-10-25: #C0154 was wrong, wiki `hardware/hp28s`)
 shown (0, 6, 12, wrapping at the menu's end). Seen: ARRAY 1, REAL 6,
 STACK 7, LOGS 17, TRIG 21, USER 23; 0 at boot and in the cursor menu.
 The 28S builds its labels as RPL strings in temporary memory on every
