@@ -31,8 +31,8 @@ for full names).
 - Full names and descriptions from `keyModels` in `web/commands.json`. A
   label that means different things in different menus is told apart by
   the other labels in the row.
-- The 28S keeps no reliable label texts in RAM: its menu number is at
-  #C0151 (ARRAY 1, REAL 6, STACK 7, LOGS 17, TRIG 21, USER 23) and the
+- The 28S keeps no reliable label texts in RAM: its menu number is
+  at address #C0151 (ARRAY 1, REAL 6, STACK 7, LOGS 17, TRIG 21, USER 23) and the
   first label shown at #C0154 (0, 6, 12). A table of menu number →
   labels in order, generated from the ROM by refgen as the reference data
   is, checked against the reference manual for a few menus, gives the
