@@ -10,7 +10,7 @@ the desktop app and the web page share one version.
 - **Add to Cursor and Add to VS Code work in the desktop app.** Its
   window did not follow the apps' install links, so the buttons did
   nothing; the app now opens them with the system (only those links).
-  If the app is not installed, the dialog says so.
+  On macOS and Linux the dialog says so if the app is not installed.
 - **"Connect your AI app" is easier to follow.** The browser's dialog
   shows the state under its title, then the two steps: the address with
   the ways to add it to your AI app, and the pairing code, large in a

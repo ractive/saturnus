@@ -608,69 +608,92 @@ fn write_mcpb(dir: &std::path::Path, bytes: &[u8]) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-/// How long `xdg-open` may take to say whether it opened the file.
+/// How long `xdg-open` may take to say whether it opened its argument.
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 const OPENER_WAIT: Duration = Duration::from_secs(10);
 
-/// Open `path` with the system's handler for its type (Claude Desktop
-/// for `.mcpb`). macOS `open` and `xdg-open` say by their exit status
-/// when no app took the file. Windows: `explorer.exe` with the path as
-/// one argument (std quotes it, spaces and all; no shell, so `&` or `^`
-/// in a user name mean nothing); its exit status says nothing, so the
-/// page's note names the path to open by hand.
-fn open_with_system(path: &std::path::Path) -> Result<(), String> {
-    let not_opened = || {
-        format!(
-            "Claude Desktop did not open the extension. Install Claude Desktop, then try again, or open {} with it.",
-            path.display()
-        )
+/// The platform's opener for `arg`: macOS `open`, Windows the program
+/// and arguments `windows` names (no shell; std quotes `arg`), else
+/// `xdg-open`.
+fn opener(
+    arg: &std::ffi::OsStr,
+    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] windows: (&str, &[&str]),
+) -> std::process::Command {
+    #[cfg(target_os = "macos")]
+    let mut cmd = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = std::process::Command::new(windows.0);
+        c.args(windows.1);
+        c
     };
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut cmd = std::process::Command::new("xdg-open");
+    cmd.arg(arg);
+    cmd
+}
+
+/// Run the opener `cmd`, its output discarded (macOS `open` prints its
+/// argument, which may carry a token); whether it took the argument, as
+/// far as it says. macOS `open` and `xdg-open` say by their exit status
+/// (`xdg-open` still running after [`OPENER_WAIT`], as some stay with
+/// the app, started something). Windows' openers say nothing. Whatever
+/// is left running is reaped on its own thread: no zombie, and the
+/// dialog is not held.
+fn run_opener(mut cmd: std::process::Command) -> bool {
+    use std::process::Stdio;
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
     #[cfg(target_os = "macos")]
     {
-        let status = std::process::Command::new("open")
-            .arg(path)
-            .status()
-            .map_err(|_| not_opened())?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err(not_opened())
-        }
+        cmd.status().is_ok_and(|s| s.success())
     }
     #[cfg(target_os = "windows")]
     {
-        let mut child = std::process::Command::new("explorer.exe")
-            .arg(path)
-            .spawn()
-            .map_err(|_| not_opened())?;
-        // Waited for on its own thread: no zombie, and the dialog is not held.
+        let Ok(mut child) = cmd.spawn() else {
+            return false;
+        };
         std::thread::spawn(move || {
             let _ = child.wait();
         });
-        Ok(())
+        true
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        let mut child = std::process::Command::new("xdg-open")
-            .arg(path)
-            .spawn()
-            .map_err(|_| not_opened())?;
+        let Ok(mut child) = cmd.spawn() else {
+            return false;
+        };
         let end = Instant::now() + OPENER_WAIT;
         loop {
             match child.try_wait() {
-                Ok(Some(status)) if status.success() => return Ok(()),
-                Ok(Some(_)) | Err(_) => return Err(not_opened()),
+                Ok(Some(status)) => return status.success(),
+                Err(_) => return false,
                 Ok(None) if Instant::now() >= end => {
-                    // Still running (some openers stay with the app): it
-                    // started something; reaped on its own thread.
                     std::thread::spawn(move || {
                         let _ = child.wait();
                     });
-                    return Ok(());
+                    return true;
                 }
                 Ok(None) => std::thread::sleep(Duration::from_millis(50)),
             }
         }
+    }
+}
+
+/// Open `path` with the system's handler for its type (Claude Desktop
+/// for `.mcpb`). Windows: `explorer.exe` with the path as one argument
+/// (std quotes it, spaces and all; no shell, so `&` or `^` in a user
+/// name mean nothing); it cannot say whether Claude Desktop took it, so
+/// the page's note names the path to open by hand.
+fn open_with_system(path: &std::path::Path) -> Result<(), String> {
+    if run_opener(opener(path.as_os_str(), ("explorer.exe", &[]))) {
+        Ok(())
+    } else {
+        Err(format!(
+            "Claude Desktop did not open the extension. Install Claude Desktop, then try again, or open {} with it.",
+            path.display()
+        ))
     }
 }
 
@@ -702,38 +725,17 @@ pub async fn mcp_install_open(url: String) -> Result<(), String> {
     crate::transfer::blocking(move || open_link(&url, app)).await
 }
 
-/// Open the install link `url` for `app` with the platform's opener:
-/// macOS `open` says by its exit status when no app takes the scheme;
-/// `rundll32` and `xdg-open` are waited for on their own thread.
+/// Open the install link `url` for `app` with the platform's opener
+/// (Windows: `rundll32 url.dll,FileProtocolHandler`, which cannot say
+/// whether the app took it).
 fn open_link(url: &str, app: &str) -> Result<(), String> {
-    let not_opened = || format!("{app} did not open. Install {app}, then try again.");
-    #[cfg(target_os = "macos")]
-    {
-        let status = std::process::Command::new("open")
-            .arg(url)
-            .status()
-            .map_err(|_| not_opened())?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err(not_opened())
-        }
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        #[cfg(target_os = "windows")]
-        let mut cmd = {
-            let mut c = std::process::Command::new("rundll32");
-            c.arg("url.dll,FileProtocolHandler");
-            c
-        };
-        #[cfg(not(target_os = "windows"))]
-        let mut cmd = std::process::Command::new("xdg-open");
-        let mut child = cmd.arg(url).spawn().map_err(|_| not_opened())?;
-        std::thread::spawn(move || {
-            let _ = child.wait();
-        });
+    let cmd = opener(url.as_ref(), ("rundll32", &["url.dll,FileProtocolHandler"]));
+    if run_opener(cmd) {
         Ok(())
+    } else {
+        Err(format!(
+            "{app} did not open. Install {app}, then try again."
+        ))
     }
 }
 
