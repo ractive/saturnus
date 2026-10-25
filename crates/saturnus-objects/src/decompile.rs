@@ -17,6 +17,7 @@ use crate::error::Error;
 type Result<T, E = Error> = std::result::Result<T, E>;
 use saturnus_core::Model;
 
+use crate::names::Syntax;
 use crate::object::{ArrayItem, Base, Object, Real};
 use crate::ram::Flags;
 
@@ -75,6 +76,10 @@ pub struct Settings {
     /// (`:T: 5`, the 48) or with a trailing one only (`T: 5`, the 49G, and
     /// both models for a whole stack level).
     pub tag_colon: bool,
+    /// The 49G's algebraic mode (flag -95): the stack shows the history
+    /// echo of an evaluated command line without the backquotes of its
+    /// expression (`:CF(-95)`, in RPN mode `` :`CF(-95)` ``).
+    pub algebraic: bool,
 }
 
 impl Default for Settings {
@@ -90,6 +95,7 @@ impl Default for Settings {
             power_right: false,
             group_digits: false,
             tag_colon: true,
+            algebraic: false,
         }
     }
 }
@@ -131,6 +137,7 @@ impl Settings {
             power_right: hp49,
             group_digits: hp49,
             tag_colon: !hp49,
+            algebraic: hp49 && set(-95),
         }
     }
 
@@ -144,6 +151,7 @@ impl Settings {
             word_size: 64,
             group_digits: false,
             tag_colon: true,
+            algebraic: false,
             ..self
         }
     }
@@ -429,11 +437,39 @@ pub fn display(obj: &Object, s: &Settings) -> String {
         Object::Tagged { tag, object } => {
             t.push(tag);
             t.push(": ");
-            write_object(&mut t, object, s);
+            write_tagged_object(&mut t, tag, object, s);
         }
         _ => write_object(&mut t, obj, s),
     }
     t.finish()
+}
+
+/// The object of a tagged object. In the 49G's algebraic mode the stack
+/// shows the history echo (an empty tag on a program that is one
+/// backquoted expression, [`Syntax::Algebraic`]) as the expression typed,
+/// without the backquotes.
+fn write_tagged_object(t: &mut Text, tag: &str, object: &Object, s: &Settings) {
+    if s.algebraic
+        && tag.is_empty()
+        && let Some(inner) = backquoted(object)
+    {
+        t.push(inner);
+    } else {
+        write_object(t, object, s);
+    }
+}
+
+/// The expression of a program that is one backquoted expression and
+/// nothing else, without the backquotes.
+fn backquoted(obj: &Object) -> Option<&str> {
+    let Object::Program {
+        source: Some(source),
+    } = obj
+    else {
+        return None;
+    };
+    let inner = source.strip_prefix('`')?.strip_suffix('`')?;
+    (!inner.contains('`')).then_some(inner)
 }
 
 /// Whether the calculator's text of `obj` is known in full: every
@@ -663,7 +699,7 @@ pub(crate) fn write_object(t: &mut Text, obj: &Object, s: &Settings) {
             }
             t.push(tag);
             t.push(": ");
-            write_object(t, object, s);
+            write_tagged_object(t, tag, object, s);
         }
         Object::Unit { value, unit } => {
             t.push(&s.unit_number(value));
@@ -744,10 +780,18 @@ pub(crate) enum Element {
         arity: Option<u8>,
         /// Shown as nothing (see `CommandInfo::silent`).
         silent: bool,
+        /// What it marks in algebraic-mode syntax (see `CommandInfo::syntax`).
+        syntax: Option<Syntax>,
     },
     /// An algebraic inside a composite, with its own elements (an
     /// operand of `∂`, `Σ`, `|`, a user function's name).
     Symbolic {
+        object: Object,
+        elements: Vec<Element>,
+    },
+    /// A program inside a composite, with its own elements (the body of a
+    /// backquoted expression, see [`Syntax::Algebraic`]).
+    Secondary {
         object: Object,
         elements: Vec<Element>,
     },
@@ -771,7 +815,9 @@ pub(crate) enum UnitOp {
 impl Element {
     fn token(&self, t: &mut Text, s: &Settings) {
         match self {
-            Element::Object(o) | Element::Symbolic { object: o, .. } => write_object(t, o, s),
+            Element::Object(o)
+            | Element::Symbolic { object: o, .. }
+            | Element::Secondary { object: o, .. } => write_object(t, o, s),
             Element::Command {
                 name,
                 address,
@@ -797,9 +843,28 @@ pub(crate) fn program(elements: &[Element], s: &Settings) -> String {
     let mut first = true;
     let mut open = false;
     let mut glue = false;
-    for e in elements {
+    let mut iter = elements.iter().peekable();
+    while let Some(e) = iter.next() {
         if t.full() {
             break;
+        }
+        // An expression in algebraic-mode syntax: `CF(-95)`.
+        if let Element::Command {
+            syntax: Some(Syntax::Algebraic),
+            ..
+        } = e
+            && let Some(text) = iter.peek().and_then(|next| infix_text(next, s))
+        {
+            iter.next();
+            if !first && !glue {
+                t.push(" ");
+            }
+            first = false;
+            glue = false;
+            t.push("`");
+            t.push(&text);
+            t.push("`");
+            continue;
         }
         if matches!(e, Element::Command { silent: true, .. }) {
             continue;
@@ -832,6 +897,10 @@ pub(crate) fn program(elements: &[Element], s: &Settings) -> String {
 enum Node {
     /// Text that binds tightest (a name, a number, a call).
     Atom(String),
+    /// A built-in command's name as the function of a call in
+    /// algebraic-mode syntax (`CF` of `CF(-95)`; `DUP` alone without
+    /// arguments).
+    Function(String),
     /// A number, which needs parentheses where its sign could bind
     /// differently.
     Negative(String),
@@ -906,9 +975,11 @@ impl Tree {
 
     fn prec(&self, i: usize) -> u8 {
         match &self.nodes[i] {
-            Node::Atom(_) | Node::Call { .. } | Node::Derivative { .. } | Node::Concat { .. } => {
-                ATOM
-            }
+            Node::Atom(_)
+            | Node::Function(_)
+            | Node::Call { .. }
+            | Node::Derivative { .. }
+            | Node::Concat { .. } => ATOM,
             Node::Where { .. } => PREC_WHERE,
             Node::Negative(_) => PREC_NEG,
             Node::Infix { prec, .. } | Node::Prefix { prec, .. } => *prec,
@@ -949,7 +1020,7 @@ impl Tree {
             let operand = |stack: &mut Vec<Work<'_>>, child: usize, parens: bool| {
                 let compound = !matches!(
                     self.nodes[child],
-                    Node::Atom(_) | Node::Call { .. } | Node::Derivative { .. }
+                    Node::Atom(_) | Node::Function(_) | Node::Call { .. } | Node::Derivative { .. }
                 );
                 if parens || (all_parens && compound) {
                     stack.push(Work::Text(")"));
@@ -960,7 +1031,7 @@ impl Tree {
                 }
             };
             match &self.nodes[i] {
-                Node::Atom(s) | Node::Negative(s) => t.push(s),
+                Node::Atom(s) | Node::Negative(s) | Node::Function(s) => t.push(s),
                 Node::Infix {
                     op,
                     prec,
@@ -1068,7 +1139,7 @@ enum Slot {
 pub(crate) fn algebraic(elements: &[Element], s: &Settings) -> Option<String> {
     let s = &s.inner();
     let mut tree = Tree { nodes: Vec::new() };
-    let root = expression(elements, s, &mut tree)?;
+    let root = expression(elements, s, &mut tree, false)?;
     let mut t = Text::default();
     t.push("'");
     tree.render(root, &mut t, s.all_parens, s.power_right);
@@ -1076,9 +1147,26 @@ pub(crate) fn algebraic(elements: &[Element], s: &Settings) -> Option<String> {
     Some(t.finish())
 }
 
-fn leaf(o: &Object, s: &Settings) -> Node {
+/// The text of `e` in algebraic-mode syntax, without quotes or
+/// backquotes (`CF(-95)`, `X+1`, `{1,2}`), or `None` when it does not form
+/// one expression.
+fn infix_text(e: &Element, s: &Settings) -> Option<String> {
+    let s = &s.inner();
+    let mut tree = Tree { nodes: Vec::new() };
+    let root = expression(std::slice::from_ref(e), s, &mut tree, true)?;
     let mut t = Text::default();
-    write_object(&mut t, o, s);
+    tree.render(root, &mut t, s.all_parens, s.power_right);
+    Some(t.finish())
+}
+
+/// An operand's node; with `marked` (inside a backquoted expression) a
+/// list in algebraic syntax.
+fn leaf(o: &Object, s: &Settings, marked: bool) -> Node {
+    let mut t = Text::default();
+    match o {
+        Object::List { items } if marked => infix_list(&mut t, items, s),
+        _ => write_object(&mut t, o, s),
+    }
     let text = t.finish();
     let negative = match o {
         Object::Real { value } => value.negative,
@@ -1093,17 +1181,53 @@ fn leaf(o: &Object, s: &Settings) -> Node {
     }
 }
 
-fn expression(elements: &[Element], s: &Settings, tree: &mut Tree) -> Option<usize> {
+/// The expression of `elements`, evaluated as RPN onto a stack of nodes:
+/// an algebraic's body, or the body of a backquoted expression
+/// ([`Syntax`]), where a command that is no function is called as a user
+/// function is: its arguments, its name as a one-element algebraic, the
+/// argument count and the (unnamed) command applying it. Only `marked`
+/// (inside such an expression) reads the quote, embedded programs, a
+/// one-command algebraic as a function name and lists in algebraic
+/// syntax; an ordinary algebraic is read as before.
+fn expression(elements: &[Element], s: &Settings, tree: &mut Tree, marked: bool) -> Option<usize> {
     let mut stack: Vec<Slot> = Vec::new();
+    let mut quote = false;
     for e in elements {
         let node = match e {
-            Element::Object(o) => tree.add(leaf(o, s)),
-            Element::Symbolic { elements, .. } => expression(elements, s, tree)?,
+            Element::Object(o) => tree.add(leaf(o, s, marked)),
+            Element::Symbolic { elements, .. } => match elements.as_slice() {
+                [
+                    Element::Command {
+                        name: Some(name), ..
+                    },
+                ] if marked => tree.add(Node::Function(name.clone())),
+                _ => expression(elements, s, tree, marked)?,
+            },
+            Element::Secondary { object, elements } => {
+                let user = matches!(
+                    elements.first(),
+                    Some(Element::Command { name: Some(n), .. }) if n == "«"
+                );
+                match (marked && !user)
+                    .then(|| expression(elements, s, tree, true))
+                    .flatten()
+                {
+                    Some(node) => node,
+                    None => tree.add(leaf(object, s, false)),
+                }
+            }
             Element::SystemBinary(v) => {
                 stack.push(Slot::Count(*v));
                 continue;
             }
             Element::Unit(_) => return None,
+            Element::Command {
+                syntax: Some(syntax),
+                ..
+            } if marked => {
+                quote = *syntax == Syntax::Quote;
+                continue;
+            }
             Element::Command { name, arity, .. } => {
                 if let Some(Slot::Count(n)) = stack.last().copied() {
                     stack.pop();
@@ -1112,6 +1236,13 @@ fn expression(elements: &[Element], s: &Settings, tree: &mut Tree) -> Option<usi
                     apply(name.as_deref()?, *arity, &mut stack, tree)?
                 }
             }
+        };
+        let node = if std::mem::take(&mut quote) {
+            let mut t = Text::default();
+            tree.render(node, &mut t, s.all_parens, s.power_right);
+            tree.add(Node::Atom(format!("'{}'", t.finish())))
+        } else {
+            node
         };
         stack.push(Slot::Node(node));
     }
@@ -1151,10 +1282,14 @@ fn counted(name: Option<&str>, n: u32, stack: &mut Vec<Slot>, tree: &mut Tree) -
                 args.push(pop()?);
             }
             args.reverse();
-            let Node::Atom(name) = &tree.nodes[f] else {
-                return None;
+            let name = match &tree.nodes[f] {
+                // A command without arguments is its name alone (`DUP`).
+                Node::Function(name) if args.is_empty() => {
+                    return Some(tree.add(Node::Atom(name.clone())));
+                }
+                Node::Atom(name) | Node::Function(name) => name.clone(),
+                _ => return None,
             };
-            let name = name.clone();
             Some(tree.add(Node::Call {
                 name,
                 args,
@@ -1163,6 +1298,36 @@ fn counted(name: Option<&str>, n: u32, stack: &mut Vec<Slot>, tree: &mut Tree) -
         }
         Some(_) => None,
     }
+}
+
+/// A list in algebraic syntax: `{1,X,{2}}`, names without quotes.
+fn infix_list(t: &mut Text, items: &[Object], s: &Settings) {
+    t.push("{");
+    for (i, o) in items.iter().enumerate() {
+        if i > 0 {
+            t.push(",");
+        }
+        match o {
+            Object::List { items } => infix_list(t, items, s),
+            Object::Algebraic {
+                source: Some(source),
+            } => t.push(unquoted(source)),
+            // A name in the list is kept from being evaluated as a
+            // backquoted expression of its own: `{1,X}`.
+            _ => match backquoted(o) {
+                Some(inner) => t.push(inner),
+                None => write_object(t, o, s),
+            },
+        }
+    }
+    t.push("}");
+}
+
+/// `text` without the quotes around it, if it has them.
+fn unquoted(text: &str) -> &str {
+    text.strip_prefix('\'')
+        .and_then(|x| x.strip_suffix('\''))
+        .unwrap_or(text)
 }
 
 /// Apply command `name` to operands on `stack`.
@@ -1248,7 +1413,7 @@ pub(crate) fn unit(elements: &[Element], s: &Settings) -> Option<String> {
                 stack.push(tree.add(Node::Atom(s.unit_number(value))));
             }
             Element::Object(o @ Object::Integer { .. }) => {
-                stack.push(tree.add(leaf(o, s)));
+                stack.push(tree.add(leaf(o, s, false)));
             }
             Element::Unit(op) => {
                 if *op == UnitOp::End {
@@ -1291,6 +1456,7 @@ pub(crate) fn unit(elements: &[Element], s: &Settings) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::object::Integer;
 
     fn real(s: &str) -> Real {
         Real::parse(s).unwrap()
@@ -1435,6 +1601,7 @@ mod tests {
             xlib: None,
             arity: Some(arity),
             silent: false,
+            syntax: None,
         }
     }
 
@@ -1478,11 +1645,192 @@ mod tests {
                         xlib: None,
                         arity: None,
                         silent: false,
+                        syntax: None,
                     }
                 ],
                 &s
             ),
             None
+        );
+    }
+
+    fn mark(syntax: Syntax) -> Element {
+        Element::Command {
+            name: None,
+            address: None,
+            xlib: None,
+            arity: None,
+            silent: true,
+            syntax: Some(syntax),
+        }
+    }
+
+    /// A command that is no function, called in algebraic-mode syntax:
+    /// its name as a one-element algebraic, the argument count and the
+    /// unnamed command applying it.
+    fn call(name: &str, arity: u8) -> [Element; 3] {
+        [
+            Element::Symbolic {
+                object: Object::Algebraic { source: None },
+                elements: vec![cmd(name, arity)],
+            },
+            Element::SystemBinary(u32::from(arity)),
+            Element::Command {
+                name: None,
+                address: None,
+                xlib: None,
+                arity: None,
+                silent: false,
+                syntax: None,
+            },
+        ]
+    }
+
+    fn secondary(elements: Vec<Element>, s: &Settings) -> Element {
+        Element::Secondary {
+            object: Object::Program {
+                source: Some(program(&elements, s)),
+            },
+            elements,
+        }
+    }
+
+    fn int(v: &str) -> Element {
+        Element::Object(Object::Integer {
+            value: Integer::parse(v).unwrap(),
+        })
+    }
+
+    /// The 49G's algebraic-mode history echo: the program it holds is
+    /// written as the ROM's `→STR` writes it, the echo on the stack as
+    /// typed in algebraic mode and with its backquotes in RPN mode.
+    #[test]
+    fn backquoted_expressions() {
+        let s = Settings::standard(Model::Hp49g);
+        let alg = |e: Element| program(&[mark(Syntax::Algebraic), e], &s);
+        // CF(-95), STO(5,'A'), DUP.
+        let mut cf = vec![int("-95")];
+        cf.extend(call("CF", 1));
+        assert_eq!(alg(secondary(cf.clone(), &s)), "`CF(-95)`");
+        let mut sto = vec![int("5"), mark(Syntax::Quote), name("A")];
+        sto.extend(call("STO", 2));
+        assert_eq!(alg(secondary(sto, &s)), "`STO(5,'A')`");
+        assert_eq!(alg(secondary(call("DUP", 0).to_vec(), &s)), "`DUP`");
+        // R→B(5)+1: a call inside an expression.
+        let mut rb = vec![int("5")];
+        rb.extend(call("R→B", 1));
+        let sum = secondary(
+            vec![
+                mark(Syntax::Algebraic),
+                secondary(rb, &s),
+                int("1"),
+                cmd("+", 2),
+            ],
+            &s,
+        );
+        assert_eq!(alg(sum), "`R→B(5)+1`");
+        // An algebraic, a quoted one, a name, a list holding a name.
+        let x1 = || Element::Symbolic {
+            object: Object::Algebraic { source: None },
+            elements: vec![name("X"), int("1"), cmd("+", 2)],
+        };
+        assert_eq!(alg(x1()), "`X+1`");
+        assert_eq!(
+            alg(secondary(vec![mark(Syntax::Quote), x1()], &s)),
+            "`'X+1'`"
+        );
+        assert_eq!(alg(name("X")), "`X`");
+        let list = Element::Object(Object::List {
+            items: vec![
+                Object::Integer {
+                    value: Integer::parse("1").unwrap(),
+                },
+                Object::Program {
+                    source: Some("`X`".into()),
+                },
+            ],
+        });
+        assert_eq!(alg(list), "`{1,X}`");
+        // Followed by more: 1+2,3.
+        assert_eq!(
+            program(&[mark(Syntax::Algebraic), x1(), cmd(";", 0), int("3")], &s),
+            "`X+1` ; 3"
+        );
+        // Nothing that forms an expression: silent, as before.
+        let unknown = Element::Command {
+            name: None,
+            address: None,
+            xlib: None,
+            arity: None,
+            silent: false,
+            syntax: None,
+        };
+        assert_eq!(program(&[mark(Syntax::Algebraic), unknown], &s), "External");
+        // The echo on the stack.
+        let echo = Object::Tagged {
+            tag: String::new(),
+            object: Box::new(Object::Program {
+                source: Some(alg(secondary(cf, &s))),
+            }),
+        };
+        let algebraic = Settings {
+            algebraic: true,
+            ..s
+        };
+        assert_eq!(display(&echo, &algebraic), ": CF(-95)");
+        assert_eq!(display(&echo, &s), ": `CF(-95)`");
+        assert_eq!(
+            edit_text(&echo, &algebraic.for_editing()).unwrap(),
+            ":: `CF(-95)`"
+        );
+    }
+
+    /// Outside a backquoted expression an algebraic reads as before: a
+    /// list as written on the stack, an embedded program by its text, a
+    /// lone command no function name.
+    #[test]
+    fn ordinary_algebraics_keep_their_text() {
+        let s = Settings::standard(Model::Hp49g);
+        let list = Element::Object(Object::List {
+            items: vec![
+                Object::Integer {
+                    value: Integer::parse("1").unwrap(),
+                },
+                Object::Algebraic {
+                    source: Some("'X+1'".into()),
+                },
+            ],
+        });
+        assert_eq!(
+            algebraic(&[list, int("1"), cmd("+", 2)], &s).as_deref(),
+            Some("'{ 1 'X+1' }+1'")
+        );
+        // A program without « », even one that would read as infix.
+        let body = secondary(vec![name("A"), int("1"), cmd("+", 2)], &s);
+        assert_eq!(
+            algebraic(&[body, int("1"), cmd("+", 2)], &s).as_deref(),
+            Some("'A 1 ++1'")
+        );
+        let sin = Element::Symbolic {
+            object: Object::Algebraic { source: None },
+            elements: vec![cmd("SIN", 1)],
+        };
+        assert_eq!(algebraic(&[sin], &s), None);
+        // Inside a marked expression, a program that forms none keeps its
+        // text.
+        let odd = secondary(vec![name("A"), name("B")], &s);
+        assert_eq!(
+            program(
+                &[
+                    mark(Syntax::Algebraic),
+                    secondary(
+                        vec![mark(Syntax::Algebraic), odd, int("1"), cmd("+", 2)],
+                        &s
+                    )
+                ],
+                &s
+            ),
+            "`A B+1`"
         );
     }
 

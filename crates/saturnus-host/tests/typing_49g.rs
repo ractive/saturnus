@@ -2,7 +2,8 @@
 //! (iteration 64), through the protocol's engine on a hand-moved clock,
 //! as the Web Worker and the other hosts drive it. Skipped for each ROM
 //! `SATURNUS_ROM_DIR` lacks (`rom-2.10.49g`, `rom.49g` (1.19-6),
-//! `gxrom-r` as the control, `sxrom-j`).
+//! `gxrom-r` as the control, `sxrom-j`). Also how the stack reads the
+//! 49G's algebraic-mode history echo.
 //!
 //! What the modern-UI study saw (2026-10-18), and what it was:
 //! - A `run` within about 3 s of a cold boot failed with "could not bring
@@ -22,6 +23,7 @@ use std::path::PathBuf;
 
 use saturnus_core::Model;
 use saturnus_host::protocol::{Clock, Engine, Output, Pacing};
+use saturnus_host::transfer::Target;
 use serde_json::{Value, json};
 
 fn rom(file: &str) -> Option<Vec<u8>> {
@@ -327,5 +329,71 @@ fn a_long_program_runs_as_on_the_48gx() {
         );
         h.run("3 4 P2");
         assert_eq!(h.stack(), ["{ x y }", "\"big\"", "48"], "{file}");
+    }
+}
+
+/// In algebraic mode the 49G keeps each evaluated command line as its
+/// history echo: an empty tag on a program that holds the line compiled
+/// from algebraic-mode syntax, behind an unnamed structure word that the
+/// ROM writes as backquotes. A command that is no function is called
+/// with its name as a one-element algebraic, the argument count and an
+/// unnamed command applying it, as a user function is. The stack shows
+/// the echo as typed (`CF(-95)`, read as `: -95 ? <1h> External` before);
+/// in RPN mode, and in a program, with its backquotes, as the ROM's own
+/// `→STR` writes it.
+#[test]
+fn the_algebraic_echo_reads_as_typed() {
+    // Typed, and the echo as the stack shows it in algebraic mode.
+    let echoes = [
+        ("12", "12"),
+        ("SIN(1)", "SIN(1)"),
+        ("'X+1'", "'X+1'"),
+        ("1+2", "1+2"),
+        ("MAX(1,2)+SINH(2)", "MAX(1,2)+SINH(2)"),
+        ("STO(5,A)", "STO(5,'A')"),
+        ("R→B(5)+1", "R→B(5)+1"),
+        ("2*R→B(5)", "2*R→B(5)"),
+        ("SIN(1)+ΣLIST({1,2})", "SIN(1)+ΣLIST({1,2})"),
+        ("{1,X}", "{1,X}"),
+        ("'A'", "'A'"),
+        ("F(1,2)", "F(1,2)"),
+        ("IFTE(1>2,3,4)", "IFTE(1>2,3,4)"),
+        ("1+2,3", "`1+2` ; 3"),
+        ("\"AB\"", "\"AB\""),
+        ("CF(5)", "CF(5)"),
+    ];
+    let program = "« `CF(-95)` 2 `R→B(5)+1` `'A'` `{1,X}` `SIN(X)` »";
+    for file in ["rom-2.10.49g", "rom.49g"] {
+        let Some(rom) = rom(file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        let mut h = Host::boot(Model::Hp49g, &rom);
+        // The newest echo is the lowest level with an empty tag.
+        let echo = |h: &Host| {
+            h.stack()
+                .into_iter()
+                .find(|l| l.starts_with(": "))
+                .unwrap_or_default()
+        };
+        for (typed, shown) in echoes {
+            let r = h.run(typed);
+            assert_eq!(r["error"], Value::Null, "{file} {typed}: {r}");
+            assert_eq!(echo(&h), format!(": {shown}"), "{file} {typed}");
+        }
+        // CF(-95) switches to RPN mode: its echo keeps the backquotes.
+        h.run("CF(-95)");
+        assert_eq!(h.stack()[..2], ["NOVAL", ": `CF(-95)`"], "{file}");
+        // The text to edit is the ROM's own.
+        h.run("DROP DUP \u{2192}STR");
+        let emu = h.engine.emulator().unwrap();
+        let level = |n| emu.edit_text(&[], &Target::Level(n)).unwrap().0;
+        assert_eq!(h.stack()[0], "\":: `CF(-95)`\"", "{file}");
+        assert_eq!(level(2), ":: `CF(-95)`", "{file}");
+        // In a program, as the ROM writes it.
+        h.run(&format!("CLEAR {program} DUP \u{2192}STR"));
+        let stack = h.stack();
+        assert_eq!(squash(&stack[0]), format!("\"{program}\""), "{file}");
+        assert_eq!(stack[1], program, "{file}");
     }
 }

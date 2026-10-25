@@ -41,7 +41,7 @@ pub mod transfer;
 pub use cmdline::{CommandLine, Editor, EditorLayout, command_line};
 pub use decompile::{NumberFormat, Settings, described, display, has_text, text};
 pub use error::{DecodeError, Error, Reason};
-pub use names::{CommandInfo, NameStats, NameTable, UnitMarkers};
+pub use names::{CommandInfo, NameStats, NameTable, Syntax, UnitMarkers};
 pub use object::{
     ArrayItem, Base, Graphic, Integer, MAX_CLONED_NIBBLES, MAX_DECODED_NIBBLES,
     MAX_DECODED_OBJECTS, Memory, NoMemory, Object, Reader, Real, decode, decode_at, graphic,
