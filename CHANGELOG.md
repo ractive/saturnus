@@ -13,6 +13,15 @@ the desktop app and the web page share one version.
   shifted functions are in capitals too (math such as x² stays as
   printed), and on a Mac the shift clicks use the Mac's signs:
   "⌃-click: PREV", "⌥-click: MENU".
+- **Every store or purge by an AI app asks.** On the web page the
+  question before store_variable and purge_variable no longer offers
+  "Always allow" (tab-mcp client 0.8.0, where it is off by default).
+  The desktop app keeps it for AI apps that named themselves.
+- **When another tab takes the address**, "Connect your AI app" says
+  who: "Opened in another tab" for a tab of this page in this browser,
+  else a warning that another tab or program took over this page, with
+  New address, which disconnects the AI apps from the old address
+  first.
 - **An AI learns the 49G's mode before its first `run_rpl`.**
   `list_calculators`, `read_stack` and `read_display` now say
   `"mode": "algebraic"` or `"rpn"` on the 49G, read from flag -95 in

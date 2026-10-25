@@ -4758,3 +4758,39 @@ saturnus".
   colours, border, radius and padding it already set. No class
   overrides, so the library's own layout stays. The desktop app's
   confirmation points at the new UI chunk.
+
+## 2026-10-25 (tab-mcp client 0.8.0: Always allow opt-in, who took the address)
+
+- **"Always allow" is opt-in in the library** (tab-mcp DEC-096: it
+  lifted the only brake at run time until a reload, what a prompt
+  injection needs). The browser follows the default: the confirmation
+  before store_variable and purge_variable offers Don't allow and
+  Allow, every call asks. The desktop app keeps Always allow for the
+  AI apps that named themselves (`alwaysAllow: client.stable`): they
+  are on this computer and the setting ends with the window. The UI
+  chunk now exports `confirmInPage(mcp, request, doc, options)`, not
+  `confirmDialog`, and keeps the tools allowed always itself, per
+  `TabMcp` and only for a grant that `TabMcp` has; the desktop app
+  gives it a `ConfirmHost` (an EventTarget with `grants`: the named
+  apps asked while AI access is on) and empties it with a
+  `grantschange` when the setting goes off, in place of its own map.
+  The hack that hid the button after the fact (`noAlwaysAllow`) is
+  gone.
+- **Who took the address.** `replaced` now comes after `disconnected`
+  (up to a second later) with `sibling`: a tab of this page in this
+  browser, or not (a tab elsewhere, a program with the secret). The
+  page keeps it as `replaced` on `AiAccess` and words the status like
+  the library's own dialog: "Opened in another tab…" for a sibling,
+  else "Another tab or program took over this page." with the warning
+  framed in the dialog and a New address button; `newAddress()` of 0.8
+  takes the address back first, and taken over again it rejects with
+  reason `replaced`, which the page shows as "try again". Connecting
+  again clears it. While taken over by a non-sibling the dialog offers
+  no Connect (PR 234 review): a connect with the same secret, which
+  the other holds too, could only be taken over again; the library's
+  own dialog offers New address and Close alone. `newAddress()` also
+  clears the takeover's words at once, a failure brings its own.
+  Turning access off does not clear `replaced`: it undoes no takeover,
+  so the warning and New address stay.
+- The WebSocket URL now carries the address id (`/tab?a=`) for the
+  relay's routing; the page builds no tab URL itself, nothing to do.

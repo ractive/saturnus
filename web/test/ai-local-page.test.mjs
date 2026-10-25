@@ -205,7 +205,8 @@ test("a consequential call asks in tab-mcp's dialog; Always allow lets the next 
   await until(`document.querySelector("dialog.tab-mcp-confirm h2")?.textContent`, "the confirmation for node");
   const offered = await ev(`[...document.querySelectorAll("dialog.tab-mcp-confirm button")].filter((b) => !b.hidden).map((b) => b.textContent)`);
   assert.deepEqual(offered, ["Don't allow", "Allow"]);
-  assert.equal(await ev(`document.querySelector("dialog.tab-mcp-confirm .tab-mcp-always-note").hidden`), true);
+  // Not offered at all (tab-mcp 0.8: "Always allow" is opt-in, and the app opts in only for a named app).
+  assert.equal(await ev(`document.querySelector("dialog.tab-mcp-confirm .tab-mcp-always-note")`), null);
   await ev(`[...document.querySelectorAll("dialog.tab-mcp-confirm button")].find((b) => b.textContent === "Don't allow").click(), true`);
   const third = await until(`window.t.third.then((r) => JSON.stringify(r))`, "the third call");
   assert.match(JSON.parse(third).result.content[0].text, /declined/);

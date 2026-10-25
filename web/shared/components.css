@@ -283,6 +283,9 @@ dialog.ai {
 }
 /* The dots while no code is there: for the eye only (the alt text is empty; a visually hidden "No code yet." says it). */
 .ai-code-value[data-empty]::before { content: "······"; content: "······" / ""; color: var(--muted); user-select: none; }
+/* The address taken by another tab or program: the warning, framed in the error colour, with New address. */
+.ai-replaced { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); border: 1px solid color-mix(in srgb, var(--error) 50%, transparent); border-radius: var(--r-md); }
+.ai-replaced .ai-note { color: var(--ink); }
 /* The connection lost: the steps stay to read from, dimmed, their links and Copy off. */
 .ai-step.ai-dim { opacity: 0.6; }
 .ai-install-row a.button.disabled { pointer-events: none; background: transparent; border-color: var(--border-disabled); box-shadow: none; color: var(--ink-disabled); }

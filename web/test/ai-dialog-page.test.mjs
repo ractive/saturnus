@@ -68,6 +68,7 @@ const DIALOG = `(() => {
     dim: [...d.querySelectorAll(".ai-step.ai-dim")].length,
     copyDisabled: [...d.querySelectorAll("dialog.ai button")].filter((b) => b.textContent.startsWith("Copy")).map((b) => b.disabled),
     linksDisabled: [...d.querySelectorAll(".ai-install-row a")].map((a) => a.getAttribute("aria-disabled") === "true"),
+    replaced: shown(q(".ai-replaced")),
   };
 })()`;
 
@@ -160,8 +161,8 @@ test("the browser dialog: lost keeps the steps, dimmed, with the address to read
   await until(ev, `(${DIALOG})?.code === "482913"`, "the code");
   assert.equal(await ev(`document.querySelector("dialog.ai .ai-status").firstChild === window.t.node`), true, "the live region was left alone");
   // New address sits under the address, in the DOM where it is seen; the actions are the buttons alone.
-  assert.deepEqual(await ev(`[...document.querySelectorAll("dialog.ai .ai-actions button")].map((b) => b.textContent)`), ["Turn off", "Connect", "Done"]);
-  assert.equal(await ev(`document.querySelector("dialog.ai .ai-step .ai-address")?.closest(".ai-step").contains([...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === "New address"))`), true);
+  assert.deepEqual(await ev(`[...document.querySelectorAll("dialog.ai .ai-box > .ai-actions button")].map((b) => b.textContent)`), ["Turn off", "Connect", "Done"]);
+  assert.equal(await ev(`document.querySelector("dialog.ai .ai-step .ai-address")?.closest(".ai-step").contains([...document.querySelectorAll("dialog.ai button.link")].find((b) => b.textContent === "New address"))`), true);
 
   // Lost: the client reconnects by itself; the steps stay with the last address, dimmed and off, the code box empty.
   await ev(`window.t.ai.state = "disconnected", window.t.ai.lost = true, window.t.ai.error = "The connection to the relay broke.", window.t.ai.mcp.address = undefined, window.t.ai.mcp.pairingCode = undefined, window.t.ai.changed(), true`);
@@ -184,6 +185,27 @@ test("the browser dialog: lost keeps the steps, dimmed, with the address to read
   d = await until(ev, `(${DIALOG})?.status[0] === "off" && (${DIALOG})`, "off");
   assert.equal(d.address, null);
   assert.equal(d.codeBox, null);
+});
+
+test("the browser dialog: the address taken by another tab (a sibling: a line; else the warning with New address)", { timeout: 60_000 }, async (t) => {
+  const ev = await open(t);
+  if (!ev) return;
+  await ev(`window.t.ai.state = "disconnected", window.t.ai.replaced = { sibling: true }, window.t.ai.error = "Opened in another tab. Your AI apps use that one now; connect again to use them here.", window.t.ai.changed(), true`);
+  let d = await until(ev, `(${DIALOG})?.status[0] === "error" && (${DIALOG})`, "replaced by a sibling");
+  assert.match(d.status[1], /^Opened in another tab\./);
+  assert.equal(d.replaced, false, "nothing to warn about");
+  assert.deepEqual(d.primary, ["Connect"]);
+  await ev(`window.t.ai.replaced = { sibling: false }, window.t.ai.error = "Another tab or program took over this page.", window.t.ai.changed(), true`);
+  d = await until(ev, `(${DIALOG})?.replaced && (${DIALOG})`, "the warning");
+  assert.equal(d.status[1], "Another tab or program took over this page.");
+  // Only New address (a new secret): a Connect with the same secret could be taken over again.
+  assert.deepEqual(d.primary, ["New address"]);
+  assert.equal(await ev(`[...document.querySelectorAll("dialog.ai button")].some((b) => b.textContent === "Connect" && !b.closest("[hidden]"))`), false, "no Connect");
+  // New address takes it back: the page's newAddress, then the warning goes with the state.
+  await ev(`window.t.ai.newAddress = async () => { window.t.ai.replaced = null; window.t.ai.error = null; window.t.ai.state = "connected"; window.t.ai.changed(); }, true`);
+  await ev(`document.querySelector("dialog.ai .ai-replaced button").click(), true`);
+  d = await until(ev, `(${DIALOG})?.status[0] === "on" && (${DIALOG})`, "connected again");
+  assert.equal(d.replaced, false);
 });
 
 test("the browser dialog: with AI access off, Done closes it", { timeout: 60_000 }, async (t) => {
