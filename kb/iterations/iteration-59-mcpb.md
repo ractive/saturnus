@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 59: Claude Desktop through a .mcpb"
 date: 2026-10-23
-status: in-progress
+status: completed
 tags:
   - iteration
   - desktop
@@ -68,4 +68,4 @@ mcp`, no per-platform binaries, no change to the release workflows.
 - [x] The bundle: manifest, deterministic build (`just mcpb`), built into the web app and the desktop app; a test of its contents
 - [x] "Add to Claude Desktop" in the desktop dialog; the docs page links the web app's copy
 - [x] kb: releasing.md (the bundle), a decision-log entry
-- [ ] Owner: install the `.mcpb` in Claude Desktop on macOS; with the app closed, a question that needs the calculator starts it
+- [x] Owner: install the `.mcpb` in Claude Desktop on macOS; with the app closed, a question that needs the calculator starts it
