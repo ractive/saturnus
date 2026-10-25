@@ -88,13 +88,22 @@ test("the ON combinations per model, as the menu writes them", () => {
   assert.deepEqual(menu("48gx"), ["Restart ON+C", "Self-test ON+D", "Print display ON+1", "Reset memory… ON+A+F"]);
   assert.deepEqual(menu("48sx"), ["Restart ON+C", "Self-test ON+D", "Print display ON+MTH", "Reset memory… ON+A+F"]);
   assert.deepEqual(menu("49g"), ["Restart ON+F3", "Self-test… ON+F4", "Reset memory… ON+F1+F6"]);
-  assert.deepEqual(menu("28s"), ["Restart ON+▲", "Print display ON+L", "Clear memory… ON+INS+▶"]);
-  assert.deepEqual(menu("38g"), ["Restart ON+menu key 3", "Clear memory… ON+menu keys 1 and 6"]);
-  assert.deepEqual(menu("39g"), ["Restart ON+menu key 3", "Self-test ON+menu key 4", "Clear memory… ON+menu keys 1 and 6"]);
+  assert.deepEqual(menu("28s"), ["Restart ON+▲", "Self-test ON+◀", "Print display ON+L", "Clear memory… ON+INS+▶"]);
+  assert.deepEqual(menu("38g"), ["Restart ON+menu key 3", "Self-test ON+menu key 4", "Continuous test ON+menu key 5", "Clear memory… ON+menu keys 1 and 6"]);
+  assert.deepEqual(menu("39g"), ["Restart ON+menu key 3", "Self-test ON+menu key 4", "Continuous test ON+menu key 5", "Clear memory… ON+menu keys 1 and 6"]);
   assert.deepEqual(menu("40g"), menu("39g"));
   assert.deepEqual(menu("42s"), ["Restart EXIT+√x", "Self-test EXIT+LN", "Clear memory… EXIT+Σ++XEQ"]);
-  for (const m of ["27s", "17b", "17bii"]) assert.deepEqual(menu(m), ["Restart CLR+menu key 3", "Clear memory… CLR+menu keys 1 and 6"]);
-  assert.deepEqual(menu("19bii"), ["Restart ON+menu key 3", "Print display ON+PRNT", "Clear memory… ON+menu keys 1 and 6"]);
+  for (const m of ["27s", "17b", "17bii"]) assert.deepEqual(menu(m), ["Restart CLR+menu key 3", "Self-test CLR+menu key 5", "Clear memory… CLR+menu keys 1 and 6"]);
+  assert.deepEqual(menu("19bii"), ["Restart ON+menu key 3", "Self-test ON+menu key 5", "Print display ON+PRNT", "Clear memory… ON+menu keys 1 and 6"]);
+  // Every self-test says how it is left (wiki: hardware/*-keyboard, "Leaving the tests").
+  for (const [m, list] of Object.entries(ON_COMBOS)) {
+    for (const c of list.filter((x) => /test/.test(x.id) && m !== "48sx" && m !== "48gx" && m !== "49g" && m !== "42s")) {
+      assert.match(c.description, /leaves? (it|them)|ON reboots/, `${m} ${c.id}: says how it is left`);
+    }
+  }
+  // The 39G's and 40G's Restart is held 2 s: the continuous test takes it only held.
+  for (const m of ["39g", "40g"]) assert.equal(onCombos(m).find((c) => c.id === "restart").hold, 2000, m);
+  assert.equal(onCombos("38g").find((c) => c.id === "restart").hold, undefined);
   assert.deepEqual(onCombos("nope"), []);
   assert.equal(Object.keys(ON_COMBOS).length, 12);
   for (const [m, list] of Object.entries(ON_COMBOS)) {

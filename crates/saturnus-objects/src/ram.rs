@@ -60,6 +60,10 @@ pub struct Layout {
     /// XLIB name of the menu library's entry for it (48GX, 49G); wiki:
     /// hardware/hp48-system-ram, "Menu".
     pub menu_ptr: u32,
+    /// The number of the first key the menu's page shows, from 1: 1 on
+    /// the first page, 7 after NXT, 13 after another (a 5-nibble field;
+    /// wiki: hardware/hp48-system-ram, "Menu").
+    pub menu_page: u32,
 }
 
 impl Layout {
@@ -74,6 +78,7 @@ impl Layout {
         user_flags: 0x706D5,
         flag_words: 1,
         menu_ptr: 0x7061E,
+        menu_page: 0x707C9,
     };
     /// 48GX (ROM R).
     pub const HP48GX: Layout = Layout {
@@ -86,6 +91,7 @@ impl Layout {
         user_flags: 0x80853,
         flag_words: 1,
         menu_ptr: 0x8079D,
+        menu_page: 0x80947,
     };
     /// 49G (ROM 2.10).
     pub const HP49G: Layout = Layout {
@@ -98,6 +104,7 @@ impl Layout {
         user_flags: 0x80F22,
         flag_words: 2,
         menu_ptr: 0x807ED,
+        menu_page: 0x81026,
     };
 
     /// The layout of `model`, or `None` for the aplet models, the Pioneers (42S, 27S,
@@ -580,6 +587,42 @@ impl<'a> UserMemory<'a> {
     /// `crate::menus::Menus::number` turns it into a menu number).
     pub fn menu_pointer(&self) -> Result<u32> {
         self.pointer(self.layout.menu_ptr)
+    }
+
+    /// The index of the first key the current menu's page shows, from 0
+    /// (0 on the first page, 6 after NXT; see [`Layout::menu_page`]).
+    pub fn menu_first_key(&self) -> Result<usize> {
+        let first = self.pointer(self.layout.menu_page)?;
+        first
+            .checked_sub(1)
+            .map(to_usize)
+            .ok_or_else(|| Error::Memory(format!("menu page field reads {first}")))
+    }
+
+    /// The variables of the current directory, newest first (the VAR
+    /// menu's order), sub-directories expanded.
+    pub fn current_variables(&self) -> Result<Vec<Variable>> {
+        let context = self.pointer(self.layout.context_ptr)?;
+        let home = self.pointer(self.layout.home_ptr)?;
+        let tree = self.tree()?;
+        if context == home {
+            return Ok(tree);
+        }
+        fn dir(vars: &[Variable], at: u32) -> Option<&Vec<Variable>> {
+            vars.iter().find_map(|v| {
+                let sub = v.variables.as_ref()?;
+                if v.address == at {
+                    Some(sub)
+                } else {
+                    dir(sub, at)
+                }
+            })
+        }
+        dir(&tree, context).cloned().ok_or_else(|| {
+            Error::Memory(format!(
+                "the current directory (#{context:05X}) is not under HOME"
+            ))
+        })
     }
 
     /// The system and user flags.

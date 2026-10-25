@@ -52,7 +52,7 @@ pub mod wire;
 use saturnus_core::io::Key;
 use saturnus_core::{Annunciators, LCD_HEIGHT, LCD_WIDTH, Lcd};
 use saturnus_core::{Machine, Model};
-use saturnus_objects::{Flags, NameTable, UserMemory, Variable};
+use saturnus_objects::{Flags, NameTable, UserMemory, Variable, menus, softkeys};
 use serde::ser::SerializeMap;
 use std::sync::Arc;
 
@@ -114,6 +114,14 @@ pub struct Emulator {
     /// at: built on the first object read, rebuilt when the ROM changed
     /// (the 49G's flash is written by storing a library in port 2).
     names: std::cell::RefCell<Option<(u64, Arc<NameTable>)>>,
+    /// The ROM's built-in menus with the ROM generation they were read
+    /// at (`None` inside: none found), read on the first menu event.
+    menus: std::cell::RefCell<Option<(u64, Option<Arc<menus::Menus>>)>>,
+    /// What the menu keys depended on at the last look
+    /// ([`softkeys::signature`]), and the keys the last `menu` event
+    /// gave.
+    menu_seen: Option<[u32; 6]>,
+    shown_menu: Option<Option<Vec<Option<softkeys::ShownKey>>>>,
     /// A send typing into the command line (see [`typing`]).
     typing: Option<typing::Job>,
     /// A write through the Kermit server (see [`transfer`]).
@@ -131,6 +139,9 @@ impl Emulator {
             shown: None,
             shown_keys: None,
             names: std::cell::RefCell::new(None),
+            menus: std::cell::RefCell::new(None),
+            menu_seen: None,
+            shown_menu: None,
             typing: None,
             transfer: None,
         })
@@ -146,6 +157,9 @@ impl Emulator {
             shown: None,
             shown_keys: None,
             names: std::cell::RefCell::new(None),
+            menus: std::cell::RefCell::new(None),
+            menu_seen: None,
+            shown_menu: None,
             typing: None,
             transfer: None,
         }
@@ -263,6 +277,57 @@ impl Emulator {
                 names
             }
         }
+    }
+
+    /// The ROM's built-in menus (48SX, 48GX, 49G; `None` elsewhere),
+    /// read once per ROM generation as [`Emulator::names`] are.
+    fn menus(&self) -> Option<Arc<menus::Menus>> {
+        let generation = self.machine.rom_generation();
+        let mut cached = self.menus.borrow_mut();
+        match &*cached {
+            Some((g, m)) if *g == generation => m.clone(),
+            _ => {
+                let names = self.names();
+                let m = menus::read(self.machine.rom_nibbles(), &names).map(Arc::new);
+                *cached = Some((generation, m.clone()));
+                m
+            }
+        }
+    }
+
+    /// The six menu keys the screen shows now, read from RAM
+    /// ([`softkeys::read`]): `None` where they are not known (a model
+    /// without soft menus read this way, another screen has the
+    /// keyboard, a menu the ROM builds in RAM).
+    pub fn menu_keys(&self) -> Result<Option<Vec<Option<softkeys::ShownKey>>>> {
+        self.user_memory()?;
+        let Some(defs) = self.menus() else {
+            return Ok(None);
+        };
+        Ok(softkeys::read(&self.machine, &defs)?)
+    }
+
+    /// The `menu` event if the menu keys changed since the last one, else
+    /// `None`; on the 48SX, 48GX and 49G only, and to be called while the
+    /// ROM waits for a key (its RAM is whole then). Cheap when nothing
+    /// moved: the keys are read again only when the menu, its page, the
+    /// current directory, the variables, the stack or the screen's loop
+    /// changed ([`softkeys::signature`]).
+    pub fn menu_if_changed(&mut self) -> Option<host::MenuKeys> {
+        self.user_memory().ok()?;
+        let seen = softkeys::signature(&self.machine).ok();
+        if seen.is_some() && seen == self.menu_seen && self.shown_menu.is_some() {
+            return None;
+        }
+        self.menu_seen = seen;
+        let keys = self.menu_keys().ok().flatten();
+        // A page starts with no menu keys known: none is not news.
+        if self.shown_menu.as_ref().unwrap_or(&None) == &keys {
+            self.shown_menu = Some(keys);
+            return None;
+        }
+        self.shown_menu = Some(keys.clone());
+        Some(host::MenuKeys { keys })
     }
 
     /// Why this model has no memory view (an aplet model, the 42S), or

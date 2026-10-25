@@ -105,9 +105,9 @@ test("38G: one shift for both modifiers, the SETUP bracket's functions, its ON m
   await sleep(600);
   await shot(p, "hidden-keys-38g-ctrl-1280.png");
   await p.modifier("ctrl", false);
-  assert.match(await title(p, "on"), /\nLong press or right-click: Restart, Clear memory$/);
+  assert.match(await title(p, "on"), /\nLong press or right-click: Restart, Self-test, Continuous test, Clear memory$/);
   await p.click("on", { button: "right" });
-  assert.deepEqual(await p.menu(), ["RestartON+menu key 3", "Clear memory…ON+menu keys 1 and 6"]);
+  assert.deepEqual(await p.menu(), ["RestartON+menu key 3", "Self-testON+menu key 4", "Continuous testON+menu key 5", "Clear memory…ON+menu keys 1 and 6"]);
   await p.pick("Clear memory");
   for (let i = 0; i < 50 && !(await p.ev(`!!document.querySelector("dialog.confirm[open]")`)); i++) await sleep(50);
   assert.equal(await p.ev(`document.querySelector("dialog.confirm h2").textContent`), "Clear the calculator's memory?");
@@ -127,7 +127,7 @@ test("19BII: either modifier shows OFF over ON; the 42S's menu is named after EX
   await shot(p, "hidden-keys-19bii-alt-1280.png");
   await p.modifier("alt", false);
   await p.lit(null);
-  assert.equal(await title(p, "on"), "ON\n⌃- or ⌥-click: OFF (not printed)\nLong press or right-click: Restart, Print display, Clear memory");
+  assert.equal(await title(p, "on"), "ON\n⌃- or ⌥-click: OFF (not printed)\nLong press or right-click: Restart, Self-test, Print display, Clear memory");
 
   assert.equal(await p.ev(fake("42s")), "42s");
   await p.click("on", { button: "right" });
@@ -269,4 +269,36 @@ test("17BII ROM: Clear memory (CLR+menu keys 1 and 6, together)", { timeout: 240
 
 test("19BII ROM: Clear memory (ON+menu keys 1 and 6)", { timeout: 240_000 }, async (t) => {
   await clearsMemory(t, "hp19bii.rom", "19bii", (p) => p.tap("5", "plus"), ["f"]);
+});
+
+/**
+ * A self-test from the ON menu, left with its Restart (wiki:
+ * hardware/*-keyboard, "Leaving the tests"): the test changes the
+ * screen, and Restart brings back the screen a Restart gives outside it.
+ */
+async function leavesTest(t, file, model, test, start = []) {
+  const p = await boot(t, file, model);
+  if (!p) return;
+  await p.tap(...start);
+  await p.combo("Restart");
+  const restarted = await p.screen();
+  // A running test never lets the machine sleep: no wait for idle here.
+  await p.click("on", { button: "right" });
+  await p.pick(test);
+  await sleep(4000);
+  assert.notEqual(await p.screen(), restarted, `${test} runs`);
+  await p.combo("Restart");
+  assert.equal(await p.screen(), restarted, `Restart left ${test}`);
+}
+
+test("39G ROM: the continuous test, left with Restart held 2 s", { timeout: 240_000 }, async (t) => {
+  await leavesTest(t, "rom.39g", "39g", "Continuous test");
+});
+
+test("19BII ROM: the self-test, left with Restart", { timeout: 240_000 }, async (t) => {
+  await leavesTest(t, "hp19bii.rom", "19bii", "Self-test", ["f"]);
+});
+
+test("17BII ROM: the self-test, left with Restart", { timeout: 240_000 }, async (t) => {
+  await leavesTest(t, "hp17bii.rom", "17bii", "Self-test", ["f"]);
 });

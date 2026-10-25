@@ -122,7 +122,7 @@ class Engine {
     this.tags = new Map();
     /** The hub's own commands, by tag. */
     this.own = new Map();
-    this.last = { status: null, keys: null, frame: null };
+    this.last = { status: null, keys: null, frame: null, menu: null };
     /** The emulator page's speed; the speed, visibility and memory watch the engine has (its defaults first). */
     this.emuSpeed = null;
     this.sentSpeed = "1";
@@ -271,13 +271,14 @@ export class Hub {
       // Its own ROM, if any, stops: nobody shows it now.
       this.command(conn.home, null, { cmd: "unload" });
       conn.home.last.status = null;
+      conn.home.last.menu = null;
     }
     conn.machine = e;
     e.conns.add(conn);
     // Shared now: a serial port a page alone on it opened is let go (the engine refuses the memory commands while it is open).
     if (e.conns.size === 2) this.command(e, null, { cmd: "serialClose" });
     if (conn.who === "emulator" && conn.speed) e.emuSpeed = conn.speed;
-    for (const k of ["status", "keys", "frame"]) {
+    for (const k of ["status", "keys", "frame", "menu"]) {
       if (e.last[k]) conn.post(e.last[k]);
     }
     // An emulator page hears whether Files is on the calculator it shows now.
@@ -372,7 +373,7 @@ export class Hub {
       this.keepState(e, m);
       return;
     }
-    if (m.type === "status" || m.type === "keys" || m.type === "frame") e.last[m.type] = m;
+    if (m.type === "status" || m.type === "keys" || m.type === "frame" || m.type === "menu") e.last[m.type] = m;
     if (m.type === "serial") {
       // Only a page alone on its engine opens the port.
       for (const c of e.conns) c.post(m);
@@ -877,7 +878,7 @@ export class Hub {
     this.settle(e);
     const r = await this.engine(conn.home, "hello", { v: m.v });
     if (!r.ok) throw new Error(r.error);
-    for (const k of ["status", "keys", "frame"]) {
+    for (const k of ["status", "keys", "frame", "menu"]) {
       if (e.last[k]) conn.post(e.last[k]);
     }
     this.tellPeers(conn, this.txOn(e), true);

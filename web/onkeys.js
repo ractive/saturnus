@@ -27,9 +27,13 @@ const CLEAR = {
   action: "Clear memory",
 };
 
-/** A menu key's combinations on the models whose six menu keys are a to f (numbered from the left). */
-const menuKeys = (on, restart, reset, extra = []) => [
-  { id: "restart", title: "Restart", keys: ["on", "c"], chord: `${on}+menu key 3`, description: restart },
+/**
+ * A menu key's combinations on the models whose six menu keys are a to f
+ * (numbered from the left); `hold` the ms Restart is held (the 39G's
+ * continuous tests take it only held).
+ */
+const menuKeys = (on, restart, reset, extra = [], hold = 0) => [
+  { id: "restart", title: "Restart", keys: ["on", "c"], chord: `${on}+menu key 3`, description: restart, ...(hold ? { hold } : {}) },
   ...extra,
   { id: "reset-memory", title: "Clear memory…", keys: ["on", "a", "f"], chord: `${on}+menu keys 1 and 6`, description: `${reset} Asks first.`, ask: CLEAR },
 ];
@@ -77,12 +81,18 @@ export const ON_COMBOS = {
   // their cursor labels INS DEL ▲ ▼ ◀ ▶.
   "28s": [
     { id: "restart", title: "Restart", keys: ["on", "c"], chord: "ON+▲", description: "ON+▲ (third menu key): System Halt, clears the stack." },
+    // "Leaving the tests": ON alone does nothing in it, System Halt leaves it.
+    { id: "self-test", title: "Self-test", keys: ["on", "e"], chord: "ON+◀", description: "ON+◀ (fifth menu key): the self-test, repeating. Restart (ON+▲) leaves it, with the stack cleared." },
     { id: "print-display", title: "Print display", keys: ["on", "letterl"], chord: "ON+L", description: "ON+L: sends the display to the printer." },
     { id: "reset-memory", title: "Clear memory…", keys: ["on", "a", "f"], chord: "ON+INS+▶", description: "ON+INS+▶ (menu keys 1 and 6): Memory Reset, \"Memory Lost\". Asks first.", ask: CLEAR },
   ],
   // wiki: hardware/hp38g-39g-keyboard ("ON-key combinations": 38G guide
-  // p. 9-8, and A1.67 on saturnus)
-  "38g": menuKeys("ON", "ON+menu key 3: reset, back to HOME with the history cleared.", "ON+menu keys 1 and 6: erases all memory (\"Memory Clear\")."),
+  // p. 9-8, and A1.67 on saturnus; "Leaving the tests": ON alone does
+  // nothing in them, ON + menu key 3 leaves both, memory kept)
+  "38g": menuKeys("ON", "ON+menu key 3: reset, back to HOME with the history cleared.", "ON+menu keys 1 and 6: erases all memory (\"Memory Clear\").", [
+    { id: "self-test", title: "Self-test", keys: ["on", "d"], chord: "ON+menu key 4", description: "ON+menu key 4: test mode; menu keys 1 to 6 run single tests. Restart (ON+menu key 3) leaves it." },
+    { id: "continuous-test", title: "Continuous test", keys: ["on", "e"], chord: "ON+menu key 5", description: "ON+menu key 5: the tests, repeating. Restart (ON+menu key 3) leaves it." },
+  ]),
   // wiki: hardware/hp42s-keyboard ("EXIT-key combinations": Owner's
   // Manual p. 261, 266-268, and the 42S ROM on saturnus)
   "42s": [
@@ -94,24 +104,35 @@ export const ON_COMBOS = {
   // wiki: hardware/hp19bii-keyboard ("ON-key combinations": Owner's
   // Manual p. 204, 276, and the 19BII ROM on saturnus)
   "19bii": [
-    { id: "restart", title: "Restart", keys: ["on", "c"], chord: "ON+menu key 3", description: "ON+menu key 3: \"MACHINE RESET\"." },
+    // Held 2 s: at some steps of the self-test a shorter hold (1 s) was not taken (observed, 19BII ROM).
+    { id: "restart", title: "Restart", keys: ["on", "c"], chord: "ON+menu key 3", description: "ON+menu key 3, held 2 s: \"MACHINE RESET\"; also leaves the self-test.", hold: 2000 },
+    // "Leaving the tests": another key stops it with a FAIL message, Restart leaves it.
+    { id: "self-test", title: "Self-test", keys: ["on", "e"], chord: "ON+menu key 5", description: "ON+menu key 5: the self-test, repeating. Restart (ON+menu key 3 held about 2 s) leaves it, memory kept." },
     { id: "print-display", title: "Print display", keys: ["on", "prt"], chord: "ON+PRNT", description: "ON+PRNT: prints the display, menu labels included." },
     { id: "reset-memory", title: "Clear memory…", keys: ["on", "a", "f"], chord: "ON+menu keys 1 and 6", description: "ON+menu keys 1 and 6: erases continuous memory (\"MEMORY LOST\"). Asks first.", ask: CLEAR },
   ],
 };
 // wiki: hardware/hp38g-39g-keyboard (39G/40G guide R-4, R-5, and
 // rom.39g on saturnus; the 40G gave the same): the 38G's two, and the
-// "Tests" menu behind menu key 4, which ON leaves.
-ON_COMBOS["39g"] = menuKeys("ON", "ON+menu key 3: reset, back to HOME with the history cleared.", "ON+menu keys 1 and 6: erases all memory (\"Memory Clear\").", [
+// "Tests" menu behind menu key 4, which ON leaves. "Leaving the tests":
+// the continuous test behind menu key 5 ignores ON and is left only with
+// ON + menu key 3 held (2 s left it every time, 0.4 s not always), so
+// Restart holds it that long.
+ON_COMBOS["39g"] = menuKeys("ON", "ON+menu key 3, held 2 s: reset, back to HOME with the history cleared; also leaves the tests.", "ON+menu keys 1 and 6: erases all memory (\"Memory Clear\").", [
   { id: "self-test", title: "Self-test", keys: ["on", "d"], chord: "ON+menu key 4", description: "ON+menu key 4: the \"Tests\" menu; a digit picks a test, ON reboots to HOME." },
-]);
+  { id: "continuous-test", title: "Continuous test", keys: ["on", "e"], chord: "ON+menu key 5", description: "ON+menu key 5: the tests, repeating; ON does not stop them. Restart (ON+menu key 3 held about 2 s) leaves them." },
+], 2000);
 ON_COMBOS["40g"] = ON_COMBOS["39g"];
 // wiki: hardware/hp27s-17b-17bii-keyboard ("CLR-key combinations": 27S
 // p. 195, 196, 17BII and 17B p. 218, and their ROMs on saturnus): CLR
 // sits where ON does; the memory clear only with all three keys going
-// down together, as every combination here does.
+// down together, as every combination here does. "Leaving the tests":
+// CLR + third menu key leaves the self-test; another key stops it with a
+// FAIL message that only means a key was pressed.
 for (const m of ["27s", "17b", "17bii"]) {
-  ON_COMBOS[m] = menuKeys("CLR", "CLR+menu key 3: \"MACHINE RESET\", memory kept.", "CLR+menu keys 1 and 6: erases continuous memory (\"MEMORY LOST\").");
+  ON_COMBOS[m] = menuKeys("CLR", "CLR+menu key 3: \"MACHINE RESET\", memory kept.", "CLR+menu keys 1 and 6: erases continuous memory (\"MEMORY LOST\").", [
+    { id: "self-test", title: "Self-test", keys: ["on", "e"], chord: "CLR+menu key 5", description: "CLR+menu key 5: the self-test, repeating. Restart (CLR+menu key 3) leaves it, memory kept; another key stops it with a FAIL message." },
+  ]);
 }
 
 /** How a combination is written: its `chord`, or its keys in capitals joined by +. */

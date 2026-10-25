@@ -160,6 +160,8 @@ pub enum Event {
     Error(ErrorEvent),
     /// `memoryChanged`.
     MemoryChanged(MemoryChanged),
+    /// `menu`.
+    Menu(crate::host::MenuKeys),
 }
 
 /// The reply to a command that asked for one.
@@ -1871,6 +1873,15 @@ impl Engine {
             if let Some(f) = frame {
                 self.last_frame = Some(t);
                 self.event(Event::Frame(f));
+            }
+            // The menu keys while the ROM waits for a key, no send
+            // typing or writing (its RAM is whole then).
+            if self.send.is_none()
+                && let Some(e) = self.emu.as_mut()
+                && pacing::asleep(e)
+                && let Some(m) = e.menu_if_changed()
+            {
+                self.event(Event::Menu(m));
             }
         }
         self.send_status();

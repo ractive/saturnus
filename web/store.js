@@ -32,6 +32,8 @@ export class Store extends EventTarget {
       frame: null,
       /** Keys down in the machine, from `keys`. */
       keysDown: [],
+      /** The six menu keys the screen shows (the `menu` event's: 48SX, 48GX, 49G), or null while not known. */
+      menuKeys: null,
       /**
        * The ROM slots (`romSlots`): `{slots: [{model, fileName, revision,
        * state}], offers, lastModel, bootLast, remembered, note}`, and the
@@ -103,10 +105,14 @@ export class Store extends EventTarget {
 export function connect(backend, store) {
   backend.addEventListener("frame", (e) => store.set({ frame: e.detail }));
   backend.addEventListener("keys", (e) => store.set({ keysDown: e.detail.down }));
+  backend.addEventListener("menu", (e) => store.set({ menuKeys: e.detail.keys ?? null }));
   backend.addEventListener("status", (e) => {
     const s = e.detail;
+    const booted = s.model ? s.model : null;
     store.set({
-      booted: s.model ? s.model : null,
+      // Another calculator: its menu keys are not known until it says.
+      ...(booted !== store.state.booted ? { menuKeys: null } : {}),
+      booted,
       romName: s.romName ?? "",
       running: s.running,
       halted: s.halted,

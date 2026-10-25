@@ -16,6 +16,7 @@ import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, keyTitle, modifierOf, shiftFor } from "../shiftclick.js";
 import { ghostFits, ghostSlot, hiddenOf, menuLabels } from "../hiddenkeys.js";
 import { ON_LONG_PRESS, chordOf, onCombos, onPointerDown, runCombo } from "../onkeys.js";
+import { MENU_KEYS, longNames, menuKeyTitle, wantsReference } from "../menukeys.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenPng } from "../screenshot.js";
 import { copyPng, pngBlob } from "../shared/png.js";
 import { closeMenu, openMenu, openMenuKey } from "../shared/components/menu.js";
@@ -413,6 +414,12 @@ export class SatCalculator extends HTMLElement {
     this.skinData = null;
     this.skinModel = null;
     this.skinKeys = new Map();
+    /** Each key's <title> and its own text, for the menu keys' lines (`showMenuKeys`). */
+    this.keyTitles = new Map();
+    /** The command reference (`ReferenceLoader`, app.js) for the menu keys' full names, or null. */
+    this.reference = null;
+    /** Bumped on every menu change, so a late reference load is dropped. */
+    this.menuSeq = 0;
     this.skinWindow = null;
     this.skinWindowFill = "";
     /** Text elements to squeeze into a width once the skin is laid out. */
@@ -483,6 +490,8 @@ export class SatCalculator extends HTMLElement {
       this.scheduleDraw();
     });
     store.watch(["keysDown"], (s) => this.showKeys(s.keysDown));
+    // The menu keys' tooltips follow the menu the screen shows.
+    store.watch(["menuKeys", "booted"], () => this.showMenuKeys());
     // The skin follows the selected model at once, ROM or not.
     store.watch(["booted", "model", "wanted", "roms"], () => this.onModel());
 
@@ -1431,7 +1440,8 @@ export class SatCalculator extends HTMLElement {
     const g = svg("g", { class: "skey", "data-key": k.name }, keys);
     const combos = k.name === "on" ? onCombos(this.skinModel) : [];
     const onLine = combos.length ? [`Long press or right-click: ${combos.map((c) => c.title.replace(/…$/, "")).join(", ")}`] : [];
-    svg("title", {}, g, [keyTitle(k), ...clickHints(k, this.keyNames, this.isMac, hiddenOf(this.skinModel, k.name)), ...onLine].join("\n"));
+    const base = [keyTitle(k), ...clickHints(k, this.keyNames, this.isMac, hiddenOf(this.skinModel, k.name)), ...onLine].join("\n");
+    this.keyTitles.set(k.name, { el: svg("title", {}, g, base), base });
     // Hit area a little larger than the key and its well, as the grid's buttons are.
     const [wx, wy, ww, wh] = wellRect(k);
     const pad = k.well ? 3 : 6;
@@ -1544,6 +1554,7 @@ export class SatCalculator extends HTMLElement {
     }
     if (seq !== this.renderSeq) return;
     this.skinKeys.clear();
+    this.keyTitles.clear();
     this.skinFits = [];
     this.cancelOn();
     this.skinWindow = null;
@@ -1639,12 +1650,49 @@ export class SatCalculator extends HTMLElement {
     }
     if (!fold) svg("g", { class: "keys" }, face);
     for (const k of s.keys) this.drawKey(at(k.rect[0], k.rect[1], face, "keys"), s, k);
+    this.showMenuKeys();
     this.showKeys(this.store.state.keysDown, true);
     this.showGlow(this.glow?.lit ?? null);
     // Labels squeezed first: fullscreen measures the print it crops to,
     // and caches it for the skin (edgeBoxes).
     this.fitTexts();
     this.fit();
+  }
+
+  /** The command reference (app.js's `ReferenceLoader`), for the menu keys' full names. */
+  setReference(reference) {
+    this.reference = reference;
+    this.showMenuKeys();
+  }
+
+  /**
+   * The menu keys' tooltips (web/menukeys.js): what the screen shows
+   * above each, from the host's `menu` event (`menuKeys` in the store),
+   * over the key's own lines; the key's own lines alone while the keys
+   * are not known or another model is drawn. A command's full name needs
+   * the reference, loaded at the first menu of commands.
+   */
+  async showMenuKeys() {
+    const model = this.skinModel;
+    const names = MENU_KEYS[model];
+    if (!names) return;
+    const seq = ++this.menuSeq;
+    const s = this.store?.state;
+    const keys = s && s.booted === model ? s.menuKeys : null;
+    let index = null;
+    if (wantsReference(keys) && this.reference) {
+      try {
+        index = await this.reference.index(model);
+      } catch {
+        // No reference: the commands' names alone.
+      }
+      if (seq !== this.menuSeq) return;
+    }
+    const longName = longNames(index);
+    for (const name of names) {
+      const t = this.keyTitles.get(name);
+      if (t) t.el.textContent = menuKeyTitle(model, name, t.base, keys, longName);
+    }
   }
 
   /** The drawn key group of `name`, for automated checks. */

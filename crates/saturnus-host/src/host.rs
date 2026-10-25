@@ -620,6 +620,17 @@ pub struct KeysDown {
     pub down: Vec<&'static str>,
 }
 
+/// The `menu` event (`web/protocol.md`): the six menu keys the screen
+/// shows (48SX, 48GX, 49G), sent when they changed. Serializes as
+/// `{"type":"menu","keys":[{label, command?, submenu?, type?} | null, ...]}`,
+/// `keys` null where they are not known.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "type", rename = "menu")]
+pub struct MenuKeys {
+    /// The keys A-F (F1-F6), `None` for a blank one.
+    pub keys: Option<Vec<Option<saturnus_objects::softkeys::ShownKey>>>,
+}
+
 /// The model that runs `rom`, preferring `preferred`: a 2 MB file fits
 /// both the 49G (packed) and the 39G/40G (unpacked, every byte a nibble);
 /// the bytes tell which ([`crate::romid::fitting_models`]). `preferred`
@@ -698,6 +709,8 @@ impl Emulator {
     pub fn reshow(&mut self) {
         self.shown = None;
         self.shown_keys = None;
+        self.menu_seen = None;
+        self.shown_menu = None;
     }
 
     /// The `keys` event if the keys down changed since the last one, else
