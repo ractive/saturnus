@@ -402,6 +402,15 @@ export async function openLocalDialog(ai, doc = document) {
     claudeNote = path ? `Choose Install in Claude Desktop. If it does not open, open ${path} with it.` : null;
     render();
   });
+  // The webview follows no cursor: or vscode: link, so the app opens them.
+  for (const link of [block.cursor, block.vscode]) {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (busy || link.classList.contains("disabled") || !link.href) return;
+      claudeNote = null;
+      ai.openInstallLink(link.href);
+    });
+  }
   usePort.addEventListener("click", () => {
     const n = Number(port.value);
     if (!Number.isInteger(n) || n < 1024 || n > 65535) {

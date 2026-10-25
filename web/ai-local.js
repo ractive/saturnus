@@ -355,6 +355,25 @@ export class LocalAiAccess extends EventTarget {
     }
   }
 
+  /**
+   * "Add to Cursor", "Add to VS Code": the app opens the install link
+   * `href` with the system (the webview does not follow other schemes).
+   * Resolves to whether it did; else `error` says why. The link carries
+   * the token: never logged.
+   */
+  async openInstallLink(href) {
+    this.failure = null;
+    try {
+      await this.invoke("mcp_install_open", { url: href });
+      return true;
+    } catch (err) {
+      this.failure = String(err?.message ?? err);
+      return false;
+    } finally {
+      this.changed();
+    }
+  }
+
   connect() {
     return this.set(true);
   }
