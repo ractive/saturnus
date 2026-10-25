@@ -239,7 +239,9 @@ export class PaletteModel {
       this.noTyping = null;
     } catch (err) {
       this.commandLine = null;
-      this.noTyping = message(err);
+      // Right after a cold boot the line cannot be read yet; a send waits
+      // in the host until the boot's question is answered.
+      this.noTyping = this.store.state.starting ? null : message(err);
     }
   }
 

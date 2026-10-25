@@ -4663,3 +4663,34 @@ Owner: "Try it" (backlog ai-28s-command-line).
   and descriptions lose the "check the display first" caveat. The
   palette's 28S typing is unchanged (it still types into an open line,
   after a space).
+
+## 2026-10-24 (iteration 64: the 49G types right after a boot, long programs)
+
+Owner: "start it" (found by the modern-UI study, 2026-10-18).
+
+- **A send or write right after a cold boot waits for the boot's
+  question** instead of failing. Root cause: it came while "Try To
+  Recover Memory?" (and the 49G's "Memory Clear") still had the
+  keyboard; the engine answers them only between its own turns, and a
+  send stops those. Now the protocol engine accepts the send and, in
+  its turns (emulated time), answers the question itself, waits until
+  the ROM settles after the last key, then types (or starts the
+  write). Not in the callers, and the same on every host (the Worker
+  and the native runner share the engine). `status.starting` tells the
+  page; the AI tools wait on it before their own screen checks, the
+  palette does not report an unreadable line while it is set. The
+  typing engine's errors for an unreadable line and a keyboard that
+  does not answer end with "try again in a moment".
+- **`run` waits up to 120 s of emulated time** (was 30 s). The long
+  program was typed exactly on the 49G (it reads back as typed); its
+  evaluation takes the 49G about 38 s against the 48GX's 8 s, so the
+  reply said `running` and the stack then held the program's working
+  objects, which the study took for stray typing. Emulated time is
+  cheap in a send; typing plus the wait stays inside the 30 s of wall
+  time. The AI tools no longer show the stack while a program runs
+  (`read_display`, `run_rpl`), and `read_stack` says the levels are a
+  running program's working objects.
+- **The 49G's algebraic mode reads a program as algebraic** (owner's
+  ChatGPT test): RPN programs need CF(-95) first, which the AI tools'
+  instructions already say. Switching to RPN inside `run_rpl` is on
+  hold (its own commit).

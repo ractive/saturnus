@@ -47,8 +47,13 @@ pub const REPEAT_GAP_MS: u64 = 100;
 /// garbage collection in the middle of a long line took over 5 s on the
 /// 48GX).
 pub const KEY_CAP_MS: u64 = 30_000;
-/// Longest `run` waits for the calculator to settle after ENTER.
-pub const RUN_CAP_MS: u64 = 30_000;
+/// Longest `run` waits for the calculator to settle after ENTER. A
+/// 146-point plot program (`→NUM` of `'SIN(X)'` in a FOR loop) runs for
+/// about 38 s on the 49G and 8 s on the 48GX; 30 s left it running, and a
+/// caller that read the stack then saw the program's working objects.
+/// Emulated time is cheap (a send is not paced to the wall clock), and
+/// typing plus this wait stays inside the hosts' 30 s of wall time.
+pub const RUN_CAP_MS: u64 = 120_000;
 /// How long the CPU must sleep without a break to count as settled after
 /// ENTER. With a command line open the ROM wakes every 1/16 s (about 55 ms
 /// asleep, 8 ms awake, measured on the 49G and 48SX), so the quiet needed
@@ -415,7 +420,11 @@ impl Job {
         let model = machine.model();
         let layout = EditorLayout::of(model).ok_or_else(|| no_command_line(model))?;
         let text = encode_for(model, text)?;
-        let e = cmdline::read(machine, &layout)?;
+        let e = cmdline::read(machine, &layout).map_err(|e| {
+            format!(
+                "the calculator's command line cannot be read now ({e}); it may still be starting: try again in a moment"
+            )
+        })?;
         if verb == Verb::Replace && !e.active {
             return Err("no command line is open to replace".to_string().into());
         }
@@ -494,6 +503,19 @@ impl Job {
             self.stop(m);
         }
         result
+    }
+
+    /// End the wait after ENTER now, as if its cap had come (the reply
+    /// says `running`): true if the send was in that wait. The host's
+    /// wall-time limit ends a `run` this way once ENTER is pressed.
+    pub fn end_wait(&mut self, m: &Machine) -> bool {
+        match &mut self.press {
+            Some(Press::Settle { cap, .. }) => {
+                *cap = m.cycles();
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Stop the send where it is, letting go of a key it holds (an error,
@@ -644,8 +666,16 @@ impl Job {
                         Some(keys) => {
                             self.ensure_tries += 1;
                             if self.ensure_tries > ENSURE_TRIES {
+                                // No line and the modes do not move: another
+                                // screen has the keyboard (a cold boot's
+                                // question, a message box).
+                                let why = if e.active {
+                                    ""
+                                } else {
+                                    "; the calculator does not take typing now (still starting, or another screen has the keyboard): try again in a moment"
+                                };
                                 return Err(format!(
-                                    "could not bring the keyboard to {need:?} (alpha {}, alpha lock {}, shifts {}/{}, lowercase {}, program entry {})",
+                                    "could not bring the keyboard to {need:?} (alpha {}, alpha lock {}, shifts {}/{}, lowercase {}, program entry {}){why}",
                                     e.alpha,
                                     e.alpha_lock,
                                     e.left_shift,
@@ -1103,15 +1133,25 @@ impl Emulator {
     /// pressing nothing, on text the model cannot type or a state the
     /// verb cannot work in.
     pub fn start_typing(&mut self, verb: &str, text: &str) -> crate::Result<bool> {
+        self.check_typing(verb, text)?;
         let verb = Verb::from_name(verb).ok_or_else(|| format!("unknown verb {verb:?}"))?;
-        if self.typing.is_some() || self.transferring() {
-            return Err("typing is already in progress".into());
-        }
         self.release_keys();
         let job = Job::new(self.machine(), verb, text)?;
         let freezes = job.freezes();
         self.typing = Some(job);
         Ok(freezes)
+    }
+
+    /// Check a send as [`Emulator::start_typing`] does before it presses
+    /// anything (the verb, the text for this model, no send in
+    /// progress), without reading the command line; returns whether it
+    /// would freeze the screen.
+    pub fn check_typing(&self, verb: &str, text: &str) -> crate::Result<bool> {
+        Verb::from_name(verb).ok_or_else(|| format!("unknown verb {verb:?}"))?;
+        if self.typing.is_some() || self.transferring() {
+            return Err("typing is already in progress".into());
+        }
+        Ok(encode_for(self.model(), text)?.len() > BUSY_THRESHOLD)
     }
 
     /// Whether a send is in progress.
@@ -1132,6 +1172,15 @@ impl Emulator {
                 self.typing = None;
                 Err(e)
             }
+        }
+    }
+
+    /// End a `run`'s wait after ENTER now ([`Job::end_wait`]): true if
+    /// the send was in it, and then it finishes within a few steps.
+    pub fn typing_end_wait(&mut self) -> bool {
+        match self.typing.as_mut() {
+            Some(job) => job.end_wait(&self.machine),
+            None => false,
         }
     }
 

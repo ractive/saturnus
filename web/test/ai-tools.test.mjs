@@ -271,6 +271,41 @@ test("while a program runs: run_rpl says so, results carry screen running, RAM i
   const ran = await call(tools({ "48gx": r }).run_rpl, { text: "« 1 1000 START NEXT » EVAL" });
   assert.equal(ran.running, true);
   assert.equal(ran.screen, "running");
+  // The stack then holds the program's working objects: not shown as a result.
+  assert.match(ran.stack, /not read while a program runs/);
+  assert.ok(!r.calls.some(([cmd]) => cmd === "stack"));
+  const s = await call(tools({ "48gx": c }).read_stack);
+  assert.equal(s.running, true);
+  assert.match(s.note, /working objects/);
+});
+
+test("right after a cold boot the tools wait until the boot's question is answered", async () => {
+  const c = fake("48gx", { run: { error: null, closed: true, running: false }, uiState: AT_STACK, commandLine: { active: false }, stack: [] });
+  c.store.state.starting = true;
+  setTimeout(() => { c.store.state.starting = false; }, 30);
+  const r = await call(tools({ "48gx": c }).run_rpl, { text: "1" });
+  assert.equal(r.ran, "1");
+  assert.equal(c.store.state.starting, false, "it waited");
+  assert.ok(c.calls.some(([cmd]) => cmd === "run"));
+});
+
+test("pure reads do not wait for the boot's question", async () => {
+  const c = fake("48gx", { uiState: AT_STACK, commandLine: { active: false }, stack: [{ type: "real", text: "1" }] });
+  c.store.state.starting = true;
+  const s = await call(tools({ "48gx": c }).read_stack);
+  assert.equal(s.depth, 1);
+  assert.equal((await call(tools({ "48gx": c }).read_display, { format: "text" })).stack.length, 1);
+});
+
+test("a call cancelled while it waits for the boot's question types nothing", async () => {
+  const c = fake("48gx", { run: { error: null, closed: true }, uiState: AT_STACK, commandLine: { active: false }, stack: [] });
+  c.store.state.starting = true;
+  const abort = new AbortController();
+  const ran = tools({ "48gx": c }).run_rpl.execute({ text: "1" }, { signal: abort.signal, client: { grantId: "g", id: "x", host: "x" } });
+  setTimeout(() => abort.abort(), 20);
+  await assert.rejects(ran, /Cancelled/);
+  c.store.state.starting = false;
+  assert.ok(!c.calls.some(([cmd]) => cmd === "run"));
 });
 
 test("press_keys and read_display say what has the keyboard; nothing at the stack", async () => {

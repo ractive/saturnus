@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 64: the 49G types right after a boot and takes long programs"
 date: 2026-10-24
-status: planned
+status: in-progress
 tags:
   - iteration
   - saturnus-host
@@ -42,10 +42,37 @@ Owner 2026-10-24: start it.
   48GX takes so that the 49G reads it back the same.
 - New facts about the 49G's editor go to the wiki (`hardware/command-line`).
 
+## What was found (2026-10-24)
+
+1. Reproduced on both 49G ROMs (and the 48GX, 48SX in their first
+   ~400 ms): the send came while "Try To Recover Memory?" or the 49G's
+   "Memory Clear" box still had the keyboard (the host answers them
+   once they are up, about 3.4 s after a cold 49G boot); at 0 ms the
+   1.19-6 RAM holds no command line at all. Fix: in the protocol
+   engine, a send or write that comes while the question is pending
+   waits in its turns (emulated time), answering the question itself,
+   then runs; `status.starting` says so, the AI tools wait on it.
+2. Not a typing fault: the text arrives exactly (it reads back as typed
+   on all three ROMs). Evaluating the 146-point plot takes the 49G about
+   38 s of emulated time (the 48GX about 8 s), longer than `run`'s 30 s
+   wait; the reply said `running` and the stack read then showed the
+   program's working objects. Fix: `run` waits up to 120 s; the AI
+   tools no longer show the stack while a program runs.
+3. Owner's ChatGPT test (2026-10-24, main before the fix): on a freshly
+   started 49G a multi-line `« → n « … FOR … » » 'SSQ' STO …` typed in
+   fully but gave "Invalid Syntax" at the FOR: the 49G boots in
+   algebraic mode, which reads a program as algebraic. Line breaks and
+   indentation do not matter (the same text in one line behaves the
+   same). In RPN mode it is stored and runs as on the 48GX (ROM-gated
+   test `the_owners_programs_need_rpn_mode_on_the_49g`). The AI tools
+   already report `mode: "algebraic"` and tell the AI to run CF(-95);
+   the test prompt forbade that workaround.
+
 ## Tasks
 
-- [ ] Reproduce both (ROM-gated tests, both 49G ROMs)
-- [ ] Fix the send after a boot
-- [ ] Fix the long program send
-- [ ] Wiki findings, decision-log entry
+- [x] Reproduce both (ROM-gated tests, both 49G ROMs)
+- [x] Fix the send after a boot
+- [x] Fix the long program send
+Not done (owner 2026-10-24): run_rpl does not switch a 49G in algebraic mode to RPN; the tools report `mode` and the instructions tell the AI to run CF(-95) itself.
+- [x] Wiki findings, decision-log entry
 - [ ] Owner: on a freshly started 49G, an AI app's first run_rpl with a program of several lines works

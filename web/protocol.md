@@ -523,7 +523,7 @@ what it reads from RAM: wiki `hardware/command-line`.
 | `entryModes` | | `{lowercase, menuLock}` | The 28S only (an error on the others): whether its letters type in lower case (LC) and whether Menu Lock (shifted α) is on, read from RAM; neither has an annunciator. Search reads them before it types a command's name on the 28S. |
 | `uiState` | | `{kind, from, stackInControl, halted, commandLine}` | What has the keyboard, on the 48SX, 48GX and 49G (an error on the others), read from RAM; no key is pressed. `kind`: `stack`, `commandLine` (at the stack), `halted` (at the stack, programs halted), `inputForm`, `chooseBox`, `message`, `graphics`, `input` (another loop with the command line open: INPUT, the 49G's equation writer) or `unknown` (another loop: the interactive stack, the equation writer, `WAIT`; or memory that does not read as the ROM's). `from`: `memory`, or `display` for the 48GX's choose and message boxes and the 49G's message box, which RAM does not name (a framed box with a shadow on the display). `stackInControl`: the stack's own loop reads the keys; `halted`: programs halted (HALT, PROMPT); `commandLine`: the editor's line is open. How each is read: wiki `hardware/ui-state`. The AI tools' `screen` and `to_stack` use it. |
 | `insert` | `text` | `{typed, keys, emulatedMs, commandLine}` | Types `text` at the cursor, or starts a command line. |
-| `run` | `text` (may be `""`) | as `insert`, plus `closed`, `error`, `running` | Types `text`, then presses ENTER and waits until the calculator settles (at most 30 s of emulated time). `closed`: no command line is open afterwards; `error`: the message the calculator showed (`"Invalid Syntax"`, `"DROP Error: Too Few Arguments"`) or `null`; `running`: still busy when the wait ended. The 49G's error box is closed (ATTN), which returns to the line, as the 48 leaves it open. |
+| `run` | `text` (may be `""`) | as `insert`, plus `closed`, `error`, `running` | Types `text`, then presses ENTER and waits until the calculator settles (at most 120 s of emulated time; a 146-point plot program takes the 49G about 40 s). `closed`: no command line is open afterwards; `error`: the message the calculator showed (`"Invalid Syntax"`, `"DROP Error: Too Few Arguments"`) or `null`; `running`: still busy when the wait ended. The 49G's error box is closed (ATTN), which returns to the line, as the 48 leaves it open. |
 | `replace` | `text` | as `insert` | Deletes every character of the command line being edited, staying in it (also inside `EDIT` and `VISIT`), then types `text`. An error if no line is open. |
 | `typeText` | `text` | as `insert` | The same as `insert` (newline is now the calculator's newline; ENTER is `run`). |
 
@@ -543,6 +543,13 @@ what it reads from RAM: wiki `hardware/command-line`.
   backslash, the backquote, DEL, `∇ ▶ ■` and 23 Latin-1 signs); the 48GX
   and 49G type all of 1-255, some through their CHARS application; NUL
   is never typable (the editor refuses it).
+- Right after a cold boot, while the host still answers "Try To Recover
+  Memory?" (`status.starting`), a send or a write is accepted and waits,
+  in emulated time, until the question (and the 49G's "Memory Clear"
+  box) is answered and the calculator has settled, then runs; before
+  that the keyboard is the question's and the 49G's RAM holds no command
+  line. A send the keyboard does not answer otherwise fails with an
+  error that ends "try again in a moment".
 - Every key is released first. The engine reads the line back after each
   character and stops with an error when it is not what it should be; a
   delimiter key that inserts a pair (`( ) [ ] { } « »`) is stepped over
@@ -595,7 +602,7 @@ type with the message as `detail`.
 | --- | --- | --- |
 | `frame` | `width`, `height`, `pixels`, `annunciators`, `contrast`, `contrastRange`, `contrastDefault` | After a boot, and whenever the pixels, annunciators or contrast changed since the last frame, at most about 60 per second. |
 | `keys` | `down` (array of key names) | Whenever the set of keys down in the machine changed (typed letters included), for drawing pressed keys. |
-| `status` | `model`, `romName`, `running`, `halted` (message or `null`), `speed`, `loop` (`"frame"`, `"sleep"` or `"stopped"`), `busy` (a long send is typing, see [Typing](#typing), or a write runs, see [The user memory, written](#the-user-memory-written)) | Whenever one of them changed. |
+| `status` | `model`, `romName`, `running`, `halted` (message or `null`), `speed`, `loop` (`"frame"`, `"sleep"` or `"stopped"`), `busy` (a long send is typing, see [Typing](#typing), or a write runs, see [The user memory, written](#the-user-memory-written)), `starting` (a cold boot's "Try To Recover Memory?", and the 49G's "Memory Clear" after it, are still being answered for the user, while the machine runs (not paused or halted): the keyboard is not the user's yet; a send or write waits for the answer) | Whenever one of them changed. |
 | `error` | `message` | A command without `id` failed, or a key the machine refused. |
 | `memoryChanged` | | After `watchMemory`: the user memory (a variable anywhere under HOME, the current directory, the stack's levels, a flag) is no longer what it was at the last event or at `watchMemory`; the page reads again. Also when it became readable or unreadable. At most one per 250 ms. |
 | `serial` | `bytes` (*bytes*) | After `serialOpen`: what the calculator sent on its serial port since the last one, in order ([The serial port](#the-serial-port)). |

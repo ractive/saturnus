@@ -1178,6 +1178,7 @@ fn the_page_holds_the_serial_port() {
         started: now,
         due: now,
         stopping: None,
+        waiting: None,
     });
     for cmd in CommandKind::with(|p| p.serial).map(CommandKind::name) {
         let e = h.err(json!({"cmd": cmd, "bytes": "AQ=="}));

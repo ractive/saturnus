@@ -73,7 +73,11 @@ pub const MAX_STATE_BYTES: usize = 4 * 1024 * 1024;
 /// Emulated ms one step of a send runs.
 pub const TYPING_STEP_MS: f64 = 20.0;
 /// Wall time a send may take in all, in ms (also the native key scripts').
+/// A `run` that reaches it after ENTER replies `running` instead.
 pub const WALL_LIMIT_MS: f64 = 30_000.0;
+/// Steps a `run` cut short after ENTER may take to finish (reading the
+/// line, closing the 49G's error box and waiting after it).
+const WAIT_END_STEPS: usize = 64;
 /// Most bytes waiting for the calculator's UART (`serialWrite`): at 9600
 /// baud it takes about 840 a second, so this is many packets ahead.
 pub const MAX_SERIAL_PENDING: usize = 16 * 1024;
@@ -109,6 +113,10 @@ pub struct Status {
     pub loop_state: LoopState,
     /// A long send holds the frames.
     pub busy: bool,
+    /// A cold boot's "Try To Recover Memory?" (and the 49G's "Memory
+    /// Clear") is still being answered: the keyboard is not the user's
+    /// yet, and a send waits for the answer.
+    pub starting: bool,
 }
 
 /// The `error` event: a command without an `id` failed, or a key the
@@ -294,6 +302,18 @@ struct Send {
     /// A write being stopped: why (its reply), while its cleanup (the
     /// server ended, the 49G's mode set again) runs in turns.
     stopping: Option<Error>,
+    /// A send or write that came while the boot's question was still
+    /// being answered: started once the answer is done.
+    waiting: Option<Waiting>,
+}
+
+/// What a send waiting for the boot's question starts.
+#[derive(Clone, Debug)]
+enum Waiting {
+    /// Typing: the verb and the text.
+    Typing(String, String),
+    /// A write.
+    Transfer(Op),
 }
 
 /// The protocol's state machine (see the module docs).
@@ -321,6 +341,57 @@ pub struct Engine {
     /// goes out as `serial` events, and the writes are refused.
     serial: bool,
     serial_out: SerialOut,
+}
+
+/// What one look at a sleeping machine's screen does for the boot's
+/// question (`recover.rs`).
+enum Look {
+    /// Not on the screen yet.
+    Wait,
+    /// It did not come in time: given up.
+    GiveUp,
+    /// On the screen: press the sixth menu key (the NO, then the 49G's
+    /// OK, both there), then wait for this (none after the last).
+    Answer(Option<Recover>),
+}
+
+fn look(e: &Emulator, r: Recover) -> Look {
+    if e.emulated_ms() > r.until_ms {
+        return Look::GiveUp;
+    }
+    let rows = &e.machine().framebuffer().pixels.pixels;
+    match r.step {
+        Step::Prompt if recover::is_prompt(rows) => {
+            Look::Answer((e.model() == Model::Hp49g).then(|| Recover {
+                step: Step::Dismiss,
+                until_ms: e.emulated_ms() + recover::DISMISS_WAIT_MS,
+            }))
+        }
+        Step::Dismiss if recover::is_memory_clear(rows) => Look::Answer(None),
+        _ => Look::Wait,
+    }
+}
+
+/// One step of a send waiting for the boot's question: run the machine
+/// [`TYPING_STEP_MS`], answering the question as [`Engine::timer`] would
+/// (a look whenever the CPU sleeps). True once it is answered (or given
+/// up) and the ROM has settled after the last key, so typing can begin.
+fn answer_boot(e: &mut Emulator, recover: &mut Option<Recover>) -> Result<bool> {
+    if pacing::asleep(e) {
+        match recover.map(|r| look(e, r)) {
+            None => return Ok(true),
+            Some(Look::Wait) => {}
+            Some(Look::GiveUp) => *recover = None,
+            // Not a change to keep: a reload boots cold and is answered
+            // again.
+            Some(Look::Answer(next)) => {
+                e.type_keys("f");
+                *recover = next;
+            }
+        }
+    }
+    e.run_slice(TYPING_STEP_MS, true)?;
+    Ok(false)
 }
 
 /// The string field `name` of `msg`.
@@ -590,26 +661,15 @@ impl Engine {
             self.recover = None;
             return;
         };
-        if e.emulated_ms() > r.until_ms {
-            self.recover = None;
-            return;
-        }
-        let rows = &e.machine().framebuffer().pixels.pixels;
-        let next = match r.step {
-            Step::Prompt if recover::is_prompt(rows) => {
-                (e.model() == Model::Hp49g).then(|| Recover {
-                    step: Step::Dismiss,
-                    until_ms: e.emulated_ms() + recover::DISMISS_WAIT_MS,
-                })
+        match look(e, r) {
+            Look::Wait => {}
+            Look::GiveUp => self.recover = None,
+            Look::Answer(next) => {
+                e.type_keys("f");
+                self.recover = next;
+                self.after_keys(clock);
             }
-            Step::Dismiss if recover::is_memory_clear(rows) => None,
-            _ => return,
-        };
-        // The NO, then the OK: both under the sixth menu key. Not a change
-        // to keep: a reload boots cold and is answered again.
-        e.type_keys("f");
-        self.recover = next;
-        self.after_keys(clock);
+        }
     }
 
     /// Bytes arrived for the machine from outside (the serial bridge): a
@@ -671,6 +731,9 @@ impl Engine {
             speed: self.lp.speed,
             loop_state: self.lp.state(),
             busy: self.send.as_ref().is_some_and(|s| s.freezes),
+            // Only answered while the machine runs: paused or halted at
+            // the question, the keyboard is the user's to take.
+            starting: self.recover.is_some() && self.lp.running && self.halted.is_none(),
         }
     }
 
@@ -1325,7 +1388,15 @@ impl Engine {
         self.emu()?;
         // A sleeping machine first catches up the time that passed.
         self.wake_running(clock)?;
-        let freezes = self.emu()?.start_typing(verb, text)?;
+        // Right after a cold boot the question still has the keyboard
+        // (and the 49G's RAM may not hold a command line yet): the send
+        // waits, in emulated time, until it is answered, then types.
+        let waiting = self.recover.is_some() && self.lp.running;
+        let freezes = if waiting {
+            self.emu()?.check_typing(verb, text)?
+        } else {
+            self.emu()?.start_typing(verb, text)?
+        };
         self.lp.stop();
         let now = clock.now_ms();
         self.autosave.touch(now);
@@ -1336,6 +1407,7 @@ impl Engine {
             started: now,
             due: now,
             stopping: None,
+            waiting: waiting.then(|| Waiting::Typing(verb.to_string(), text.to_string())),
         });
         Ok(Answer::Later)
     }
@@ -1582,7 +1654,14 @@ impl Engine {
     fn start_transfer(&mut self, clock: &dyn Clock, op: Op, reply: Option<u64>) -> Result<Answer> {
         self.emu()?;
         self.wake_running(clock)?;
-        self.emu()?.start_transfer(op)?;
+        // As a send: right after a cold boot it waits for the question's
+        // answer (the memory is not set up before).
+        let waiting = if self.recover.is_some() && self.lp.running {
+            Some(Waiting::Transfer(op))
+        } else {
+            self.emu()?.start_transfer(op)?;
+            None
+        };
         self.lp.stop();
         let now = clock.now_ms();
         self.autosave.touch(now);
@@ -1593,6 +1672,7 @@ impl Engine {
             started: now,
             due: now,
             stopping: None,
+            waiting,
         });
         Ok(Answer::Later)
     }
@@ -1600,7 +1680,7 @@ impl Engine {
     /// One turn of the send: steps until it is done or the turn's wall
     /// time is used up.
     fn typing_turn(&mut self, clock: &dyn Clock) {
-        let (Some(send), Some(e)) = (self.send.as_ref(), self.emu.as_mut()) else {
+        let (Some(send), Some(e)) = (self.send.as_mut(), self.emu.as_mut()) else {
             return;
         };
         let started = send.started;
@@ -1609,7 +1689,18 @@ impl Engine {
         let mut result = Ok(false);
         while matches!(result, Ok(false)) && clock.now_ms() - start < self.lp.pacing.typing_tick_ms
         {
-            result = if transfer {
+            result = if send.waiting.is_some() {
+                match answer_boot(e, &mut self.recover) {
+                    Ok(true) => match send.waiting.take() {
+                        Some(Waiting::Typing(verb, text)) => {
+                            e.start_typing(&verb, &text).map(|_| false)
+                        }
+                        Some(Waiting::Transfer(op)) => e.start_transfer(op).map(|_| false),
+                        None => Ok(false),
+                    },
+                    other => other.map(|_| false),
+                }
+            } else if transfer {
                 e.transfer_step(TYPING_STEP_MS)
             } else {
                 e.typing_step(TYPING_STEP_MS)
@@ -1617,6 +1708,22 @@ impl Engine {
         }
         let now = clock.now_ms();
         self.lp.work_ms += now - start;
+        // Out of wall time after ENTER: the wait ends as at its emulated
+        // cap, and the reply says `running` (the error is for typing).
+        if matches!(result, Ok(false))
+            && now - started > WALL_LIMIT_MS
+            && !transfer
+            && send.waiting.is_none()
+            && e.typing_end_wait()
+        {
+            for _ in 0..WAIT_END_STEPS {
+                result = e.typing_step(TYPING_STEP_MS);
+                if !matches!(result, Ok(false)) {
+                    break;
+                }
+                e.typing_end_wait();
+            }
+        }
         match result {
             Ok(false) if now - started > WALL_LIMIT_MS => self.end_typing(
                 clock,
