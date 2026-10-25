@@ -213,9 +213,11 @@ test("a contextmenu that follows a pointerdown is that press's; Firefox's alone 
 
 test("a key's tooltip writes its commands in capitals, math as printed", () => {
   assert.equal(keyTitle({ name: "nxt", label: "NXT", alpha: "L" }), "NXT (alpha L)");
-  assert.equal(keyTitle({ name: "sin", label: "sin", alpha: "S" }), "SIN (alpha S)");
-  assert.equal(keyTitle({ name: "right", alpha: "R" }), "RIGHT (alpha R)");
-  assert.equal(keyTitle({ name: "inv", label: "1/x" }), "1/x");
+  assert.equal(keyTitle({ name: "ln", label: "ln", alpha: "H" }), "LN (alpha H)");
+  assert.equal(keyTitle({ name: "a", label: "A", alpha: "A" }), "A (alpha A)");
+  assert.equal(keyTitle({ name: "right", label: "▶", alpha: "R" }), "▶ (RIGHT, alpha R)");
+  assert.equal(keyTitle({ name: "inv", label: "1/x" }), "1/x (INV)");
+  assert.equal(keyTitle({ name: "on" }), "ON");
   assert.deepEqual(clickHints({ name: "sin", left: "asin", right: "∂" }, TWO, false), ["Ctrl+click: ASIN", "Alt+click: ∂"]);
   assert.deepEqual(clickHints({ name: "sqrt", left: "x²", right: "x√y" }, TWO, true), ["⌃-click: x²", "⌥-click: x√y"]);
 });
