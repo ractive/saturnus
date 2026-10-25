@@ -81,8 +81,8 @@ only when the user wants it, and say so: they change the user's calculator.
 ## The 49G
 
 - Flag -95 set means algebraic entry, and a fresh 49G starts that way:
-  `list_calculators`, `read_stack`, `read_display` and `run_rpl` report
-  `"mode": "algebraic"`. Type algebraic syntax there, or run
+  `read_stack`, `read_display` and `run_rpl` report `"mode": "algebraic"`
+  (`list_calculators` for the shown 49G). Type algebraic syntax there, or run
   `CF(-95)` to switch to RPN (say that you did, and drop what the switch left
   on the stack). RPN text in algebraic mode gives "Invalid Syntax" and stays
   on an open command line: cancel it with key `"on"`.

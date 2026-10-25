@@ -84,11 +84,12 @@ Worked tasks (a program on the 48GX, a loan on the 17BII, a linear fit on the
   error. Check the stack's types after `run_rpl`, not only `error`.
 - **49G modes.** A fresh 49G starts in algebraic mode (flag -95 set), which
   rejects RPN text with "Invalid Syntax" and leaves the text on an open
-  command line. `list_calculators`, `read_stack`, `read_display` and
-  `run_rpl` say `"mode"` on the 49G: in `"algebraic"`, run `CF(-95)` before
-  any RPN text, then look at the stack and drop what the switch left there
-  (`DROP2`). After a failed line, cancel it (key `"on"`) first. Exact mode keeps integers exact: `1 3 /`
-  gives `'1/3'`; type `1. 3. /` or use →NUM for a decimal result.
+  command line. `read_stack`, `read_display` and `run_rpl` say `"mode"` on
+  the 49G (`list_calculators` for the shown one): in `"algebraic"`, run
+  `CF(-95)` before any RPN text, then look at the stack and drop what the
+  switch left there (`DROP2`). After a failed line, cancel it (key `"on"`)
+  first. Exact mode keeps integers exact: `1 3 /` gives `'1/3'`; type
+  `1. 3. /` or use →NUM for a decimal result.
 - **48SX vs 48GX.** The G series added list processing (`{ 1 2 3 } SQ`) and
   many commands. A program written for the 48GX may fail on the 48SX with "Bad
   Argument Type" or an unknown name; check each command there with

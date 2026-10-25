@@ -213,7 +213,7 @@ export class AiAccess extends EventTarget {
         server: { name: "saturnus", title: "saturnus calculators", version: VERSION, instructions: INSTRUCTIONS },
         storageKey: aiSecretKey(origin),
       });
-      for (const tool of aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, png: screenPng })) {
+      for (const tool of aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), existing: (id) => this.existing(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, png: screenPng })) {
         await mcp.registerTool(tool);
         if (tool.annotations?.consequentialHint) this.consequential.add(tool.name);
       }
@@ -381,6 +381,14 @@ export class AiAccess extends EventTarget {
       }
     }
     return out;
+  }
+
+  /** The target of `id` only if there is one already (Calculator's, or one attached): never attaches; null otherwise. */
+  async existing(id) {
+    const v = await this.view();
+    const shown = v?.store.state.booted ?? null;
+    if (shown && id === shown) return { id: shown, model: shown, backend: v.backend, store: v.store };
+    return this.attached.get(id) ?? null;
   }
 
   /** The calculator `id` (null: Calculator's) for a tool. */

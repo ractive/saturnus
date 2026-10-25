@@ -8,6 +8,9 @@
 //                  shows): `{id, model, backend, store}`, `backend` with
 //                  the protocol's methods (web/backend.js), `store.state`
 //                  with `frame`, `keysDown` and `busy`
+//   existing(id)   (optional) the target of `id` only if one is there
+//                  already (the one Calculator shows, one attached): no
+//                  attach; null otherwise
 //   reference      the command reference (web/palette.js ReferenceLoader:
 //                  `index(model)`)
 //   png(frame, model)  a promise of the display as a PNG, base64 (null
@@ -56,7 +59,7 @@ Screens (48SX, 48GX, 49G): read_display, press_keys and run_rpl say in "screen" 
 
 Work in small steps: press or run, then read the display (read_display) or the stack to check what happened before the next step. press_keys and run_function return the display afterwards. Key names come from list_keys: digits are "0" to "9", operators "plus", "minus", "multiply", "divide", and a shifted function is the shift key, then the key ("leftshift", "sin"). A shift or ALPHA stays pending until the next key: look at the annunciators. Long presses are not possible; every press is a normal tap.
 
-RPL basics: numbers and objects go on the stack, commands take their arguments from it (1 2 + gives 3). Programs are « … », names 'X', strings "…", lists { … }. Store with 'NAME' STO or store_variable; run a program by its name. The 48's character codes (as in its ASCII transfers) work in place of the characters in run_rpl and store_variable text, e.g. \\<< \\>> for « », \\-> for →, \\GS for Σ, \\v/ for √, \\pi for π, \\<= \\>= \\=/ for ≤ ≥ ≠, \\Ga for α, \\oo for ∞, \\nnn for character nnn (128-255), \\\\ for a backslash; the 28S takes only those it has keys for. On the 49G, flag -95 set means algebraic mode, where RPN text does not parse. list_calculators, read_stack, read_display and run_rpl say "mode" on the 49G: in "algebraic", run CF(-95) before typing RPN text, or type algebraic syntax. ENTER in algebraic mode leaves the expression and its result on the stack, so CF(-95) leaves two objects (the tagged echo and NOVAL): DROP2 removes them.
+RPL basics: numbers and objects go on the stack, commands take their arguments from it (1 2 + gives 3). Programs are « … », names 'X', strings "…", lists { … }. Store with 'NAME' STO or store_variable; run a program by its name. The 48's character codes (as in its ASCII transfers) work in place of the characters in run_rpl and store_variable text, e.g. \\<< \\>> for « », \\-> for →, \\GS for Σ, \\v/ for √, \\pi for π, \\<= \\>= \\=/ for ≤ ≥ ≠, \\Ga for α, \\oo for ∞, \\nnn for character nnn (128-255), \\\\ for a backslash; the 28S takes only those it has keys for. On the 49G, flag -95 set means algebraic mode, where RPN text does not parse. read_stack, read_display and run_rpl say "mode" on the 49G (list_calculators for the shown one): in "algebraic", run CF(-95) before typing RPN text, or type algebraic syntax. ENTER in algebraic mode leaves the expression and its result on the stack, so CF(-95) leaves two objects (the tagged echo and NOVAL): DROP2 removes them.
 
 On the 42S, the top row of keys are menu keys while a menu shows: EXIT (key "on") leaves it. On the 28S, a number being typed ends at a space or a command.
 
@@ -77,7 +80,7 @@ const STARTING_MS = 20_000;
  * the wait between looks while keys play (web/keys28.js `settle`).
  */
 export function aiTools(deps) {
-  const { calculators, target: targetOf, reference, png } = deps;
+  const { calculators, target: targetOf, existing, reference, png } = deps;
   const pace = deps.pace ?? { first: 40, poll: 40, limit: SETTLE_MS };
   /** One call at a time per calculator: two AI calls would mix their keys. */
   const queues = new Map();
@@ -119,10 +122,18 @@ export function aiTools(deps) {
     await wait(t);
   };
 
-  /** The 49G `id`'s entry mode for `list_calculators`, from memory; null while it cannot be read (not reachable, still starting). */
+  /**
+   * The 49G `id`'s entry mode for `list_calculators`, from memory, after
+   * the calls queued for it (a run_rpl "CF(-95)"). Only for a calculator
+   * that has a target already: a listing attaches nothing. Null otherwise
+   * and while it cannot be read (still starting).
+   */
   const modeOfId = async (id) => {
     try {
-      return (await modeField(await targetOf(id))).mode ?? null;
+      const t = await existing?.(id);
+      if (!t) return null;
+      await (queues.get(t.id) ?? Promise.resolve());
+      return (await modeField(t)).mode ?? null;
     } catch {
       return null;
     }
@@ -132,7 +143,7 @@ export function aiTools(deps) {
     {
       name: "list_calculators",
       title: "List calculators",
-      description: "The calculators running in the app: id, model, ROM file, whether the app's Calculator view shows it (the default for the other tools), and which tools work on it. On the 49G, \"mode\": \"algebraic\" (flag -95 set: RPN text does not parse) or \"rpn\", left out while it cannot be read (still starting).",
+      description: "The calculators running in the app: id, model, ROM file, whether the app's Calculator view shows it (the default for the other tools), and which tools work on it. On the 49G the app shows (or one a tool already used), \"mode\": \"algebraic\" (flag -95 set: RPN text does not parse) or \"rpn\"; left out otherwise and while it starts (read_stack gives it).",
       inputSchema: { type: "object", properties: {} },
       annotations: { readOnlyHint: true },
       execute: async () => {
