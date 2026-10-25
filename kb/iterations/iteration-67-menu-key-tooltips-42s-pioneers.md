@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 67: menu-key tooltips on the 42S, 27S, 17B, 17BII, 19BII and 28S"
 date: 2026-10-25
-status: planned
+status: in-progress
 tags:
   - iteration
   - web
