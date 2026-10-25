@@ -397,3 +397,98 @@ fn the_algebraic_echo_reads_as_typed() {
         assert_eq!(stack[1], program, "{file}");
     }
 }
+
+/// The AI tools' text (`codes: true`) may spell the calculator's
+/// characters with its translation codes, as in an ASCII transfer: the
+/// owner's `'\GS(I=0,1000,1/I!)' \->NUM` reached the 48GX's command line
+/// with its backslash and gave "Invalid Syntax". Every code is now read
+/// as its character before typing, in a send and in `storeText`; without
+/// `codes` (the editor) a backslash is typed as it is.
+#[test]
+fn the_48s_character_codes_type_as_their_characters() {
+    let roms = [
+        (Model::Hp48gx, "gxrom-r"),
+        (Model::Hp48sx, "sxrom-j"),
+        (Model::Hp49g, "rom-2.10.49g"),
+    ];
+    let run = |h: &mut Host, text: &str| {
+        h.call(json!({"cmd": "run", "text": text, "codes": true}))
+            .unwrap_or_else(|e| panic!("run {text:?}: {e}"))
+    };
+    let real = |s: String| s.trim_end_matches('.').to_string();
+    for (model, file) in roms {
+        let Some(rom) = rom(file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        let mut h = Host::boot(model, &rom);
+        if model == Model::Hp49g {
+            h.call(json!({"cmd": "setFlag", "flag": -95, "on": false}))
+                .unwrap();
+        }
+        let r = run(&mut h, "'I' 0 10 'I^2' \\GS");
+        assert_eq!(r["error"], Value::Null, "{file}: {r}");
+        assert_eq!(h.stack(), ["385"], "{file}");
+        let r = run(&mut h, "DROP '\\GS(I=1,10,I^2)' \\->NUM");
+        assert_eq!(r["error"], Value::Null, "{file}: {r}");
+        assert_eq!(
+            h.stack().into_iter().map(real).collect::<Vec<_>>(),
+            ["385"],
+            "{file}"
+        );
+        let r = run(&mut h, "DROP '\\GS(I=0,1000,1/I!)' \\->NUM");
+        assert_eq!(r["error"], Value::Null, "{file}: {r}");
+        assert_eq!(h.stack(), ["2.71828182846"], "{file}");
+        // `\v/` √, `\pi` π, `\>=` ≥.
+        let r = run(&mut h, "DROP 16 \\v/ \\pi \\->NUM 3 \\>=");
+        assert_eq!(r["error"], Value::Null, "{file}: {r}");
+        assert_eq!(
+            h.stack().into_iter().map(real).collect::<Vec<_>>(),
+            ["1", "4"],
+            "{file}"
+        );
+        let r = h
+            .call(json!({
+                "cmd": "storeText", "dir": ["HOME"], "name": "SQS",
+                "text": "\\<< \\-> n \\<< 'I' 1 n 'I^2' \\GS \\>> \\>>", "codes": true,
+            }))
+            .unwrap_or_else(|e| panic!("{file}: storeText: {e}"));
+        assert_eq!(r.get("error"), None, "{file}: {r}");
+        assert_eq!(
+            h.variable("SQS").map(|s| squash(&s)).as_deref(),
+            Some("« → n « 'I' 1 n 'I^2' Σ » »"),
+            "{file}"
+        );
+        run(&mut h, "CLEAR 10 SQS");
+        assert_eq!(h.stack(), ["385"], "{file}");
+        // A backslash in a string, as in an ASCII transfer: `\\` is one
+        // backslash, and the 49G's string syntax escapes it once more
+        // (the 48SX has no key for it). Without `codes` it is typed as
+        // it is.
+        match model {
+            Model::Hp48gx => {
+                run(&mut h, "CLEAR \"a\\\\b\" SIZE");
+                assert_eq!(
+                    h.stack().into_iter().map(real).collect::<Vec<_>>(),
+                    ["3"],
+                    "{file}"
+                );
+                h.call(json!({"cmd": "run", "text": "CLEAR \"\\GS\""}))
+                    .unwrap();
+                assert_eq!(h.stack(), ["\"\\GS\""], "{file}");
+            }
+            Model::Hp49g => {
+                run(&mut h, "CLEAR \"a\\\\\\\\b\" SIZE");
+                assert_eq!(
+                    h.stack().into_iter().map(real).collect::<Vec<_>>(),
+                    ["3"],
+                    "{file}"
+                );
+                h.call(json!({"cmd": "run", "text": "CLEAR \"\\\\GS\""}))
+                    .unwrap();
+                assert_eq!(h.stack(), ["\"\\GS\""], "{file}");
+            }
+            _ => {}
+        }
+    }
+}

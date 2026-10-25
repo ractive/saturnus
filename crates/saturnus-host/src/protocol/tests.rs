@@ -1679,3 +1679,16 @@ fn unload_leaves_no_machine() {
     .unwrap();
     assert_eq!(h.engine.status().model, Some("48sx"));
 }
+
+/// `codes` reads the 48's translation codes in a send's or `storeText`'s
+/// text; without it the text is taken as it is (the editor's).
+#[test]
+fn codes_turn_translation_codes_into_characters_only_when_asked() {
+    let ai = json!({"text": "'\\GS(I=1,10,I^2)' \\->NUM \"a\\\\b\"", "codes": true});
+    assert_eq!(text_field(&ai).unwrap(), "'Σ(I=1,10,I^2)' →NUM \"a\\b\"");
+    let editor = json!({"text": "\"\\GS \\\\\""});
+    assert_eq!(text_field(&editor).unwrap(), "\"\\GS \\\\\"");
+    let off = json!({"text": "\\GS", "codes": false});
+    assert_eq!(text_field(&off).unwrap(), "\\GS");
+    assert!(text_field(&json!({"codes": true})).is_err());
+}

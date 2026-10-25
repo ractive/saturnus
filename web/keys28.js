@@ -36,6 +36,39 @@ const RUNS = new Set(["+", "-", "*", "/", "^", "%", "√", "∫", "∂"]);
 const PADDED = new Set([...RUNS, "→", "≤", "≥", "<", ">", "≠", "π"]);
 
 /**
+ * The 48's translation codes (crates/saturnus-objects/src/charset.rs,
+ * the table of ASCII transfers) for the characters the 28S has a key for
+ * (`PLAIN`); its other characters have no key, nor has the backslash.
+ */
+const CODES28 = {
+  "\\<<": "«", "\\>>": "»", "\\->": "→", "\\GS": "Σ", "\\pi": "π", "\\v/": "√", "\\.S": "∫",
+  "\\.d": "∂", "\\<=": "≤", "\\>=": "≥", "\\=/": "≠", "\\^o": "°", "\\Gm": "µ",
+};
+
+/**
+ * `text` with the 48's translation codes the 28S can type (`CODES28`)
+ * turned into their characters. Any other backslash is an error that
+ * says so: the 28S has no backslash key, and the rest of the 48's codes
+ * stand for characters it has no key for.
+ */
+export function fromCodes28(text) {
+  let out = "";
+  for (let i = 0; i < text.length; ) {
+    if (text[i] !== "\\") {
+      out += text[i++];
+      continue;
+    }
+    const code = text.slice(i, i + 3);
+    if (!CODES28[code]) {
+      throw new Error(`The 28S cannot type ${text.slice(i, i + 3)}: it has no backslash key, and of the 48's character codes it takes only ${Object.keys(CODES28).join(" ")} (for ${Object.values(CODES28).join(" ")}).`);
+    }
+    out += CODES28[code];
+    i += 3;
+  }
+  return out;
+}
+
+/**
  * The menu labels shown on the bottom line of `frame` (the protocol's
  * `frame` event: base64 rows, most significant bit leftmost): six
  * inverse boxes 22 pixels wide, 23 apart (wiki: hardware/hp28s

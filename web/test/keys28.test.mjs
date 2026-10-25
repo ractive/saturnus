@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { KEY_COMMANDS, keys28, labelsShown } from "../keys28.js";
+import { fromCodes28, KEY_COMMANDS, keys28, labelsShown } from "../keys28.js";
 import { PaletteModel } from "../palette.js";
 import { buildIndex } from "../reference.js";
 
@@ -79,4 +79,11 @@ test("the palette model sends a 28S command as keys, reading the state first", a
   assert.deepEqual(calls, [["shift", "space", "letters", "letteri", "lettern", "enter"]]);
   await m.choose(m.rows[0], { opposite: true });
   assert.deepEqual(calls[1], ["shift", "space", "letters", "letteri", "lettern"]);
+});
+
+test("the 48's character codes the 28S has keys for become its characters; the others are refused", () => {
+  assert.equal(fromCodes28("\\<< \\-> X '\\GS(I=1,X,\\v/I)' \\>>"), "« → X 'Σ(I=1,X,√I)' »");
+  assert.equal(fromCodes28("\\pi \\<= \\>= \\=/ \\.S \\.d \\^o \\Gm"), "π ≤ ≥ ≠ ∫ ∂ ° µ");
+  assert.equal(fromCodes28("« 1 2 + »"), "« 1 2 + »", "text without codes is unchanged");
+  for (const t of ["\\oo", "\\Ga", "\\160", "\\\\", "a\\"]) assert.throws(() => fromCodes28(t), /28S cannot type .*no backslash key/, t);
 });
