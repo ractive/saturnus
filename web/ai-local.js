@@ -16,9 +16,10 @@
 // list in MCP's shape (`listTools`, tab-mcp's annotation mapping), the
 // arguments checked against the tool's schema (`validate`), the
 // confirmation of a consequential tool in tab-mcp's own dialog (its
-// vendored `confirmDialog`, so it looks the same and "The AI's calls"
-// sees it), "Always allow" per AI app and tool until the app reloads or
-// the setting goes off, the result in MCP's shape (`toCallToolResult`),
+// vendored `confirmInPage`, so it looks the same and "The AI's calls"
+// sees it), "Always allow" per named AI app and tool until the app
+// reloads or the setting goes off (kept by that chunk, for the grants
+// `ConfirmHost` names), the result in MCP's shape (`toCallToolResult`),
 // and the `toolcall`/`toolcallend` events that feed "The AI's calls"
 // (web/ai-log.js). Never the token in an event, the log or a note.
 //
@@ -33,8 +34,31 @@ import { aiTools, INSTRUCTIONS, titleOf } from "./ai-tools.js";
 import { AiLog } from "./ai-log.js";
 import { keepsRunning, screenPng } from "./ai.js";
 
-/** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its UI chunk's export). */
-export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-n9c73wge.min.js";
+/** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its UI chunk's `confirmInPage`). */
+export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-m7p94t5t.min.js";
+
+/**
+ * What the client's `confirmInPage` takes for the `TabMcp` (tab-mcp 0.8:
+ * the tools allowed always live in the UI chunk, per `TabMcp`, and an
+ * entry is kept only while its grant is among `grants`): the named AI
+ * apps asked while AI access is on, as grants by name. `forget()` empties
+ * them and says so (`grantschange`), which drops every "Always allow".
+ */
+class ConfirmHost extends EventTarget {
+  constructor() {
+    super();
+    this.grants = [];
+  }
+
+  admit(grantId) {
+    if (!this.grants.some((g) => g.grantId === grantId)) this.grants = [...this.grants, { grantId }];
+  }
+
+  forget() {
+    this.grants = [];
+    this.dispatchEvent(new CustomEvent("grantschange", { detail: { grants: [] } }));
+  }
+}
 /** The time limit of a tool call (ms), for the app's endpoint; one that asks the user first gets longer. */
 export const CALL_LIMIT_MS = 120_000;
 export const CONFIRM_LIMIT_MS = 300_000;
@@ -174,16 +198,6 @@ export function invalidArguments(tool, args) {
   return `Input validation error: Invalid arguments for tool ${tool.name}: ${problems.join("; ")}`;
 }
 
-/** Hide "Always allow" and its note in the newest open tab-mcp confirmation of `doc`. */
-function noAlwaysAllow(doc) {
-  const dialogs = doc.querySelectorAll?.("dialog.tab-mcp-confirm") ?? [];
-  const d = dialogs[dialogs.length - 1];
-  if (!d) return;
-  for (const b of d.querySelectorAll("button")) if (b.textContent === "Always allow") b.hidden = true;
-  const note = d.querySelector(".tab-mcp-always-note");
-  if (note) note.hidden = true;
-}
-
 /** Tool call ids, unique in the page. */
 let lastCallId = 0;
 
@@ -223,8 +237,8 @@ export class LocalAiAccess extends EventTarget {
     this.failure = null;
     /** The tools that ask the user first. */
     this.consequential = new Set();
-    /** "Always allow": tool names per AI app, until the app reloads or AI access goes off. */
-    this.allowed = new Map();
+    /** "Always allow" lives in the client's UI chunk, per this host, until the app reloads or AI access goes off. */
+    this.confirmHost = new ConfirmHost();
     /** The calls running, by the endpoint's id, with their abort controllers. */
     this.running = new Map();
     this.loading = null;
@@ -316,7 +330,7 @@ export class LocalAiAccess extends EventTarget {
   noteChange(before, now) {
     if (!before.running && now.running) this.note("listening", { address: now.address?.replace(/^http:\/\//, "") ?? "" });
     if (before.running && !now.running) {
-      this.allowed.clear();
+      this.confirmHost.forget();
       this.note("off");
     }
     const had = new Set((before.running ? before.apps : []).map((a) => a.name));
@@ -501,24 +515,20 @@ export class LocalAiAccess extends EventTarget {
    * Ask the user in tab-mcp's confirmation; "Always allow" remembered for
    * this AI app and tool. Only for an AI app that named itself (`stable`):
    * a name guessed from its User-Agent may be another app's, so it is
-   * asked every time and the dialog offers no "Always allow".
+   * asked every time and the dialog offers no "Always allow" (the
+   * library's `alwaysAllow`, off by default since tab-mcp 0.8; the AI apps
+   * here are on this computer, so the app keeps it for the named ones).
    */
   async confirm(tool, args, signal, client) {
-    if (client.stable && this.allowed.get(client.grantId)?.has(tool.name)) return true;
     if (!this.doc) return false;
-    const { confirmDialog } = await this.confirmModule();
+    const { confirmInPage } = await this.confirmModule();
     const question = { tool: { name: tool.name, description: tool.description }, arguments: args, client, signal };
     if (tool.title !== undefined) question.tool.title = tool.title;
-    const asked = confirmDialog(question, this.doc, this.allowDelayMs === undefined ? {} : { allowDelayMs: this.allowDelayMs });
-    // The dialog is in the document once it is asked: without a stable name, its Always allow goes.
-    if (!client.stable) noAlwaysAllow(this.doc);
-    const answer = await asked;
-    if (answer === "always" && client.stable && this.status.running) {
-      const set = this.allowed.get(client.grantId) ?? new Set();
-      set.add(tool.name);
-      this.allowed.set(client.grantId, set);
-    }
-    return answer !== "deny";
+    const options = { alwaysAllow: client.stable === true };
+    if (this.allowDelayMs !== undefined) options.allowDelayMs = this.allowDelayMs;
+    // Its "Always allow" is kept only for a grant the host has: a named app while AI access is on.
+    if (client.stable && this.status.running) this.confirmHost.admit(client.grantId);
+    return confirmInPage(this.confirmHost, question, this.doc, options);
   }
 }
 

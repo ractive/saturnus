@@ -121,6 +121,8 @@ export class AiAccess extends EventTarget {
     this.ending = false;
     /** The relay's refusal of an attempt the client made by itself (its `error` just before `reconnecting` turns null, 0.5.1). */
     this.refusal = null;
+    /** The page lost its address to another tab (`{sibling}`: one of this page in this browser, else a tab or program with the address's secret), until Connect or a new address. */
+    this.replaced = null;
     /** The tools that ask the user first (`consequentialHint`). */
     this.consequential = new Set();
     /** The connected apps of the live session, by grant id (their names), to say who came and went. */
@@ -220,6 +222,16 @@ export class AiAccess extends EventTarget {
       mcp.addEventListener("statechange", (e) => {
         // An attempt of the client's reconnecting starts (its timer, the tab back in front, Connect).
         if (e.detail?.state === "connecting" && mcp.reconnecting) this.note("retrying", { attempt: mcp.reconnecting.attempt });
+        // Connecting again (Connect, a new address): no longer replaced.
+        if (e.detail?.state === "connecting") this.replaced = null;
+        this.changed();
+      });
+      // After `disconnected` with reason replaced (tab-mcp 0.8): who took the address, up to a second later.
+      mcp.addEventListener("replaced", (e) => {
+        if (this.state !== "disconnected") return;
+        const sibling = e.detail?.sibling === true;
+        this.replaced = { sibling };
+        this.error = replacedText(sibling);
         this.changed();
       });
       mcp.addEventListener("pairingcode", () => this.changed());
@@ -323,10 +335,21 @@ export class AiAccess extends EventTarget {
     this.changed();
   }
 
-  /** A new address: the apps connected to the old one lose access. */
+  /**
+   * A new address: the apps connected to the old one lose access. After
+   * the address was taken over, the client takes it back first (tab-mcp
+   * 0.8), so those apps are disconnected; taken over again meanwhile, it
+   * rejects with reason `replaced`, and the dialog shows what to do.
+   */
   newAddress() {
     this.release();
-    return this.byPage(() => this.mcp?.newAddress());
+    this.replaced = null;
+    const made = this.byPage(() => this.mcp?.newAddress());
+    made?.catch((err) => {
+      this.error = err?.reason === "replaced" ? "It was taken over again before its AI apps were disconnected. Try again." : `Could not connect to the relay: ${err?.message ?? err}`;
+      this.changed();
+    });
+    return made;
   }
 
   /** `end()`, which ends the session (and the client's reconnecting) on the page's behalf. */
@@ -467,4 +490,12 @@ export function lostText(reason) {
 /** Why a session ended, in the dialog's words: what to do as well. */
 export function disconnectText(reason) {
   return reason === "replaced" ? lostText(reason) : `${lostText(reason)} Connect again.`;
+}
+
+/**
+ * The address was taken, and by whom (tab-mcp's `replaced`, its default
+ * dialog's words): a sibling tab of this page, or another tab or program.
+ */
+export function replacedText(sibling) {
+  return sibling ? "Opened in another tab. Your AI apps use that one now; connect again to use them here." : "Another tab or program took over this page.";
 }

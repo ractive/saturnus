@@ -114,12 +114,18 @@ export async function openAiDialog(ai, doc = document) {
   const off = el("button", { type: "button", text: "Turn off" });
   const done = el("button", { type: "button", class: "primary", text: "Done" });
   const closeAnyway = el("button", { type: "button", class: "link", text: "Close anyway" });
+  // The address taken by another tab or program (not a tab of this page): the warning and the way out.
+  const takeBack = el("button", { type: "button", class: "primary", text: "New address" });
+  const replacedNote = el("div", { class: "ai-replaced", hidden: true },
+    el("p", { class: "ai-note", text: "Your AI apps now reach that tab or program instead of this page. If you did not open this page in another tab or browser, someone may have copied its address. A new address disconnects every AI app from the old one; then add the new address to your AI apps again." }),
+    el("div", { class: "ai-actions" }, takeBack));
   const doneNote = el("p", { class: "ai-note ai-done-note", hidden: true }, "Done works once your AI app is connected: closing now ends the pairing code. ", closeAnyway);
   dialog.append(el("div", { class: "ai-box" },
     el("header", { class: "ai-head" },
       el("h2", { id: "ai-title", text: "Connect your AI app" }),
       status.node),
     el("p", { class: "ai-lead", text: "Your AI app (Claude, ChatGPT, Claude Code, …) can use the calculators in this tab: read the display, press keys, run programs and look up commands." }),
+    replacedNote,
     addStep,
     codeStep,
     el("section", { class: "ai-step", "aria-labelledby": "ai-step-apps" },
@@ -166,6 +172,7 @@ export async function openAiDialog(ai, doc = document) {
     noCode.hidden = Boolean(pc);
     copyCode.disabled = !pc;
     // Lost: why, and that it connects again by itself (the client library reconnects).
+    replacedNote.hidden = !(state === "disconnected" && ai.replaced && !ai.replaced.sibling);
     if (ai.lost) status.set("lost", `${ai.error ?? "The connection to the relay broke."} Reconnecting…`);
     else if (ai.error) status.set("error", ai.error);
     else if (on) status.set("on", "AI access is on. Your AI app can connect now.");
@@ -204,7 +211,7 @@ export async function openAiDialog(ai, doc = document) {
     ai.disconnect();
     render();
   });
-  fresh.addEventListener("click", () => {
+  for (const b of [fresh, takeBack]) b.addEventListener("click", () => {
     ai.newAddress()?.catch(() => {});
     render();
   });

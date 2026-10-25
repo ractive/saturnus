@@ -1090,8 +1090,16 @@ through the relay while the tab is open. Nothing is installed.
   last address to read from and every Copy and link off; they go when
   AI access is off. While AI access is on and no app is connected, Done
   and the backdrop do not close it, since closing ends the pairing code;
-  a line says so, with Close anyway (Esc closes too). Not in the desktop
-  app (its own dialog, `openLocalDialog`, has the same look).
+  a line says so, with Close anyway (Esc closes too). When another tab
+  takes the address (tab-mcp's `replaced`, after `disconnected`, with
+  `sibling`): a tab of this page in this browser gets the line "Opened in
+  another tab", anything else (a tab elsewhere, a program with the
+  address's secret) the warning that another tab or program took over
+  this page, framed, with New address, which takes the address back and
+  disconnects its apps first (the client's `newAddress()`, 0.8); taken
+  over again meanwhile, the line says to try again. The library's own
+  wording. Not in the desktop app (its own dialog, `openLocalDialog`, has
+  the same look).
 - **The sidebar entry** (`app.js` `watchAi`, `ai-log.js` `aiView`,
   iteration 56) says the state: "Connect your AI app…" (off; why it went
   off below it), "AI access: connecting…", "AI access on · no app yet"
@@ -1140,7 +1148,7 @@ through the relay while the tab is open. Nothing is installed.
   TAB_MCP_STORE=memory NODE_ENV=development bun packages/tab-mcp/src/main.ts`
   in the tab-mcp checkout (or its Docker image). Without a relay nothing
   of it loads.
-- **The client** is tab-mcp's browser library (0.7.0), vendored in
+- **The client** is tab-mcp's browser library (0.8.0), vendored in
   `vendor/tab-mcp-client/` (its self-contained build, with
   `vendor.json`: source, version, SHA-256s) by `just vendor-tab-mcp`
   (`scripts/vendor-tab-mcp-client.sh`: the npm package, its version and

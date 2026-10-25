@@ -386,6 +386,32 @@ test("turning AI access off ends the reconnecting; a refusal or another tab taki
     assert.equal(timers.waiting.length, 0);
     assert.equal(ai.lost, false);
     assert.match(ai.error, /Another tab took over/);
+    // Then who (tab-mcp 0.8, `replaced` after `disconnected`): a sibling tab of this page, nothing to do.
+    Mcp.last.emit("replaced", { sibling: true });
+    assert.deepEqual(ai.replaced, { sibling: true });
+    assert.match(ai.error, /^Opened in another tab\./);
+    // Connecting again clears it.
+    await ai.connect();
+    assert.equal(ai.replaced, null);
+    assert.equal(ai.error, null);
+  }
+  {
+    // Another tab or program with the secret: the warning; a new address takes it back.
+    const { ai, Mcp } = reconnecting([true, true]);
+    await ai.connect();
+    Mcp.last.drop("replaced");
+    Mcp.last.emit("replaced", { sibling: false });
+    assert.deepEqual(ai.replaced, { sibling: false });
+    assert.equal(ai.error, "Another tab or program took over this page.");
+    Mcp.last.newAddress = () => Mcp.last.connect();
+    await ai.newAddress();
+    assert.equal(ai.replaced, null);
+    assert.equal(ai.error, null);
+    // Taken over again while it was taken back: the client's reason, in the dialog's words.
+    Mcp.last.drop("replaced");
+    Mcp.last.newAddress = () => Promise.reject(Object.assign(new Error("taken"), { reason: "replaced" }));
+    await assert.rejects(ai.newAddress());
+    assert.equal(ai.error, "It was taken over again before its AI apps were disconnected. Try again.");
   }
 });
 

@@ -74,10 +74,30 @@ function fakeView() {
   return { ai: async () => ({ backend, store, reference: null }) };
 }
 
-/** A confirmation that answers `answer` and counts the questions. */
+/**
+ * A confirmation that answers `answer` and counts the questions: the UI
+ * chunk's `confirmInPage` (tab-mcp 0.8), which keeps "Always allow" per
+ * host for a grant the host has, until the host's `grantschange` drops it.
+ */
 function fakeConfirm(answer) {
   const asked = [];
-  return { asked, module: async () => ({ confirmDialog: async (q) => { asked.push(q); return typeof answer === "function" ? answer(q) : answer; } }) };
+  const always = new WeakMap();
+  const confirmInPage = async (host, q, _doc, options) => {
+    const key = `${q.client.grantId}\n${q.tool.name}`;
+    if (always.get(host)?.has(key)) return true;
+    asked.push(Object.assign(q, { options }));
+    const a = typeof answer === "function" ? await answer(q) : answer;
+    if (a === "always" && host.grants.some((g) => g.grantId === q.client.grantId)) {
+      if (!always.has(host)) {
+        const kept = new Set();
+        host.addEventListener("grantschange", (e) => { for (const k of kept) if (!e.detail.grants.some((g) => k.startsWith(`${g.grantId}\n`))) kept.delete(k); });
+        always.set(host, kept);
+      }
+      always.get(host).add(key);
+    }
+    return a !== "deny";
+  };
+  return { asked, module: async () => ({ confirmInPage }) };
 }
 
 async function loaded(opts = {}) {
@@ -132,6 +152,7 @@ test("a consequential tool asks first; Always allow stops asking for that app an
   assert.equal(confirm.asked[0].client.name, "Cursor");
   assert.equal(confirm.asked[0].client.host, "this computer");
   assert.equal(confirm.asked[0].tool.title, "Store a variable");
+  assert.equal(confirm.asked[0].options.alwaysAllow, true, "a named app is offered Always allow (tab-mcp 0.8: opt-in)");
   await tauri.call(2, "tools/call", store, "Cursor");
   assert.equal(confirm.asked.length, 1, "always allowed for Cursor");
   await tauri.call(3, "tools/call", store, "Claude Code");
@@ -150,6 +171,7 @@ test("an AI app named only by its User-Agent is asked every time, without Always
   await tauri.call(2, "tools/call", store, "node", false);
   assert.equal(confirm.asked.length, 2, "asked again");
   assert.equal(confirm.asked[0].client.stable, false);
+  assert.equal(confirm.asked[0].options.alwaysAllow, false, "no Always allow in the dialog");
   // A stable app of the same name gets no grant from it either.
   await tauri.call(3, "tools/call", store, "node", true);
   assert.equal(confirm.asked.length, 3);
