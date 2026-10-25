@@ -810,6 +810,7 @@ async function main({ model = null, pwa: installed = null, onModel = null, ai = 
   ui.controls.attach(backend, store, prefs);
   watchClockOnStart(backend, store, prefs);
   ui.calc.attach(backend, store, bindings);
+  ui.calc.setReference(reference);
   const writes = new MemoryWrites(backend, store);
   acceptDrops(backend, store, writes);
   ui.layer.attach(memory, store, prefs, { reference, backend, bindings, writes, edit: (target, opts) => ui.palette.openEditor(target, opts) });

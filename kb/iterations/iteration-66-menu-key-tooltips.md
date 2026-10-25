@@ -43,9 +43,9 @@ need ON+C held about 2 s).
 
 ## Tasks
 
-- [ ] Read the current menu and page on the 48SX, 48GX and 49G (memory only), with a host test on each ROM
-- [ ] Menu labels from the ROM's menu definitions, full names from commands.json
-- [ ] Menu-key tooltips follow the screen; variables, forms and choose boxes handled
-- [ ] Self-test entries in the ON menus of the other models, with how to leave them
-- [ ] Tests (host, unit, page) and screenshots of a tooltip on each of the three models
+- [x] Read the current menu and page on the 48SX, 48GX and 49G (memory only), with a host test on each ROM
+- [x] Menu labels from the ROM's menu definitions, full names from commands.json
+- [x] Menu-key tooltips follow the screen; variables, forms and choose boxes handled
+- [x] Self-test entries in the ON menus of the other models, with how to leave them
+- [x] Tests (host, unit, page) and screenshots of a tooltip on each of the three models
 - [ ] Owner: hover the menu keys in a few menus (MTH, a directory, an input form) on the 48GX and 49G

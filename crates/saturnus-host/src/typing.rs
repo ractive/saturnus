@@ -1139,6 +1139,7 @@ impl Emulator {
         let job = Job::new(self.machine(), verb, text)?;
         let freezes = job.freezes();
         self.typing = Some(job);
+        self.menu_dirty = true;
         Ok(freezes)
     }
 

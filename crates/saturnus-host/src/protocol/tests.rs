@@ -504,6 +504,7 @@ fn types(events: &[Event]) -> Vec<&'static str> {
             Event::Error(_) => "error",
             Event::MemoryChanged(_) => "memoryChanged",
             Event::Serial(_) => "serial",
+            Event::Menu(_) => "menu",
         })
         .collect()
 }
@@ -820,7 +821,11 @@ fn a_long_send_refuses_commands_and_holds_the_screen() {
         outs.iter().all(|o| !matches!(
             o,
             Output::Event(
-                Event::Frame(_) | Event::Keys(_) | Event::Error(_) | Event::MemoryChanged(_)
+                Event::Frame(_)
+                    | Event::Keys(_)
+                    | Event::Error(_)
+                    | Event::MemoryChanged(_)
+                    | Event::Menu(_)
             )
         )),
         "{outs:?}"

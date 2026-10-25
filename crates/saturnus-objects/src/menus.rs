@@ -41,6 +41,32 @@ pub struct MenuDef {
     pub commands: Vec<String>,
     /// Keys that switch to another menu: (label, menu number).
     pub submenus: Vec<(String, u32)>,
+    /// Every key in key order, six to a page (the first page's keys,
+    /// then the next page's after NXT), as the definition lists them.
+    /// For a definition that is a program building the menu, the keys
+    /// of the first list in it: on the ROMs tried that list is what the
+    /// screen shows (MTH and PRG on the 48SX and 48GX, the 48SX's SOLVE
+    /// and PLOT; `crates/saturnus-host/tests/menu_keys.rs`).
+    pub keys: Vec<MenuKey>,
+}
+
+/// One key of a menu as its definition gives it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct MenuKey {
+    /// The label it shows when that is not its command's name (a
+    /// `{ label action }` key), else `None`.
+    pub label: Option<String>,
+    /// The one command it runs, if it runs exactly one named command.
+    pub command: Option<String>,
+    /// The menu it switches to.
+    pub submenu: Option<u32>,
+}
+
+impl MenuKey {
+    /// What the key shows: its label, else its command's name.
+    pub fn text(&self) -> Option<&str> {
+        self.label.as_deref().or(self.command.as_deref())
+    }
 }
 
 /// The built-in menus of one ROM, by menu number.
@@ -345,10 +371,26 @@ struct Collect<'r, 'a> {
     /// Image indexes of the list source's definitions, by menu number.
     defs: HashMap<usize, u32>,
     def: MenuDef,
+    /// The key being read (its label, the commands it runs, its
+    /// submenu), while a definition's keys are read one by one.
+    slot: Option<Slot>,
+}
+
+/// What one key was found to show and do.
+#[derive(Default)]
+struct Slot {
+    label: Option<String>,
+    commands: Vec<String>,
+    submenu: Option<u32>,
 }
 
 impl<'a> Collect<'_, 'a> {
     fn add_command(&mut self, name: String) {
+        if let Some(slot) = self.slot.as_mut()
+            && !slot.commands.contains(&name)
+        {
+            slot.commands.push(name.clone());
+        }
         if !self.def.commands.contains(&name) {
             self.def.commands.push(name);
         }
@@ -484,6 +526,13 @@ impl<'a> Collect<'_, 'a> {
                         self.find_menu(j, v, depth + 1)
                     })
                 });
+                if let Some(slot) = self.slot.as_mut()
+                    && slot.label.is_none()
+                    && slot.submenu.is_none()
+                {
+                    slot.label = Some(label.clone());
+                    slot.submenu = submenu;
+                }
                 if let Some(n) = submenu {
                     self.def.submenus.push((label, n));
                     return;
@@ -511,6 +560,7 @@ impl<'a> Collect<'_, 'a> {
         let Some(p) = self.r.prolog(i) else { return };
         if let Some(keys) = self.r.xlib_array(i) {
             for (l, c) in keys {
+                self.begin_key();
                 // Built as an XLIB name element, read the same way.
                 match self.r.names.xlib(l, c).and_then(|x| x.name) {
                     Some(name) => self.add_command(name.to_string()),
@@ -521,6 +571,7 @@ impl<'a> Collect<'_, 'a> {
                         }
                     }
                 }
+                self.end_key();
             }
         } else if p == ObjectType::XlibName.prolog() {
             if let Some((t, v)) = self.r.target(El::Embedded(i, p), view) {
@@ -528,10 +579,13 @@ impl<'a> Collect<'_, 'a> {
             }
         } else if p == ObjectType::List.prolog() {
             for e in self.r.elements(i) {
+                self.begin_key();
                 self.key(e, view, 1);
+                self.end_key();
             }
         } else if p == ObjectType::Program.prolog() {
-            // A program that builds the menu: its list of keys.
+            // A program that builds the menu: its list of keys (their
+            // commands; not their order, which the program decides).
             if let Some(El::Embedded(j, _)) = self
                 .r
                 .elements(i)
@@ -550,6 +604,29 @@ impl<'a> Collect<'_, 'a> {
         if p == Some(ObjectType::List.prolog()) || p == Some(ObjectType::Program.prolog()) {
             self.key(El::Embedded(t, p.unwrap_or(0)), view, depth);
         }
+    }
+}
+
+impl Collect<'_, '_> {
+    /// Start reading one key of the definition.
+    fn begin_key(&mut self) {
+        self.slot = Some(Slot::default());
+    }
+
+    /// The key read since [`Collect::begin_key`], added to the keys.
+    fn end_key(&mut self) {
+        let Some(slot) = self.slot.take() else { return };
+        let command = match slot.commands.as_slice() {
+            [one] => Some(one.clone()),
+            _ => None,
+        };
+        // A label that is the command's own name says nothing more.
+        let label = slot.label.filter(|l| Some(l) != command.as_ref());
+        self.def.keys.push(MenuKey {
+            label,
+            command,
+            submenu: slot.submenu,
+        });
     }
 }
 
@@ -595,6 +672,7 @@ fn read_within(rom: &[u8], names: &NameTable, max_steps: usize) -> Option<Menus>
         source: &source,
         defs: HashMap::new(),
         def: MenuDef::default(),
+        slot: None,
     };
     if let Source::List(els) = &source {
         for (k, &e) in els.iter().enumerate() {
@@ -888,6 +966,29 @@ mod tests {
         assert_eq!(m.get(1).unwrap().commands, ["SIN"]);
         assert_eq!(m.get(1).unwrap().submenus, [("TRIG".to_string(), 2)]);
         assert_eq!(m.get(2).unwrap().commands, ["COS", "TAN"]);
+        // The keys in order, each as it shows: a command, a submenu, a
+        // label that differs from the command it runs.
+        let key = |label: Option<&str>, command: Option<&str>, submenu: Option<u32>| MenuKey {
+            label: label.map(str::to_string),
+            command: command.map(str::to_string),
+            submenu,
+        };
+        assert_eq!(
+            m.get(1).unwrap().keys,
+            [
+                key(None, Some("SIN"), None),
+                key(Some("TRIG"), None, Some(2))
+            ]
+        );
+        assert_eq!(
+            m.get(2).unwrap().keys,
+            [
+                key(None, Some("COS"), None),
+                key(None, Some("TAN"), None),
+                key(Some("T"), Some("TAN"), None)
+            ]
+        );
+        assert_eq!(m.get(2).unwrap().keys[2].text(), Some("T"));
         let paths = m.paths(&[(1, "MATH".into())]);
         assert_eq!(paths[&2], "MATH TRIG");
         assert_eq!(paths[&3], "MENU 3");
@@ -940,6 +1041,10 @@ mod tests {
         assert_eq!(m.get(1).unwrap().commands, ["SIN"]);
         assert_eq!(m.get(1).unwrap().submenus, [("SUBM".to_string(), 2)]);
         assert_eq!(m.get(2).unwrap().commands, ["COS", "TAN"]);
+        let texts: Vec<_> = m.get(1).unwrap().keys.iter().map(MenuKey::text).collect();
+        assert_eq!(texts, [Some("SIN"), Some("SUBM")]);
+        let texts: Vec<_> = m.get(2).unwrap().keys.iter().map(MenuKey::text).collect();
+        assert_eq!(texts, [Some("C"), Some("TAN")]);
         // The current-menu pointer designates an XLIB name of #A9.
         let mut ram = n.clone();
         put_hex(&mut ram, 0xF000, &xlib(0xA9, 2));
@@ -977,6 +1082,16 @@ mod tests {
         let names = NameTable::build(Model::Hp48sx, &n);
         let m = read(&n, &names).unwrap();
         assert_eq!(m.get(1).unwrap().commands, ["COS", "TAN"]);
+        let k = &m.get(1).unwrap().keys;
+        assert_eq!(k.len(), 2);
+        assert_eq!(
+            (k[0].text(), k[0].command.as_deref()),
+            (Some("SIN"), Some("COS"))
+        );
+        assert_eq!(
+            (k[1].text(), k[1].command.as_deref()),
+            (Some("TAN"), Some("TAN"))
+        );
         assert!(!m.truncated());
         // Out of steps: the result says so.
         let short = read_within(&n, &names, 30).unwrap();

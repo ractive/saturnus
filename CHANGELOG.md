@@ -7,6 +7,24 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **Menu-key tooltips name what the screen shows (48SX, 48GX, 49G).**
+  Hovering a menu key (A to F, the 49G's F1 to F6) names the label above
+  it with the command reference's full name: `EXPAN · Expand products`,
+  `VECTR menu`, and in the VAR menu the variable and its type
+  (`A7 · variable (real number)`). The host reads the current menu and
+  its page from RAM (no keys pressed), the keys from the ROM's own menu
+  definitions and the VAR menu's from the current directory, and sends a
+  new `menu` event only when they change (web/protocol.md). While a form
+  or choose box has the keys, or for a menu the ROM builds in RAM (the
+  49G's TOOL), the tooltip stays the key's own. Source: wiki
+  `hardware/hp48-system-ram`, "Menu" (the page field added there).
+- **Self-tests in the ON menus of the 28S, 38G, 39G, 40G, 27S, 17B,
+  17BII and 19BII**, each saying how to leave it: Restart (ON+▲ on the
+  28S, ON or CLR + menu key 3 elsewhere). The 38G, 39G and 40G also get
+  their continuous test; on the 39G and 40G Restart is now held 2 s,
+  the only way out of it, and on the 19BII too (a 1 s hold was not taken
+  during its self-test). Source: wiki `hardware/*-keyboard`, "Leaving the
+  tests".
 - **Unprinted key functions and ON menus on the other eleven models.**
   The tooltips, ghost labels and the ON key's menu now cover every
   model, from each model's keyboard page in the wiki. The 48SX: ⌥ shows

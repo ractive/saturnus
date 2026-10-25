@@ -36,6 +36,7 @@ pub mod object;
 pub mod prolog;
 pub mod ram;
 pub mod screen;
+pub mod softkeys;
 pub mod transfer;
 
 pub use cmdline::{CommandLine, Editor, EditorLayout, command_line};
