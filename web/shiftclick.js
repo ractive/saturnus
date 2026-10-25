@@ -5,6 +5,8 @@
 // While one of the two modifiers is held, the skin lights the labels it
 // reaches (`ModifierGlow`). Pure, without the DOM: web/test/shiftclick.test.mjs.
 
+import { shiftedText } from "./hiddenkeys.js";
+
 /** How long a modifier is held before the labels light, in ms: a chord (Ctrl+K) is quicker. */
 export const GLOW_DELAY = 150;
 
@@ -104,17 +106,22 @@ export function clickLabel(mod, isMac, short = false) {
 /**
  * A key's tooltip lines for its shifted labels (`left`, `right`, as the
  * skin has them): `⌃-click: PREV` on a Mac, `Ctrl+click: PREV` elsewhere.
- * A one-shift model's label takes both modifiers.
+ * A one-shift model's label takes both modifiers. `extra` (the key's
+ * web/hiddenkeys.js entries) adds what the print does not say:
+ * `⌥-click: Kermit server (not printed)`, `⌥-click: ARG (LASTARG)`,
+ * `⌃-click: SOLVE menu`.
  */
-export function clickHints(k, keyNames, isMac) {
+export function clickHints(k, keyNames, isMac, extra = {}) {
   if (k.name === "shift" || k.name === "leftshift" || k.name === "rightshift") return [];
   const click = (mod) => clickLabel(mod, isMac, true);
   if (keyNames.has("shift")) {
     return k.left ? [`${isMac ? "⌃- or ⌥-click" : `${click("ctrl")} or ${click("alt")}`}: ${caps(k.left)}`] : [];
   }
   const out = [];
-  if (k.left) out.push(`${click("ctrl")}: ${caps(k.left)}`);
-  if (k.right) out.push(`${click("alt")}: ${caps(k.right)}`);
+  const left = shiftedText(k, "left", extra, caps);
+  const right = shiftedText(k, "right", extra, caps);
+  if (left) out.push(`${click("ctrl")}: ${left}`);
+  if (right) out.push(`${click("alt")}: ${right}`);
   return out;
 }
 

@@ -39,8 +39,8 @@ the drawn calculator, and give the ON combinations a menu. 48GX only; the
    (SOLVE) is printed. Holding ⌃ lights that label in the left shift's
    violet, as ⌥ lights it in its own green: ⌥ 7 a green SOLVE (the
    application), ⌃ 7 a violet SOLVE (its menu). No ghost label, no layout
-   change. The tooltip writes the menu with a ≡: `⌃-click: SOLVE ≡`,
-   `⌥-click: SOLVE`.
+   change. The tooltip writes the menu in words (owner 2026-10-25, not
+   with a ≡): `⌃-click: SOLVE menu`, `⌥-click: SOLVE`.
 4. **The ON combinations.** A long press or a right-click on the ON key
    opens a menu: Restart (ON+C, clears the stack, keeps the variables),
    Self-test (ON+D), Print display (ON+1), Reset memory (ON+A+F, asked
@@ -49,10 +49,10 @@ the drawn calculator, and give the ON combinations a menu. 48GX only; the
 
 ## Tasks
 
-- [ ] The 48GX's unprinted and misleading shifted functions as data, each citing the wiki page
-- [ ] Tooltips show them, "(not printed)" or the note
-- [ ] Ghost labels in empty slots while ⌃ or ⌥ is held
-- [ ] ⌃ lights an application key's label in violet where ← opens its menu
-- [ ] The ON key's menu (long press, right-click) and the four palette entries
-- [ ] Page tests; screenshots at 1280 and 390 wide with ⌃ and ⌥ held
+- [x] The 48GX's unprinted and misleading shifted functions as data, each citing the wiki page
+- [x] Tooltips show them, "(not printed)" or the note
+- [x] Ghost labels in empty slots while ⌃ or ⌥ is held
+- [x] ⌃ lights an application key's label in violet where ← opens its menu
+- [x] The ON key's menu (long press, right-click) and the four palette entries
+- [x] Page tests; screenshots at 1280 and 390 wide with ⌃ and ⌥ held
 - [ ] Owner: hold ⌃ and ⌥ on the 48GX, read the tooltips, try the ON menu

@@ -466,8 +466,19 @@
    labels a click with it reaches light up, every other label fades. */
 :where(#calculator-view) .skin svg.glow-left .shift-left { filter: url(#glow-left); }
 :where(#calculator-view) .skin svg.glow-right .shift-right { filter: url(#glow-right); }
-:where(#calculator-view) .skin svg.glow-left :is(.keys, .print) text:not(.shift-left),
-:where(#calculator-view) .skin svg.glow-right :is(.keys, .print) text:not(.shift-right) { opacity: 0.4; }
+:where(#calculator-view) .skin svg.glow-left :is(.keys, .print) text:not(.shift-left, .menu-left, .ghost),
+:where(#calculator-view) .skin svg.glow-right :is(.keys, .print) text:not(.shift-right, .ghost) { opacity: 0.4; }
+/* An application key whose left shift opens its command menu (web/hiddenkeys.js):
+   Ctrl lights its printed right-shift label in the left shift's colour. */
+:where(#calculator-view) .skin svg.glow-left .menu-left { filter: url(#glow-left); }
+/* Ghost labels (sat-calculator.js `drawGhosts`): an unprinted function,
+   outlined, shown only while its modifier is held and where it fits
+   (`placeGhost`); the printed label beside it moves to its own side. */
+:where(#calculator-view) .skin :is(.ghost, .ghost-mate) { visibility: hidden; }
+:where(#calculator-view) .skin svg.glow-left :is(.ghost.ghost-left, .ghost-mate.ghost-mate-left),
+:where(#calculator-view) .skin svg.glow-right :is(.ghost.ghost-right, .ghost-mate.ghost-mate-right) { visibility: visible; }
+:where(#calculator-view) .skin svg.glow-left .ghost-yield-left,
+:where(#calculator-view) .skin svg.glow-right .ghost-yield-right { visibility: hidden; }
 @media (prefers-reduced-motion: no-preference) {
   :where(#calculator-view) .skin :is(.keys, .print) text { transition: opacity var(--t) var(--ease); }
 }

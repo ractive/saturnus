@@ -7,6 +7,20 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The 48GX's unprinted key functions on the drawn calculator.** A
+  key's tooltip lists what each shifted click does, printed or not:
+  "⌥-click: Kermit server (not printed)" on ▶, "ARG (LASTARG)" on EEX,
+  "⌃-click: SOLVE menu" on 7 (left shift on an application key opens
+  its command menu). Holding ⌥ (Alt) shows SERVER above ▶ and REVIEW
+  above ▼ as outlined ghost labels; holding ⌃ (Ctrl) lights SOLVE,
+  PLOT, I/O and the other application labels in the left shift's
+  colour. Sources: wiki `hardware/hp48gx-keyboard`.
+- **The 48GX's ON key has a menu.** A long press or a right-click on ON
+  offers Restart (ON+C, clears the stack, keeps the variables),
+  Self-test (ON+D), Print display (ON+1) and Reset memory (ON+A+F, asks
+  first); the command palette has the same four. A tap on ON still
+  presses ON (on release, so a long press never cancels a command line);
+  ⌃-click is still CONT.
 - **The AI's screen images follow Screen images.** read_display,
   press_keys, run_rpl, to_stack and run_function return the display in
   the LCD's colours or black on white, as the setting says (before:

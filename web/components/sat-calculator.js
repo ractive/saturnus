@@ -14,6 +14,8 @@ import { linkSites } from "../shared/ext-links.js";
 import { inDesktopApp } from "../shared/site-links.js";
 import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, keyTitle, modifierOf, shiftFor } from "../shiftclick.js";
+import { ghostPlacement, ghostSlot, hiddenOf, menuKeys } from "../hiddenkeys.js";
+import { ON_LONG_PRESS, onCombos, onPointerDown, runCombo } from "../onkeys.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenPng } from "../screenshot.js";
 import { copyPng, pngBlob } from "../shared/png.js";
 import { closeMenu, openMenu, openMenuKey } from "../shared/components/menu.js";
@@ -415,6 +417,8 @@ export class SatCalculator extends HTMLElement {
     this.skinWindowFill = "";
     /** Text elements to squeeze into a width once the skin is laid out. */
     this.skinFits = [];
+    /** Keys whose right label ⌃ lights too (web/hiddenkeys.js `menuKeys`). */
+    this.skinMenus = new Set();
     /** The drawn model's key names and typing rules (letter map, shifts). */
     this.keyNames = new Set();
     this.typing = null;
@@ -435,6 +439,10 @@ export class SatCalculator extends HTMLElement {
     this.pointerDown = new Map();
     /** Which key's contextmenu belongs to a pointer press, and which is Firefox's Ctrl+click. */
     this.contextClicks = new ContextClicks();
+    /** A press on ON waiting for its release or its long press (`onMenu`): `{id, at, timer}`, or null. */
+    this.onPending = null;
+    /** The ghost labels of the drawn skin (`drawGhosts`), placed by `fitTexts`. */
+    this.skinGhosts = [];
     /** Edge to edge (`setEdge`), and the face's boxes once measured (`edgeBoxes`). */
     this.edge = false;
     /** Edge to edge, whether the case is cropped to the face (`CROP`). */
@@ -1064,6 +1072,8 @@ export class SatCalculator extends HTMLElement {
 
   /** Press key `name`; with `shift`, a shifted press (the host taps the shift unless it is on). */
   pressKey(name, shift = null) {
+    // Another key while ON waits: ON goes down first, held (ON and +, by hand).
+    if (name !== "on") this.flushOn();
     const action = keyAction(this.store.state, name, this.keyNames);
     if (action === "pulse") this.pulseNoRom();
     if (action !== "press") return false;
@@ -1220,6 +1230,63 @@ export class SatCalculator extends HTMLElement {
     root.classList.toggle("glow-right", side === "right");
   }
 
+  // ---------------------------------------------------------- the ON key
+
+  /**
+   * A plain press on ON of a model with ON combinations (web/onkeys.js):
+   * nothing is sent yet. Released before `ON_LONG_PRESS`, it is ON (a
+   * tap); held, the ON key's menu opens and ON is never pressed (CANCEL
+   * would close an open command line first); another key pressed
+   * meanwhile sends ON at once, held (`flushOn`), as a hand holding ON.
+   */
+  waitOn(e) {
+    this.cancelOn();
+    const at = { x: e.clientX, y: e.clientY };
+    this.onPending = {
+      id: e.pointerId,
+      at,
+      timer: setTimeout(() => {
+        this.onPending = null;
+        this.onMenu(at);
+      }, ON_LONG_PRESS),
+    };
+  }
+
+  /** Forget a waiting press on ON. */
+  cancelOn() {
+    if (this.onPending) clearTimeout(this.onPending.timer);
+    this.onPending = null;
+  }
+
+  /** A waiting press on ON goes down now, held until its pointer is up. */
+  flushOn() {
+    const p = this.onPending;
+    if (!p) return;
+    this.cancelOn();
+    if (this.pressKey("on")) this.pointerDown.set(p.id, "on");
+  }
+
+  /** The ON key's menu at `at` (the pointer): the model's ON combinations. */
+  onMenu(at) {
+    const combos = onCombos(this.skinModel);
+    if (!combos.length || !isLive(this.store.state)) return;
+    openMenu({
+      at,
+      key: "on-key",
+      label: "ON combinations",
+      items: [
+        { note: "ON held with other keys" },
+        ...combos.map((c) => ({
+          text: c.title,
+          hint: c.keys.map((k) => k.toUpperCase()).join("+"),
+          title: c.description,
+          danger: Boolean(c.ask),
+          run: () => runCombo(c, this.backend, this.store),
+        })),
+      ],
+    });
+  }
+
   // ---------------------------------------------------------- skin
 
   /** Remember `t` to squeeze to `max` units wide once it can be measured. */
@@ -1239,6 +1306,38 @@ export class SatCalculator extends HTMLElement {
         t.setAttribute("lengthAdjust", "spacingAndGlyphs");
       }
     }
+    for (const g of this.skinGhosts) this.placeGhost(g);
+  }
+
+  /**
+   * Place ghost label `g` (`drawGhosts`) from the measured widths
+   * (web/hiddenkeys.js `ghostPlacement`): shown while its modifier is
+   * held, with the printed label of the other shift moved to its own side
+   * (`mate`, in place of the centred `print`); or, where it does not fit,
+   * never (the tooltip still says it).
+   */
+  placeGhost(g) {
+    const width = (t) => {
+      t.removeAttribute("textLength");
+      t.removeAttribute("lengthAdjust");
+      try { return t.getComputedTextLength(); } catch { return 0; }
+    };
+    const set = (t, at) => {
+      t.setAttribute("x", String(at.x));
+      t.setAttribute("text-anchor", at.anchor);
+      if (at.max !== null) {
+        t.setAttribute("textLength", String(at.max));
+        t.setAttribute("lengthAdjust", "spacingAndGlyphs");
+      }
+    };
+    const [x, , w] = wellRect(g.k);
+    const place = ghostPlacement({ x, w, side: g.side, ghostWidth: width(g.ghost), mateWidth: g.mate ? width(g.mate) : null });
+    g.ghost.classList.toggle(`ghost-${g.side}`, Boolean(place));
+    g.mate?.classList.toggle(`ghost-mate-${g.side}`, Boolean(place));
+    g.print?.classList.toggle(`ghost-yield-${g.side}`, Boolean(place));
+    if (!place) return;
+    set(g.ghost, place.ghost);
+    if (g.mate) set(g.mate, place.mate);
   }
 
   /** The text of a shift label pair above key `k`. */
@@ -1247,9 +1346,11 @@ export class SatCalculator extends HTMLElement {
     // Wells leave a little more air between the key and its labels.
     const base = y - (k.well ? 8 : 5);
     const size = s.small;
+    let single = null;
     if (k.left && k.right) {
       const a = svg("text", { x: x - 3, y: base, "font-size": size, fill: s.leftInk, class: "shift-left" }, layer, k.left);
       const b = svg("text", { x: x + w + 3, y: base, "font-size": size, fill: s.rightInk, "text-anchor": "end", class: "shift-right" }, layer, k.right);
+      if (this.skinMenus.has(k.name)) b.classList.add("menu-left");
       // Each label keeps to its share of the room above the key.
       const room = w + 6;
       const la = Math.max(1, k.left.length);
@@ -1261,7 +1362,41 @@ export class SatCalculator extends HTMLElement {
         x: x + w / 2, y: base, "font-size": size, "text-anchor": "middle",
         fill: k.left ? s.leftInk : s.rightInk, class: k.left ? "shift-left" : "shift-right",
       }, layer, k.left || k.right);
+      // Where ← opens the application's menu, ⌃ lights its label too (in the left shift's colour).
+      if (k.right && this.skinMenus.has(k.name)) t.classList.add("menu-left");
       this.fitLater(t, w + 34);
+      single = t;
+    }
+    this.drawGhosts(layer, s, k, base, single);
+  }
+
+  /**
+   * The ghost labels of key `k` (web/hiddenkeys.js): an unprinted
+   * function whose slot is empty, outlined in its shift's colour so it
+   * does not pass for print, shown only while that shift's modifier is
+   * held (style.css), and only where it fits (`placeGhost`). `print` is
+   * the key's one printed label, centred; while the ghost shows, a copy of
+   * it (`mate`) stands on its own side.
+   */
+  drawGhosts(layer, s, k, base, print) {
+    const extra = hiddenOf(this.skinModel, k.name);
+    for (const side of ["left", "right"]) {
+      const text = ghostSlot(k, side, extra);
+      if (!text) continue;
+      const ink = side === "left" ? s.leftInk : s.rightInk;
+      const ghost = svg("text", {
+        y: base, "font-size": s.small, fill: "none", stroke: ink, "stroke-width": 0.9, "stroke-dasharray": "2.5 1.2",
+        class: "ghost", "data-ghost": k.name, "aria-hidden": "true",
+      }, layer, text);
+      let mate = null;
+      if (print) {
+        mate = print.cloneNode(true);
+        mate.classList.add("ghost-mate");
+        mate.classList.remove("menu-left");
+        mate.setAttribute("aria-hidden", "true");
+        layer.append(mate);
+      }
+      this.skinGhosts.push({ k, side, ghost, mate, print });
     }
   }
 
@@ -1287,7 +1422,9 @@ export class SatCalculator extends HTMLElement {
   drawKey(keys, s, k) {
     const [x, y, w, h] = k.rect;
     const g = svg("g", { class: "skey", "data-key": k.name }, keys);
-    svg("title", {}, g, [keyTitle(k), ...clickHints(k, this.keyNames, this.isMac)].join("\n"));
+    const combos = k.name === "on" ? onCombos(this.skinModel) : [];
+    const onLine = combos.length ? [`Long press or right-click: ${combos.map((c) => c.title.replace(/…$/, "")).join(", ")}`] : [];
+    svg("title", {}, g, [keyTitle(k), ...clickHints(k, this.keyNames, this.isMac, hiddenOf(this.skinModel, k.name)), ...onLine].join("\n"));
     // Hit area a little larger than the key and its well, as the grid's buttons are.
     const [wx, wy, ww, wh] = wellRect(k);
     const pad = k.well ? 3 : 6;
@@ -1340,6 +1477,17 @@ export class SatCalculator extends HTMLElement {
       try { g.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
       const mod = e.pointerType === "mouse" ? modifierOf(e) : null;
       this.contextClicks.pointerdown(k.name, e);
+      if (combos.length && isLive(this.store.state)) {
+        const what = onPointerDown(e, mod);
+        if (what === "menu") {
+          this.onMenu({ x: e.clientX, y: e.clientY });
+          return;
+        }
+        if (what === "wait") {
+          this.waitOn(e);
+          return;
+        }
+      }
       if (this.pressKey(k.name, shiftFor(mod, k.name, this.keyNames))) this.pointerDown.set(e.pointerId, k.name);
     });
     // Firefox on macOS sends a Ctrl+click as `contextmenu` without a
@@ -1347,10 +1495,25 @@ export class SatCalculator extends HTMLElement {
     // minimum time). A `contextmenu` that follows a `pointerdown` is that
     // press's (web/shiftclick.js, `ContextClicks`).
     g.addEventListener("contextmenu", (e) => {
+      const ours = this.contextClicks.awaiting.has(k.name);
       const mod = this.contextClicks.contextmenu(k.name, e);
+      // A right-click no press came with (or a browser's own long press):
+      // the ON key's menu, once, in place of a waiting press.
+      if (!ours && !mod && combos.length && isLive(this.store.state)) {
+        const at = this.onPending?.at ?? { x: e.clientX, y: e.clientY };
+        this.cancelOn();
+        if (openMenuKey() !== "on-key") this.onMenu(at);
+        return;
+      }
       if (mod && this.pressKey(k.name, shiftFor(mod, k.name, this.keyNames))) this.releaseKey(k.name);
     });
     const up = (e) => {
+      if (k.name === "on" && this.onPending?.id === e.pointerId) {
+        // A tap: ON, as a tap (the host holds it the minimum time).
+        this.cancelOn();
+        if (e.type !== "pointercancel" && this.pressKey("on")) this.releaseKey("on");
+        return;
+      }
       if (this.pointerDown.get(e.pointerId) !== k.name) return;
       this.pointerDown.delete(e.pointerId);
       this.releaseKey(k.name);
@@ -1375,10 +1538,13 @@ export class SatCalculator extends HTMLElement {
     if (seq !== this.renderSeq) return;
     this.skinKeys.clear();
     this.skinFits = [];
+    this.skinGhosts = [];
+    this.cancelOn();
     this.skinWindow = null;
     this.skinWindowFill = "";
     this.skinData = s;
     this.skinModel = model;
+    this.skinMenus = menuKeys(model);
     this.faceBoxes = null;
     this.geom = null;
     // Edge to edge, the room around the face takes the case's colour.
