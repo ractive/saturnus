@@ -7,6 +7,14 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **AI tools take all of the 48's character codes.** `run_rpl` and
+  `store_variable` typed a code such as `\GS` with its backslash, so `'\GS(I=0,1000,1/I!)' \->NUM`
+  gave "Invalid Syntax" on the 48GX. Now every code of the ASCII
+  transfer table (`\GS` Σ, `\v/` √, `\pi` π, `\<=` ≤, `\Ga` α, `\oo` ∞,
+  `\nnn`, `\\` for a backslash) is read as its character first, on the
+  48SX, 48GX and 49G. The 28S takes the codes of the characters it has
+  keys for and says which ones when given another. The editor's text is
+  typed as before.
 - **The Memory pane closes at every window width.** With the window
   just over 1000px wide and the side panel open, the pane was wider
   than the room left beside the calculator and its close button lay

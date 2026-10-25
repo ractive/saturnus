@@ -36,6 +36,47 @@ const RUNS = new Set(["+", "-", "*", "/", "^", "%", "√", "∫", "∂"]);
 const PADDED = new Set([...RUNS, "→", "≤", "≥", "<", ">", "≠", "π"]);
 
 /**
+ * The 48's translation codes (crates/saturnus-objects/src/charset.rs,
+ * the table of ASCII transfers) for the characters the 28S has a key for
+ * (`PLAIN`); its other characters have no key, nor has the backslash.
+ */
+const CODES28 = {
+  "\\<<": "«", "\\>>": "»", "\\->": "→", "\\GS": "Σ", "\\pi": "π", "\\v/": "√", "\\.S": "∫",
+  "\\.d": "∂", "\\<=": "≤", "\\>=": "≥", "\\=/": "≠", "\\^o": "°", "\\Gm": "µ",
+};
+
+/** The 48's mnemonic codes (charset.rs), only to name one in the 28S's refusal. */
+const CODES48 = String.raw`\<) \x- \.V \v/ \.S \GS \|> \pi \.d \<= \>= \=/ \Ga \-> \<- \|v \|^ \Gg \Gd \Ge \Gn \Gh \Gl \Gr \Gs \Gt \Gw \GD \PI \GW \[] \oo \<< \^o \Gm \>> \.x \O/ \Gb \:-`.split(" ");
+
+/**
+ * `text` with the 48's translation codes the 28S can type (`CODES28`)
+ * turned into their characters. Any other backslash is an error that
+ * says so: the 28S has no backslash key, and the rest of the 48's codes
+ * stand for characters it has no key for.
+ */
+export function fromCodes28(text) {
+  let out = "";
+  for (let i = 0; i < text.length; ) {
+    if (text[i] !== "\\") {
+      out += text[i++];
+      continue;
+    }
+    const code = text.slice(i, i + 3);
+    if (!CODES28[code]) {
+      const takes = `of the 48's character codes it takes only ${Object.keys(CODES28).join(" ")} (for ${Object.values(CODES28).join(" ")})`;
+      const number = text.slice(i, i + 4);
+      const what = /^\\\d{3}$/.test(number) ? `the code ${number}`
+        : CODES48.includes(code) ? `the code ${code}`
+        : text.length > i + 1 ? `a backslash (before "${text.slice(i + 1, i + 3)}", which is no code)` : "a backslash (at the end)";
+      throw new Error(`The 28S cannot type ${what}: it has no backslash key, and ${takes}.`);
+    }
+    out += CODES28[code];
+    i += 3;
+  }
+  return out;
+}
+
+/**
  * The menu labels shown on the bottom line of `frame` (the protocol's
  * `frame` event: base64 rows, most significant bit leftmost): six
  * inverse boxes 22 pixels wide, 23 apart (wiki: hardware/hp28s

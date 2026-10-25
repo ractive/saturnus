@@ -103,7 +103,8 @@ test("press_keys refuses while the calculator types or transfers", async () => {
 test("run_rpl: the 48GX's run, its error and the 49G's mode; refused on the 42S", async () => {
   const gx = fake("48gx", { run: { error: "+ Error: Too Few Arguments", closed: true, running: false }, commandLine: { active: false }, stack: [] });
   const r = await call(tools({ "48gx": gx }).run_rpl, { text: "+" });
-  assert.deepEqual(gx.calls.find(([cmd]) => cmd === "run"), ["run", "+"]);
+  // The host reads the 48's character codes (\GS, \v/, ...) in the text.
+  assert.deepEqual(gx.calls.find(([cmd]) => cmd === "run"), ["run", "+", { codes: true }]);
   assert.equal(r.error, "+ Error: Too Few Arguments");
   assert.equal(r.ran, "+");
   assert.deepEqual(r.stack, []);
@@ -120,6 +121,16 @@ test("run_rpl on the 28S types through its keys", async () => {
   assert.equal(r.ran, "1 2 +");
   assert.equal(r.stack, undefined, "no stack read on the 28S");
   assert.equal(r.commandLine, undefined, "no line open");
+});
+
+test("run_rpl on the 28S types the 48's codes it has keys for, and refuses the others", async () => {
+  const c = fake("28s", { entryModes: { lowercase: false, menuLock: false }, commandLine: { active: false, text: "", cursor: 0 } });
+  const t = tools({ "28s": c });
+  await call(t.run_rpl, { text: "\\<< 1 \\>>", display: "text" });
+  const typed = c.calls.find(([cmd]) => cmd === "typeKeys")[1];
+  assert.deepEqual(typed, ["space", "program", "space", "1", "space", "shift", "program", "enter"]);
+  await assert.rejects(call(t.run_rpl, { text: "1 \\oo" }), /28S cannot type the code \\oo: it has no backslash key/);
+  assert.equal(c.calls.filter(([cmd]) => cmd === "typeKeys").length, 1, "nothing typed for \\oo");
 });
 
 test("run_rpl on the 28S refuses while a command line is open; read_display shows the line", async () => {
@@ -151,6 +162,7 @@ test("the memory tools: reads, a store with its compile error, a purge; the dir;
   assert.deepEqual(await call(t.store_variable, { name: "Q", text: "« 2 *", dir: ["B"] }), { calculator: "48gx", stored: false, error: "Invalid Syntax" });
   assert.equal((await call(t.store_variable, { name: "Q", text: "« 2 * »", dir: ["HOME", "B"] })).stored, true);
   assert.deepEqual(c.calls.filter(([cmd]) => cmd === "storeText").map(([, m]) => m.dir), [["HOME", "B"], ["HOME", "B"]]);
+  assert.ok(c.calls.filter(([cmd]) => cmd === "storeText").every(([, m]) => m.codes === true), "the host reads the codes");
   await call(t.purge_variable, { name: "Q" });
   assert.deepEqual(c.calls.find(([cmd]) => cmd === "purge").slice(1), [["HOME", "A"], "Q"]);
   const k = tools({ "42s": fake("42s") });

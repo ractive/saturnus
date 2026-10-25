@@ -17,7 +17,7 @@
 // nothing here is new to the calculator.
 
 import { pressFunction } from "./palette.js";
-import { send28, settle } from "./keys28.js";
+import { fromCodes28, send28, settle } from "./keys28.js";
 import { exampleBefore, exampleResult, exampleText, placement, search } from "./reference.js";
 import "./shared/models.js";
 
@@ -56,7 +56,7 @@ Screens (48SX, 48GX, 49G): read_display, press_keys and run_rpl say in "screen" 
 
 Work in small steps: press or run, then read the display (read_display) or the stack to check what happened before the next step. press_keys and run_function return the display afterwards. Key names come from list_keys: digits are "0" to "9", operators "plus", "minus", "multiply", "divide", and a shifted function is the shift key, then the key ("leftshift", "sin"). A shift or ALPHA stays pending until the next key: look at the annunciators. Long presses are not possible; every press is a normal tap.
 
-RPL basics: numbers and objects go on the stack, commands take their arguments from it (1 2 + gives 3). Programs are « … », names 'X', strings "…", lists { … }. Store with 'NAME' STO or store_variable; run a program by its name. Character codes such as \\<< \\>> \\-> work in place of « » →. On the 49G, flag -95 set means algebraic mode, where RPN text does not parse: run_rpl says "mode": "algebraic"; type algebraic syntax there, or run CF(-95) to switch to RPN mode. ENTER in algebraic mode leaves the expression and its result on the stack, so CF(-95) leaves two objects (the tagged echo and NOVAL): DROP2 removes them.
+RPL basics: numbers and objects go on the stack, commands take their arguments from it (1 2 + gives 3). Programs are « … », names 'X', strings "…", lists { … }. Store with 'NAME' STO or store_variable; run a program by its name. The 48's character codes (as in its ASCII transfers) work in place of the characters in run_rpl and store_variable text, e.g. \\<< \\>> for « », \\-> for →, \\GS for Σ, \\v/ for √, \\pi for π, \\<= \\>= \\=/ for ≤ ≥ ≠, \\Ga for α, \\oo for ∞, \\nnn for character nnn (128-255), \\\\ for a backslash; the 28S takes only those it has keys for. On the 49G, flag -95 set means algebraic mode, where RPN text does not parse: run_rpl says "mode": "algebraic"; type algebraic syntax there, or run CF(-95) to switch to RPN mode. ENTER in algebraic mode leaves the expression and its result on the stack, so CF(-95) leaves two objects (the tagged echo and NOVAL): DROP2 removes them.
 
 On the 42S, the top row of keys are menu keys while a menu shows: EXIT (key "on") leaves it. On the 28S, a number being typed ends at a space or a command.
 
@@ -193,7 +193,7 @@ export function aiTools(deps) {
     {
       name: "run_rpl",
       title: "Run RPL",
-      description: "48SX, 48GX, 49G and 28S: types the text on a new command line and presses ENTER, as a person would, then waits until the calculator has finished. Refused while a command line is open (finish or cancel it first), and on the 48SX, 48GX and 49G while another screen has the keyboard (an input form, a choose box, a message, the graphics screen: the refusal says which and how to leave it; to_stack goes back). Returns the calculator's error message (null if none), the stack (48SX, 48GX, 49G) and the display as asked. A program's text is « … »; \\<< \\>> work too.",
+      description: "48SX, 48GX, 49G and 28S: types the text on a new command line and presses ENTER, as a person would, then waits until the calculator has finished. Refused while a command line is open (finish or cancel it first), and on the 48SX, 48GX and 49G while another screen has the keyboard (an input form, a choose box, a message, the graphics screen: the refusal says which and how to leave it; to_stack goes back). Returns the calculator's error message (null if none), the stack (48SX, 48GX, 49G) and the display as asked. A program's text is « … »; the 48's character codes (\\<< \\>> \\-> \\GS \\v/ \\pi …) work too.",
       inputSchema: {
         type: "object",
         properties: {
@@ -209,7 +209,7 @@ export function aiTools(deps) {
         const text = String(input.text);
         if (KEYED_RPL_MODELS.includes(t.model)) {
           await refuseOpenLine(t);
-          await send28(t.backend, t.store, "run", text, pace);
+          await send28(t.backend, t.store, "run", fromCodes28(text), pace);
           return display(t, String(input.display ?? "both"), { png, extra: { ran: text, ...(await stillRunning(t)) } });
         }
         if (!RPL_MODELS.includes(t.model)) throw new Error(`The ${titleOf(t.model)} has no RPL command line. Use run_function or press_keys.`);
@@ -220,7 +220,7 @@ export function aiTools(deps) {
           throw new Error(`The calculator shows ${screenPhrase(screen)}, not the stack: run_rpl would type into it. screen: ${JSON.stringify(screen.screen)}. next: ${screen.next} Or to_stack, which presses CANCEL until the stack is back.`);
         }
         await refuseOpenLine(t);
-        const r = await t.backend.run(text);
+        const r = await t.backend.run(text, { codes: true });
         const mode = t.model === "49g" ? await modeOf(t) : null;
         return display(t, String(input.display ?? "text"), {
           png,
@@ -325,7 +325,7 @@ export function aiTools(deps) {
         rplOnly(t);
         ready(t);
         const dir = dirOf(input.dir) ?? (await t.backend.memoryTree()).path;
-        const r = await t.backend.storeText({ dir, name: String(input.name), text: String(input.text) });
+        const r = await t.backend.storeText({ dir, name: String(input.name), text: String(input.text), codes: true });
         if (r.error) return { calculator: t.id, stored: false, error: r.error };
         return { calculator: t.id, stored: true, dir, name: String(input.name) };
       }, options?.signal),

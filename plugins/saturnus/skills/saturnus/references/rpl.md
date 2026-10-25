@@ -18,8 +18,12 @@ arguments from the stack and leave results there. `2 3 +` leaves 5.
 | Unit object (48, 49) | `5_m` |
 | Binary integer | `#FFh` |
 
-ASCII spellings the calculators accept: `\<<` `\>>` for « », `\->` for →,
-`->LIST` for →LIST. `lookup_command` takes either spelling.
+ASCII spellings: `run_rpl` and `store_variable` take the 48's character
+codes (as in its ASCII transfers) in place of the characters, e.g. `\<<`
+`\>>` for « », `\->` for →, `\GS` for Σ, `\v/` for √, `\pi` for π, `\<=`
+`\>=` `\=/` for ≤ ≥ ≠, `\Ga` for α, `\nnn` for character nnn (128-255) and
+`\\` for a backslash; the 28S takes only those it has keys for.
+`lookup_command` takes the codes too, and `->LIST` for →LIST.
 
 ## Programs
 

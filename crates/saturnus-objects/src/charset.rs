@@ -160,6 +160,37 @@ pub fn encode_command(text: &str) -> Result<Vec<u8>, char> {
     Ok(out)
 }
 
+/// Text with the translation codes read as the calculator reads an ASCII
+/// transfer with translation mode 2 or 3: `\\` is one backslash, a
+/// trigraph (`\->`, `\GS`, `\160`) is its character, and a backslash that
+/// starts neither stays a backslash. Everything else, Unicode included,
+/// is unchanged; text without a backslash comes back as it was.
+pub fn from_trigraphs(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(pos) = rest.find('\\') {
+        out.push_str(&rest[..pos]);
+        let tail = &rest[pos..];
+        if let Some(after) = tail.strip_prefix("\\\\") {
+            out.push('\\');
+            rest = after;
+            continue;
+        }
+        match trigraph_at(tail) {
+            Some((byte, len)) => {
+                out.push_str(&char_of(byte));
+                rest = &tail[len..];
+            }
+            None => {
+                out.push('\\');
+                rest = &tail[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// The byte and length of the trigraph that starts `s` (at a backslash),
 /// if any: a mnemonic (`\->`) or a code of 128-255 (`\160`).
 pub fn trigraph_at(s: &str) -> Option<(u8, usize)> {
@@ -300,6 +331,35 @@ mod tests {
         for (i, t) in HIGH_TRIGRAPHS.iter().enumerate() {
             assert_eq!(encode_command(t).unwrap(), [0x80 + i as u8]);
         }
+    }
+
+    #[test]
+    fn from_trigraphs_reads_every_code_as_the_calculator_does() {
+        // Every code of the table, the same bytes as an ASCII transfer.
+        let high: Vec<u8> = (128..=255).collect();
+        assert_eq!(from_trigraphs(SX_T3), decode(&high));
+        assert_eq!(
+            from_trigraphs("'\\GS(I=0,1000,1/I!)' \\->NUM"),
+            "'Σ(I=0,1000,1/I!)' →NUM"
+        );
+        assert_eq!(
+            from_trigraphs("\\v/ \\pi \\<= \\>= \\=/ \\Ga \\<) \\.d \\|> \\oo \\<- \\|v \\|^"),
+            "√ π ≤ ≥ ≠ α ∡ ∂ ▶ ∞ ← ↓ ↑"
+        );
+        assert_eq!(from_trigraphs("\\<< 1 + \\>>"), "« 1 + »");
+        assert_eq!(from_trigraphs("\\x-"), "x\u{0304}");
+        // `\\` is one backslash and starts no code; an unknown code and a
+        // number below 128 stay as they are.
+        assert_eq!(from_trigraphs("\"a\\\\b\""), "\"a\\b\"");
+        assert_eq!(from_trigraphs("\\\\GS"), "\\GS");
+        assert_eq!(from_trigraphs("\\q \\127 \\"), "\\q \\127 \\");
+        // Unicode and text without a backslash are unchanged.
+        assert_eq!(
+            from_trigraphs("« 'Σ(I=1,10,I^2)' →NUM »"),
+            "« 'Σ(I=1,10,I^2)' →NUM »"
+        );
+        assert_eq!(from_trigraphs("\\é\\GS"), "\\éΣ");
+        assert_eq!(from_trigraphs(""), "");
     }
 
     #[test]

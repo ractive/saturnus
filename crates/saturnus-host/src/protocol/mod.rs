@@ -401,6 +401,21 @@ fn str_field<'a>(msg: &'a Value, name: &str) -> Result<&'a str> {
         .ok_or_else(|| format!("missing string field {name:?}").into())
 }
 
+/// The `text` of a send or `storeText`. With `codes` true (the AI
+/// tools' text) the 48's translation codes (`\GS`, `\v/`, `\->`, `\\` for
+/// a backslash) are read as their characters first, as an ASCII transfer
+/// reads them (`charset::from_trigraphs`); without it the text is the
+/// calculator's own (the editor's, which may hold a backslash in a string)
+/// and stays as it is.
+fn text_field(msg: &Value) -> Result<String> {
+    let text = str_field(msg, "text")?;
+    Ok(if msg.get("codes").and_then(Value::as_bool) == Some(true) {
+        saturnus_objects::charset::from_trigraphs(text)
+    } else {
+        text.to_string()
+    })
+}
+
 /// A typed answer as the reply's JSON value.
 fn value_of<T: Serialize>(v: &T) -> Result<Value> {
     serde_json::to_value(v).map_err(|e| e.to_string().into())
@@ -1384,7 +1399,7 @@ impl Engine {
         msg: &Value,
         reply: Option<u64>,
     ) -> Result<Answer> {
-        let text = str_field(msg, "text")?;
+        let text = &text_field(msg)?;
         self.emu()?;
         // A sleeping machine first catches up the time that passed.
         self.wake_running(clock)?;
@@ -1431,7 +1446,7 @@ impl Engine {
         let name = || str_field(msg, "name").map(str::to_string);
         let dir = Vec::new();
         if cmd == CommandKind::StoreText {
-            let text = str_field(msg, "text")?.to_string();
+            let text = text_field(msg)?;
             let (dir, target) = self.text_target(msg)?;
             // What the editor opened must still be there: a save never
             // replaces what it did not show. Compared by the object

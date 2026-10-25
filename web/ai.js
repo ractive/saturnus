@@ -83,7 +83,7 @@ class HubTarget {
       // As the page's backend: no answer awaited (the names were checked).
       typeKeys: (keys) => { r("typeKeys", { keys }).catch(() => {}); },
       stats: () => r("stats"),
-      run: (text) => r("run", { text }),
+      run: (text, { codes = false } = {}) => r("run", { text, ...(codes ? { codes } : {}) }),
       stack: () => r("stack"),
       commandLine: () => r("commandLine"),
       entryModes: () => r("entryModes"),

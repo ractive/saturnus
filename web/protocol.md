@@ -243,7 +243,7 @@ refuse them, as they refuse the reads.
 | `move` | as `copy` | `{emulatedMs, keys}` | `copy`, then the two objects' `BYTES` (size and checksum) compared on the calculator and the original purged only when they agree; otherwise the error `Copy differs` and the original stays (a copy may be left in `to`). Also refused for a directory that holds the current one. |
 | `changeDir` | `dir` | `{emulatedMs, keys}` | Makes `dir` the current directory. |
 | `setFlag` | `flag` (-64 to 64, not 0; -128 to 128 on the 49G), `on` (boolean) | `{emulatedMs, keys}` | `SF` or `CF`. |
-| `storeText` | `text`, and `dir` and `name` (a variable), or `level` (a stack level, 1 at the top); `was` (optional) | `{emulatedMs, keys, error?}`; `error` is why the calculator did not compile it (its own message, `"Invalid Syntax"`, or `"the text holds more than one object"`, `"the text holds no object"`), and then nothing changed | Compiles `text` on the calculator and puts the one object it gives in the variable (stored, created if new) or in place of the stack level (the levels around it keep their places). See [The palette's editor](#the-palettes-editor). |
+| `storeText` | `text`, and `dir` and `name` (a variable), or `level` (a stack level, 1 at the top); `was` (optional); `codes` (optional, as for a send) | `{emulatedMs, keys, error?}`; `error` is why the calculator did not compile it (its own message, `"Invalid Syntax"`, or `"the text holds more than one object"`, `"the text holds no object"`), and then nothing changed | Compiles `text` on the calculator and puts the one object it gives in the variable (stored, created if new) or in place of the stack level (the levels around it keep their places). See [The palette's editor](#the-palettes-editor). |
 | `storeScreen` | `name` (optional), with it `dir` and `replace` (optional, false); `pixels` (optional: base64, packed as `frame`'s, with `width` and `height` if given the display's) | `{name?, emulatedMs, keys}` | The screen as a GROB of the display's size (131 × 64; no annunciators), the pixels LCD→ gives on the same screen: `pixels` (the frame the page showed when it was asked for), else the display as it is now. With `name`, stored as that variable in `dir`; refused when the name is taken (unless `replace`) and always when it is a directory's. Without `name`, put on stack level 1: the stack has one level more, the only write that changes it. The GROB travels in binary under a free temporary name (`SATSCRN`, `SATSCRN2`, …), then `'T' RCL 'T' PURGE`, and `'name' STO` for a variable, so nothing else stays in the user memory. |
 
 - **A server left running** (a state saved while Files'
@@ -543,6 +543,17 @@ what it reads from RAM: wiki `hardware/command-line`.
   backslash, the backquote, DEL, `∇ ▶ ■` and 23 Latin-1 signs); the 48GX
   and 49G type all of 1-255, some through their CHARS application; NUL
   is never typable (the editor refuses it).
+- `codes: true` (optional, on every send and on `storeText`) reads the
+  calculator's translation codes in `text` first, as an ASCII transfer
+  with translation mode 3 reads them: `\->` `\GS` `\v/` `\pi` `\<=` `\Ga`
+  and the rest of characters 128-159, `\<<` `\>>` `\^o` and the other
+  Latin-1 mnemonics, `\nnn` for any of 128-255, and `\\` for one
+  backslash; a backslash that starts no code stays (wiki:
+  protocols/hp-object-format). The 49G's string syntax then reads a
+  backslash as an escape, as after a transfer: a backslash in a 49G
+  string is `\\\\` in such text.
+  The AI tools set it; without it (the editor) the text is typed or
+  compiled as it is, backslashes included.
 - Right after a cold boot, while the host still answers "Try To Recover
   Memory?" (`status.starting`), a send or a write is accepted and waits,
   in emulated time, until the question (and the 49G's "Memory Clear"

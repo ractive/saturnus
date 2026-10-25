@@ -69,8 +69,8 @@ class Backend extends EventTarget {
   objectAt(address) { return this.request("objectAt", { address }); }
   /** Type `text` at the cursor (or start a command line); `{typed, keys, emulatedMs, commandLine}`. */
   insert(text) { return this.request("insert", { text }); }
-  /** Type `text`, then ENTER; also `{closed, error, running}`. */
-  run(text) { return this.request("run", { text }); }
+  /** Type `text`, then ENTER; also `{closed, error, running}`. `{codes: true}` reads `\GS`-style codes in it (protocol.md). */
+  run(text, { codes = false } = {}) { return this.request("run", { text, ...(codes ? { codes } : {}) }); }
   /** Clear the command line being edited, then type `text`. */
   replace(text) { return this.request("replace", { text }); }
   /** `{active, text, cursor}` of the command line, from RAM. */
