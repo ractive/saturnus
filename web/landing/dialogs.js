@@ -28,3 +28,18 @@ document.addEventListener("keydown", (e) => {
   e.preventDefault();
   open.querySelector(e.key === "ArrowLeft" ? ".dlg-prev" : ".dlg-next")?.click();
 });
+
+// The screenshots: a link `a.shot-open` opens its picture large in the
+// dialog its `data-dialog` names instead of the image file, and a click
+// outside the picture closes it where the browser has no `closedby`.
+// Without script the link opens the image.
+document.addEventListener("click", (e) => {
+  const open = e.target.closest?.("a.shot-open");
+  const dlg = open && document.getElementById(open.dataset.dialog);
+  if (dlg?.showModal && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    e.preventDefault();
+    dlg.showModal();
+  } else if (e.target.matches?.("dialog.shot-dlg")) {
+    e.target.close();
+  }
+});

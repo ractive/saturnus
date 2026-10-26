@@ -60,7 +60,7 @@ test("the service worker precaches exactly the app's files, and a new build is a
     // The top: the landing page, the favicon, the .htaccess, the marker, llms.txt
     // and sitemap.xml; nothing else.
     const top = filesUnder(a.out).filter((f) => !f.includes("/") || f.startsWith("img/"));
-    const landing = filesUnder(join(WEB, "landing")).filter((f) => !f.startsWith("raw/") && f !== "shots.mjs");
+    const landing = filesUnder(join(WEB, "landing")).filter((f) => !f.startsWith("raw/") && !f.endsWith(".mjs"));
     assert.deepEqual(top, [".htaccess", ".saturnus-site", "favicon.svg", ...landing, "llms.txt", "sitemap.xml"].sort());
     assert.match(readFileSync(join(a.out, "sitemap.xml"), "utf8"), /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
     // The old subsites are gone, and no worker is served at the top.

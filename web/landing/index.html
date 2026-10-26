@@ -7,13 +7,13 @@
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1efe9">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#272724">
 <title>saturnus: classic HP calculators in your browser</title>
-<meta name="description" content="saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII. Run the real ROM in your browser, as a desktop app or on the command line. Nothing is uploaded.">
+<meta name="description" content="saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII. Run the real ROM in your browser, as a desktop app or on the command line. Everything runs locally.">
 <link rel="canonical" href="https://ractive.ch/saturnus/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="saturnus">
 <meta property="og:title" content="saturnus: classic HP calculators in your browser">
-<meta property="og:description" content="HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII, emulated from the Saturn CPU up. In the browser, on the desktop and on the command line. Nothing is uploaded.">
+<meta property="og:description" content="HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII, emulated from the Saturn CPU up. In the browser, on the desktop and on the command line. Everything runs locally.">
 <meta property="og:url" content="https://ractive.ch/saturnus/">
 <meta property="og:image" content="https://ractive.ch/saturnus/img/og.png">
 <meta property="og:image:width" content="1200">
@@ -42,13 +42,6 @@
     <span>saturnus</span>
   </a>
   <a class="by" href="https://ractive.ch/" target="_blank" rel="noopener noreferrer">by @ractive.ch<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
-  <nav aria-label="Sections">
-    <a href="#models">Models</a>
-    <a href="docs/">Docs</a>
-    <a href="#get">Get it</a>
-    <a href="#transfer">Files</a>
-    <a href="https://github.com/ractive/saturnus" target="_blank" rel="noopener noreferrer">Source<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
-  </nav>
 </header>
 
 <main>
@@ -56,12 +49,12 @@
 <section class="hero">
   <div class="hero-text">
     <h1>saturnus: classic HP calculators in your browser</h1>
-    <p class="lead">saturnus emulates the HP 48SX, HP 48GX, HP 49G, HP 38G, HP 39G, HP 40G, HP 42S, HP 27S, HP 17BII, HP 17B, HP 28S and HP 19BII. Use it in the browser, as a desktop app or from the command line.</p>
+    <p class="lead">saturnus emulates the HP 48SX, HP 48GX, HP 49G, HP 38G, HP 39G, HP 40G, HP 42S, HP 27S, HP 17BII, HP 17B, HP 28S and HP 19BII. Use it in the browser or as a desktop app.</p>
+    <p class="docs-line">The <a href="docs/">docs</a> describe each model, every command, the Saturn processor and how to move files to a real calculator.</p>
     <p class="actions">
       <a class="button primary" href="app/">Open saturnus</a>
-      <a class="button" href="#get">Desktop and command line</a>
     </p>
-    <p class="fine">Free and open source (MIT). Nothing is uploaded: the ROM and your work stay on your device. No ROM is included; <a href="#rom">get one from hpcalc.org</a>.</p>
+    <p class="fine">Free and open source (MIT). Everything runs locally: the ROM and your work never leave your device. No ROM is included; <a href="#rom">get one from hpcalc.org</a>.</p>
   </div>
   <figure class="hero-calc">
     <img src="img/calculator.svg" width="144" height="248" alt="An HP 48 calculator, drawn flat, showing a sine plot">
@@ -77,7 +70,7 @@
     <li class="model">
       <button class="model-pic" type="button" commandfor="dlg-48sx" command="show-modal" tabindex="-1"><img loading="lazy" src="img/48sx-320.webp" srcset="img/48sx-320.webp 320w, img/48sx-640.webp 640w" sizes="(min-width: 800px) 190px, (min-width: 600px) 30vw, 45vw" width="1248" height="2721" alt="HP 48SX with three values on the stack"></button>
       <h3><svg class="logo" data-logo="48sx" width="18" height="18" aria-hidden="true"><use href="#mark"/></svg>HP 48SX <span class="year">1990</span></h3>
-      <p>The 28S's RPL in a case with two card ports, a serial port and infrared. Owners used that serial port to share programs online, and many did.</p>
+      <p>The 28S's RPL in a case with two card ports, a serial port and infrared. Owners used the serial port to share their programs online.</p>
       <p class="more"><button type="button" commandfor="dlg-48sx" command="show-modal" aria-label="More about the HP 48SX">More <span aria-hidden="true">→</span></button></p>
     </li>
     <li class="model">
@@ -707,15 +700,15 @@
     </li>
     <li>
       <h3>Look inside the memory</h3>
-      <p>The memory view shows the variables, directories, stack and flags, read live from the calculator's RAM. Store, rename, purge, set a flag: the calculator does it itself.</p>
+      <p>The memory view shows the variables, directories, stack and flags, read live from the calculator's RAM. Store, rename and delete variables or set flags there, and the calculator makes each change itself.</p>
     </li>
     <li>
       <h3>Edit programs</h3>
-      <p>Open a variable or a stack level in an RPL editor with highlighting, indentation and completion. The calculator compiles what you save, so a syntax error is its own message.</p>
+      <p>Open a variable or a stack level in an RPL editor with highlighting, indentation and completion. The calculator itself checks what you save, so a syntax error shows its own message.</p>
     </li>
     <li>
       <h3>Look up any command</h3>
-      <p>Search (Cmd+K or Ctrl+K) holds a reference of every model's commands, with examples run in saturnus. Enter runs the command on the calculator; on the 38G, 39G and 40G it goes on the edit line for you to finish.</p>
+      <p>Search (Cmd+K or Ctrl+K) finds every command of every model, with examples run in saturnus. Enter runs the command on the calculator; on the 38G, 39G and 40G it goes on the edit line for you to finish.</p>
     </li>
     <li>
       <h3>Keep your work</h3>
@@ -729,42 +722,68 @@
   <p class="note">The memory view, the editor and pasting work on the 48SX, 48GX and 49G.</p>
 </section>
 
-<section id="get" class="get">
-  <h2>Get it</h2>
-  <div class="get-grid">
-    <div class="get-card">
-      <h3>Web</h3>
-      <p>Nothing to install. The app works offline after the first visit and can be added to a phone's home screen.</p>
-      <p class="get-action"><a class="button primary" href="app/">Open saturnus</a></p>
-      <p class="fine">Your ROM and your work stay on your device.</p>
+<section id="install" class="install">
+  <div class="install-part has-side">
+    <div class="install-text">
+      <h2>Install</h2>
+      <h3>Web: nothing to install</h3>
+      <p>Open saturnus in a browser. It works offline after the first visit and can be added to a phone's home screen to install it.</p>
+      <p>You need your model's ROM: download it from <a href="https://www.hpcalc.org/" target="_blank" rel="noopener noreferrer">hpcalc.org<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> (the app links each model's page), unzip it, and choose the file or drop it onto the page. A ROM you already have works the same way. The browser keeps it, so you choose it only once, and the ROM and your work never leave your device.</p>
+      <p class="actions"><a class="button primary" href="app/">Open saturnus</a></p>
     </div>
-    <div class="get-card">
-      <h3>Desktop app</h3>
-      <p>macOS on Apple silicon, Windows and Linux on x86_64 and ARM. The app downloads a model's ROM from <a href="https://www.hpcalc.org/" target="_blank" rel="noopener noreferrer">hpcalc.org<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> for you, after asking.</p>
-      <p class="get-action"><a class="button" href="https://github.com/ractive/saturnus/releases" target="_blank" rel="noopener noreferrer">Download from the releases page<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p>
-      <p class="fine">On a Mac also with Homebrew, see the <a href="#install">install lines below</a>. The Mac app is signed and notarised. Windows will ask once before the first start; the release notes say what to click.</p>
-    </div>
-    <div class="get-card">
-      <h3>Command line</h3>
-      <p>Run a ROM with a key script, save the screen, serve the serial port for Kermit, or drive the calculator from a script.</p>
-      <p class="get-action"><a class="button" href="#install">Install lines below</a></p>
-      <p class="fine">Also as archives, .deb and .rpm on the same releases page (the package <code>saturnus</code>; the desktop app's is <code>saturnus-app</code>).</p>
-    </div>
+    <a class="shot-open" href="img/app-memory-2000.webp" data-dialog="dlg-app" title="Show it larger">
+      <figure class="browser">
+        <div class="browser-bar" aria-hidden="true"><span class="browser-dots"><span></span><span></span><span></span></span><span class="browser-url">ractive.ch/saturnus/app/</span></div>
+        <img loading="lazy" src="img/app-memory-1280.webp" srcset="img/app-memory-640.webp 640w, img/app-memory-1280.webp 1280w, img/app-memory-2000.webp 2000w" sizes="(min-width: 900px) 500px, 100vw" width="1440" height="900" alt="The saturnus app in the browser: an emulated HP 48GX showing the saturnus logo on its screen; on the left its settings, on the right its memory with the variables NOTES, PAR, AREA, PTS, G and the directory GAMES, and the program AREA listed (opens larger)">
+      </figure>
+    </a>
+    <!-- The screenshot large: the link above opens it here (dialogs.js), or as the image itself without script. -->
+    <dialog id="dlg-app" class="shot-dlg" closedby="any" aria-label="The saturnus app, larger">
+      <form method="dialog" class="dlg-tools"><button class="dlg-close" aria-label="Close">×</button></form>
+      <figure class="browser">
+        <div class="browser-bar" aria-hidden="true"><span class="browser-dots"><span></span><span></span><span></span></span><span class="browser-url">ractive.ch/saturnus/app/</span></div>
+        <img loading="lazy" src="img/app-memory-2000.webp" srcset="img/app-memory-640.webp 640w, img/app-memory-1280.webp 1280w, img/app-memory-2000.webp 2000w" sizes="min(100vw, 1440px)" width="1440" height="900" alt="">
+      </figure>
+    </dialog>
   </div>
 
-  <div id="install" class="terminal" aria-label="Install lines">
-    <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
-<pre><code><span class="c"># Command line: Rust</span>
-<span class="l">cargo install saturnus</span>
-<span class="c"># Command line: macOS and Linux, Homebrew</span>
-<span class="l">brew trust --formula ractive/tap/saturnus</span>
-<span class="l">brew install ractive/tap/saturnus</span>
-<span class="c"># Command line: Windows, Scoop</span>
-<span class="l">scoop bucket add ractive https://github.com/ractive/scoop-bucket</span>
-<span class="l">scoop install saturnus</span>
-<span class="c"># Desktop app: macOS, Homebrew</span>
+  <div class="install-part has-side">
+    <div class="install-text">
+      <h3>Desktop app</h3>
+      <p>For Macs with Apple silicon, and for Windows and Linux on Intel, AMD or ARM processors. Download it from GitHub, or install it on a Mac with Homebrew. The Mac app is signed and notarised; Windows asks once before the first start, and the release notes say what to click.</p>
+      <p class="actions"><a class="button" href="https://github.com/ractive/saturnus/releases" target="_blank" rel="noopener noreferrer">Download from GitHub<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p>
+    </div>
+    <div class="terminal" aria-label="Install the desktop app with Homebrew">
+      <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+<pre><code><span class="c"># macOS, Homebrew</span>
 <span class="l">brew trust --cask ractive/tap/saturnus-app</span>
 <span class="l">brew install --cask ractive/tap/saturnus-app</span></code></pre>
+    </div>
+    <p class="fine span">On the releases page: a .dmg for the Mac, a setup .exe or .msi for Windows, and an AppImage, .deb or .rpm for Linux (the package <code>saturnus-app</code>).</p>
+  </div>
+
+  <div id="cli" class="install-part has-side">
+    <div class="install-text">
+      <h3>Command-line tools</h3>
+      <p>Two programs without a window:</p>
+      <ul class="tools">
+        <li><strong>saturnus</strong> runs a calculator from its ROM in the terminal: it presses keys listed in a text file, saves the screen as text or a PNG, opens its serial port to other programs and looks up commands. It is made for automated tests and scripts, not for using a calculator by hand: for that, use the web or desktop app.</li>
+        <li><strong>satx</strong> sends and receives files with a real HP 48 or 49 over a serial cable, by Kermit or XModem, and with a calculator running in saturnus the same way.</li>
+      </ul>
+    </div>
+    <div class="terminal" aria-label="Install the command-line tools">
+      <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+<pre><code><span class="c"># Rust</span>
+<span class="l">cargo install saturnus satx</span>
+<span class="c"># macOS and Linux, Homebrew</span>
+<span class="l">brew trust --formula ractive/tap/saturnus</span>
+<span class="l">brew trust --formula ractive/tap/satx</span>
+<span class="l">brew install ractive/tap/saturnus ractive/tap/satx</span>
+<span class="c"># Windows, Scoop</span>
+<span class="l">scoop bucket add ractive https://github.com/ractive/scoop-bucket</span>
+<span class="l">scoop install saturnus satx</span></code></pre>
+    </div>
+    <p class="fine span">Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases" target="_blank" rel="noopener noreferrer">releases page<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> (the packages <code>saturnus</code> and <code>satx</code>).</p>
   </div>
 
   <div id="rom" class="rom-note">
@@ -774,32 +793,44 @@
 </section>
 
 <section id="transfer" class="transfer">
-  <h2>Files: to and from a calculator</h2>
-  <p>Files moves files between a calculator and your computer: an emulated one running in the app, or a real HP 48 or 49 on a serial cable (in Chrome or Edge on a computer). Copy files both ways, back up the whole memory, or serve a folder to a 38G, 39G or 40G. Files is part of the <a href="app/">app</a>, next to the calculators.</p>
-  <div class="transfer-app">
-    <div class="transfer-head">
-      <h3>satx, on the command line</h3>
+  <div class="has-side">
+    <div>
+      <h2>File transfer</h2>
+      <p>The app's Files view moves files between a calculator and your computer: an emulated one running in the app, or a real HP 48 or 49 on a serial cable (in Chrome or Edge on a computer). Copy files both ways, back up the whole memory, or serve a folder to a 38G, 39G or 40G. On the command line, <a href="#cli">satx</a> does the same.</p>
     </div>
-    <p>satx sends and receives files over a serial cable with an HP 48 or 49, by Kermit or XModem. It talks to saturnus the same way.</p>
-    <div class="terminal" aria-label="Install satx">
-      <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
-<pre><code><span class="c"># Rust</span>
-<span class="l">cargo install satx</span>
-<span class="c"># macOS and Linux, Homebrew</span>
-<span class="l">brew trust --formula ractive/tap/satx</span>
-<span class="l">brew install ractive/tap/satx</span>
-<span class="c"># Windows, Scoop</span>
-<span class="l">scoop bucket add ractive https://github.com/ractive/scoop-bucket</span>
-<span class="l">scoop install satx</span></code></pre>
+    <a class="shot-open" href="img/files-2000.webp" data-dialog="dlg-files" title="Show it larger">
+      <figure class="shot"><img loading="lazy" src="img/files-1280.webp" srcset="img/files-640.webp 640w, img/files-1280.webp 1280w, img/files-2000.webp 2000w" sizes="(min-width: 900px) 500px, 100vw" width="2544" height="840" alt="Files with two panes: on the left an emulated HP 48GX, its HOME directory holding the directories GAMES and UTILS and the variables AREA, G, M, NOTES, PAR and PTS; on the right a folder HP48 on the computer with the folders BACKUP and GAMES and files such as SOLVE.hp and UNITS.hp (opens larger)"></figure>
+    </a>
+    <dialog id="dlg-files" class="shot-dlg" closedby="any" aria-label="Files, larger" style="--ratio: 3.03">
+      <form method="dialog" class="dlg-tools"><button class="dlg-close" aria-label="Close">×</button></form>
+      <figure class="shot"><img loading="lazy" src="img/files-2000.webp" srcset="img/files-640.webp 640w, img/files-1280.webp 1280w, img/files-2000.webp 2000w" sizes="min(100vw, 1440px)" width="2544" height="840" alt=""></figure>
+    </dialog>
+  </div>
+</section>
+
+<section id="ai" class="ai">
+  <div class="has-side">
+    <div>
+      <h2>AI apps</h2>
+      <p>Let an AI app such as Claude, ChatGPT, Claude Code, Codex or Cursor use the calculators you have open in saturnus: it reads the display, presses keys, runs RPL, stores programs on the 48 and 49 models and looks up commands. You see each key it presses on the calculator, and the app asks you before its tools store or delete a variable. To start, choose <strong>Connect your AI app…</strong> in the app. In the browser the connection goes through <a href="https://ractive.ch/tab-mcp/" target="_blank" rel="noopener noreferrer">tab-mcp<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>, an open-source relay that lets a web page offer tools to AI apps, so any AI app can connect, Claude and ChatGPT included. In the desktop app the connection stays on your computer, so only AI apps on the same computer can use it.</p>
+      <p class="links"><a href="docs/ai-apps/">How to connect an AI app</a></p>
     </div>
-    <p class="fine">Also as archives, .deb and .rpm on the <a href="https://github.com/ractive/saturnus/releases" target="_blank" rel="noopener noreferrer">releases page<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> (the package <code>satx</code>).</p>
+    <a class="shot-open" href="img/ai-2000.webp" data-dialog="dlg-ai" title="Show it larger">
+      <figure class="shot"><img loading="lazy" src="img/ai-1280.webp" srcset="img/ai-640.webp 640w, img/ai-1280.webp 1280w, img/ai-2000.webp 2000w" sizes="(min-width: 900px) 500px, 100vw" width="3456" height="2163" alt="saturnus in Firefox beside the Claude app: asked to create a program that draws the saturnus logo, Claude wrote one, stored it on the emulated HP 48GX and ran it, and the logo shows on the calculator's screen (opens larger)"></figure>
+    </a>
+    <dialog id="dlg-ai" class="shot-dlg" closedby="any" aria-label="An AI app at work, larger">
+      <form method="dialog" class="dlg-tools"><button class="dlg-close" aria-label="Close">×</button></form>
+      <figure class="shot"><img loading="lazy" src="img/ai-2000.webp" srcset="img/ai-640.webp 640w, img/ai-1280.webp 1280w, img/ai-2000.webp 2000w" sizes="min(100vw, 1440px)" width="3456" height="2163" alt=""></figure>
+    </dialog>
+    <p class="fine span">In the picture: asked to draw the saturnus logo, Claude writes an RPL program, stores it on the emulated HP 48GX as SATRN and runs it.</p>
   </div>
 </section>
 
 <section id="about" class="about">
   <h2>Written from the documentation</h2>
-  <p>saturnus was written from HP's manuals, the hardware literature and the behaviour of the ROMs themselves, not from other emulators' source code. Every fact it relies on is in a public knowledge base with its source: the Saturn CPU, the display, the timers, the serial port, the memory layout and the transfer protocols.</p>
+  <p>saturnus was written from HP's manuals, the hardware literature and the behaviour of the ROMs themselves, not from other emulators' source code. Every fact it relies on is in a public knowledge base with its source: the Saturn CPU, the display, the timers, the serial port, the memory layout and the transfer protocols. The <a href="docs/">docs</a> tell what was learned along the way: each model's history, every command with examples, how the Saturn processor works and how files reach a real calculator.</p>
   <p class="links">
+    <a href="docs/">Docs</a>
     <a href="https://github.com/ractive/calculator-knowledgebase" target="_blank" rel="noopener noreferrer">Knowledge base<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
     <a href="https://github.com/ractive/saturnus" target="_blank" rel="noopener noreferrer">Source code (MIT)<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
     <a href="https://github.com/ractive/saturnus/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>

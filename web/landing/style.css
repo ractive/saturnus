@@ -226,14 +226,6 @@ pre {
 /* The way back to the site saturnus belongs to. */
 .by { margin-right: auto; color: var(--muted); font-size: var(--fs-sm); text-decoration: none; }
 .by:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
-.top nav { display: flex; gap: var(--s4); flex-wrap: wrap; }
-.top nav a { color: var(--muted); text-decoration: none; font-size: var(--fs-sm); }
-.top nav a:hover { color: var(--ink); }
-@media (max-width: 599px) {
-  /* The links on their own row under the name, in one line. */
-  .top { flex-wrap: wrap; }
-  .top nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; }
-}
 
 /* ------------------------------------------------------------------ main */
 
@@ -241,7 +233,7 @@ main { display: block; }
 section {
   max-width: var(--measure);
   margin: 0 auto;
-  padding: var(--s7) var(--gutter);
+  padding: var(--s6) var(--gutter);
 }
 section + section { border-top: 1px solid var(--rule-soft); }
 section > h2 { margin-bottom: var(--s2); }
@@ -259,6 +251,7 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
 .hero-text { max-width: 36rem; }
 .hero h1 { margin-bottom: var(--s4); }
 .lead { font-size: var(--fs-lg); max-width: 34rem; }
+.docs-line { margin-top: var(--s3); max-width: 34rem; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--s3); margin: var(--s5) 0 var(--s4); }
 .hero .fine { max-width: 34rem; }
 .hero-calc { margin: 0; justify-self: end; }
@@ -454,45 +447,72 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
 .feature-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s5) var(--s6);
+  gap: var(--s4);
   margin: 0 0 var(--s5);
   padding: 0;
   list-style: none;
+}
+/* Each a white card, unlike the models' green ones, with the accent on top. */
+.feature-list li {
+  padding: var(--s4) var(--s5) var(--s5);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--r-lg);
 }
 .feature-list h3 { margin-bottom: var(--s2); }
 .feature-list p { color: var(--muted); }
 @media (max-width: 899px) { .feature-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 599px) { .feature-list { grid-template-columns: 1fr; } }
 
-/* Get it: three cards, then the ROM note. The cards share their rows
-   (subgrid), so the titles, the texts, the buttons and the small print
-   line up across the three whatever their lengths. */
-.get-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s4);
+/* Install: the web, the desktop app and the command-line tools, each
+   with its own install lines, then the ROM note. */
+.install-part { margin-top: var(--s5); }
+.install-part:first-child { margin-top: 0; }
+.has-side h2 { margin-bottom: var(--s2); }
+.install-text h2 { margin-bottom: var(--s4); }
+.install-part + .install-part { padding-top: var(--s5); border-top: 1px solid var(--rule-soft); }
+.install-part h3 { font-size: var(--fs-xl); margin-bottom: var(--s2); }
+.install-part p { max-width: 42rem; }
+.install-text p + p { margin-top: var(--s3); }
+.install-part .actions { margin: var(--s4) 0; }
+.install-part .terminal { margin-top: var(--s4); }
+/* On a wide screen the install lines or the screenshot sit beside the text. */
+@media (min-width: 900px) {
+  .has-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); align-items: start; }
+  .has-side .terminal { margin-top: 0; }
+  .has-side .span { grid-column: 1 / -1; max-width: none; margin-top: calc(-1 * var(--s3)); }
+  .has-side .terminal pre { padding-inline: var(--s3); font-size: 12.5px; }
 }
-.get-card {
-  display: grid;
-  grid-row: span 4;
-  grid-template-rows: subgrid;
-  row-gap: var(--s3);
-  padding: var(--s5);
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  border-top: 3px solid var(--accent);
-  border-radius: var(--r-lg);
-  min-width: 0;
+/* The app's screenshot in a drawn browser window. */
+.browser { margin: 0; border: 1px solid var(--card-border); border-radius: var(--r-lg); overflow: hidden; background: var(--card); }
+.browser-bar { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s3); border-bottom: 1px solid var(--card-border); }
+.browser-dots { display: flex; gap: 6px; flex: none; }
+.browser-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--card-border); }
+.browser-url { flex: 1; max-width: 28rem; margin: 0 auto; padding: 3px var(--s3); border-radius: 999px; background: var(--paper); color: var(--muted); font-size: var(--fs-sm); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.browser img { display: block; width: 100%; height: auto; }
+.shot-open { display: block; margin-top: var(--s4); cursor: zoom-in; color: inherit; text-decoration: none; }
+@media (min-width: 900px) { .shot-open { margin-top: 0; } }
+.shot-open:hover .browser { border-color: var(--accent); }
+/* The screenshot large, as big as the window allows. Esc and a click
+   outside close it (closedby; dialogs.js where that is missing). */
+.shot-dlg {
+  width: min(calc(100vw - 2 * var(--gutter)), calc((100dvh - 2 * var(--s6)) * var(--ratio, 1.6)), 1440px);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: visible;
 }
-.get-card h3 { font-size: var(--fs-xl); }
-.get-card .get-action { padding-top: var(--s2); align-self: end; }
-.get-card .button { max-width: 100%; text-align: center; }
-.get-card .fine { margin: 0; padding-top: var(--s3); border-top: 1px solid var(--rule-soft); }
-.get .terminal { margin-top: var(--s4); scroll-margin-top: var(--s6); }
-@media (max-width: 899px) {
-  .get-grid { grid-template-columns: 1fr; }
-  .get-card { grid-row: auto; grid-template-rows: none; }
-}
+.shot-dlg::backdrop { background: rgba(20, 18, 12, 0.6); }
+.shot-dlg .browser { box-shadow: 0 12px 40px rgba(20, 18, 12, 0.35); }
+.shot-dlg .dlg-tools { top: var(--s1); right: var(--s1); }
+.shot-dlg .dlg-close { font: inherit; font-size: 28px; line-height: 1; border: 0; cursor: pointer; color: var(--muted); background: var(--paper); box-shadow: 0 1px 4px rgba(20, 18, 12, 0.25); }
+.shot-dlg .dlg-close:hover { color: var(--ink); background: var(--hover); }
+.tools { margin: var(--s3) 0 0; padding-left: 1.2em; max-width: 42rem; }
+.tools li + li { margin-top: var(--s2); }
+.has-side .span { margin-top: var(--s2); }
 
 .rom-note {
   margin-top: var(--s5);
@@ -503,10 +523,10 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
 }
 .rom-note h3 { margin-bottom: var(--s2); }
 
-/* Files, and satx on the command line. */
-.transfer > p { margin-bottom: var(--s3); }
-.transfer-app { margin-top: var(--s5); padding-top: var(--s4); border-top: 1px solid var(--rule-soft); }
-.transfer-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
+/* The screenshots without a browser frame (Files, the AI app). */
+.shot { margin: 0; }
+.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: var(--r-lg); }
+.shot-dlg .shot img { border: 0; box-shadow: 0 12px 40px rgba(20, 18, 12, 0.35); }
 
 /* The knowledge base. */
 .links { display: flex; flex-wrap: wrap; gap: var(--s4) var(--s5); margin-top: var(--s4); }
