@@ -107,6 +107,6 @@ export function installTargets({ name, url, headers = {}, newOnly = false }) {
     { id: "vscode", app: "VS Code", kind: "link", href: vscodeLink(s), insidersHref: vscodeLink(s, true) },
     { id: "claude-code", app: "Claude Code", kind: "command", text: claudeCodeCommand(s) },
     { id: "codex", app: "Codex", kind: codex.kind, text: codex.text },
-    { id: "connector", app: "Claude, ChatGPT", kind: "note", text: "In Claude, add the address in Settings as a custom connector. In ChatGPT, add it under Plugins as an MCP server (the Mac app: Settings → Plugins → MCPs → Add, Streamable HTTP; it needs Codex's feature above)." },
+    { id: "connector", app: "Claude, ChatGPT", kind: "note", text: `In Claude, add the address in Settings as a custom connector. In ChatGPT, add it under Plugins as an MCP server (the Mac app: Settings → Plugins → MCPs → Add, Streamable HTTP${newOnly ? "; it needs Codex's feature above" : ""}).` },
   ];
 }

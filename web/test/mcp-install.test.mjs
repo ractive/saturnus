@@ -87,4 +87,7 @@ test("installTargets: every app, in order", () => {
   assert.equal(t[1].insidersHref, vscodeLink(plain, true));
   assert.equal(t[2].text, claudeCodeCommand(plain));
   assert.equal(installTargets(local)[3].kind, "config");
+  // The note points at Codex's feature only when that command shows it.
+  assert.doesNotMatch(t[4].text, /Codex's feature/);
+  assert.match(installTargets({ ...plain, newOnly: true })[4].text, /it needs Codex's feature above/);
 });
