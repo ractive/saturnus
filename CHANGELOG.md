@@ -5,8 +5,36 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## Unreleased
+## 0.10.0 (2026-10-26)
 
+- **The saturnus skill and the Claude Code plugin.** An optional skill
+  (`plugins/saturnus/skills/saturnus/`, the open Agent Skills format)
+  adds what the tools do not say: RPL programming, the models'
+  differences, the screens that catch key presses, known ROM bugs and
+  worked examples. The Claude Code plugin brings the skill and the
+  desktop app's calculators in one install: `/plugin marketplace add
+  ractive/saturnus`, then `/plugin install saturnus@saturnus`. It holds
+  no key; it reads the one the desktop app writes. Docs page "AI apps".
+- **Add your AI app in one click.** "Connect your AI app" has Add to
+  Cursor, Add to VS Code, Copy for Claude Code and Copy for Codex, on the
+  web page and in the desktop app.
+- **The 49G types right after it starts, and takes long programs.** Text
+  sent while the start-up question ("Try To Recover Memory?", "Memory
+  Clear") was still showing failed; now saturnus answers it and types
+  once the calculator is ready. A program that runs longer than 30 s is
+  waited for up to 120 s, and the AI tools no longer show a running
+  program's working objects as the stack. The 49G's algebraic-mode echo
+  (`CF(-95)` and the like) now reads as typed.
+- **The AI tools see the 28S's command line.** run_rpl refuses while a
+  line is open, as on the 48, and read_display includes its text.
+- **Screen images about ten times smaller**: downloads, the clipboard
+  and the AI's images are two-colour PNGs.
+- **The docs** at <https://ractive.ch/saturnus/docs/>: a page per
+  model, how the Saturn works, moving files to a real calculator (cables,
+  Kermit and XModem as a practical guide, satx, Files, HPComm and
+  HPGComm), the AI apps, and the command reference for all twelve
+  models, with `llms.txt` and each page's Markdown for AI apps. Links to
+  other sites open in a new tab.
 - **Menu-key tooltips on the 42S, 27S, 17BII, 17B, 19BII and 28S.**
   Hovering a menu key (the 42S's top row, A to F elsewhere) names the
   label above it as iteration 66 does on the 48: `→DEG · To degrees`,
