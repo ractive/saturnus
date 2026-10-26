@@ -38,7 +38,7 @@ test("each model card opens its dialog; Esc, a click outside and × close it", {
     // The markup: one dialog per card, labelled, no id twice.
     const markup = await ev(`(() => {
       const ids = [...document.querySelectorAll("[id]")].map((e) => e.id);
-      const dlgs = [...document.querySelectorAll("dialog")];
+      const dlgs = [...document.querySelectorAll("dialog.model-dlg")];
       return {
         dupes: ids.filter((id, i) => ids.indexOf(id) !== i),
         dialogs: dlgs.map((d) => d.id),
