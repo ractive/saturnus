@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 66: the menu keys' tooltips name what the screen shows, and the self-tests in the ON menus"
 date: 2026-10-25
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
@@ -48,4 +48,4 @@ need ON+C held about 2 s).
 - [x] Menu-key tooltips follow the screen; variables, forms and choose boxes handled
 - [x] Self-test entries in the ON menus of the other models, with how to leave them
 - [x] Tests (host, unit, page) and screenshots of a tooltip on each of the three models
-- [ ] Owner: hover the menu keys in a few menus (MTH, a directory, an input form) on the 48GX and 49G
+- [x] Owner: hover the menu keys in a few menus (MTH, a directory, an input form) on the 48GX and 49G
