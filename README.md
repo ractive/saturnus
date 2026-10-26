@@ -970,7 +970,7 @@ the pages' protocol (`web/protocol.md`), so the pages do not know which
 host they run on.
 
 ```sh
-cargo install tauri-cli --version 2.12.1 --locked   # once
+cargo install tauri-cli --version 2.12.4 --locked   # once
 just app               # builds the wasm package, then `cargo tauri dev` (the app from web/)
 cd crates/saturnus-tauri
 cargo tauri build      # an installer for this OS, in target/release/bundle/

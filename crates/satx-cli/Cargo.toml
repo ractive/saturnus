@@ -5,8 +5,8 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-# rustyline 18 (the REPL) uses std's file locks, stable since 1.89.
-rust-version = "1.89"
+# rustyline 19 (the REPL) uses std's cfg_select!, stable since 1.95.
+rust-version = "1.95"
 description = "Transfer files between HP 48 and 49G calculators and a computer over a serial cable"
 
 [[bin]]
@@ -20,13 +20,13 @@ clap_complete = "4.6"
 # `native` for serial ports and TCP, `saturnus` so that released binaries
 # open saturnus:// addresses too.
 satx-core = { workspace = true, features = ["native", "saturnus"] }
-jaq-core = "3.1.1"
+jaq-core = "3.1.2"
 jaq-json = { version = "2.0.3", features = ["serde"] }
-jaq-std = "3.0.3"
+jaq-std = "3.0.4"
 kermit-proto.workspace = true
-rustyline = { version = "18.0.1", default-features = false, features = ["with-file-history"] }
+rustyline = { version = "19.0.0", default-features = false, features = ["with-file-history"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1.0.151"
+serde_json = "1.0.154"
 serialport = { version = "4.10.1", default-features = false }
 
 [lints]

@@ -12,24 +12,18 @@
 # advisory that cannot be fixed is the owner's decision, recorded here with
 # the reason and a re-check date.
 #
-# Iteration 11, PENDING THE OWNER'S DECISION: the Tauri app's tree has six
-# "unmaintained" advisories with no maintained release to move to (no
+# Iteration 11, PENDING THE OWNER'S DECISION: the Tauri app's tree has one
+# "unmaintained" advisory with no maintained release to move to (no
 # vulnerability is ignored; the two quick-xml and the time advisories were
-# fixed by upgrading plist and time). They come only through
-# saturnus-tauri, nothing else in the workspace depends on them.
-# Re-check 2027-01-05 or on the next Tauri minor release.
+# fixed by upgrading plist and time, and the five unic-* ones went with
+# Tauri 2.12, whose tauri-utils takes urlpattern 0.6 without them). It
+# comes only through saturnus-tauri, nothing else in the workspace
+# depends on it. Re-check 2027-01-05 or on the next Tauri minor release.
 ignore = [
     # proc-macro-error: glib-macros and gtk3-macros 0.18, the GTK 3
     # bindings Tauri 2 uses on Linux (webkit2gtk 4.1); goes away when
     # Tauri moves to gtk-rs >= 0.19 / GTK 4.
     { id = "RUSTSEC-2024-0370", reason = "via gtk 0.18 (Tauri 2 on Linux); no maintained release; owner to decide, iteration 11" },
-    # unic-*: urlpattern 0.3, used by tauri-utils for URL patterns in its
-    # capability configuration.
-    { id = "RUSTSEC-2025-0075", reason = "unic-char-range via urlpattern (tauri-utils); owner to decide, iteration 11" },
-    { id = "RUSTSEC-2025-0080", reason = "unic-common via urlpattern (tauri-utils); owner to decide, iteration 11" },
-    { id = "RUSTSEC-2025-0081", reason = "unic-char-property via urlpattern (tauri-utils); owner to decide, iteration 11" },
-    { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version via urlpattern (tauri-utils); owner to decide, iteration 11" },
-    { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident via urlpattern (tauri-utils); owner to decide, iteration 11" },
 ]
 
 [licenses]
