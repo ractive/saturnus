@@ -507,12 +507,12 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
 }
 .shot-dlg::backdrop { background: rgba(20, 18, 12, 0.6); }
 .shot-dlg .browser { box-shadow: 0 12px 40px rgba(20, 18, 12, 0.35); }
-.shot-dlg .dlg-tools { top: 3px; right: var(--s2); }
-.shot-dlg .dlg-close { width: 32px; height: 32px; font: inherit; font-size: 24px; line-height: 1; border: 0; cursor: pointer; color: var(--muted); background: none; }
+.shot-dlg .dlg-tools { top: var(--s1); right: var(--s1); }
+.shot-dlg .dlg-close { font: inherit; font-size: 28px; line-height: 1; border: 0; cursor: pointer; color: var(--muted); background: var(--paper); box-shadow: 0 1px 4px rgba(20, 18, 12, 0.25); }
 .shot-dlg .dlg-close:hover { color: var(--ink); background: var(--hover); }
 .tools { margin: var(--s3) 0 0; padding-left: 1.2em; max-width: 42rem; }
 .tools li + li { margin-top: var(--s2); }
-.install-text .fine { margin-top: var(--s3); }
+.has-side .span { margin-top: var(--s2); }
 
 .rom-note {
   margin-top: var(--s5);
@@ -523,8 +523,7 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
 }
 .rom-note h3 { margin-bottom: var(--s2); }
 
-/* File transfer. */
-.transfer > p { margin-bottom: var(--s3); }
+/* The screenshots without a browser frame (Files, the AI app). */
 .shot { margin: 0; }
 .shot img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: var(--r-lg); }
 .shot-dlg .shot img { border: 0; box-shadow: 0 12px 40px rgba(20, 18, 12, 0.35); }

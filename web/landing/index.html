@@ -742,7 +742,7 @@
       <form method="dialog" class="dlg-tools"><button class="dlg-close" aria-label="Close">×</button></form>
       <figure class="browser">
         <div class="browser-bar" aria-hidden="true"><span class="browser-dots"><span></span><span></span><span></span></span><span class="browser-url">ractive.ch/saturnus/app/</span></div>
-        <img loading="lazy" src="img/app-memory-2000.webp" width="1440" height="900" alt="">
+        <img loading="lazy" src="img/app-memory-2000.webp" srcset="img/app-memory-640.webp 640w, img/app-memory-1280.webp 1280w, img/app-memory-2000.webp 2000w" sizes="min(100vw, 1440px)" width="1440" height="900" alt="">
       </figure>
     </dialog>
   </div>
@@ -762,7 +762,7 @@
     <p class="fine span">On the releases page: a .dmg for the Mac, a setup .exe or .msi for Windows, and an AppImage, .deb or .rpm for Linux (the package <code>saturnus-app</code>).</p>
   </div>
 
-  <div class="install-part has-side">
+  <div id="cli" class="install-part has-side">
     <div class="install-text">
       <h3>Command-line tools</h3>
       <p>Two programs without a window:</p>
@@ -796,14 +796,14 @@
   <div class="has-side">
     <div>
       <h2>File transfer</h2>
-      <p>The app's Files view moves files between a calculator and your computer: an emulated one running in the app, or a real HP 48 or 49 on a serial cable (in Chrome or Edge on a computer). Copy files both ways, back up the whole memory, or serve a folder to a 38G, 39G or 40G. On the command line, <a href="#install">satx</a> does the same.</p>
+      <p>The app's Files view moves files between a calculator and your computer: an emulated one running in the app, or a real HP 48 or 49 on a serial cable (in Chrome or Edge on a computer). Copy files both ways, back up the whole memory, or serve a folder to a 38G, 39G or 40G. On the command line, <a href="#cli">satx</a> does the same.</p>
     </div>
     <a class="shot-open" href="img/files-2000.webp" data-dialog="dlg-files" title="Show it larger">
       <figure class="shot"><img loading="lazy" src="img/files-1280.webp" srcset="img/files-640.webp 640w, img/files-1280.webp 1280w, img/files-2000.webp 2000w" sizes="(min-width: 900px) 500px, 100vw" width="2544" height="840" alt="Files with two panes: on the left an emulated HP 48GX, its HOME directory holding the directories GAMES and UTILS and the variables AREA, G, M, NOTES, PAR and PTS; on the right a folder HP48 on the computer with the folders BACKUP and GAMES and files such as SOLVE.hp and UNITS.hp (opens larger)"></figure>
     </a>
     <dialog id="dlg-files" class="shot-dlg" closedby="any" aria-label="Files, larger" style="--ratio: 3.03">
       <form method="dialog" class="dlg-tools"><button class="dlg-close" aria-label="Close">×</button></form>
-      <figure class="shot"><img loading="lazy" src="img/files-2000.webp" width="2544" height="840" alt=""></figure>
+      <figure class="shot"><img loading="lazy" src="img/files-2000.webp" srcset="img/files-640.webp 640w, img/files-1280.webp 1280w, img/files-2000.webp 2000w" sizes="min(100vw, 1440px)" width="2544" height="840" alt=""></figure>
     </dialog>
   </div>
 </section>
@@ -812,7 +812,7 @@
   <div class="has-side">
     <div>
       <h2>AI apps</h2>
-      <p>Let an AI app such as Claude, ChatGPT, Claude Code, Codex or Cursor use the calculators you have open in the browser or in the desktop app: it reads the display, presses keys, runs RPL, stores programs on the 48 and 49 models and looks up commands. You see each key it presses on the calculator, and it stores or deletes a variable only after you allow it. To start, choose <strong>Connect your AI app…</strong> in the app. In the browser the connection goes through <a href="https://ractive.ch/tab-mcp/" target="_blank" rel="noopener noreferrer">tab-mcp<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>, an open-source relay that lets a web page offer tools to AI apps. In the desktop app the connection stays on your computer and does not use the internet.</p>
+      <p>Let an AI app such as Claude, ChatGPT, Claude Code, Codex or Cursor use the calculators you have open in saturnus: it reads the display, presses keys, runs RPL, stores programs on the 48 and 49 models and looks up commands. You see each key it presses on the calculator, and the app asks you before its tools store or delete a variable. To start, choose <strong>Connect your AI app…</strong> in the app. In the browser the connection goes through <a href="https://ractive.ch/tab-mcp/" target="_blank" rel="noopener noreferrer">tab-mcp<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>, an open-source relay that lets a web page offer tools to AI apps, so any AI app can connect, Claude and ChatGPT included. In the desktop app the connection stays on your computer, so only AI apps on the same computer can use it.</p>
       <p class="links"><a href="docs/ai-apps/">How to connect an AI app</a></p>
     </div>
     <a class="shot-open" href="img/ai-2000.webp" data-dialog="dlg-ai" title="Show it larger">
@@ -820,7 +820,7 @@
     </a>
     <dialog id="dlg-ai" class="shot-dlg" closedby="any" aria-label="An AI app at work, larger">
       <form method="dialog" class="dlg-tools"><button class="dlg-close" aria-label="Close">×</button></form>
-      <figure class="shot"><img loading="lazy" src="img/ai-2000.webp" width="3456" height="2163" alt=""></figure>
+      <figure class="shot"><img loading="lazy" src="img/ai-2000.webp" srcset="img/ai-640.webp 640w, img/ai-1280.webp 1280w, img/ai-2000.webp 2000w" sizes="min(100vw, 1440px)" width="3456" height="2163" alt=""></figure>
     </dialog>
     <p class="fine span">In the picture: asked to draw the saturnus logo, Claude writes an RPL program, stores it on the emulated HP 48GX as SATRN and runs it.</p>
   </div>

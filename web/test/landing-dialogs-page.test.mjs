@@ -111,6 +111,22 @@ test("each model card opens its dialog; Esc, a click outside and × close it", {
     await esc();
     await until(ev, `!document.querySelector("dialog[open]")`, 3_000, "Esc closes it");
 
+    // The screenshots: each link opens its picture in its dialog instead of
+    // the image file; × and a click outside close it.
+    for (const id of ["dlg-app", "dlg-files", "dlg-ai"]) {
+      const before = await ev("location.href");
+      await ev(`document.querySelector('a.shot-open[data-dialog="${id}"]').click(); true`);
+      await until(ev, `document.getElementById("${id}").open`, 3_000, `${id} opens`);
+      assert.equal(await ev("location.href"), before, `${id}: the link does not navigate`);
+      await ev(`document.querySelector("#${id} .dlg-close").click(); true`);
+      await until(ev, `!document.getElementById("${id}").open`, 3_000, `× closes ${id}`);
+    }
+    await ev(`document.querySelector('a.shot-open[data-dialog="dlg-files"]').click(); true`);
+    await until(ev, `document.getElementById("dlg-files").open`, 3_000, "dlg-files opens again");
+    await send("Input.dispatchMouseEvent", { type: "mousePressed", x: 8, y: 8, button: "left", clickCount: 1 });
+    await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: 8, y: 8, button: "left", clickCount: 1 });
+    await until(ev, `!document.getElementById("dlg-files").open`, 3_000, "a click outside closes it");
+
     // A phone: a sheet the screen's width, nothing wider than the page.
     await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
     await ev(`document.querySelectorAll(".model .more button")[10].click(); true`);

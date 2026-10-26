@@ -9,7 +9,7 @@
 // name; its files are an HP binary header and filler bytes (only names
 // and sizes show). Writes web/landing/raw/files.png (gitignored). Then,
 // for img/:
-//   for w in 640 1280; do magick raw/files.png -resize ${w}x -quality 82 img/files-$w.webp; done
+//   for w in 640 1280 2000; do magick raw/files.png -resize ${w}x -quality 82 img/files-$w.webp; done
 // Usage: SATURNUS_ROM_DIR=../../roms node files-shot.mjs
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

@@ -9,13 +9,12 @@
 // of each nibble the leftmost pixel), and RPL on the calculator compiles
 // it, stores it as PICT, writes "saturnus" beside the planet in the
 // calculator's own large font (→GROB, REPL) and shows PICT full screen
-// with { } PVIEW. Writes web/landing/raw/app.png (gitignored). Then, for img/:
-//   for w in 640 1280; do magick raw/app.png -resize ${w}x -quality 82 img/app-$w.webp; done
-// With MEMORY=1 the variant with the memory view open on the right, at
+// with { } PVIEW. Writes web/landing/raw/app.png (gitignored); the landing
+// page does not use this plain variant. With MEMORY=1, the one it uses: the variant with the memory view open on the right, at
 // 1440x900 (at 1280 the three columns are too cramped), AREA selected: a few
 // variables stored in HOME first by RPL (programs, a number, a list, a
 // directory), the same logo on the LCD; writes raw/app-memory.png, then
-//   for w in 640 1280; do magick raw/app-memory.png -resize ${w}x -quality 82 img/app-memory-$w.webp; done
+//   for w in 640 1280 2000; do magick raw/app-memory.png -resize ${w}x -quality 82 img/app-memory-$w.webp; done
 // SCREEN=FILE also writes the LCD as text (`#` dark, `.` light).
 // Usage: SATURNUS_ROM_DIR=../../roms [MEMORY=1] [SCREEN=FILE] node app-shot.mjs
 import { mkdirSync, writeFileSync } from "node:fs";
