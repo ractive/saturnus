@@ -32,7 +32,7 @@ export class Store extends EventTarget {
       frame: null,
       /** Keys down in the machine, from `keys`. */
       keysDown: [],
-      /** The six menu keys the screen shows (the `menu` event's: 48SX, 48GX, 49G), or null while not known. */
+      /** The six menu keys the screen shows (the `menu` event's: the RPL models, the 42S and the Pioneers), or null while not known. */
       menuKeys: null,
       /**
        * The ROM slots (`romSlots`): `{slots: [{model, fileName, revision,

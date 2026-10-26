@@ -16,7 +16,7 @@ import { drawLogo } from "../logo.js";
 import { ContextClicks, ModifierGlow, clickHints, glowSide, keyTitle, modifierOf, shiftFor } from "../shiftclick.js";
 import { ghostFits, ghostSlot, hiddenOf, menuLabels } from "../hiddenkeys.js";
 import { ON_LONG_PRESS, chordOf, onCombos, onPointerDown, runCombo } from "../onkeys.js";
-import { MENU_KEYS, longNames, menuKeyTitle, wantsReference } from "../menukeys.js";
+import { MENU_KEYS, longNames, menuKeyCommand, menuKeyTitle, wantsReference } from "../menukeys.js";
 import { ANN_H, LCD_BG, LCD_INK, NO_SCREEN, hasScreen, screenFileName, screenPng } from "../screenshot.js";
 import { copyPng, pngBlob } from "../shared/png.js";
 import { closeMenu, openMenu, openMenuKey } from "../shared/components/menu.js";
@@ -420,6 +420,10 @@ export class SatCalculator extends HTMLElement {
     this.reference = null;
     /** Bumped on every menu change, so a late reference load is dropped. */
     this.menuSeq = 0;
+    /** The command each menu key runs now (`showMenuKeys`), by key name. */
+    this.menuCommands = new Map();
+    /** The skin key under the pointer, or null (`hoveredCommand`). */
+    this.hovered = null;
     this.skinWindow = null;
     this.skinWindowFill = "";
     /** Text elements to squeeze into a width once the skin is laid out. */
@@ -464,6 +468,8 @@ export class SatCalculator extends HTMLElement {
     this.store = store;
     this.bindings = bindings;
     this.isMac = bindings?.isMac ?? /Mac|iPhone|iPad/.test(navigator.platform ?? "");
+    // The menu keys' look-up line names the palette's key as bound now.
+    bindings?.onChange(() => this.showMenuKeys());
     this.innerHTML = TEMPLATE;
     this.ui = {
       skin: this.querySelector(".skin"),
@@ -1442,6 +1448,13 @@ export class SatCalculator extends HTMLElement {
     const onLine = combos.length ? [`Long press or right-click: ${combos.map((c) => c.title.replace(/…$/, "")).join(", ")}`] : [];
     const base = [keyTitle(k), ...clickHints(k, this.keyNames, this.isMac, hiddenOf(this.skinModel, k.name)), ...onLine].join("\n");
     this.keyTitles.set(k.name, { el: svg("title", {}, g, base), base });
+    // The key under the pointer, for the palette's key (`hoveredCommand`).
+    g.addEventListener("pointerenter", () => {
+      this.hovered = k.name;
+    });
+    g.addEventListener("pointerleave", () => {
+      if (this.hovered === k.name) this.hovered = null;
+    });
     // Hit area a little larger than the key and its well, as the grid's buttons are.
     const [wx, wy, ww, wh] = wellRect(k);
     const pad = k.well ? 3 : 6;
@@ -1555,6 +1568,7 @@ export class SatCalculator extends HTMLElement {
     if (seq !== this.renderSeq) return;
     this.skinKeys.clear();
     this.keyTitles.clear();
+    this.hovered = null;
     this.skinFits = [];
     this.cancelOn();
     this.skinWindow = null;
@@ -1670,18 +1684,20 @@ export class SatCalculator extends HTMLElement {
    * above each, from the host's `menu` event (`menuKeys` in the store),
    * over the key's own lines; the key's own lines alone while the keys
    * are not known or another model is drawn. A command's full name needs
-   * the reference, loaded at the first menu of commands.
+   * the reference, loaded at the first menu of commands (on the 42S and
+   * the Pioneers at the first labels: the key reference names them).
    */
   async showMenuKeys() {
     // Bumped first: a reference load still pending for another skin is dropped.
     const seq = ++this.menuSeq;
     const model = this.skinModel;
     const names = MENU_KEYS[model];
+    this.menuCommands = new Map();
     if (!names) return;
     const s = this.store?.state;
     const keys = s && s.booted === model ? s.menuKeys : null;
     let index = null;
-    if (wantsReference(keys) && this.reference) {
+    if (wantsReference(keys, model) && this.reference) {
       try {
         index = await this.reference.index(model);
       } catch {
@@ -1690,10 +1706,21 @@ export class SatCalculator extends HTMLElement {
       if (seq !== this.menuSeq || model !== this.skinModel) return;
     }
     const longName = longNames(index);
+    const shortcut = this.bindings?.labelOf("palette") ?? "";
     for (const name of names) {
+      const command = menuKeyCommand(model, name, keys, index);
+      if (command) this.menuCommands.set(name, command);
       const t = this.keyTitles.get(name);
-      if (t) t.el.textContent = menuKeyTitle(model, name, t.base, keys, longName);
+      if (t) t.el.textContent = menuKeyTitle(model, name, t.base, keys, longName, index, shortcut);
     }
+  }
+
+  /**
+   * The command the menu key under the pointer runs now (its tooltip's
+   * "look up" line), or null: the palette's key then looks it up.
+   */
+  hoveredCommand() {
+    return this.hovered ? (this.menuCommands.get(this.hovered) ?? null) : null;
   }
 
   /** The drawn key group of `name`, for automated checks. */

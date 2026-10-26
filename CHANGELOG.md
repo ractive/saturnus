@@ -7,6 +7,26 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **Menu-key tooltips on the 42S, 27S, 17BII, 17B, 19BII and 28S.**
+  Hovering a menu key (the 42S's top row, A to F elsewhere) names the
+  label above it as iteration 66 does on the 48: `→DEG · To degrees`,
+  `N · Number of periods`, `°C · Degrees Celsius`, `TVM menu`, on the
+  28S `DUP · Duplicate`. The 42S and the Pioneers keep the six label
+  texts in RAM; the host reads them while the LCD draws their boxes
+  (the buffer outlives the menu) and the page names them from the key
+  reference, telling a label of several menus apart by the other labels
+  in the row. Names the user gave (Solver variables, list and program
+  names) and labels in another language keep the key's own tooltip. The
+  28S keeps only the menu's number and page; its labels come from a
+  table `saturnus-refgen menus28` reads off the display, every menu
+  against the Reference Manual's menus (USER, custom menus and the
+  Solver's variables are not named). On every model with these
+  tooltips, the 48 too, a key that runs a command adds `⌘K: look up
+  EXPAN` (`Ctrl+K` on Windows and Linux, the Search key as bound), and
+  that key pressed over it opens Search with the command typed. Source:
+  wiki `hardware/hp42s`,
+  `hp27s`, `hp17bii`, `hp19bii` ("Menu labels in RAM"), `hp28s` ("Menu
+  in RAM").
 - **Menu-key tooltips name what the screen shows (48SX, 48GX, 49G).**
   Hovering a menu key (A to F, the 49G's F1 to F6) names the label above
   it with the command reference's full name: `EXPAN · Expand products`,

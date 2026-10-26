@@ -621,7 +621,8 @@ pub struct KeysDown {
 }
 
 /// The `menu` event (`web/protocol.md`): the six menu keys the screen
-/// shows (48SX, 48GX, 49G), sent when they changed. Serializes as
+/// shows (48SX, 48GX, 49G; the 42S, the Pioneers and the 28S), sent when
+/// they changed. Serializes as
 /// `{"type":"menu","keys":[{label, command?, submenu?, type?} | null, ...]}`,
 /// `keys` null where they are not known.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]

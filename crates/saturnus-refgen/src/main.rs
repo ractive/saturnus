@@ -8,6 +8,7 @@ use saturnus_refgen::catalog::{self, Catalog};
 use saturnus_refgen::examples;
 use saturnus_refgen::keyed::{self, KeyFile};
 use saturnus_refgen::menus;
+use saturnus_refgen::menus28;
 use saturnus_refgen::reference::Reference;
 
 const USAGE: &str = "usage:
@@ -17,6 +18,7 @@ const USAGE: &str = "usage:
   saturnus-refgen menus --model M --rom PATH --catalog FILE --categories FILE --out FILE
   saturnus-refgen keys --model M --rom PATH --data FILE --out FILE [--only NAME,NAME...]
   saturnus-refgen screen --model M --rom PATH --data FILE --press 'KEY KEY...'
+  saturnus-refgen menus28 --model 28s --rom PATH --catalog FILE --out FILE
 
 catalog   the ROM's command names (crates/saturnus-cli/data/commands/<model>.json)
 examples  runs the reference's inputs (crates/saturnus-cli/data/commands/examples-<model>.json)
@@ -24,6 +26,9 @@ menus     each command's menus from the ROM's menu definitions, into the catalog
           (written to --out) and into categories.json (updated in place)
 keys      checks a key-driven model's reference (crates/saturnus-cli/data/commands/keys-<model>.json)
           on the emulator and runs its examples (examples-<model>.json)
+menus28   the 28S's menus by number with their labels in key order, read off the
+          display (crates/saturnus-host/src/menulabels/menus-28s.json; --catalog the
+          28S's, crates/saturnus-cli/data/commands/28s.json)
 screen    presses keys from the booted state and prints the screen as text
           (for writing a keys-<model>.json)
 M is 48sx, 48gx, 49g or 28s; for keys and screen a key-driven model (42s, ...).
@@ -135,6 +140,13 @@ fn main() -> Result<()> {
             let cat = catalog::generate_28s(&rom, old.as_ref())?;
             eprintln!("{} commands", cat.commands.len());
             catalog::to_file_text(&cat)?
+        }
+        "menus28" => {
+            let cat: Catalog = read_json(&a.catalog.context("--catalog is required")?)?;
+            let table = menus28::generate(&rom, &cat)?;
+            let labels: usize = table.menus.values().map(|m| m.labels.len()).sum();
+            eprintln!("{} menus, {labels} keys", table.menus.len());
+            format!("{}\n", serde_json::to_string_pretty(&table)?)
         }
         "menus" if model == saturnus_core::Model::Hp28s => {
             bail!("the 28S's menus come from its Reference Manual, not from the ROM")
