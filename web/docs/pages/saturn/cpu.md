@@ -94,7 +94,7 @@ The 48SX's clock is about 2 MHz, the 48G series and the 49G run at about 4 MHz, 
 - The display controller reads its rows from RAM and stops the CPU while it does (see [The display](display.md)). Turning the display off makes the 48G about 13% faster.
 - On the 48G series, the upper half of the ROM and the cards in port 2 are reached through bank switching, and the bus is still 4 bits wide. The clock doubled from the 48SX, but programs run only about 40% faster.
 
-A benchmark on the HP Museum forum times the same sum of 1,000 terms on real calculators: 95.5 s on a 48SX, about 55 s on a 48GX and about 48 to 51 s on a 49G, whose ROM was tuned for speed.
+A benchmark on the [HP Museum forum](https://www.hpmuseum.org/forum/thread-9750.html) times the same sum of 1,000 terms on real calculators: 95.5 s on a 48SX, about 55 s on a 48GX and about 48 to 51 s on a 49G, whose ROM was tuned for speed.
 
 | Model | Clock | Chip |
 |---|---|---|

@@ -37,7 +37,9 @@ READMEs, crate docs on docs.rs and the changelog's unreleased section.
   its first mention per page: a saturnus docs page if one covers it, else
   the official site, else Wikipedia. Not in headings, code, key tables or
   the Sources lists, and not so many that a paragraph turns blue. Check
-  each URL returns 200 and is about the thing before committing. Site
+  each URL returns 200 and is about the thing before committing; check
+  sites that block scripts (hpmuseum.org) in Firefox with
+  `ff-rdp navigate URL --with-page`. Site
   names such as hpcalc.org link themselves (`web/shared/ext-links.js`).
 
 ## Avoid
