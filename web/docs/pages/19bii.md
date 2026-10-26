@@ -58,7 +58,7 @@ Early 19BIIs also had an RPN bug, the same as early 17BIIs: change a number's si
 
 ### RPL inside
 
-Christoph Gießelink, author of the Emu42 emulator, wrote in 2003 that the 19BII offers no RPL programming to its user, but that many parts of it are written in RPL internally. Its hardware is very close to the 28S's; only its 8 KB RAM chip sits at a different address.
+Christoph Gießelink, author of the [Emu42](https://hp.giesselink.com/emu42.htm) emulator, wrote in 2003 that the 19BII offers no RPL programming to its user, but that many parts of it are written in RPL internally. Its hardware is very close to the 28S's; only its 8 KB RAM chip sits at a different address.
 
 ## What makes it special
 
