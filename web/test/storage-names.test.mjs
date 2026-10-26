@@ -74,8 +74,6 @@ test("the service worker's cache prefix is the module's rule, with the colon tha
   assert.equal(cachePrefix("/saturnus/app/"), "saturnus:/saturnus/app/:");
   const sw = readFileSync(join(WEB, "pwa", "sw.js"), "utf8");
   assert.match(sw, /const PREFIX = `saturnus:\$\{SCOPE\.pathname\}:`;/);
-  const kill = readFileSync(join(WEB, "landing", "sw.js"), "utf8");
-  assert.match(kill, /const PREFIX = `saturnus:\$\{SCOPE\.pathname\}:`;/);
   const old = cachePrefix("/saturnus/");
   const app = cachePrefix("/saturnus/app/");
   assert.ok(!app.startsWith(old) && !old.startsWith(app), "the old worker's prefix and the app's are not prefixes of each other");

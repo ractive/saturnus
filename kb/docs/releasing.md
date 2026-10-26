@@ -392,7 +392,7 @@ the upload job runs in the `pages` GitHub Environment, deployments from
 builds the wasm
 package (`web/build.sh`), assembles the site with
 `web/site.sh` (the landing page `web/landing/` at the top with
-`web/site.htaccess` as `.htaccess` and the kill switch `sw.js`; the
+`web/site.htaccess` as `.htaccess`; the
 app under `app/`: the one document `index.html` with the views'
 modules (`tx/` is Files'), the components, the shared code, the one
 wasm package, the manifest, the icons and its own service worker with a
@@ -401,8 +401,7 @@ rendered from `web/docs/pages/` by `web/docs/build.mjs` with the
 runner's Node (iteration 57), and `sitemap.xml` at the top, each
 address with the date of the last commit touching its sources as
 `lastmod` (the build job checks out the whole history, `fetch-depth: 0`,
-for that); `emulator/` and `transfer/` hold only the kill-switch
-`sw.js`; `web/README.md`, "The site"), and publishes
+for that); `web/README.md`, "The site"), and publishes
 it by FTP to the owner's site (<https://ractive.ch/saturnus/>, the
 app at <https://ractive.ch/saturnus/app/>, `httpdocs/saturnus/` on
 ractive.ch; the `FTP_PASSWORD` secret of the `pages` environment, the same the site's

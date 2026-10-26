@@ -5,15 +5,6 @@
 #   .htaccess           web/site.htaccess, for the Apache host (no redirects)
 #   index.html, ...     the landing page, web/landing/ (HTML, CSS, JS, img/)
 #   favicon.svg         web/favicon.svg
-#   sw.js               the kill switch, web/landing/sw.js: replaces the
-#                       service worker the emulator registered at /saturnus/
-#                       before it moved (to be removed on 2027-01-15,
-#                       kb/backlog/remove-kill-switch.md)
-#   emulator/sw.js,     the same kill switch for the two subsites the app
-#   transfer/sw.js      replaced (iteration 50d): it retires their service
-#                       workers, whose cached pages would otherwise run on
-#                       and auto-save into the same database. Nothing else
-#                       is left under those paths.
 #   app/                the app (the home page, Calculator and Files in
 #                       one document, iteration 50d): web/index.html and
 #                       every page file in web/ (HTML, CSS, JS, JSON, SVG),
@@ -89,22 +80,19 @@ fi
 [ -f "$here/pkg/saturnus_web_bg.wasm" ] || { echo "web/site.sh: run web/build.sh first (no web/pkg)" >&2; exit 1; }
 rm -rf "$out"
 app="$out/app"
-mkdir -p "$app/pkg" "$out/img" "$out/emulator" "$out/transfer"
+mkdir -p "$app/pkg" "$out/img"
 # Markers carry a line: the FTPS host refuses a 0-byte upload (425, then
-# a TLS alert), which broke the deploy of transfer/ on 2026-10-11.
+# a TLS alert), which broke a deploy on 2026-10-11.
 echo "made by web/site.sh" > "$out/$marker"
 
 # The top: the .htaccess (it applies to app/ too), the landing page, the
-# favicon and the kill switches (the old subsites' too).
+# favicon.
 cp "$here/site.htaccess" "$out/.htaccess"
 for f in "$here"/landing/*.html "$here"/landing/*.css "$here"/landing/*.js; do
   cp "$f" "$out/$(basename "$f")"
 done
 cp "$here"/landing/img/* "$out/img/"
 cp "$here/favicon.svg" "$out/favicon.svg"
-cp "$here/landing/sw.js" "$out/sw.js"
-cp "$here/landing/sw.js" "$out/emulator/sw.js"
-cp "$here/landing/sw.js" "$out/transfer/sw.js"
 
 # Copy the files named on stdin (relative to web/) into directory $1.
 copy_into() {

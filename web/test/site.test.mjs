@@ -1,7 +1,6 @@
-// The site web/site.sh assembles: the landing page, the favicon and the
-// kill switch at the top with the .htaccess, the same kill switch as the
-// old subsites' emulator/sw.js and transfer/sw.js and nothing else there,
-// and the app under app/ (iteration 50d) as the installed page needs it:
+// The site web/site.sh assembles: the landing page and the favicon at the
+// top with the .htaccess, no emulator/ or transfer/, and the app under
+// app/ (iteration 50d) as the installed page needs it:
 // its service worker precaches exactly the files under app/ (but itself),
 // every page file among them (Calculator's and Files'), each with its
 // content's SHA-256; its build hash stays put for the same files, changes
@@ -58,21 +57,17 @@ test("the service worker precaches exactly the app's files, and a new build is a
   try {
     const a = site(WEB);
     tmp.push(a.out);
-    // The top: the landing page, the favicon, the kill switch, the .htaccess, the marker, llms.txt
+    // The top: the landing page, the favicon, the .htaccess, the marker, llms.txt
     // and sitemap.xml; nothing else.
     const top = filesUnder(a.out).filter((f) => !f.includes("/") || f.startsWith("img/"));
-    const landing = filesUnder(join(WEB, "landing")).filter((f) => !f.startsWith("raw/") && f !== "shots.mjs" && f !== "sw.js");
-    assert.deepEqual(top, [".htaccess", ".saturnus-site", "favicon.svg", ...landing, "llms.txt", "sitemap.xml", "sw.js"].sort());
+    const landing = filesUnder(join(WEB, "landing")).filter((f) => !f.startsWith("raw/") && f !== "shots.mjs");
+    assert.deepEqual(top, [".htaccess", ".saturnus-site", "favicon.svg", ...landing, "llms.txt", "sitemap.xml"].sort());
     assert.match(readFileSync(join(a.out, "sitemap.xml"), "utf8"), /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
-    const kill = readFileSync(join(WEB, "landing", "sw.js"), "utf8");
-    assert.match(kill, /self\.registration\.unregister\(\)/, "the top's sw.js is the kill switch");
-    assert.equal(readFileSync(join(a.out, "sw.js"), "utf8"), kill);
-    // The old subsites: their kill switch alone, so their installed pages stop.
-    for (const old of ["emulator", "transfer"]) {
-      assert.deepEqual(filesUnder(join(a.out, old)), ["sw.js"], `${old}/ has only its kill switch`);
-      assert.equal(readFileSync(join(a.out, old, "sw.js"), "utf8"), kill, `${old}/sw.js is the kill switch`);
+    // The old subsites are gone, and no worker is served at the top.
+    for (const gone of ["emulator", "transfer", "sw.js"]) {
+      assert.ok(!existsSync(join(a.out, gone)), `no ${gone} at the top`);
     }
-    assert.deepEqual(readdirSync(a.out).filter((f) => statSync(join(a.out, f)).isDirectory()).sort(), ["app", "docs", "emulator", "img", "transfer"]);
+    assert.deepEqual(readdirSync(a.out).filter((f) => statSync(join(a.out, f)).isDirectory()).sort(), ["app", "docs", "img"]);
     // The docs (iteration 57, web/docs/build.mjs): each page's HTML with its
     // Markdown beside it, the reference page, a command file per model;
     // outside the app, so not precached.

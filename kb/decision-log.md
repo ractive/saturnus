@@ -4836,3 +4836,12 @@ saturnus".
   its `mcp_2026_07_28` feature (the line above it in the dialog). The
   Claude half stays. The library's dialog also links a guide; the page
   has its own dialog.
+
+## 2026-10-26 (the kill switch is removed early)
+
+- **`web/landing/sw.js` and its copies at `/saturnus/sw.js`,
+  `emulator/sw.js` and `transfer/sw.js` are gone** from the build, and the
+  next deploy deletes them from the server. The owner decided to remove it
+  now instead of on 2027-01-15: he is the only user and has used the new
+  app since 0.6.0, so no browser is left that needs retiring.
+  Backlog item [[backlog/remove-kill-switch]] completed.

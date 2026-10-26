@@ -863,9 +863,7 @@ and Files could show the emulator instantly, without
   [[iterations/iteration-50d-one-document]]). One service worker, scope
   `/saturnus/app/`, caches `saturnus:/saturnus/app/:<build>`. The
   separate pages at `/saturnus/emulator/` and `/saturnus/transfer/` are
-  gone; those folders hold only the kill-switch `sw.js` that retires
-  their old service workers (`web/landing/sw.js`, removed on 2027-01-15,
-  [[backlog/remove-kill-switch]]).
+  gone; nothing is served at those addresses.
 - `web/site.sh` builds all of `/saturnus/`: the app (`index.html`, `tx/`,
   `shared/`, the one wasm package, its marker, manifest, icons and
   `sw.js`, a BUILD hash, the import check) under `app/`. `site.sh --list`
