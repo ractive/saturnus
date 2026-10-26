@@ -5,7 +5,7 @@ section: saturn
 order: 6
 ---
 
-One UART in the Clarke or Yorke chip drives both the wired serial port and the infrared LED. It sends and receives one byte at a time, with a holding register in each direction, and the system's interrupt handler moves the bytes to and from a buffer in RAM. Kermit and XModem run on top of it (see [Kermit and XModem](../transfer/kermit-xmodem.md)).
+One [UART](https://en.wikipedia.org/wiki/Universal_asynchronous_receiver-transmitter) in the Clarke or Yorke chip drives both the wired serial port and the infrared LED. It sends and receives one byte at a time, with a holding register in each direction, and the system's interrupt handler moves the bytes to and from a buffer in RAM. Kermit and XModem run on top of it (see [Kermit and XModem](../transfer/kermit-xmodem.md)).
 
 ## At a glance
 
@@ -32,21 +32,21 @@ One UART in the Clarke or Yorke chip drives both the wired serial port and the i
 | HP 49G | yes | none |
 | HP 42S, 27S, 17B, 17BII, 19BII, 28S | none | one way, to HP's 82240 printer |
 
-The HP 48 FAQ says the 49G was sold without infrared because teachers in some countries feared the 48's infrared would be used to cheat. The 49G and the 40G come with a cable from calculator to calculator instead.
+The [HP 48 FAQ](https://www.hpcalc.org/hp48/docs/faq/48faq.html) says the 49G was sold without infrared because teachers in some countries feared the 48's infrared would be used to cheat. The 49G and the 40G come with a cable from calculator to calculator instead.
 
 ## The frame and the speeds
 
 A frame is a start bit, eight data bits sent lowest first, and the stop bits. The HP 48 sends slightly more than two stop bits: 11.375 bit times for each byte, which limits it to about 844 bytes a second at 9600 baud. Its receiver needs only one.
 
-The speed is a 3-bit code in the hardware registers. The eight codes give 1200, 1920, 2400, 3840, 4800, 7680, 9600 and 15360 baud, but the system offers only 1200, 2400, 4800 and 9600. The HP 49G FAQ notes 15360 baud "internally", which no PC supports. Both directions share one baud generator.
+The speed is a 3-bit code in the hardware registers. The eight codes give 1200, 1920, 2400, 3840, 4800, 7680, 9600 and 15360 baud, but the system offers only 1200, 2400, 4800 and 9600. The [HP 49G FAQ](https://www.hpcalc.org/hp49/docs/faq/) notes 15360 baud "internally", which no PC supports. Both directions share one baud generator.
 
 Parity is not done by the UART. All eight bits go through it, and the system adds or checks a parity bit in software when it takes bytes from its buffer. So the calculator can send with parity and not check it on receive.
 
 ## The line
 
-HP's I/O technical interfacing guide for the 48SX gives the electrical side:
+HP's [I/O technical interfacing guide](https://www.hpcalc.org/hp48/docs/misc/io2.txt) for the 48SX gives the electrical side:
 
-- A mark (a 1 bit, and the idle line while the port is open) is a negative voltage; a space (a 0 bit) is a positive one. That is the RS-232 convention, at lower voltages than a PC's port uses.
+- A mark (a 1 bit, and the idle line while the port is open) is a negative voltage; a space (a 0 bit) is a positive one. That is the [RS-232](https://en.wikipedia.org/wiki/RS-232) convention, at lower voltages than a PC's port uses.
 - With the port closed, the transmitter is switched off and the line sits at 0 V. Opening the port puts it at mark.
 - The transmitter swings at least ±3.0 V, typically 3.5 V, into 3 kΩ and 500 pF, measured at the end of a 1 m cable.
 - The receiver takes +1 to +15 V as a space and −15 to +0.3 V as a mark, with an input impedance of 5 to 7 kΩ.

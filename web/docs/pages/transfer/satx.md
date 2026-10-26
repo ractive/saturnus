@@ -5,7 +5,7 @@ section: transfer
 order: 3
 ---
 
-satx is the project's command-line tool for a real calculator on a serial cable. It talks to the calculator's Kermit server, or to XModem on the 48G series and the 49G, and lists, copies, renames and deletes variables, runs RPL commands, saves the graphics screen and backs up HOME. It runs on macOS, Windows and Linux, and [Files](files.md) in the app uses the same code.
+satx is the project's command-line tool for a real calculator on a serial cable. It talks to the calculator's [Kermit](kermit-xmodem.md) server, or to XModem on the 48G series and the 49G, and lists, copies, renames and deletes variables, runs [RPL](https://en.wikipedia.org/wiki/RPL_(programming_language)) commands, saves the graphics screen and backs up HOME. It runs on macOS, Windows and Linux, and [Files](files.md) in the app uses the same code.
 
 satx works with the HP 48S and 48SX, the 48G, 48G+ and 48GX, and the 49G. The 38G, 39G and 40G have no Kermit server, so satx cannot drive them; use Files to serve them a folder. The 42S and the other Pioneer models have no serial port.
 
@@ -140,7 +140,7 @@ satx grob to-png PIC.hp                   # a GROB file as a PNG
 
 ## For scripts
 
-On a terminal satx prints text; piped, it prints JSON in one envelope, `{"results": ..., "total": N, "hints": [...]}`, with errors on stderr and a non-zero exit code. `--jq` filters it without jq installed:
+On a terminal satx prints text; piped, it prints JSON in one envelope, `{"results": ..., "total": N, "hints": [...]}`, with errors on stderr and a non-zero exit code. `--jq` filters it without [jq](https://jqlang.org/) installed:
 
 ```sh
 satx ls --json | jq -r '.results[] | select(.type == "Program") | .name'

@@ -32,6 +32,13 @@ READMEs, crate docs on docs.rs and the changelog's unreleased section.
   names (crate names, worker, backend, hub, protocol message names) in the
   app's or the landing page's texts; the READMEs and docs.rs may name them
   where a developer needs them.
+- In the user docs (`web/docs/pages/`), a product, program, company,
+  protocol, standard or other calculator named in the text gets a link on
+  its first mention per page: a saturnus docs page if one covers it, else
+  the official site, else Wikipedia. Not in headings, code, key tables or
+  the Sources lists, and not so many that a paragraph turns blue. Check
+  each URL returns 200 and is about the thing before committing. Site
+  names such as hpcalc.org link themselves (`web/shared/ext-links.js`).
 
 ## Avoid
 

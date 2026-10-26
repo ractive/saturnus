@@ -35,7 +35,7 @@ The recess is not symmetrical: the pins are nearer the top of the calculator, wh
 
 HP sold two cables for it: the HP 82208A with a PC's 9-pin connector (and an adapter to 25 pins), and the HP 82209A for the Macintosh. HP's link kits came in two versions, at about $20 and $50; the dearer one added software and a manual, the cable was the same.
 
-At the PC end the wiring is a null-modem: the calculator's TX goes to the PC's RX and back.
+At the PC end the wiring is a [null-modem](https://en.wikipedia.org/wiki/Null_modem): the calculator's TX goes to the PC's RX and back.
 
 | Calculator | PC, 9-pin (DE-9) | PC, 25-pin (DB-25) |
 |---|---|---|
@@ -48,7 +48,7 @@ The calculator uses no other lines: no RTS, CTS, DTR or carrier detect. Programs
 
 ## Building a 48 cable
 
-The HP 48 FAQ explains how to build one. You need a female 9-pin (or 25-pin) connector with its shell, some wire, and a plug with four sockets 2 mm apart: not the usual 0.1 inch (2.54 mm) spacing, which damages the calculator's pins.
+The [HP 48 FAQ](https://www.hpcalc.org/hp48/docs/faq/48faq.html) explains how to build one. You need a female 9-pin (or 25-pin) connector with its shell, some wire, and a plug with four sockets 2 mm apart: not the usual 0.1 inch (2.54 mm) spacing, which damages the calculator's pins.
 
 The FAQ's tip for the plug is an old CD-ROM audio cable from a PC: one of its two ends has the 2 mm spacing and fits the 48. Cut off the other end and solder three wires to the PC connector as in the table above; the empty socket is the ground. Its harder way is four sockets taken from an IC socket strip, glued together at 2 mm.
 
@@ -64,7 +64,7 @@ Early 49Gs, with a serial number below 94xxxxxx, have a weak transmitter that so
 
 ## USB serial adapters
 
-A computer of today has no serial port, so the cable's 9-pin end goes into a USB serial adapter. Any adapter with a 9-pin male RS-232 plug works; the operating system shows it as a serial device:
+A computer of today has no serial port, so the cable's 9-pin end goes into a USB serial adapter. Any adapter with a 9-pin male [RS-232](https://en.wikipedia.org/wiki/RS-232) plug works; the operating system shows it as a serial device:
 
 | System | Device name |
 |---|---|

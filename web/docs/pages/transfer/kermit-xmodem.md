@@ -5,7 +5,7 @@ section: transfer
 order: 2
 ---
 
-The HP calculators move files over their serial port with Kermit. The 48G series, the 49G and the 39G and 40G also speak XModem. Both sides need the same speed and the same transfer mode; most failed transfers come from a mismatch there. For how Kermit works, see the [Kermit Protocol Manual](https://www.kermitproject.org/kproto.pdf) by Frank da Cruz.
+The HP calculators move files over their serial port with [Kermit](https://www.kermitproject.org/). The 48G series, the 49G and the 39G and 40G also speak [XModem](https://en.wikipedia.org/wiki/XMODEM). Both sides need the same speed and the same transfer mode; most failed transfers come from a mismatch there. For how Kermit works, see the [Kermit Protocol Manual](https://www.kermitproject.org/kproto.pdf) by Frank da Cruz.
 
 ## Which calculator speaks which
 
@@ -38,9 +38,9 @@ The 38G, 39G and 40G have no server. The calculator is the client and the comput
 
 ## XModem
 
-XModem goes back to Ward Christensen's MODEM program of 1977. It sends one file in checked blocks, without its name.
+XModem goes back to [Ward Christensen](https://en.wikipedia.org/wiki/Ward_Christensen)'s MODEM program of 1977. It sends one file in checked blocks, without its name.
 
-- **48G series**: `XSEND` and `XRECV` with the variable's name. Binary only, 128-byte blocks with a checksum and no CRC; the computer's program must fall back to the checksum.
+- **48G series**: `XSEND` and `XRECV` with the variable's name. Binary only, 128-byte blocks with a checksum and no [CRC](https://en.wikipedia.org/wiki/Cyclic_redundancy_check); the computer's program must fall back to the checksum.
 - **49G**: 128-byte and 1 KB blocks, checksum or CRC, and noticeably faster than Kermit. It also has an XModem server, XSERV.
 - **39G and 40G**: binary aplets, from "HP39/40 (Wire)".
 
@@ -81,13 +81,13 @@ These live in the variable IOPAR in HOME, apart from the flags; on the 48G serie
 
 - Start the receiving side first for Kermit. For XModem it is the other way round: start the sender, then the receiver, with only a short gap.
 - Sending a large file to the calculator by Kermit gets slower as it goes. Give the computer's program a timeout of 20 seconds and a pause of 100 ms before each packet.
-- The calculator wants every control character prefixed. Kermit 95 needs `SET CONTROL PREFIX ALL`.
+- The calculator wants every control character prefixed. [Kermit 95](https://www.kermitproject.org/k95.html) needs `SET CONTROL PREFIX ALL`.
 
 ## When a transfer fails
 
 - **The computer gets no answer**: the server is not running; look for "Awaiting Server Cmd.". A 38G, 39G or 40G starts the transfer itself.
 - **Time-outs or errors from the start**: the speeds or the parity differ. Compare IOPAR or the TRANSFER form with the computer's setting.
-- **A string that starts with `HPHP48-`**: a binary file went over as text and its line ends were changed. Send it again in binary on both sides; the HP 48 FAQ lists programs that repair such strings.
+- **A string that starts with `HPHP48-`**: a binary file went over as text and its line ends were changed. Send it again in binary on both sides; the [HP 48 FAQ](https://www.hpcalc.org/hp48/docs/faq/48faq.html) lists programs that repair such strings.
 - **"Invalid Syntax"** on an ASCII file: the fraction mark in its `%%HP:` header is not the calculator's.
 - **XRECV fails on a 48G**: before ROM revision R it could need twice the file's size free.
 - **Still nothing**: the cable or the port, or flag −33, which chooses the wire or infrared. See [cables](cables.md); early 49Gs have a weak transmitter some PC ports cannot read.
@@ -96,7 +96,7 @@ These live in the variable IOPAR in HOME, apart from the flags; on the 48G serie
 
 ### A Kermit program
 
-Any Kermit program works with the calculator as server. The Kermit Project's settings for C-Kermit and Kermit 95, with your serial port in place of `COM1`:
+Any Kermit program works with the calculator as server. The Kermit Project's settings for [C-Kermit](https://www.kermitproject.org/ckermit.html) and Kermit 95, with your serial port in place of `COM1`:
 
 ```
 SET MODEM TYPE DIRECT
@@ -119,7 +119,7 @@ Set the file type to binary or text to match flag −35. `REMOTE DIRECTORY`, `GE
 
 HPComm is a Windows program by Jean-Pierre "James" Bergamin, the author of saturnus, for moving files between a PC and an HP 48 or 49G. It shows the calculator's directories beside the PC's folders, as Windows Explorer does, and files move between them by drag and drop, over Kermit. Version 2.4 came out as open source in February 1999.
 
-HP then approached the project. HPComm 3.0, written by James Bergamin and Mitch Davis of HP, became the software of HP's Graphing Calculator PC Connectivity Kit (F1897A) in 1999, for the 48 series and the new 49G, and HP agreed to release it under the GNU GPL. The last version, 3.0r4, came out in June 2000.
+HP then approached the project. HPComm 3.0, written by James Bergamin and Mitch Davis of HP, became the software of HP's Graphing Calculator PC Connectivity Kit (F1897A) in 1999, for the 48 series and the new 49G, and HP agreed to release it under the [GNU GPL](https://en.wikipedia.org/wiki/GNU_General_Public_License). The last version, 3.0r4, came out in June 2000.
 
 For the 38G, HPComm38 split off at the end of 1999 and shipped in HP's HP38G PC Connectivity Kit. Reworked for the 39G and 40G, it became HPGComm: version 2.0 in June 2001, 2.01 in July. It serves a folder as the calculator's "disk drive", shows the calculator's screen on the PC, and sends binary aplets to the 39G and 40G by XModem.
 

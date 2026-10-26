@@ -23,7 +23,7 @@ The keys of a Saturn calculator are a matrix of wires on two of the CPU's own re
 
 Each OUT bit drives one row of keys. Each IN bit reports whether a column is connected to a driven row through a pressed key. To read one row, a program writes that row's bit to OUT and reads IN. Rows can be combined: with all nine bits set, IN is non-zero if any key is down.
 
-The matrix of the 48 series, from the Saturn assembly tutorial. The column heads are the IN bits, the row heads the OUT bits, in hexadecimal:
+The matrix of the 48 series, from the [Saturn assembly tutorial](https://www.hpcalc.org/details/1693). The column heads are the IN bits, the row heads the OUT bits, in hexadecimal:
 
 | OUT | IN 20 | IN 10 | IN 08 | IN 04 | IN 02 | IN 01 |
 |---|---|---|---|---|---|---|

@@ -5,7 +5,7 @@ section: models
 model: 17bii
 ---
 
-The HP 17BII is a business and financial calculator that Hewlett-Packard introduced in January 1990. It replaced the [HP 17B](17b.md) and kept its menus, applications and solver, but lets you choose between algebraic entry and RPN. With the HP 19BII of the same month, it was the first HP calculator to offer both.
+The HP 17BII is a business and financial calculator that Hewlett-Packard introduced in January 1990. It replaced the [HP 17B](17b.md) and kept its menus, applications and solver, but lets you choose between algebraic entry and [RPN](https://en.wikipedia.org/wiki/Reverse_Polish_notation). With the [HP 19BII](19bii.md) of the same month, it was the first HP calculator to offer both.
 
 ![HP 17BII](../img/17bii-640.webp)
 The 17BII as saturnus draws it, with its main menu.
@@ -33,9 +33,9 @@ The 17BII as saturnus draws it, with its main menu.
 
 HP launched the 17B in January 1988 as part of its Pioneer series: slim calculators built around Lewis, a custom chip with an improved Saturn processor core. The 17B worked in algebraic chain order only. Two years later, in January 1990, the 17BII took its place at the same price, $110.
 
-The new model's manual still opens with the 17B's welcome page and adds one point: "You can choose either ALG (Algebraic) or RPN (Reverse Polish Notation) entry logic for your calculations." Finseth's data lists the 17BII and the 19BII as the first dual-logic HP calculators. Their predecessors, the 18C Business Consultant of 1986 and the 17B and 19B of 1988, were algebraic only.
+The new model's manual still opens with the 17B's welcome page and adds one point: "You can choose either ALG (Algebraic) or RPN (Reverse Polish Notation) entry logic for your calculations." Finseth's data lists the 17BII and the 19BII as the first dual-logic HP calculators. Their predecessors, the [18C](https://en.wikipedia.org/wiki/HP-18C) Business Consultant of 1986 and the 17B and 19B of 1988, were algebraic only.
 
-The manual's RPN appendix explains the name: Polish notation comes from the Polish logician Jan Łukasiewicz (1878–1956), who put operators before the numbers; HP puts them after.
+The manual's RPN appendix explains the name: Polish notation comes from the Polish logician [Jan Łukasiewicz](https://en.wikipedia.org/wiki/Jan_%C5%81ukasiewicz) (1878–1956), who put operators before the numbers; HP puts them after.
 
 ### Early bugs
 
