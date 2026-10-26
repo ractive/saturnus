@@ -97,6 +97,7 @@ When the 48 runs its self-tests (ON with D or E), it also writes the results to 
 - [HP48 S, SX, G, GX Interrupts: Tricks to Know, by Duchesne](https://sites.google.com/view/mnavarrodocs/home): the handler and the transmitting annunciator.
 - [External serial buffer for the HP49, by Marcel Flipse (buf49.zip)](https://www.hpcalc.org/details/3009) and [Circuit to correct the HP49G serial port signal (serial49.zip)](https://www.hpcalc.org/hp49/docs/misc/serial49.zip): the early 49G's weak transmitter and its fixes.
 - [HP 48 FAQ 4.62](https://www.hpcalc.org/hp48/docs/faq/48faq.html), edited by André Schoorl: the 49G's serial port and missing infrared (2.14), the infrared range (6.7), self-test output (4.7).
+- [HP 49G FAQ](https://www.hpcalc.org/hp49/docs/faq/), maintained by Eric Rechlin: 15360 baud used internally.
 - [HP 39G/40G User's Guide](https://literature.hpcalc.org/official/hp39g40g-ug-en.pdf): infrared on the 39G, none on the 40G (16-5).
 - [HP 42S Owner's Manual](https://literature.hpcalc.org/community/hp42s-om-en.pdf), [HP 17BII Owner's Manual](https://literature.hpcalc.org/community/hp17bii-om-en.pdf) and [HP 28S Owner's Manual](https://literature.hpcalc.org/community/hp28s-om-en.pdf): printing to the HP 82240 infrared printer as their only output.
 - [HP-48 Kermit Hints and Tips, the Kermit Project](https://www.columbia.edu/kermit/hp48.html): no modem signals on the HP 48.
