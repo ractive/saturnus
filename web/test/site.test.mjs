@@ -1,5 +1,6 @@
 // The site web/site.sh assembles: the landing page and the favicon at the
-// top with the .htaccess, no emulator/ or transfer/, and the app under app/ (iteration 50d) as the installed page needs it:
+// top with the .htaccess, no emulator/ or transfer/, and the app under
+// app/ (iteration 50d) as the installed page needs it:
 // its service worker precaches exactly the files under app/ (but itself),
 // every page file among them (Calculator's and Files'), each with its
 // content's SHA-256; its build hash stays put for the same files, changes
