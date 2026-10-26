@@ -16,10 +16,9 @@ export function serviceWorkerAllowed(host, loc = location, nav = navigator) {
 /**
  * `controller` (navigator.serviceWorker.controller) if it is this page's
  * own worker, the `sw.js` beside the page; else null. A page under
- * /saturnus/app/ can be controlled by a worker of a wider scope: the
- * one the emulator registered at /saturnus/ before it moved, or the kill
- * switch that retires it (web/landing/sw.js). Neither is an update of
- * this page's build, and neither answers for BUILD.
+ * /saturnus/app/ can be controlled by a worker of a wider scope, one a
+ * page at /saturnus/ registered. That is not an update of this page's
+ * build and does not answer for BUILD.
  */
 export function ownController(controller, loc = location) {
   if (!controller) return null;

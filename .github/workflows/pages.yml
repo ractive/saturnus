@@ -1,8 +1,7 @@
 name: Web page
 
 # Builds the site of /saturnus/ (the landing page, the app under app/,
-# the docs under docs/ with llms.txt and sitemap.xml, the kill switch sw.js, also as
-# emulator/sw.js and transfer/sw.js for the subsites the app replaced;
+# the docs under docs/ with llms.txt and sitemap.xml;
 # web/site.sh) and publishes it to the
 # owner's site ractive.ch (the `ractive` job: FTPS into httpdocs/saturnus/,
 # the FTP_PASSWORD secret of the `pages` environment; the name only ever appears here). GitHub Pages is not used
@@ -102,9 +101,8 @@ jobs:
       # The upload is not atomic and goes by path, so app/sw.js lands
       # before its tx/ and pkg/ files: its service worker checks each
       # file's hash and refuses a mixed build (kb/decision-log.md,
-      # 2026-10-11). The old subsites' other files, deployed by this
-      # action before, are deleted by its sync; their sw.js is replaced by
-      # the kill switch.
+      # 2026-10-11). Files this action deployed before and the site no
+      # longer has (the old subsites' among them) are deleted by its sync.
       - uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
         with:
           server: ractive.ch

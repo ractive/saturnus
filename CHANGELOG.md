@@ -7,6 +7,9 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The old addresses stop serving the service-worker kill switch.**
+  `/saturnus/sw.js`, `emulator/` and `transfer/` are gone from the site.
+
 - **AI apps see saturnus's icon.** The web page sends its icon with the
   server's information (tab-mcp client 0.9.0), for the AI app's
   connector list: the installed app's touch icon, which the published

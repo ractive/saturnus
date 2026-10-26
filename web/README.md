@@ -1241,15 +1241,12 @@ settings record, and deletes both saved 49G states (they contain the
 `web/site.sh <out>` assembles <https://ractive.ch/saturnus/>: at the top
 the landing page (`web/landing/`: `index.html`, `style.css`, `img/`; no
 script, it follows the device's colour scheme), `favicon.svg`, the
-`.htaccess` (it applies below too; no redirects) and `sw.js`, the kill
-switch; under `app/` the app: `index.html` and every page
+`.htaccess` (it applies below too; no redirects); under `app/` the app: `index.html` and every page
 file, `tx/`, `shared/`, the wasm package, the manifest, the icons,
 `saturnus.mcpb` (the Claude Desktop extension, built from `web/mcpb/` by
 `web/mcpb/build.mjs`, iteration 59) and
 `sw.js` with a BUILD hash over `app/` alone, so a landing-page change
-leaves the app's build and caches untouched. `emulator/` and
-`transfer/`, the two subsites the app replaced, hold only `sw.js`, the
-same kill switch (below). `web/site.sh --list` lists the app's page
+leaves the app's build and caches untouched. `web/site.sh --list` lists the app's page
 files, which the desktop app embeds (with the wasm package and the
 extension). `web/test/site.test.mjs` checks the
 layout.
@@ -1289,21 +1286,6 @@ link or a link into the wiki. Tests: `docs.test.mjs`,
 The calculator images in `web/landing/img/` are screenshots of the app
 with each model's ROM running, made by `web/landing/shots.mjs`
 (see its header for the WebP step); `img/og.png` is the Open Graph image.
-
-**The kill switch.** The app registers its worker with the scope `./`,
-so under its URL that is `/saturnus/app/`, its caches
-`saturnus:/saturnus/app/:<build>`. A worker an older page registered at
-`/saturnus/`, `/saturnus/emulator/` or `/saturnus/transfer/` would keep
-serving that page there (a 404 on its script does not unregister it, and
-an old page would run on and auto-save into the same database), so
-`web/landing/sw.js`, which works for any scope, is shipped at
-`/saturnus/sw.js`, `/saturnus/emulator/sw.js` and
-`/saturnus/transfer/sw.js`: about fifteen lines with no fetch handler
-that take over at install, delete the caches of their own scope
-(`saturnus:<scope path>:*`; the colon keeps the app's), unregister, and reload the windows they
-control. Kept ROMs and states are in the origin's IndexedDB and are not
-touched. It is removed on 2027-01-15 (`kb/backlog/remove-kill-switch.md`).
-Tested by `web/test/killswitch.test.mjs`.
 
 **Names on the origin.** Every IndexedDB database, localStorage key,
 OPFS directory and cache prefix of the app is in
