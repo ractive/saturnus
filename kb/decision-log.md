@@ -4845,3 +4845,12 @@ saturnus".
   now instead of on 2027-01-15: he is the only user and has used the new
   app since 0.6.0, so no browser is left that needs retiring.
   Backlog item [[backlog/remove-kill-switch]] completed.
+
+## 2026-10-26 (tab-mcp client 0.9.1)
+
+- Vendored for the library's connect dialog changes ("How do I add it?"
+  as a bordered bold row, the guide at https://ractive.ch/tab-mcp/connect/).
+  The page shows none of that dialog (its own, web/ai-dialog.js) and
+  overrides no `.tab-mcp-help` or connect styles; the confirmation it
+  does show is unchanged. The desktop app's confirmation points at the
+  new UI chunk.

@@ -7,6 +7,9 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- tab-mcp client 0.9.1: its connect dialog's "How do I add it?" row and
+  guide link changed; the web page shows only its confirmation, which is
+  unchanged.
 - **The old addresses stop serving the service-worker kill switch.**
   `/saturnus/sw.js`, `emulator/` and `transfer/` are gone from the site.
 
