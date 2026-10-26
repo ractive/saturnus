@@ -128,8 +128,8 @@ arrangement (iteration 11):
   dependencies); `tauri-windows` runs their tests on Windows too (paths
   differ there). The macOS build is exercised by `desktop.yml` when
   installers are made.
-- The crate has its own `rust-version` (1.88): the fixed `time` and
-  `plist` releases its tree needs require it; the workspace's is 1.88 too
+- The crate has its own `rust-version` (1.90): Tauri 2.12 (tauri-build
+  2.7, the 2.7/2.8 plugins) requires it; the workspace's is 1.88
   (let-chains), checked by the `msrv` job.
 - `just gates` runs the `tauri` recipe too (it builds on macOS and
   Windows without extra packages; on Linux install them first).
