@@ -2,7 +2,7 @@
 title: "AI assistant: saturnus over MCP, with a saturnus skill and plugin"
 type: backlog
 date: 2026-10-19
-status: planned
+status: completed
 priority: medium
 tags:
   - backlog
