@@ -78,7 +78,7 @@ The infrared port prints to HP's 82240 printer. [Finseth notes](https://www.fins
 
 ## In saturnus
 
-saturnus runs the international 17BII, main ROM revision B with language ROM revision A:
+saturnus was tested with the international 17BII's ROMs, main revision B with language revision A:
 
 - On a first start it asks for the language. It boots, computes, and the ROM checks of its self-test pass. Its ROM is 96 KB: the 64 KB main ROM and a 32 KB language ROM. The English-only 64 KB ROM has not been tested.
 - Its clock runs with emulated time. "Set the clock" sets it to your computer's time, by pressing the keys of its TIME menu as you would; not while it asks for the language. Appointment alarms have not been tested.
