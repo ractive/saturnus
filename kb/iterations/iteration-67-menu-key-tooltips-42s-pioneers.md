@@ -40,12 +40,18 @@ for full names).
   menu shows variables, as on the 48.
 - The 17B, 17BII and 19BII in another language: labels that do not match
   the English reference fall back to the key's own tooltip.
+- Owner 2026-10-26, on every model with menu-key tooltips (the 48SX,
+  48GX and 49G too): a key whose tooltip names a command gets a line
+  "⌘K: look up EXPAN" ("Ctrl+K" on Windows and Linux; the palette's key
+  as bound, none when unbound), and that key pressed with the pointer
+  over the menu key opens Search with the command typed.
 
 ## Tasks
 
-- [ ] The label buffers and the 42S's menu depth in the wiki, per model; the 28S's menu number and first label too
-- [ ] Read the labels (memory only) and check the label boxes are drawn
-- [ ] Tooltips with full names from keyModels; duplicates told apart; other languages fall back
-- [ ] Host tests per ROM for menus not yet checked: SOLVE variable menus, CFLO and SUM lists, the 19BII's TEXT menus, the 42S's variable and program menus
-- [ ] The 28S: refgen's menu table, the tooltips while its label boxes are drawn, host tests for a few menus and pages
+- [x] The label buffers and the 42S's menu depth in the wiki, per model; the 28S's menu number and first label too
+- [x] Read the labels (memory only) and check the label boxes are drawn
+- [x] Tooltips with full names from keyModels; duplicates told apart; other languages fall back
+- [x] Host tests per ROM for menus not yet checked: SOLVE variable menus, CFLO and SUM lists, the 19BII's TEXT menus, the 42S's variable and program menus
+- [x] The 28S: refgen's menu table, the tooltips while its label boxes are drawn, host tests for a few menus and pages
+- [x] The look-up line on menu keys that run a command, and the palette's key over such a key opening Search with it
 - [ ] Owner: hover the menu keys in a few menus on the 42S, the 17BII and the 28S

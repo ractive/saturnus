@@ -841,6 +841,18 @@ scripts/manual-categories.py     # the same texts
 scripts/check-similarity.py      # the same texts; all three skip with a message without them (CI)
 ```
 
+The 28S's menu keys' tooltips need each menu's labels in order, which
+its RAM does not hold as text: `saturnus-refgen menus28` opens every
+menu by its key, reads the menu's number from RAM and its labels off the
+display page by page, names each label's command from the catalog's
+menus, and writes `crates/saturnus-host/src/menulabels/menus-28s.json`;
+a label it cannot read stops it.
+
+```sh
+saturnus-refgen menus28 --model 28s --rom $R/hp28s.rom --catalog crates/saturnus-cli/data/commands/28s.json \
+    --out crates/saturnus-host/src/menulabels/menus-28s.json
+```
+
 A catalog takes about a minute and an examples file a few minutes in a
 release build; both are deterministic, and
 `cargo test --release -p saturnus-refgen -- --ignored` (with

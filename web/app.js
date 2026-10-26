@@ -679,8 +679,11 @@ const SPEEDS = ["1", "2", "4", "max"];
 function runBinding(id, { backend, store, memory, bindings }) {
   const s = store.state;
   switch (id) {
-    case "palette":
-      return ui.palette.toggle();
+    case "palette": {
+      // Over a menu key that runs a command: Search with it typed.
+      const command = ui.palette.isOpen() ? null : ui.calc.hoveredCommand();
+      return command ? ui.palette.open(command) : ui.palette.toggle();
+    }
     case "edit":
       return editShortcut(backend, store);
     case "shortcuts":

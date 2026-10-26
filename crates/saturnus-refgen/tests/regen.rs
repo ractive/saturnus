@@ -13,6 +13,10 @@
 //! - `the_28s_catalog_and_sample_examples_match`: the 28S's CATALOG read
 //!   off the display gives the catalog's names in its order, and a sample
 //!   of its examples, typed by keys, gives the same JSON (seconds).
+//! - `the_28s_menu_table_regenerates`: the 28S's menus read page by page
+//!   off the display (`saturnus-refgen menus28`) give
+//!   `crates/saturnus-host/src/menulabels/menus-28s.json` byte for byte
+//!   (seconds).
 //! - `catalogs_and_examples_regenerate_byte_for_byte` (ignored, minutes in
 //!   a release build): every catalog (names, then menus with the keyboard
 //!   observed; the 28S's names, its menus kept from the file) and examples
@@ -27,6 +31,7 @@ use saturnus_refgen::catalog::{self, Catalog, model_name};
 use saturnus_refgen::examples::{self, Examples};
 use saturnus_refgen::keyed::{self, KeyFile};
 use saturnus_refgen::menus;
+use saturnus_refgen::menus28;
 use saturnus_refgen::names;
 use saturnus_refgen::reference::Reference;
 
@@ -150,6 +155,20 @@ fn the_28s_catalog_and_sample_examples_match() {
     for (name, list) in &ex.examples {
         assert_eq!(Some(list), examples.examples.get(name), "{name}");
     }
+}
+
+#[test]
+fn the_28s_menu_table_regenerates() {
+    let Some(rom) = rom("hp28s.rom") else { return };
+    let file: Catalog = read("28s.json");
+    let table = menus28::generate(&rom, &file).unwrap();
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../saturnus-host/src/menulabels/menus-28s.json");
+    assert_eq!(
+        format!("{}\n", serde_json::to_string_pretty(&table).unwrap()),
+        std::fs::read_to_string(path).unwrap(),
+        "menus-28s.json"
+    );
 }
 
 #[test]

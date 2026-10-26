@@ -11,6 +11,7 @@
 //!   with [`lcdtext`] (the Pioneers, the 19BII) or [`apletext`] (HOME on
 //!   the 38G, 39G and 40G).
 //! - [`hp28`]: the 28S, driven by keys and read off its display.
+//! - [`menus28`]: the 28S's menus by number with their labels in key order.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod apletext;
@@ -20,5 +21,6 @@ pub mod hp28;
 pub mod keyed;
 pub mod lcdtext;
 pub mod menus;
+pub mod menus28;
 pub mod names;
 pub mod reference;

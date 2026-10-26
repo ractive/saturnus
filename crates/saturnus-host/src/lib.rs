@@ -41,6 +41,7 @@ pub mod clock;
 mod error;
 pub mod host;
 pub mod layout;
+pub mod menulabels;
 pub mod protocol;
 pub mod romid;
 pub mod sha256;
@@ -314,10 +315,14 @@ impl Emulator {
     }
 
     /// The six menu keys the screen shows now, read from RAM
-    /// ([`softkeys::read`]): `None` where they are not known (a model
-    /// without soft menus read this way, another screen has the
-    /// keyboard, a menu the ROM builds in RAM).
+    /// ([`softkeys::read`] on the 48SX, 48GX and 49G, [`menulabels::read`]
+    /// on the 42S, 27S, 17BII, 17B, 19BII and 28S): `None` where they are
+    /// not known (another model, another screen has the keyboard, a menu
+    /// the ROM builds in RAM, no label boxes drawn).
     pub fn menu_keys(&self) -> Result<Option<Vec<Option<softkeys::ShownKey>>>> {
+        if menulabels::reads(self.machine.model()) {
+            return Ok(menulabels::read(&self.machine));
+        }
         self.user_memory()?;
         let Some(defs) = self.menus() else {
             return Ok(None);
@@ -326,12 +331,18 @@ impl Emulator {
     }
 
     /// The `menu` event if the menu keys changed since the last one, else
-    /// `None`; on the 48SX, 48GX and 49G only, and to be called while the
-    /// ROM waits for a key (its RAM is whole then). Cheap when nothing
-    /// moved: the keys are read again only when the menu, its page, the
-    /// current directory, the variables, the stack or the screen's loop
-    /// changed ([`softkeys::signature`]).
+    /// `None`; on the models [`Emulator::menu_keys`] reads, and to be
+    /// called while the ROM waits for a key (its RAM is whole then). Cheap
+    /// when nothing moved: on the 48SX, 48GX and 49G the keys are read
+    /// again only when the menu, its page, the current directory, the
+    /// variables, the stack or the screen's loop changed
+    /// ([`softkeys::signature`]); the others' are a few nibbles and the
+    /// LCD's label row, read each time.
     pub fn menu_if_changed(&mut self) -> Option<host::MenuKeys> {
+        if menulabels::reads(self.machine.model()) {
+            let keys = menulabels::read(&self.machine);
+            return self.menu_news(keys);
+        }
         self.user_memory().ok()?;
         if self.typing.is_some() || self.transfer.is_some() {
             self.menu_dirty = true;
@@ -351,6 +362,14 @@ impl Emulator {
         self.menu_presses = presses;
         self.menu_dirty = false;
         let keys = self.menu_keys().ok().flatten();
+        self.menu_news(keys)
+    }
+
+    /// The `menu` event for `keys` read now, if they are news.
+    fn menu_news(
+        &mut self,
+        keys: Option<Vec<Option<softkeys::ShownKey>>>,
+    ) -> Option<host::MenuKeys> {
         let force = std::mem::take(&mut self.menu_force);
         // A page starts with no menu keys known: none is not news, unless
         // the machine changed under it (`menu_force`).
