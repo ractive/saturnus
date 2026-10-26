@@ -69,12 +69,12 @@ export const HIDDEN_KEYS = {
     { key: "4", shift: "right", kind: "unprinted", label: "Alarm Catalog", ghost: "ALRM CAT" },
     // "Other unprinted functions": → DEL types CLVAR (p. 6-9), → NXT the
     // menu's first page (p. 2-12), → ▼ acts as → +/- VISIT (observed).
-    { key: "del", shift: "right", kind: "unprinted", label: "types CLVAR, which ENTER runs: clears all variables", ghost: "CLVAR" },
-    { key: "nxt", shift: "right", kind: "unprinted", label: "the menu's first page", ghost: "FIRST" },
+    { key: "del", shift: "right", kind: "unprinted", label: "type CLVAR; ENTER then clears all variables", ghost: "CLVAR" },
+    { key: "nxt", shift: "right", kind: "unprinted", label: "show the menu's first page", ghost: "FIRST" },
     { key: "down", shift: "right", kind: "unprinted", label: "VISIT, as → +/-", ghost: "VISIT" },
     // "In a command line, → ◀ and → ▶ move the cursor to the start and end" (observed).
-    { key: "left", shift: "right", kind: "unprinted", label: "in a command line, the cursor to its start" },
-    { key: "right", shift: "right", kind: "unprinted", label: "in a command line, the cursor to its end" },
+    { key: "left", shift: "right", kind: "unprinted", label: "in a command line, move the cursor to its start" },
+    { key: "right", shift: "right", kind: "unprinted", label: "in a command line, move the cursor to its end" },
     // "The LAST keys": STACK, CMD, ARG and MENU are LAST STACK, LAST CMD,
     // LAST ARG and LAST MENU (p. 1-3, 3-6).
     { key: "2", shift: "left", kind: "note", label: "LAST STACK, the stack before the last command line" },
@@ -93,23 +93,23 @@ export const HIDDEN_KEYS = {
     { key: "7", shift: "right", held: true, kind: "unprinted", label: "SOLVE menu" },
     { key: "9", shift: "right", held: true, kind: "unprinted", label: "TIME menu" },
     { key: "var", shift: "left", held: true, kind: "unprinted", label: "HOME" },
-    { key: "nxt", shift: "left", held: true, kind: "unprinted", label: "the last menu" },
-    { key: "tool", shift: "left", held: true, kind: "unprinted", label: "complex mode on or off" },
-    { key: "enter", shift: "right", held: true, kind: "unprinted", label: "exact or approximate mode" },
-    { key: "eqw", shift: "right", held: true, kind: "unprinted", label: "types back quotes" },
-    { key: "space", shift: "right", held: true, kind: "unprinted", label: "types ;" },
+    { key: "nxt", shift: "left", held: true, kind: "unprinted", label: "show the last menu" },
+    { key: "tool", shift: "left", held: true, kind: "unprinted", label: "turn complex mode on or off" },
+    { key: "enter", shift: "right", held: true, kind: "unprinted", label: "switch between exact and approximate mode" },
+    { key: "eqw", shift: "right", held: true, kind: "unprinted", label: "type back quotes" },
+    { key: "space", shift: "right", held: true, kind: "unprinted", label: "type ;" },
     { key: "right", shift: "right", held: true, kind: "unprinted", label: "Kermit server" },
     // → ▶ tapped: "XModem server: Xmodem Server Waiting for command";
     // in a command line the cursor to its end; in algebraic mode it
     // types XSERV() (observed).
-    { key: "right", shift: "right", kind: "unprinted", label: "XModem server; in a command line, the cursor to its end; in algebraic mode it types XSERV()", ghost: "XSERV" },
+    { key: "right", shift: "right", kind: "unprinted", label: "XModem server; in a command line, move the cursor to its end; in algebraic mode, type XSERV()", ghost: "XSERV" },
     // "Other unprinted functions": the cursor keys have no shift labels.
-    { key: "down", shift: "right", kind: "unprinted", label: "the menu's labels in full", ghost: "REVIEW" },
-    { key: "up", shift: "right", kind: "unprinted", label: "the interactive stack, as ▲" },
-    { key: "down", shift: "left", kind: "unprinted", label: "edits level 1, as ▼" },
-    { key: "right", shift: "left", kind: "unprinted", label: "SWAP, as ▶; in a command line, the cursor to its end" },
-    { key: "left", shift: "left", kind: "unprinted", label: "in a command line, the cursor to its start" },
-    { key: "left", shift: "right", kind: "unprinted", label: "in a command line, the cursor to its start" },
+    { key: "down", shift: "right", kind: "unprinted", label: "show the menu's labels in full", ghost: "REVIEW" },
+    { key: "up", shift: "right", kind: "unprinted", label: "open the interactive stack, as ▲" },
+    { key: "down", shift: "left", kind: "unprinted", label: "edit level 1, as ▼" },
+    { key: "right", shift: "left", kind: "unprinted", label: "SWAP, as ▶; in a command line, move the cursor to its end" },
+    { key: "left", shift: "left", kind: "unprinted", label: "in a command line, move the cursor to its start" },
+    { key: "left", shift: "right", kind: "unprinted", label: "in a command line, move the cursor to its start" },
     // The plot keys: in RPN mode a tapped shift gives the soft menu's
     // left-shift action, the shift must be held down (FAQ 4.10).
     ...["a", "b", "c", "d", "e", "f"].map((key) => ({ key, shift: "left", kind: "note", label: "algebraic mode; in RPN mode hold the left shift down" })),
@@ -120,12 +120,12 @@ export const HIDDEN_KEYS = {
   "28s": [
     // "Shifted menu keys in a command line": the cursor menu INS DEL ▲ ▼
     // ◀ ▶ (p. 166-168).
-    { key: "a", shift: "left", kind: "unprinted", label: "in a command line, deletes everything left of the cursor" },
-    { key: "b", shift: "left", kind: "unprinted", label: "in a command line, deletes from the cursor to the right" },
-    { key: "c", shift: "left", kind: "unprinted", label: "in a command line, the cursor to the first line" },
-    { key: "d", shift: "left", kind: "unprinted", label: "in a command line, the cursor to the last line" },
-    { key: "e", shift: "left", kind: "unprinted", label: "in a command line, the cursor to the start of the line" },
-    { key: "f", shift: "left", kind: "unprinted", label: "in a command line, the cursor to the end of the line" },
+    { key: "a", shift: "left", kind: "unprinted", label: "in a command line, delete everything left of the cursor" },
+    { key: "b", shift: "left", kind: "unprinted", label: "in a command line, delete from the cursor to the right" },
+    { key: "c", shift: "left", kind: "unprinted", label: "in a command line, move the cursor to the first line" },
+    { key: "d", shift: "left", kind: "unprinted", label: "in a command line, move the cursor to the last line" },
+    { key: "e", shift: "left", kind: "unprinted", label: "in a command line, move the cursor to the start of the line" },
+    { key: "f", shift: "left", kind: "unprinted", label: "in a command line, move the cursor to the end of the line" },
     // "Shift α, printed MENUS, is Menu Lock" (p. 169, 192, 284).
     { key: "alpha", shift: "left", kind: "note", label: "Menu Lock: A to R select their menus unshifted until pressed again" },
   ],
@@ -136,10 +136,10 @@ export const HIDDEN_KEYS = {
     { key: "symb", shift: "left", kind: "unprinted", label: "SETUP-SYMB, the symbolic setup view", aside: "the SETUP bracket" },
     { key: "num", shift: "left", kind: "unprinted", label: "SETUP-NUM, the numeric setup view", aside: "the SETUP bracket" },
     // "SHIFT ▲ and SHIFT ▼ in a list" (p. 1-11), "SHIFT ◀ and SHIFT ▶ on the edit line" (observed).
-    { key: "up", shift: "left", kind: "unprinted", label: "the beginning of a list; in HOME, the oldest entry" },
-    { key: "down", shift: "left", kind: "unprinted", label: "the end of a list; in HOME, back to the edit line" },
-    { key: "left", shift: "left", kind: "unprinted", label: "the start of the edit line" },
-    { key: "right", shift: "left", kind: "unprinted", label: "the end of the edit line" },
+    { key: "up", shift: "left", kind: "unprinted", label: "go to the beginning of a list; in HOME, to the oldest entry" },
+    { key: "down", shift: "left", kind: "unprinted", label: "go to the end of a list; in HOME, back to the edit line" },
+    { key: "left", shift: "left", kind: "unprinted", label: "move the cursor to the start of the edit line" },
+    { key: "right", shift: "left", kind: "unprinted", label: "move the cursor to the end of the edit line" },
   ],
 };
 

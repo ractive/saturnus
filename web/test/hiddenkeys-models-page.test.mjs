@@ -64,7 +64,7 @@ test("49G: held-shift functions in the tooltips; no ghosts in the cursor pad, wh
   if (!p) return;
   assert.equal(await p.ev(fake("49g")), "49g");
   assert.equal(await title(p, "mode"), "MODE (alpha H)\n⌃-click: CUSTOM\n⌥-click: END\nWith the left shift held down: MODES menu");
-  assert.equal(await title(p, "right"), "▶ (RIGHT)\n⌃-click: SWAP, as ▶; in a command line, the cursor to its end\n⌥-click: XModem server; in a command line, the cursor to its end; in algebraic mode it types XSERV()\nWith the right shift held down: Kermit server");
+  assert.equal(await title(p, "right"), "▶ (RIGHT)\n⌃-click: SWAP, as ▶; in a command line, move the cursor to its end\n⌥-click: XModem server; in a command line, move the cursor to its end; in algebraic mode, type XSERV()\nWith the right shift held down: Kermit server");
   assert.equal(await title(p, "a"), "F1 (A, alpha A)\n⌃-click: Y= (algebraic mode; in RPN mode hold the left shift down)");
   await p.modifier("alt", true);
   await p.lit("glow-right");
@@ -92,7 +92,7 @@ test("38G: one shift for both modifiers, the SETUP bracket's functions, its ON m
   if (!p) return;
   assert.equal(await p.ev(fake("38g")), "38g");
   assert.equal(await title(p, "plot"), "PLOT\n⌃- or ⌥-click: SETUP-PLOT, the plot setup view (the SETUP bracket)");
-  assert.equal(await title(p, "up"), "▲ (UP)\n⌃- or ⌥-click: the beginning of a list; in HOME, the oldest entry");
+  assert.equal(await title(p, "up"), "▲ (UP)\n⌃- or ⌥-click: go to the beginning of a list; in HOME, to the oldest entry");
   assert.equal(await p.ev(`document.querySelectorAll(".skin .ghost").length`), 0, "no ghosts on the 38G");
   for (const mod of ["alt", "ctrl"]) {
     await p.modifier(mod, true);
