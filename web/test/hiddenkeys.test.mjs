@@ -45,14 +45,14 @@ test("the table: entries of a known kind and shift; the 48GX's menu keys are its
 test("a one-shift model's entries take both modifiers", () => {
   const ONE = new Set(["shift", "alpha"]);
   const extra = { left: { key: "x", shift: "left", kind: "unprinted", label: "Something" } };
-  assert.deepEqual(clickHints({ name: "x", label: "X", left: "" }, ONE, true, extra), ["⌃- or ⌥-click: Something (not printed)"]);
+  assert.deepEqual(clickHints({ name: "x", label: "X", left: "" }, ONE, true, extra), ["⌃- or ⌥-click: Something"]);
   assert.deepEqual(clickHints({ name: "x", label: "X", left: "Y" }, ONE, false, { left: { kind: "note", label: "Z" } }), ["Ctrl+click or Alt+click: Y (Z)"]);
 });
 
 test("the tooltips say what the print does not", () => {
-  assert.deepEqual(hints(GX.right), ["⌃-click: SWAP", "⌥-click: Kermit server (not printed)"]);
-  assert.deepEqual(hints(GX.right, false), ["Ctrl+click: SWAP", "Alt+click: Kermit server (not printed)"]);
-  assert.deepEqual(hints(GX.down), ["⌃-click: VIEW", "⌥-click: REVIEW, the menu's labels in full (not printed)"]);
+  assert.deepEqual(hints(GX.right), ["⌃-click: SWAP", "⌥-click: Kermit server"]);
+  assert.deepEqual(hints(GX.right, false), ["Ctrl+click: SWAP", "Alt+click: Kermit server"]);
+  assert.deepEqual(hints(GX.down), ["⌃-click: VIEW", "⌥-click: REVIEW, the menu's labels in full"]);
   assert.deepEqual(hints(GX.eex), ["⌃-click: PURG", "⌥-click: ARG (LASTARG)"]);
   assert.deepEqual(hints(GX[7]), ["⌃-click: SOLVE menu", "⌥-click: SOLVE"]);
   assert.deepEqual(hints(GX[3]), ["⌃-click: EQ LIB menu", "⌥-click: EQ LIB"]);
@@ -133,12 +133,12 @@ const SX = {
 
 test("the 48SX: application names on the left, their other menus and unprinted functions on the right", () => {
   const sx = (k) => clickHints(k, TWO, true, hiddenOf("48sx", k.name));
-  assert.deepEqual(sx(SX.prg), ["⌃-click: I/O", "⌥-click: Kermit server (not printed)"]);
+  assert.deepEqual(sx(SX.prg), ["⌃-click: I/O", "⌥-click: Kermit server"]);
   assert.deepEqual(sx(SX.cst), ["⌃-click: MODES", "⌥-click: MODES customization menu"]);
-  assert.deepEqual(sx(SX[9]), ["⌃-click: ALGEBRA", "⌥-click: Equation Catalog (not printed)"]);
+  assert.deepEqual(sx(SX[9]), ["⌃-click: ALGEBRA", "⌥-click: Equation Catalog"]);
   assert.deepEqual(sx(SX[2]), ["⌃-click: STACK (LAST STACK, the stack before the last command line)", "⌥-click: ARG (LAST ARG, the last command's arguments)"]);
   assert.deepEqual(sx(SX.backspace), ["⌃-click: DROP", "⌥-click: CLR (clears the whole stack, with no confirmation)"]);
-  assert.deepEqual(sx(SX.left), ["⌃-click: GRAPH", "⌥-click: in a command line, the cursor to its start (not printed)"]);
+  assert.deepEqual(sx(SX.left), ["⌃-click: GRAPH", "⌥-click: in a command line, the cursor to its start"]);
   assert.deepEqual(sx(SX.mth), ["⌃-click: PRINT"], "→ MTH does nothing: no line");
   // ⌥ lights the left-printed application whose menu → opens, in green.
   const menus = menuLabels("48sx");
@@ -154,19 +154,19 @@ test("the 48SX: application names on the left, their other menus and unprinted f
 test("the 49G: a held shift is a tooltip line of its own, never a ghost or a glow", () => {
   const g = (k, mac = true) => clickHints(k, TWO, mac, hiddenOf("49g", k.name));
   assert.deepEqual(g({ name: "mode", label: "MODE", left: "CUSTOM", right: "END" }), [
-    "⌃-click: CUSTOM", "⌥-click: END", "With the left shift held down: MODES menu (not printed)",
+    "⌃-click: CUSTOM", "⌥-click: END", "With the left shift held down: MODES menu",
   ]);
   const right = { name: "right", label: "▶", left: "", right: "" };
   assert.deepEqual(g(right, false), [
-    "Ctrl+click: SWAP, as ▶; in a command line, the cursor to its end (not printed)",
-    "Alt+click: XModem server; in a command line, the cursor to its end; in algebraic mode it types XSERV() (not printed)",
-    "With the right shift held down: Kermit server (not printed)",
+    "Ctrl+click: SWAP, as ▶; in a command line, the cursor to its end",
+    "Alt+click: XModem server; in a command line, the cursor to its end; in algebraic mode it types XSERV()",
+    "With the right shift held down: Kermit server",
   ]);
   assert.equal(ghostSlot(right, "right", hiddenOf("49g", "right")), "XSERV", "the tapped server's ghost");
   assert.equal(ghostSlot(right, "left", hiddenOf("49g", "right")), null, "SWAP as ▶: no ghost");
   assert.deepEqual(g({ name: "a", label: "F1", left: "Y=", right: "" }), ["⌃-click: Y= (algebraic mode; in RPN mode hold the left shift down)"]);
   assert.equal(heldText("left", hiddenOf("49g", "7")), null);
-  assert.equal(heldText("right", hiddenOf("49g", "7")), "With the right shift held down: SOLVE menu (not printed)");
+  assert.equal(heldText("right", hiddenOf("49g", "7")), "With the right shift held down: SOLVE menu");
   assert.equal(menuLabels("49g").size, 0, "no glow for held menus");
 });
 
@@ -196,13 +196,13 @@ test("one-shift models: the one shift, both modifiers; the SETUP bracket; the 19
   const plot = { name: "plot", label: "PLOT", left: "" };
   assert.deepEqual(clickHints(plot, ONE, true, hiddenOf("38g", "plot")), ["⌃- or ⌥-click: SETUP-PLOT, the plot setup view (the SETUP bracket)"]);
   assert.equal(ghostSlot(plot, "left", hiddenOf("38g", "plot")), null, "named by the bracket: no ghost");
-  assert.deepEqual(clickHints({ name: "up", label: "▲", left: "" }, ONE, false, hiddenOf("39g", "up")), ["Ctrl+click or Alt+click: the beginning of a list; in HOME, the oldest entry (not printed)"]);
+  assert.deepEqual(clickHints({ name: "up", label: "▲", left: "" }, ONE, false, hiddenOf("39g", "up")), ["Ctrl+click or Alt+click: the beginning of a list; in HOME, the oldest entry"]);
   assert.match(hiddenOf("40g", "symb").left.label, /where the aplet has one/);
   const on = { name: "on", label: "ON", left: "" };
-  assert.deepEqual(clickHints(on, ONE, true, hiddenOf("19bii", "on")), ["⌃- or ⌥-click: OFF (not printed)"]);
+  assert.deepEqual(clickHints(on, ONE, true, hiddenOf("19bii", "on")), ["⌃- or ⌥-click: OFF"]);
   assert.equal(ghostSlot(on, "left", hiddenOf("19bii", "on")), "OFF");
   assert.deepEqual(clickHints({ name: "alpha", label: "α", left: "MENUS" }, ONE, true, hiddenOf("28s", "alpha")), ["⌃- or ⌥-click: MENUS (Menu Lock: A to R select their menus unshifted until pressed again)"]);
-  assert.deepEqual(clickHints({ name: "a", label: "", left: "" }, ONE, true, hiddenOf("28s", "a")), ["⌃- or ⌥-click: in a command line, deletes everything left of the cursor (not printed)"]);
+  assert.deepEqual(clickHints({ name: "a", label: "", left: "" }, ONE, true, hiddenOf("28s", "a")), ["⌃- or ⌥-click: in a command line, deletes everything left of the cursor"]);
   for (const m of ["42s", "27s", "17b", "17bii"]) assert.equal((HIDDEN_KEYS[m] ?? []).length, 0, `${m}: nothing unprinted`);
 });
 
