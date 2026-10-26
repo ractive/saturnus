@@ -4,14 +4,14 @@ description: Let an AI app such as Claude Code, Codex, Cursor, Claude Desktop, C
 section: index
 ---
 
-An AI app can use the calculators you have open in saturnus: read the display, press keys, run RPL, store programs on the 48 and 49 models and look up commands in the reference. It works over MCP, the protocol AI apps use for tools. You watch the calculator while the AI app works, and you allow each store or purge of a variable in the app first.
+An AI app can use the calculators you have open in saturnus: read the display, press keys, run RPL, store programs on the 48 and 49 models and look up commands in the reference. It works over [MCP](https://modelcontextprotocol.io/), the protocol AI apps use for tools. You watch the calculator while the AI app works, and you allow each store or purge of a variable in the app first.
 
 ## Connect an AI app
 
-In the app, choose **Connect your AI app…** (in the panel beside the calculator, or in the command palette). The dialog gives an address and, for Cursor, VS Code, Claude Code and Codex, a link or a command that adds it.
+In the app, choose **Connect your AI app…** (in the panel beside the calculator, or in the command palette). The dialog gives an address and, for [Cursor](https://cursor.com/), [VS Code](https://code.visualstudio.com/), [Claude Code](https://claude.com/product/claude-code) and [Codex](https://developers.openai.com/codex), a link or a command that adds it.
 
-- **In the browser**, the address goes through a relay on the internet, so any AI app can use it, Claude and ChatGPT included (Claude as a custom connector in its settings, ChatGPT as an MCP server under Plugins). The calculator keeps running in a background tab while an AI app is connected.
-- **In the desktop app**, turn on "Let AI apps on this computer use the calculators". The address is local (`http://127.0.0.1:4842/mcp`) and nothing goes over the internet. The links and commands include a key from a file only your user account can read. Claude Desktop gets an extension instead (below). Claude on the web and ChatGPT connect from the internet, so they cannot use this address.
+- **In the browser**, the address goes through a relay on the internet, so any AI app can use it, [Claude](https://claude.com/product/overview) and [ChatGPT](https://en.wikipedia.org/wiki/ChatGPT) included (Claude as a custom connector in its settings, ChatGPT as an MCP server under Plugins). The calculator keeps running in a background tab while an AI app is connected.
+- **In the desktop app**, turn on "Let AI apps on this computer use the calculators". The address is local (`http://127.0.0.1:4842/mcp`) and nothing goes over the internet. The links and commands include a key from a file only your user account can read. [Claude Desktop](https://claude.com/download) gets an extension instead (below). Claude on the web and ChatGPT connect from the internet, so they cannot use this address.
 
 The tools tell the AI app what it needs to start: which calculators run, which tools work on each model, and how to check its work on the display.
 
@@ -28,7 +28,7 @@ When Claude needs a calculator and saturnus is closed, the extension starts it. 
 
 The skill adds what the tools do not say: RPL programming, the differences between the models (the 42S's menus, the 38G's HOME view, the business models' menus), the screens that catch key presses, the known ROM bugs, and worked examples such as a program on the 48GX, a loan on the 17BII and a linear fit on the 38G. It is optional; the tools work without it.
 
-It is in the open Agent Skills format, a folder with `SKILL.md`, in the saturnus repository under [plugins/saturnus/skills/saturnus](https://github.com/ractive/saturnus/tree/main/plugins/saturnus/skills/saturnus).
+It is in the open [Agent Skills](https://agentskills.io/) format, a folder with `SKILL.md`, in the saturnus repository under [plugins/saturnus/skills/saturnus](https://github.com/ractive/saturnus/tree/main/plugins/saturnus/skills/saturnus).
 
 | AI app | How to add it |
 |---|---|

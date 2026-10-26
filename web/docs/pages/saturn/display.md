@@ -57,13 +57,13 @@ A register reports which row the controller is fetching, counting down from 63 a
 
 ## Contrast
 
-Contrast is a 5-bit value, 0 to 31; a higher value is darker. On the 48 series, holding ON and pressing + or − changes it. The ROM keeps it within a range: 3 to 19, according to the Voyage book. The 38G changes it with ON and a second key as well.
+Contrast is a 5-bit value, 0 to 31; a higher value is darker. On the 48 series, holding ON and pressing + or − changes it. The ROM keeps it within a range: 3 to 19, according to the [Voyage book](https://literature.hpcalc.org/community/hp48gx-voyage.pdf). The 38G changes it with ON and a second key as well.
 
 After a cold start, the 48SX in saturnus sets its contrast to 11, the 48GX, 38G and 49G to 14, the 39G and 40G to 12.
 
 ## Annunciators
 
-Above the pixels sits a row of six symbols, driven from two nibbles of the hardware registers. Their meanings, from the 48G's user's guide:
+Above the pixels sits a row of six symbols, driven from two nibbles of the hardware registers. Their meanings, from the [48G's user's guide](https://literature.hpcalc.org/community/hp48g-ug-en.pdf):
 
 | Annunciator | Shows |
 |---|---|

@@ -32,9 +32,9 @@ The 19BII's display half as saturnus draws it, with its main menu.
 
 ### The Business Consultant
 
-The 19BII's story starts with the HP 18C Business Consultant of June 1986. Susan L. Wechsler's article in the Hewlett-Packard Journal of August 1987 tells how HP designed it. The HP-12C sold well, so its features met customers' needs, but HP wanted them easier to use. It held focus panels on both coasts of North America and asked its sales representatives abroad.
+The 19BII's story starts with the [HP 18C](https://en.wikipedia.org/wiki/HP-18C) Business Consultant of June 1986. Susan L. Wechsler's article in the [Hewlett-Packard Journal](https://en.wikipedia.org/wiki/Hewlett-Packard_Journal) of August 1987 tells how HP designed it. The [HP-12C](https://en.wikipedia.org/wiki/HP-12C) sold well, so its features met customers' needs, but HP wanted them easier to use. It held focus panels on both coasts of North America and asked its sales representatives abroad.
 
-Many people disliked keyboards cluttered with labels. Instead of cutting functions, HP added keys: real ones, with a second keyboard in a case that opens like a book, and virtual ones, six blank keys under the display whose labels the display shows. The 18C was HP's first menu-driven calculator. Because it used the CPU of the HP-71B handheld computer, its financial calculations ran at least 15 times faster than the HP-12C's.
+Many people disliked keyboards cluttered with labels. Instead of cutting functions, HP added keys: real ones, with a second keyboard in a case that opens like a book, and virtual ones, six blank keys under the display whose labels the display shows. The 18C was HP's first menu-driven calculator. Because it used the CPU of the [HP-71B](https://en.wikipedia.org/wiki/HP-71B) handheld computer, its financial calculations ran at least 15 times faster than the HP-12C's.
 
 ### HP Solve
 
@@ -48,7 +48,7 @@ Feedback from outside the United States asked for a calculator in the user's own
 
 On 4 January 1988 HP replaced the 18C with the 19B, at the same $175, launched together with the [17B](17b.md), the [27S](27s.md) and the [28S](28s.md). The 19B carried the name Business Consultant II and added text lists and a choice of languages in one calculator.
 
-In January 1990 the 19BII followed, again at $175. It added RPN beside algebraic entry; together with the [17BII](17bii.md) of the same month it was the first HP calculator to offer both. Finseth's data lists it as the last of HP's clamshell calculators.
+In January 1990 the 19BII followed, again at $175. It added [RPN](https://en.wikipedia.org/wiki/Reverse_Polish_notation) beside algebraic entry; together with the [17BII](17bii.md) of the same month it was the first HP calculator to offer both. Finseth's data lists it as the last of HP's clamshell calculators.
 
 ### The clamshell's weak points
 

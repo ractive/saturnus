@@ -23,9 +23,9 @@ The Saturn is HP's own 4-bit processor. It works on nibbles, half a byte each, b
 
 ## A processor built for a calculator
 
-The Saturn first appeared in the HP 71B of 1984, as the 1LF2 chip. A later version, the 1LK7, ran the 71B, the 18C and the 28C, and the 1LT8 core went into the 48SX, the 48G series and the 38G. In the 48SX the CPU sits inside the Clarke chip, together with the display controller, the timers, the serial port and the memory controllers; in the 48G series it sits inside the Yorke. The Pioneer calculators (17B, 27S, 42S) and the 28S use the Lewis, a chip of the same family with its own memory interface.
+The Saturn first appeared in the [HP 71B](https://en.wikipedia.org/wiki/HP-71B) of 1984, as the 1LF2 chip. A later version, the 1LK7, ran the 71B, the 18C and the [28C](../28s.md), and the 1LT8 core went into the 48SX, the 48G series and the 38G. In the 48SX the CPU sits inside the Clarke chip, together with the display controller, the timers, the serial port and the memory controllers; in the 48G series it sits inside the Yorke. The Pioneer calculators (17B, 27S, 42S) and the 28S use the Lewis, a chip of the same family with its own memory interface.
 
-HP designed it around its decimal floating-point format. A number takes 16 nibbles: a sign nibble, 12 nibbles of mantissa and three nibbles of exponent with its sign. That is exactly one 64-bit register, and most instructions can work on a part of it (a field, below). In decimal mode the adder works in BCD, so the mantissa needs no conversion.
+HP designed it around its decimal floating-point format. A number takes 16 nibbles: a sign nibble, 12 nibbles of mantissa and three nibbles of exponent with its sign. That is exactly one 64-bit register, and most instructions can work on a part of it (a field, below). In decimal mode the adder works in [BCD](https://en.wikipedia.org/wiki/Binary-coded_decimal), so the mantissa needs no conversion.
 
 ## Registers
 
@@ -68,7 +68,7 @@ An instruction that works on a working register names a field: the nibbles it to
 
 So `A=A+B M` adds the mantissas of A and B and leaves the sign and the exponent alone. The A field is used so often for addresses that many instructions have a shorter form for it.
 
-Values in memory are little-endian: the nibble at the lowest address goes into nibble 0 of the register. The same holds for constants inside instructions.
+Values in memory are [little-endian](https://en.wikipedia.org/wiki/Endianness): the nibble at the lowest address goes into nibble 0 of the register. The same holds for constants inside instructions.
 
 ## The instruction set
 
@@ -83,7 +83,7 @@ Instructions are two or more nibbles long; one that loads a 16-nibble constant c
 
 SETHEX and SETDEC switch the adder between hexadecimal and decimal. The mode applies only to register arithmetic. There is no instruction to read the mode back, and some instructions always count in hexadecimal whatever the mode: moving D0 or D1, changing P, and adding or subtracting a small constant.
 
-The 49g+, 50g and later models run an emulated Saturn on an ARM processor. Their "Saturn+" adds multiply, divide and other instructions, which the real Saturn does not have.
+The [49g+, 50g](https://en.wikipedia.org/wiki/HP_49/50_series) and later models run an emulated Saturn on an [ARM](https://en.wikipedia.org/wiki/ARM_architecture_family) processor. Their "Saturn+" adds multiply, divide and other instructions, which the real Saturn does not have.
 
 ## Speed
 

@@ -4,7 +4,7 @@ description: The hardware of HP's Saturn calculators for developers: the CPU, th
 section: saturn
 ---
 
-The HP 48SX, the 48G series, the 49G and the 38G, 39G and 40G are built around HP's Saturn processor and one companion chip, the Clarke in the 48SX and the Yorke in the others. These pages describe that hardware for developers: for anyone who writes machine code for these calculators, builds an emulator or wants to know how saturnus works inside.
+The HP 48SX, the 48G series, the 49G and the 38G, 39G and 40G are built around HP's [Saturn processor](https://en.wikipedia.org/wiki/HP_Saturn) and one companion chip, the Clarke in the 48SX and the Yorke in the others. These pages describe that hardware for developers: for anyone who writes machine code for these calculators, builds an emulator or wants to know how saturnus works inside.
 
 The pages describe the hardware, as HP's documents and the community's describe it, not the code in the ROM.
 

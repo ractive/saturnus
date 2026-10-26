@@ -5,7 +5,7 @@ section: transfer
 order: 4
 ---
 
-Files is the app's second view, beside Calculator. It shows two places side by side, a calculator and a folder or two calculators, and copies variables between them by drag and drop. A place can be a calculator emulated in the page or a real one on a serial cable. It runs the same transfer code as [satx](satx.md), compiled to WebAssembly.
+Files is the app's second view, beside Calculator. It shows two places side by side, a calculator and a folder or two calculators, and copies variables between them by drag and drop. A place can be a calculator emulated in the page or a real one on a serial cable. It runs the same transfer code as [satx](satx.md), compiled to [WebAssembly](https://webassembly.org/).
 
 [Open Files](../../app/#/files)
 
@@ -19,7 +19,7 @@ Files is the app's second view, beside Calculator. It shows two places side by s
 | Models on a cable | 48S/SX, 48G/G+/GX and 49G as servers; 38G, 39G and 40G served a folder |
 | Not supported | the 42S and the other Pioneer models, which have no serial port |
 
-Chrome and Edge reach the serial port through Web Serial and a folder through the File System Access API. Firefox and Safari have neither: there Files keeps its files in the page ("Files in this browser"), which you add from your computer and download again, and works with emulated calculators only. A real calculator then needs the desktop app, which has native serial ports and folders.
+Chrome and Edge reach the serial port through [Web Serial](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API) and a folder through the [File System Access API](https://developer.chrome.com/docs/capabilities/web-apis/file-system-access). Firefox and Safari have neither: there Files keeps its files in the page ("Files in this browser"), which you add from your computer and download again, and works with emulated calculators only. A real calculator then needs the desktop app, which has native serial ports and folders.
 
 ## The two panes
 
@@ -39,7 +39,7 @@ Nothing is replaced without asking. Before a copy starts, one question lists wha
 
 Files then finds the speed and parity by itself: it tries 9600, 4800, 2400 and 1200 baud, with no, odd and even parity, and listens for the server's answer. It reads the model from the calculator, switches it to binary transfers for exact copies and loads the HOME directory. When you disconnect, it ends the server and puts the calculator's own transfer setting back.
 
-If the port does not open, the dialog's "Trouble with the cable?" lists the usual reasons. On Linux your user has to be in the `dialout` group (`uucp` on Arch). On Windows, current drivers refuse adapters with fake Prolific chips; one with an FTDI or a genuine chip works. If the speed is not found, "Connection settings…" in the pane's "⋯" menu sets a fixed one.
+If the port does not open, the dialog's "Trouble with the cable?" lists the usual reasons. On Linux your user has to be in the `dialout` group (`uucp` on Arch). On Windows, current drivers refuse adapters with fake Prolific chips; one with an [FTDI](https://en.wikipedia.org/wiki/FTDI) or a genuine chip works. If the speed is not found, "Connection settings…" in the pane's "⋯" menu sets a fixed one.
 
 What the calculator's "⋯" menu offers:
 
