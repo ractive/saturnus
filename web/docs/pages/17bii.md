@@ -33,19 +33,19 @@ The 17BII as saturnus draws it, with its main menu.
 
 HP launched the 17B in January 1988 as part of its Pioneer series: slim calculators built around Lewis, a custom chip with an improved Saturn processor core. The 17B worked in algebraic chain order only. Two years later, in January 1990, the 17BII took its place at the same price, $110.
 
-The new model's manual still opens with the 17B's welcome page and adds one point: "You can choose either ALG (Algebraic) or RPN (Reverse Polish Notation) entry logic for your calculations." Finseth's data lists the 17BII and the 19BII as the first dual-logic HP calculators. Their predecessors, the [18C](https://en.wikipedia.org/wiki/HP-18C) Business Consultant of 1986 and the 17B and 19B of 1988, were algebraic only.
+[The new model's manual still opens](https://literature.hpcalc.org/community/hp17bii-om-en.pdf) with the 17B's welcome page and adds one point: "You can choose either ALG (Algebraic) or RPN (Reverse Polish Notation) entry logic for your calculations." [Finseth's data lists](https://www.finseth.com/hpdata/hp17bii.php) the 17BII and the 19BII as the first dual-logic HP calculators. Their predecessors, the [18C](https://en.wikipedia.org/wiki/HP-18C) Business Consultant of 1986 and the 17B and 19B of 1988, were algebraic only.
 
-The manual's RPN appendix explains the name: Polish notation comes from the Polish logician [Jan Łukasiewicz](https://en.wikipedia.org/wiki/Jan_%C5%81ukasiewicz) (1878–1956), who put operators before the numbers; HP puts them after.
+[The manual's RPN appendix explains](https://literature.hpcalc.org/community/hp17bii-om-en.pdf) the name: Polish notation comes from the Polish logician [Jan Łukasiewicz](https://en.wikipedia.org/wiki/Jan_%C5%81ukasiewicz) (1878–1956), who put operators before the numbers; HP puts them after.
 
 ### Early bugs
 
-Finseth's data keeps two RPN oddities. Wlodek Mier-Jedrzejowicz found that the stack is not always four levels: it grows from one to four as you enter numbers. Type 1, ENTER, 2, then roll down twice, and you see 2, not 0.
+[Finseth's data keeps](https://www.finseth.com/hpdata/hp17bii.php) two RPN oddities. [Wlodek Mier-Jedrzejowicz found](https://www.finseth.com/hpdata/hp17bii.php) that the stack is not always four levels: it grows from one to four as you enter numbers. Type 1, ENTER, 2, then roll down twice, and you see 2, not 0.
 
 The second is a real bug in early 17BII and 19BII calculators. In RPN mode, change the sign of a number with +/−, swap with x≷y, and type a digit: a minus sign appears in front of it that is not really there. Backspacing over that minus can freeze the calculator or reset it with "Machine Reset". The advice was to press CLR at once. HP removed the bug early in 1991.
 
 ### The 17bII+
 
-The 17BII was sold until the early 2000s. Its successor, the 17bII+, came out on 23 September 2003 at $120. It was made by Kinpo; a redesigned version of 2007 uses a Sunplus processor. Finseth notes that it lacks the 17BII's hidden solver functions L() and G().
+The 17BII was sold until the early 2000s. Its successor, the 17bII+, came out on 23 September 2003 at $120. It was made by Kinpo; a redesigned version of 2007 uses a Sunplus processor. [Finseth notes](https://www.finseth.com/hpdata/hp17biiplus.php) that it lacks the 17BII's hidden solver functions L() and G().
 
 ## What makes it special
 
@@ -70,11 +70,11 @@ The bottom line of the display shows a menu, usually the main menu with FIN, BUS
 
 ### The solver and its hidden functions
 
-For anything not built in, type an equation and solve it for any of its variables. "It's easier than programming!", the manual says. Finseth's data adds that the 17BII's solver is the same as the 19BII's and has all its functions, documented or not, among them Let and Get.
+For anything not built in, type an equation and solve it for any of its variables. "It's easier than programming!", [the manual says](https://literature.hpcalc.org/community/hp17bii-om-en.pdf). [Finseth's data adds](https://www.finseth.com/hpdata/hp17bii.php) that the 17BII's solver is the same as the 19BII's and has all its functions, documented or not, among them Let and Get.
 
 ### Printing
 
-The infrared port prints to HP's 82240 printer. Finseth notes that the 17BII added a double-spaced printing mode, set in the MODES menu.
+The infrared port prints to HP's 82240 printer. [Finseth notes](https://www.finseth.com/hpdata/hp17bii.php) that the 17BII added a double-spaced printing mode, set in the MODES menu.
 
 ## In saturnus
 

@@ -32,13 +32,13 @@ The 19BII's display half as saturnus draws it, with its main menu.
 
 ### The Business Consultant
 
-The 19BII's story starts with the [HP 18C](https://en.wikipedia.org/wiki/HP-18C) Business Consultant of June 1986. Susan L. Wechsler's article in the [Hewlett-Packard Journal](https://en.wikipedia.org/wiki/Hewlett-Packard_Journal) of August 1987 tells how HP designed it. The [HP-12C](https://en.wikipedia.org/wiki/HP-12C) sold well, so its features met customers' needs, but HP wanted them easier to use. It held focus panels on both coasts of North America and asked its sales representatives abroad.
+The 19BII's story starts with the [HP 18C](https://en.wikipedia.org/wiki/HP-18C) Business Consultant of June 1986. [Susan L. Wechsler's article in the Hewlett-Packard Journal of August 1987](https://www.hparchive.com/Journals/HPJ-1987-08.pdf) tells how HP designed it. The [HP-12C](https://en.wikipedia.org/wiki/HP-12C) sold well, so its features met customers' needs, but HP wanted them easier to use. It held focus panels on both coasts of North America and asked its sales representatives abroad.
 
 Many people disliked keyboards cluttered with labels. Instead of cutting functions, HP added keys: real ones, with a second keyboard in a case that opens like a book, and virtual ones, six blank keys under the display whose labels the display shows. The 18C was HP's first menu-driven calculator. Because it used the CPU of the [HP-71B](https://en.wikipedia.org/wiki/HP-71B) handheld computer, its financial calculations ran at least 15 times faster than the HP-12C's.
 
 ### HP Solve
 
-The 18C introduced Solve: type in an equation with any names you like, and the menu keys show its variables. Store values in all but one, press the key of the last, and the calculator works it out. The idea came from Chris Bunsen, who tells in the same journal issue how he worked it out one evening after midnight, to escape the boredom of debugging a software package for the HP-71B. The HP-12C's financial keys showed him the way: one key per variable, to store a value or calculate it. A row of menu keys under a display could do the same for any equation.
+The 18C introduced Solve: type in an equation with any names you like, and the menu keys show its variables. Store values in all but one, press the key of the last, and the calculator works it out. The idea came from [Chris Bunsen, who tells in the same journal issue](https://www.hparchive.com/Journals/HPJ-1987-08.pdf) how he worked it out one evening after midnight, to escape the boredom of debugging a software package for the HP-71B. The HP-12C's financial keys showed him the way: one key per variable, to store a value or calculate it. A row of menu keys under a display could do the same for any equation.
 
 ### Speaking the user's language
 
@@ -48,17 +48,17 @@ Feedback from outside the United States asked for a calculator in the user's own
 
 On 4 January 1988 HP replaced the 18C with the 19B, at the same $175, launched together with the [17B](17b.md), the [27S](27s.md) and the [28S](28s.md). The 19B carried the name Business Consultant II and added text lists and a choice of languages in one calculator.
 
-In January 1990 the 19BII followed, again at $175. It added [RPN](https://en.wikipedia.org/wiki/Reverse_Polish_notation) beside algebraic entry; together with the [17BII](17bii.md) of the same month it was the first HP calculator to offer both. Finseth's data lists it as the last of HP's clamshell calculators.
+In January 1990 the 19BII followed, again at $175. It added [RPN](https://en.wikipedia.org/wiki/Reverse_Polish_notation) beside algebraic entry; together with the [17BII](17bii.md) of the same month it was the first HP calculator to offer both. [Finseth's data lists](https://www.finseth.com/hpdata/hp19bii.php) it as the last of HP's clamshell calculators.
 
 ### The clamshell's weak points
 
-The 28C, 28S and 19B share a known problem. Wikipedia describes how the springs of the three N cells press the battery lid against thin notches in the case, which crack. The 19BII fixed this by putting the battery cover underneath the chassis. Wikipedia also notes that the ribbon connecting the two keyboards could fail after many openings.
+The 28C, 28S and 19B share a known problem. [Wikipedia describes](https://en.wikipedia.org/wiki/HP-19B) how the springs of the three N cells press the battery lid against thin notches in the case, which crack. The 19BII fixed this by putting the battery cover underneath the chassis. [Wikipedia also notes](https://en.wikipedia.org/wiki/HP-19B) that the ribbon connecting the two keyboards could fail after many openings.
 
 Early 19BIIs also had an RPN bug, the same as early 17BIIs: change a number's sign with +/−, swap with x≷y, type a digit, and a minus sign appears that is not really there. Trying to delete it could clear the stack, or even lose the whole memory. HP removed the bug early in 1991.
 
 ### RPL inside
 
-Christoph Gießelink, author of the [Emu42](https://hp.giesselink.com/emu42.htm) emulator, wrote in 2003 that the 19BII offers no RPL programming to its user, but that many parts of it are written in RPL internally. Its hardware is very close to the 28S's; only its 8 KB RAM chip sits at a different address.
+Christoph Gießelink, author of the [Emu42](https://hp.giesselink.com/emu42.htm) emulator, [wrote in 2003](https://www.finseth.com/hpdata/hp19bii.php) that the 19BII offers no RPL programming to its user, but that many parts of it are written in RPL internally. Its hardware is very close to the 28S's; only its 8 KB RAM chip sits at a different address.
 
 ## What makes it special
 
@@ -79,7 +79,7 @@ The left half holds the letters, so equation names, variable names and text go i
 
 ### Six languages and currencies
 
-The INTL menu under MODES switches between six display languages. The currency exchange menu converts between two currencies at a rate you store or calculate; the manual's example still uses West German marks and British pounds.
+The INTL menu under MODES switches between six display languages. The currency exchange menu converts between two currencies at a rate you store or calculate; [the manual's example](https://literature.hpcalc.org/community/hp19bii-om-en.pdf) still uses West German marks and British pounds.
 
 ## In saturnus
 

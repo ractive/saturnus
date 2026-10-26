@@ -89,7 +89,7 @@ The [49g+, 50g](https://en.wikipedia.org/wiki/HP_49/50_series) and later models 
 
 The 48SX's clock is about 2 MHz, the 48G series and the 49G run at about 4 MHz, from a 32 kHz crystal multiplied up. The clock does not tell the whole story:
 
-- An instruction takes several cycles, more for memory access and jumps. HP's assembler manual gives approximate counts, and the counts in the Meta Kernel documentation for the 48G are higher. A register add on the A field takes about 7 to 8 cycles, a jump about 11 to 14.
+- An instruction takes several cycles, more for memory access and jumps. [HP's assembler manual gives](https://www.hpcalc.org/hp48/docs/programming/sasmhtml.zip) approximate counts, and the counts in the Meta Kernel documentation for the 48G are higher. A register add on the A field takes about 7 to 8 cycles, a jump about 11 to 14.
 - Some instructions take a cycle more or less depending on whether they start at an odd or an even address.
 - The display controller reads its rows from RAM and stops the CPU while it does (see [The display](display.md)). Turning the display off makes the 48G about 13% faster.
 - On the 48G series, the upper half of the ROM and the cards in port 2 are reached through bank switching, and the bus is still 4 bits wide. The clock doubled from the 48SX, but programs run only about 40% faster.

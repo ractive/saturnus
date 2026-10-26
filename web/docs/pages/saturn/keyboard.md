@@ -39,7 +39,7 @@ The matrix of the 48 series, from the [Saturn assembly tutorial](https://www.hpc
 
 The keys are named as on the 48SX; A to F are the six menu keys. The 48G series has the same positions with its own labels. The 38G uses this matrix too, with 47 of its positions.
 
-The 49G has a different keyboard and a different matrix, eight rows by eight columns. The 39G and 40G use the 49G's positions. Matrix tables for both are in the tutorial and in Sylvester's hardware note on the 49G keyboard.
+The 49G has a different keyboard and a different matrix, eight rows by eight columns. The 39G and 40G use the 49G's positions. Matrix tables for both are in [the tutorial](https://www.hpcalc.org/details/1693) and in [Sylvester's hardware note on the 49G keyboard](https://www.hpcalc.org/hp49/docs/programming/keyb49.zip).
 
 The OUT lines are not only the keyboard's. On the 48GX's board they share pins with the address bus, and bit 11 drives the beeper: OUT set to 800 and back to 000 clicks it. OUT cannot be read back, so the system keeps a copy in RAM and restores OUT from it after each interrupt. A program that scans the keyboard itself, with interrupts on, has to update that copy before it writes OUT.
 

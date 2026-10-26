@@ -50,13 +50,13 @@ The calculator uses no other lines: no RTS, CTS, DTR or carrier detect. Programs
 
 The [HP 48 FAQ](https://www.hpcalc.org/hp48/docs/faq/48faq.html) explains how to build one. You need a female 9-pin (or 25-pin) connector with its shell, some wire, and a plug with four sockets 2 mm apart: not the usual 0.1 inch (2.54 mm) spacing, which damages the calculator's pins.
 
-The FAQ's tip for the plug is an old CD-ROM audio cable from a PC: one of its two ends has the 2 mm spacing and fits the 48. Cut off the other end and solder three wires to the PC connector as in the table above; the empty socket is the ground. Its harder way is four sockets taken from an IC socket strip, glued together at 2 mm.
+[The FAQ's tip](https://www.hpcalc.org/hp48/docs/faq/48faq.html) for the plug is an old CD-ROM audio cable from a PC: one of its two ends has the 2 mm spacing and fits the 48. Cut off the other end and solder three wires to the PC connector as in the table above; the empty socket is the ground. Its harder way is four sockets taken from an IC socket strip, glued together at 2 mm.
 
 ## The 49G, 38G, 39G and 40G
 
 The 49G's port has ten contacts and a different shape. In the box came a cable with a 10-pin plug at each end, for connecting two 49Gs, and a small cap that turns its 10-pin plug into the 48's 4-pin one, for connecting a 49G to a 48.
 
-HP's Graphing Calculator PC Connectivity Kit of 1999 had one cable for the 48 series, the 49G and the 38G: a 9-pin plug for the PC at one end and, at the other, the plug of the 49G and 38G, with an adapter for the 48 series. The kit's guide warns not to use that adapter with the 49G or the 38G. The 38G's 10-pin connector also carries the signals for HP's overhead projector display.
+HP's Graphing Calculator PC Connectivity Kit of 1999 had one cable for the 48 series, the 49G and the 38G: a 9-pin plug for the PC at one end and, at the other, the plug of the 49G and 38G, with an adapter for the 48 series. [The kit's guide warns](https://literature.hpcalc.org/community/hp-graph-calc-connectivity.pdf) not to use that adapter with the 49G or the 38G. The 38G's 10-pin connector also carries the signals for HP's overhead projector display.
 
 The 39G and 40G are built on the 49G's hardware. The 40G, which has no infrared, came with a PC adapter and a cable from calculator to calculator. This page could not confirm from HP's documents that the 39G's and 40G's connector is the 49G's, so check the plug before you buy a cable for one.
 

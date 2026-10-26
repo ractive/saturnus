@@ -41,6 +41,13 @@ READMEs, crate docs on docs.rs and the changelog's unreleased section.
   sites that block scripts (hpmuseum.org) in Firefox with
   `ff-rdp navigate URL --with-page`. Site
   names such as hpcalc.org link themselves (`web/shared/ext-links.js`).
+- In the user docs, a claim the text attributes to a source (a person,
+  post, manual, article or site: "Finseth's data gives", "the manual
+  warns", "Wikipedia notes") links its attribution to that source from
+  the page's Sources list, every time it is cited, so the reader can
+  check it. Use the most specific entry, such as the manual's PDF or the
+  journal issue, not a general page. A claim with no entry in Sources
+  gets one first; do not link a source the list does not have.
 
 ## Avoid
 

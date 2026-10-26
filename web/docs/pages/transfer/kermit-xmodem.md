@@ -24,7 +24,7 @@ Bill Catchings and Frank da Cruz designed Kermit at Columbia University in 1981.
 
 ### Starting the server
 
-A Kermit **server** waits for commands from the **client**: send a file, take a file, list a directory, run a command. Run the 48 and the 49G as servers, with the computer as the client; the Kermit Project says the 48's own client commands are not reliable.
+A Kermit **server** waits for commands from the **client**: send a file, take a file, list a directory, run a command. Run the 48 and the 49G as servers, with the computer as the client; [the Kermit Project says](https://www.columbia.edu/kermit/hp48.html) the 48's own client commands are not reliable.
 
 | Model | Keys |
 |---|---|
@@ -96,7 +96,7 @@ These live in the variable IOPAR in HOME, apart from the flags; on the 48G serie
 
 ### A Kermit program
 
-Any Kermit program works with the calculator as server. The Kermit Project's settings for [C-Kermit](https://www.kermitproject.org/ckermit.html) and Kermit 95, with your serial port in place of `COM1`:
+Any Kermit program works with the calculator as server. [The Kermit Project's settings](https://www.columbia.edu/kermit/hp48.html) for [C-Kermit](https://www.kermitproject.org/ckermit.html) and Kermit 95, with your serial port in place of `COM1`:
 
 ```
 SET MODEM TYPE DIRECT
