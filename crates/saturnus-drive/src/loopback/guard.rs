@@ -365,11 +365,8 @@ mod tests {
         s.read_to_string(&mut out).unwrap();
         assert!(out.starts_with("HTTP/1.1 200 OK"), "{out}");
         stop.store(true, Ordering::SeqCst);
+        // The accept loop ends and drops the listener. (Not checked by
+        // connecting again: a parallel test may bind the freed port.)
         joined.join().unwrap();
-        // Nobody listens any more: a new connection is refused.
-        assert!(
-            TcpStream::connect(addr).is_err(),
-            "the server still accepts"
-        );
     }
 }

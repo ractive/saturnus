@@ -1321,10 +1321,17 @@ mod tests {
         );
         f.window.not_ready.store(false, Ordering::SeqCst);
         f.window.slow.store(true, Ordering::SeqCst);
+        let before = f.window.calls.lock().unwrap().len();
         let body = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).to_string();
         let mut s = TcpStream::connect(("127.0.0.1", f.port)).unwrap();
         write!(s, "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}", f.port, f.token, body.len()).unwrap();
-        std::thread::sleep(Duration::from_millis(100));
+        // Leave only once the call has reached the window: a client gone
+        // before that is turned away without a call to cancel.
+        let end = Instant::now() + Duration::from_secs(10);
+        while f.window.calls.lock().unwrap().len() == before {
+            assert!(Instant::now() < end, "the call never reached the window");
+            std::thread::sleep(Duration::from_millis(20));
+        }
         drop(s);
         let end = Instant::now() + Duration::from_secs(10);
         while !f.window.cancelled.load(Ordering::SeqCst) {
