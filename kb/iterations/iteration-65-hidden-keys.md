@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 65: unprinted key functions on the skin, and the ON combinations"
 date: 2026-10-25
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
@@ -68,7 +68,7 @@ PR or a follow-up).
 - [x] ⌃ lights an application key's label in violet where ← opens its menu
 - [x] The ON key's menu (long press, right-click) and the four palette entries
 - [x] Page tests; screenshots at 1280 and 390 wide with ⌃ and ⌥ held
-- [ ] Owner: hold ⌃ and ⌥ on the 48GX, read the tooltips, try the ON menu
+- [x] Owner: hold ⌃ and ⌥ on the 48GX, read the tooltips, try the ON menu
 
 ## The other eleven models (branch iter-65b/hidden-keys-all-models)
 
@@ -118,4 +118,4 @@ the 40G's CAS menu key is no shifted function.
 - [x] Held-shift and context-only entries as tooltip lines
 - [x] Unit tests per model against the real skins, page tests (48SX, 49G, 38G, 19BII, 42S) and ROM checks per family
 - [x] Screenshots with a modifier held: 48SX, 49G, 38G, 19BII at 1280
-- [ ] Owner: hold ⌃ and ⌥ on the 48SX, 49G and a one-shift model, try the ON menus
+- [x] Owner: hold ⌃ and ⌥ on the 48SX, 49G and a one-shift model, try the ON menus
