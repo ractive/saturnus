@@ -127,9 +127,14 @@ impl Boxes {
     }
 }
 
-/// Which of the six menu boxes the LCD draws: a border row dark all
-/// along the box (one is enough: a character such as the 42S's `"` can
-/// reach into the upper one).
+/// Which of the six menu boxes the LCD draws. A border row counts for a
+/// box when it is dark all along the box and light in the gap columns
+/// beside it (a line across the display is no box: the 28S's PLOT axis
+/// on its last row, a 42S program's line). The row of boxes shows only
+/// when some box has both border rows (as refgen's `lcdtext::has_menu`
+/// and `web/keys28.js`'s `labelsShown` require); then a box counts with
+/// one of them (a character such as the 42S's `"` can reach into the
+/// upper one).
 pub fn boxes_drawn(lcd: &Lcd) -> [bool; PAGE] {
     let Some(b) = Boxes::of(lcd) else {
         return [false; PAGE];
@@ -141,12 +146,17 @@ pub fn boxes_drawn(lcd: &Lcd) -> [bool; PAGE] {
             .copied()
             .unwrap_or(false)
     };
-    std::array::from_fn(|i| {
-        let xs = i * b.pitch..i * b.pitch + b.width;
-        [b.top, b.bottom]
-            .iter()
-            .any(|&y| xs.clone().all(|x| dark(x, y)))
-    })
+    let border = |i: usize, y: usize| {
+        let x0 = i * b.pitch;
+        let gap_before = i > 0 && dark(x0 - b.pitch + b.width, y);
+        let gap_after = i + 1 < PAGE && dark(x0 + b.width, y);
+        (x0..x0 + b.width).all(|x| dark(x, y)) && !gap_before && !gap_after
+    };
+    let framed = (0..PAGE).any(|i| border(i, b.top) && border(i, b.bottom));
+    if !framed {
+        return [false; PAGE];
+    }
+    std::array::from_fn(|i| border(i, b.top) || border(i, b.bottom))
 }
 
 /// One key of the 28S's table.
@@ -297,20 +307,44 @@ mod tests {
     fn boxes_are_drawn_where_a_border_row_is_dark() {
         let mut lcd = Lcd::blank_sized(131, 16);
         assert_eq!(boxes_drawn(&lcd), [false; PAGE]);
+        // One border row alone: no row of boxes.
         for x in 22..43 {
             lcd.pixels[9][x] = true;
         }
-        assert_eq!(boxes_drawn(&lcd), [false, true, false, false, false, false]);
-        let mut big = Lcd::blank_sized(137, 32);
-        for x in 0..137 {
-            big.pixels[31][x] = true;
+        assert_eq!(boxes_drawn(&lcd), [false; PAGE], "no box framed");
+        // Box 2 framed: it shows, and so does box 1 with its upper row.
+        for x in 44..65 {
+            lcd.pixels[9][x] = true;
+            lcd.pixels[15][x] = true;
         }
-        assert_eq!(boxes_drawn(&big), [true; PAGE]);
+        assert_eq!(boxes_drawn(&lcd), [false, true, true, false, false, false]);
         assert_eq!(
             boxes_drawn(&Lcd::blank()),
             [false; PAGE],
             "the 48's display"
         );
+    }
+
+    #[test]
+    fn a_line_across_the_display_is_no_box() {
+        let mut big = Lcd::blank_sized(137, 32);
+        for x in 0..137 {
+            big.pixels[31][x] = true;
+        }
+        assert_eq!(boxes_drawn(&big), [false; PAGE], "a dark last row");
+        for x in 0..137 {
+            big.pixels[25][x] = true;
+        }
+        assert_eq!(boxes_drawn(&big), [false; PAGE], "two dark rows, gaps dark");
+        // Six framed boxes with light gaps.
+        let mut menu = Lcd::blank_sized(137, 32);
+        for i in 0..PAGE {
+            for x in i * 23..i * 23 + 22 {
+                menu.pixels[25][x] = true;
+                menu.pixels[31][x] = true;
+            }
+        }
+        assert_eq!(boxes_drawn(&menu), [true; PAGE]);
     }
 
     #[test]
