@@ -2,7 +2,7 @@
 type: backlog
 title: XModem e2e on the 49G is flaky under load
 date: 2026-10-05
-status: planned
+status: completed
 priority: medium
 tags:
   - backlog
@@ -83,3 +83,14 @@ times within the transfer's 60 s window. Locally the scenario passed on a
 normal 49G and on one limited to `--cpus 0.4`. The retype itself has not
 been exercised yet: the keys arrived the first time in both runs. The CLI
 script's `xmodem_run` still types once.
+
+## Closed (2026-10-26)
+
+Not seen in the 14 `e2e.yml` runs from 2026-10-13 to 2026-10-26, all
+green: no "Oracle wedged" annotation after the core suite and no retyped
+XRECV/XSEND, so the keys arrived the first time in every run. The cause
+of the late XSEND start is the lost-keys mechanism of
+[[backlog/satx-ci-emulator-flakes]], mitigated by the retype. The wedge
+after the core suite (last seen 2026-10-05) stays unexplained; CI still
+restarts the 49G before the CLI script and warns if the probe gets no
+answer, which is where a recurrence would show.

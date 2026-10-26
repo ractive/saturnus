@@ -2,7 +2,7 @@
 type: backlog
 title: "CI emulator flakes: the silent 48SX and the 49G XModem start"
 date: 2026-10-06
-status: planned
+status: completed
 priority: medium
 tags:
   - backlog
@@ -145,3 +145,16 @@ XRECV/XSEND retype: five green runs in a row (38320077459, 38321691156,
 try, and no XRECV/XSEND had to be typed again. On 251e1ee, 38319573180
 passed and 38318710153 failed in the 49G XSEND start (see
 [[backlog/satx-flaky-xmodem-e2e]]).
+
+## Closed (2026-10-26)
+
+The watch is over. All 14 `e2e.yml` runs since the fix (2026-10-13 to
+2026-10-26, last one 40278432435) passed, for the 48SX and the 49G. None
+of their logs has a `warning: start N` line, so every calculator answered
+on its first start; none has an "Oracle wedged" annotation or an
+`xmodem: no start … typing … again` line. The cause of shape 1 is the one
+found on 2026-10-13: saturnng loses typed keys on a CPU-starved container,
+and the entrypoint's Kermit probe with restarts covers it. Shape 2 is the
+same lost-keys mechanism, covered by the retype in `xmodem_round_trip`.
+A new failure shows in the start step or as the annotation; open a new
+item then.
