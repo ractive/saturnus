@@ -27,6 +27,10 @@ the desktop app and the web page share one version.
   wiki `hardware/hp42s`,
   `hp27s`, `hp17bii`, `hp19bii` ("Menu labels in RAM"), `hp28s` ("Menu
   in RAM").
+- **Dependencies updated to their latest versions** (2026-10-26):
+  Tauri 2.12 for the desktop app (its rust-version 1.90), rustyline 19
+  for satx's REPL (satx's rust-version 1.95), the compatible crate
+  updates and the CI actions.
 - **Menu-key tooltips name what the screen shows (48SX, 48GX, 49G).**
   Hovering a menu key (A to F, the 49G's F1 to F6) names the label above
   it with the command reference's full name: `EXPAN · Expand products`,
