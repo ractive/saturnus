@@ -4816,3 +4816,23 @@ saturnus".
 - The tests whose waits were longer than the new delay now wait less
   than it and check that no timed save came first, so the hidden and
   reboot paths stay tested on their own.
+
+## 2026-10-26 (tab-mcp client 0.9.0: the icon for AI apps)
+
+- **The page sends its icon** in `serverInfo` (tab-mcp DEC-105): by
+  default the library takes the page's `<link rel="icon">` and
+  `<link rel="apple-touch-icon">`, http(s) URLs or raster data URIs,
+  no SVG. The published page (web/site.sh puts web/pwa/head.html into
+  index.html) links `icons/apple-touch-icon.png`, 180 px, the logo on
+  the panel colour (web/pwa/icons.sh, drawn by Chrome, so the ring's
+  stroke is there), which the library sends as an https URL; the
+  favicon is SVG and is left out. No second PNG from favicon.svg: it
+  would be the same picture twice. The page passes no `server.icons`
+  of its own; the default is right. A page served from web/ itself
+  (tests, development) links only the SVG and sends no icon.
+- **The ChatGPT line follows the library's** (its dialog, 0.9.0):
+  chatgpt.com adds an MCP server under Plugins, not a custom connector
+  in Settings any more, and the Mac app's MCPs are Codex's, which need
+  its `mcp_2026_07_28` feature (the line above it in the dialog). The
+  Claude half stays. The library's dialog also links a guide; the page
+  has its own dialog.

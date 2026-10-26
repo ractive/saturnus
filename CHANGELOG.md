@@ -5,6 +5,13 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **AI apps see saturnus's icon.** The web page sends its icon with the
+  server's information (tab-mcp client 0.9.0), for the AI app's
+  connector list: the installed app's touch icon, which the published
+  page links.
+
 ## 0.10.0 (2026-10-26)
 
 - **The saturnus skill and the Claude Code plugin.** An optional skill
