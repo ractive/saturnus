@@ -10,7 +10,7 @@ An AI app can use the calculators you have open in saturnus: read the display, p
 
 In the app, choose **Connect your AI app…** (in the panel beside the calculator, or in the command palette). The dialog gives an address and, for Cursor, VS Code, Claude Code and Codex, a link or a command that adds it.
 
-- **In the browser**, the address goes through a relay on the internet, so any AI app can use it, Claude and ChatGPT included (as a custom connector in their settings). The calculator keeps running in a background tab while an AI app is connected.
+- **In the browser**, the address goes through a relay on the internet, so any AI app can use it, Claude and ChatGPT included (Claude as a custom connector in its settings, ChatGPT as an MCP server under Plugins). The calculator keeps running in a background tab while an AI app is connected.
 - **In the desktop app**, turn on "Let AI apps on this computer use the calculators". The address is local (`http://127.0.0.1:4842/mcp`) and nothing goes over the internet. The links and commands include a key from a file only your user account can read. Claude Desktop gets an extension instead (below). Claude on the web and ChatGPT connect from the internet, so they cannot use this address.
 
 The tools tell the AI app what it needs to start: which calculators run, which tools work on each model, and how to check its work on the display.

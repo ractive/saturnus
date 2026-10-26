@@ -23,8 +23,9 @@
 //   it Codex signs in but lists no tools (seen 2026-10-23). So for the
 //   relay the command turns the feature on first (`codex features
 //   enable`, kept in config.toml). The desktop app's server speaks both.
-// - Claude (desktop, claude.ai) and ChatGPT: no link; the address goes in
-//   Settings as a custom connector.
+// - Claude (desktop, claude.ai): no link; the address goes in Settings as
+//   a custom connector. ChatGPT: under Plugins as an MCP server; the Mac
+//   app's MCPs are Codex's (tab-mcp client 0.9's dialog, 2026-10-25).
 
 /** Base64 of a string's UTF-8 bytes (btoa alone takes Latin-1 only). */
 function base64(text) {
@@ -106,6 +107,6 @@ export function installTargets({ name, url, headers = {}, newOnly = false }) {
     { id: "vscode", app: "VS Code", kind: "link", href: vscodeLink(s), insidersHref: vscodeLink(s, true) },
     { id: "claude-code", app: "Claude Code", kind: "command", text: claudeCodeCommand(s) },
     { id: "codex", app: "Codex", kind: codex.kind, text: codex.text },
-    { id: "connector", app: "Claude, ChatGPT", kind: "note", text: "In Claude or ChatGPT, add the address in Settings as a custom connector." },
+    { id: "connector", app: "Claude, ChatGPT", kind: "note", text: `In Claude, add the address in Settings as a custom connector. In ChatGPT, add it under Plugins as an MCP server (the Mac app: Settings → Plugins → MCPs → Add, Streamable HTTP${newOnly ? "; it needs Codex's feature above" : ""}).` },
   ];
 }
