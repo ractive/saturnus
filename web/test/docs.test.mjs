@@ -377,17 +377,18 @@ test("a site named in the text is a link to it, at most twice per address on a p
   const link = (url, text) => `<a href="${url}" ${NEW_TAB}>${text}${MARKS}</a>`;
   assert.equal(renderInline("From hpcalc.org."), `From ${link("https://www.hpcalc.org/", "hpcalc.org")}.`);
   assert.equal(renderInline("See literature.hpcalc.org and crates.io"), `See ${link("https://literature.hpcalc.org/", "literature.hpcalc.org")} and ${link("https://crates.io/", "crates.io")}`);
-  // Twice per address on a page, the page's explicit links to it counted (www. and a trailing / aside).
+  // Twice per address on a page, the page's explicit links to it counted (www. and a trailing / aside);
+  // an explicit link is always a link.
   const md = "One hpcalc.org, [two](https://hpcalc.org), three hpcalc.org.\n\nFour hpcalc.org and [five](https://www.hpcalc.org/).";
   const html = renderMarkdown(md);
-  assert.equal(html.match(/<a /g).length, 2, html);
-  assert.equal(html, `<p>One ${link("https://www.hpcalc.org/", "hpcalc.org")}, ${link("https://hpcalc.org", "two")}, three hpcalc.org.</p>\n<p>Four hpcalc.org and five.</p>`);
+  assert.equal(html.match(/<a /g).length, 3, html);
+  assert.equal(html, `<p>One ${link("https://www.hpcalc.org/", "hpcalc.org")}, ${link("https://hpcalc.org", "two")}, three hpcalc.org.</p>\n<p>Four hpcalc.org and ${link("https://www.hpcalc.org/", "five")}.</p>`);
   // The budget is the page's: shared by its render calls.
   const budget = new LinkBudget();
   renderMarkdown("hpcalc.org hpcalc.org", { budget });
   assert.doesNotMatch(renderMarkdown("hpcalc.org", { budget }), /<a /);
   // Different pages of a site are different addresses.
-  assert.equal(renderMarkdown("[a](https://e.org/1) [b](https://e.org/1) [c](https://e.org/2) [d](https://e.org/1)").match(/<a /g).length, 3);
+  assert.equal(renderMarkdown("[a](https://e.org/1) [b](https://e.org/1) [c](https://e.org/2) [d](https://e.org/1)").match(/<a /g).length, 4);
   assert.equal(urlKey("https://WWW.hpcalc.org/"), urlKey("https://hpcalc.org"));
   assert.equal(siteUrl("hpmuseum.org"), "https://www.hpmuseum.org/");
   assert.equal(siteUrl("github.com"), "https://github.com/");
@@ -404,7 +405,7 @@ test("a list of sources does not count and is always links; its names stay text"
   assert.equal(before.match(/<a /g).length, 4);
   assert.equal(sources.match(/<a /g).length, 3, "every source a link");
   assert.match(sources, /, on hpcalc\.org<\/li>/, "a name in the sources stays text");
-  assert.doesNotMatch(after, /<a /, "after the sources the limit holds again");
+  assert.doesNotMatch(after.replace(/<a [^>]*>f/, ""), /<a /, "after the sources the limit holds again for names");
 });
 
 test("no site name becomes a link in code, a heading, a link's text, an address, a file name or for a dead site", () => {

@@ -25,8 +25,8 @@
 // a ↗ after their text and " (opens in a new tab)" for screen readers. A
 // site named in the text ("hpcalc.org") is a link to it, at most twice
 // per address on a page, its explicit links counted too (`budget`, one
-// LinkBudget per page, shared by the page's render calls); a link beyond
-// that is its text. Under a "Sources" heading (level 1 or 2, to the next
+// LinkBudget per page, shared by the page's render calls); a name beyond
+// that is its text. An explicit link is always a link. Under a "Sources" heading (level 1 or 2, to the next
 // one) links do not count and are always links, and names stay text.
 // Never in code, in a link's text or in a heading. The Markdown itself
 // is not changed: the .md beside the HTML stays as written.
@@ -81,10 +81,10 @@ export function renderInline(text, rewrite = (h) => h, opts = {}) {
   const { budget = new LinkBudget(), autolink = true, sources = false } = opts;
   const inner = (t, o = {}) => renderInline(t, link, { budget, autolink, sources, ...o });
   // An <a> for `href` with `html` as its text; another site's in a new tab,
-  // or its text alone when the page has linked the address enough.
+  // counted against the names the page may still link.
   const anchor = (href, html) => {
     if (!isExternal(href)) return `<a href="${escapeHtml(link(href))}">${html}</a>`;
-    if (!sources && !budget.take(href)) return html;
+    if (!sources) budget.add(href);
     return `<a href="${escapeHtml(link(href))}" ${EXT_ATTRS}>${html}${EXT_MARKS_HTML}</a>`;
   };
   let out = "";

@@ -11,8 +11,9 @@
 // domain (build.rs, lib.rs) stays text, and so does a site that is gone
 // (hpcomm.org, not in SITES).
 //
-// The limit: one address is a link at most twice on a page, the page's
-// own links to it counted (`LinkBudget`). Not counted, and always
+// The limit: a site named in the text is a link at most twice per
+// address on a page, the page's own links to it counted (`LinkBudget`).
+// A link written as one is always a link: it cites a source each time. Not counted, and always
 // links: a list of sources (a docs page's "Sources" section, the landing
 // page's dialogs' Sources lists, About's lists in the app) and the
 // landing page's navigation in its header and footer (the same few
@@ -110,6 +111,12 @@ export class LinkBudget {
     if (n >= this.max) return false;
     this.counts.set(key, n + 1);
     return true;
+  }
+
+  /** Counts a link to `href` that is a link whatever the count. */
+  add(href) {
+    const key = urlKey(href);
+    this.counts.set(key, (this.counts.get(key) ?? 0) + 1);
   }
 }
 
