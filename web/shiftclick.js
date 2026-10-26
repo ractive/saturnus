@@ -108,10 +108,10 @@ export function clickLabel(mod, isMac, short = false) {
  * skin has them): `⌃-click: PREV` on a Mac, `Ctrl+click: PREV` elsewhere.
  * A one-shift model's label (its `left`) takes both modifiers. `extra` (the key's
  * web/hiddenkeys.js entries) adds what the print does not say:
- * `⌥-click: Kermit server (not printed)`, `⌥-click: ARG (LASTARG)`,
+ * `⌥-click: Kermit server`, `⌥-click: ARG (LASTARG)`,
  * `⌃-click: SOLVE menu`; and the functions of a shift held down while
  * the key is pressed, which a click cannot give (the 49G):
- * `With the left shift held down: MODES menu (not printed)`.
+ * `With the left shift held down: MODES menu`.
  */
 export function clickHints(k, keyNames, isMac, extra = {}) {
   if (k.name === "shift" || k.name === "leftshift" || k.name === "rightshift") return [];

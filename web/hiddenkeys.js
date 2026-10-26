@@ -16,8 +16,8 @@
  * (a one-shift model's one shift is "left", where its skin prints), and
  * `kind`
  * - "unprinted": a function no label names; the tooltip writes
- *   `label (not printed)` (`aside` in place of "not printed" where the
- *   function is named elsewhere on the face, as the 38G's SETUP bracket),
+ *   `label`, or `label (aside)` where the function is named elsewhere
+ *   on the face, as the 38G's SETUP bracket,
  *   and `ghost` (short, as print would be) is drawn in the empty slot
  *   while that shift's modifier is held, where the key has a label slot
  *   of usable size (`ghostFits`). A function that works only in one
@@ -122,10 +122,10 @@ export const HIDDEN_KEYS = {
     // ◀ ▶ (p. 166-168).
     { key: "a", shift: "left", kind: "unprinted", label: "in a command line, deletes everything left of the cursor" },
     { key: "b", shift: "left", kind: "unprinted", label: "in a command line, deletes from the cursor to the right" },
-    { key: "c", shift: "left", kind: "unprinted", label: "in a command line, the top row" },
-    { key: "d", shift: "left", kind: "unprinted", label: "in a command line, the bottom row" },
-    { key: "e", shift: "left", kind: "unprinted", label: "in a command line, the left end" },
-    { key: "f", shift: "left", kind: "unprinted", label: "in a command line, the right end" },
+    { key: "c", shift: "left", kind: "unprinted", label: "in a command line, the cursor to the first line" },
+    { key: "d", shift: "left", kind: "unprinted", label: "in a command line, the cursor to the last line" },
+    { key: "e", shift: "left", kind: "unprinted", label: "in a command line, the cursor to the start of the line" },
+    { key: "f", shift: "left", kind: "unprinted", label: "in a command line, the cursor to the end of the line" },
     // "Shift α, printed MENUS, is Menu Lock" (p. 169, 192, 284).
     { key: "alpha", shift: "left", kind: "note", label: "Menu Lock: A to R select their menus unshifted until pressed again" },
   ],
@@ -180,7 +180,7 @@ export function shiftedText(k, side, extra = {}, caps = (t) => t) {
   const printed = k[side] ? caps(k[side]) : "";
   const e = extra[side];
   if (e?.kind === "menu") return e.text ?? `${caps(e.label)} menu`;
-  if (e?.kind === "unprinted" && !printed) return `${e.label} (${e.aside ?? "not printed"})`;
+  if (e?.kind === "unprinted" && !printed) return e.aside ? `${e.label} (${e.aside})` : e.label;
   if (e?.kind === "note" && printed) return `${printed} (${e.label})`;
   return printed || null;
 }
@@ -188,13 +188,13 @@ export function shiftedText(k, side, extra = {}, caps = (t) => t) {
 /**
  * The tooltip line of key `k`'s function with shift `side` held down
  * while the key is pressed (a `held` entry), or null:
- * `With the left shift held down: MODES menu (not printed)`. A modifier
+ * `With the left shift held down: MODES menu`. A modifier
  * click taps the shift; holding a shift is a hand on the calculator's
  * shift key.
  */
 export function heldText(side, extra = {}) {
   const e = extra[`${side} held`];
-  return e ? `With the ${side} shift held down: ${e.label} (not printed)` : null;
+  return e ? `With the ${side} shift held down: ${e.label}` : null;
 }
 
 /** The ghost label of key `k` on `side`, or null: an unprinted function with a ghost, and that slot empty. */

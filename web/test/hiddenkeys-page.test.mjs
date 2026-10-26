@@ -67,7 +67,7 @@ test("⌥ shows SERVER above ▶ at full size only while held, SWAP hidden meanw
   await p.modifier("ctrl", false);
 
   const title = (k) => p.ev(`document.querySelector("sat-calculator").skinKey(${JSON.stringify(k)}).querySelector("title").textContent`);
-  assert.equal(await title("right"), "▶ (RIGHT, alpha R)\n⌃-click: SWAP\n⌥-click: Kermit server (not printed)");
+  assert.equal(await title("right"), "▶ (RIGHT, alpha R)\n⌃-click: SWAP\n⌥-click: Kermit server");
   assert.equal(await title("7"), "7\n⌃-click: SOLVE menu\n⌥-click: SOLVE");
   assert.equal(await title("eex"), "EEX (alpha Z)\n⌃-click: PURG\n⌥-click: ARG (LASTARG)");
   assert.equal(await title("on"), "ON\n⌃-click: CONT\n⌥-click: OFF\nLong press or right-click: Restart, Self-test, Print display, Reset memory");

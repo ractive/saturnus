@@ -46,7 +46,7 @@ test("48SX: ⌥ shows SERVER over PRG and lights MODES green; the ON menu has ON
   await p.lit(null);
   assert.equal(await p.ev(`getComputedStyle(${printed("I/O")}).visibility`), "visible", "I/O back on release");
 
-  assert.equal(await title(p, "prg"), "PRG (alpha H)\n⌃-click: I/O\n⌥-click: Kermit server (not printed)");
+  assert.equal(await title(p, "prg"), "PRG (alpha H)\n⌃-click: I/O\n⌥-click: Kermit server");
   assert.equal(await title(p, "7"), "7\n⌃-click: SOLVE\n⌥-click: SOLVR menu of the current equation");
   assert.equal(await title(p, "2"), "2\n⌃-click: STACK (LAST STACK, the stack before the last command line)\n⌥-click: ARG (LAST ARG, the last command's arguments)");
   assert.equal(await title(p, "on"), "ON\n⌃-click: CONT\n⌥-click: OFF\nLong press or right-click: Restart, Self-test, Print display, Reset memory");
@@ -63,8 +63,8 @@ test("49G: held-shift functions in the tooltips; no ghosts in the cursor pad, wh
   const p = await page(t);
   if (!p) return;
   assert.equal(await p.ev(fake("49g")), "49g");
-  assert.equal(await title(p, "mode"), "MODE (alpha H)\n⌃-click: CUSTOM\n⌥-click: END\nWith the left shift held down: MODES menu (not printed)");
-  assert.equal(await title(p, "right"), "▶ (RIGHT)\n⌃-click: SWAP, as ▶; in a command line, the cursor to its end (not printed)\n⌥-click: XModem server; in a command line, the cursor to its end; in algebraic mode it types XSERV() (not printed)\nWith the right shift held down: Kermit server (not printed)");
+  assert.equal(await title(p, "mode"), "MODE (alpha H)\n⌃-click: CUSTOM\n⌥-click: END\nWith the left shift held down: MODES menu");
+  assert.equal(await title(p, "right"), "▶ (RIGHT)\n⌃-click: SWAP, as ▶; in a command line, the cursor to its end\n⌥-click: XModem server; in a command line, the cursor to its end; in algebraic mode it types XSERV()\nWith the right shift held down: Kermit server");
   assert.equal(await title(p, "a"), "F1 (A, alpha A)\n⌃-click: Y= (algebraic mode; in RPN mode hold the left shift down)");
   await p.modifier("alt", true);
   await p.lit("glow-right");
@@ -92,7 +92,7 @@ test("38G: one shift for both modifiers, the SETUP bracket's functions, its ON m
   if (!p) return;
   assert.equal(await p.ev(fake("38g")), "38g");
   assert.equal(await title(p, "plot"), "PLOT\n⌃- or ⌥-click: SETUP-PLOT, the plot setup view (the SETUP bracket)");
-  assert.equal(await title(p, "up"), "▲ (UP)\n⌃- or ⌥-click: the beginning of a list; in HOME, the oldest entry (not printed)");
+  assert.equal(await title(p, "up"), "▲ (UP)\n⌃- or ⌥-click: the beginning of a list; in HOME, the oldest entry");
   assert.equal(await p.ev(`document.querySelectorAll(".skin .ghost").length`), 0, "no ghosts on the 38G");
   for (const mod of ["alt", "ctrl"]) {
     await p.modifier(mod, true);
@@ -127,7 +127,7 @@ test("19BII: either modifier shows OFF over ON; the 42S's menu is named after EX
   await shot(p, "hidden-keys-19bii-alt-1280.png");
   await p.modifier("alt", false);
   await p.lit(null);
-  assert.equal(await title(p, "on"), "ON\n⌃- or ⌥-click: OFF (not printed)\nLong press or right-click: Restart, Self-test, Print display, Clear memory");
+  assert.equal(await title(p, "on"), "ON\n⌃- or ⌥-click: OFF\nLong press or right-click: Restart, Self-test, Print display, Clear memory");
 
   assert.equal(await p.ev(fake("42s")), "42s");
   await p.click("on", { button: "right" });

@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 67: menu-key tooltips on the 42S, 27S, 17B, 17BII, 19BII and 28S"
 date: 2026-10-25
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
@@ -54,4 +54,4 @@ for full names).
 - [x] Host tests per ROM for menus not yet checked: SOLVE variable menus, CFLO and SUM lists, the 19BII's TEXT menus, the 42S's variable and program menus
 - [x] The 28S: refgen's menu table, the tooltips while its label boxes are drawn, host tests for a few menus and pages
 - [x] The look-up line on menu keys that run a command, and the palette's key over such a key opening Search with it
-- [ ] Owner: hover the menu keys in a few menus on the 42S, the 17BII and the 28S
+- [x] Owner: hover the menu keys in a few menus on the 42S, the 17BII and the 28S
