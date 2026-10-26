@@ -71,7 +71,9 @@ export function applySiteLinks(doc = document, win = globalThis) {
   const desktop = inDesktopApp(win);
   for (const a of doc.querySelectorAll("a[data-site]")) {
     if (desktop) {
-      a.hidden = true;
+      // `data-site-keep` (the home page's logo) stays, as text.
+      if ("siteKeep" in a.dataset) a.removeAttribute("href");
+      else a.hidden = true;
       continue;
     }
     const href = siteHref(a.dataset.site, win.location.pathname);

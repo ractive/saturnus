@@ -66,6 +66,7 @@ test("Calculator links to Files, its palette opens Files, both brands go home; t
   await until(ev, `!!window.__TAURI__ && document.readyState === "complete" && window.saturnusApp?.view === "home"`, 15_000, "the page loaded as the app, on the home page");
   assert.equal(await ev("location.hash"), "#/");
   assert.equal(await ev(`document.querySelector(".home-landing").hidden`), true);
+  assert.deepEqual(await ev(`(() => { const b = document.querySelector(".home-bar .brand"); return [b.hidden, b.hasAttribute("href")]; })()`), [false, false], "the logo stays, not a link");
   assert.equal(await ev(`document.querySelector(".home-docs").hidden`), true, "no docs in the desktop app");
   assert.deepEqual(await ev(`[document.getElementById("home-connect").hidden, document.getElementById("home-connect-why").hidden]`), [false, true], "the app reaches serial ports itself");
   await ev(`location.hash = "#/calculator"; true`);
@@ -123,6 +124,7 @@ test("the home page: the kept calculators with Calculator and Files, the running
   assert.equal(await ev(`document.getElementById("home-empty").hidden`), false, "nothing kept yet");
   assert.equal(await ev("!!window.saturnus || !!window.tx"), false, "no view mounted before it is visited");
   assert.equal(await ev(`document.querySelector(".home-landing").getAttribute("href")`), "landing/");
+  assert.equal(await ev(`document.querySelector(".home-bar .brand").getAttribute("href")`), "landing/", "the logo leads to the landing page");
   // The docs' command reference, the ROM-free reference (iteration 57): web/ has no docs, so the site's.
   assert.deepEqual(await ev(`(() => { const a = document.querySelector(".home-docs"); return [a.getAttribute("href"), a.hidden, a.textContent]; })()`), ["https://ractive.ch/saturnus/docs/commands/", false, "Command reference"]);
   // Two kept ROMs, as the ROM store keeps them (web/romstore.js's slots).

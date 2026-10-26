@@ -37,6 +37,8 @@ body > [data-view][hidden] { display: none; }
     font-size: 19px;
     font-weight: 600;
     letter-spacing: 0.01em;
+    color: inherit;
+    text-decoration: none;
   }
   .brand .logo { display: block; flex: none; }
   .brand .logo .planet { fill: var(--logo-planet-panel); }
