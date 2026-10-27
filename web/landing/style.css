@@ -202,6 +202,7 @@ pre {
 }
 .button:hover { background: var(--hover); text-decoration: none; }
 .button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.button .os { width: 18px; height: 18px; margin-right: var(--s2); fill: currentColor; flex: none; }
 .button.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); }
 
 /* ------------------------------------------------------------------- top */
