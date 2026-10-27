@@ -476,6 +476,7 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
 .install-part p { max-width: 42rem; }
 .install-text p + p { margin-top: var(--s3); }
 .install-part .actions { margin: var(--s4) 0; }
+.install-text > .actions:last-child { margin-bottom: 0; }
 .install-part .terminal { margin-top: var(--s4); }
 /* On a wide screen the install lines or the screenshot sit beside the text. */
 @media (min-width: 900px) {
