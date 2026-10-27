@@ -258,7 +258,7 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
 .hero-calc { margin: 0; justify-self: end; }
 .hero-calc img { display: block; width: 200px; height: auto; }
 
-@media (max-width: 799px) {
+@media (max-width: 899px) {
   .hero { grid-template-columns: 1fr; padding-top: var(--s4); }
   .hero-calc { justify-self: center; }
   .hero-calc img { width: 150px; }
