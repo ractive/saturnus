@@ -7,6 +7,19 @@ saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B,
 command line. It is written in Rust from published documentation and the
 behaviour of the calculators' own ROMs.
 
+<p>
+<a href="https://github.com/ractive/saturnus/releases/latest/download/saturnus-mac.dmg"><img src=".github/readme/download-mac.svg" alt="Download for Mac" width="182" height="36"></a>
+<a href="https://github.com/ractive/saturnus/releases/latest/download/saturnus-windows-x64-setup.exe"><img src=".github/readme/download-windows.svg" alt="Download for Windows" width="212" height="36"></a>
+<a href="https://ractive.ch/saturnus/app/"><img src=".github/readme/open-in-browser.svg" alt="Open in your browser" width="200" height="36"></a>
+</p>
+
+The desktop app runs on Macs with Apple silicon and on Windows with Intel
+or AMD processors; for ARM, take the
+[Windows on ARM installer](https://github.com/ractive/saturnus/releases/latest/download/saturnus-windows-arm64-setup.exe).
+[Other downloads](https://github.com/ractive/saturnus/releases/latest):
+Linux, the .msi installers and the command-line tools. The ROMs are not
+included ("Getting the ROM").
+
 ## What it does
 
 - Runs each calculator's own ROM at the speed of the real calculator
@@ -57,12 +70,18 @@ the landing page). Its home page lists your calculators; Calculator and
 Files are its two views. Choose a ROM file on your computer: it stays in
 your browser and nothing is uploaded.
 
-**Desktop app**: installers are on the
-[releases page](https://github.com/ractive/saturnus/releases): `.dmg`
-(macOS, Apple silicon), `.msi` or setup `.exe` (Windows, x86_64 as
-`x64`, ARM as `arm64`), `.deb`, `.rpm` or `.AppImage` (Linux, x86_64 as
-`amd64` or `x86_64`, ARM as `arm64` or `aarch64`). On a Mac also with
-Homebrew:
+**Desktop app**: download it
+[for Mac](https://github.com/ractive/saturnus/releases/latest/download/saturnus-mac.dmg)
+(Apple silicon) or
+[for Windows](https://github.com/ractive/saturnus/releases/latest/download/saturnus-windows-x64-setup.exe)
+(Intel or AMD;
+[Windows on ARM](https://github.com/ractive/saturnus/releases/latest/download/saturnus-windows-arm64-setup.exe)).
+The other installers are on the
+[releases page](https://github.com/ractive/saturnus/releases/latest):
+`.msi` (Windows, x86_64 as `x64`, ARM as `arm64`), `.deb`, `.rpm` or
+`.AppImage` (Linux, x86_64 as `amd64` or `x86_64`, ARM as `arm64` or
+`aarch64`), and each version's own `.dmg` and setup `.exe`. On a Mac
+also with Homebrew:
 
 ```sh
 brew trust --cask ractive/tap/saturnus-app   # once: Homebrew 5.1.15+ refuses untrusted taps

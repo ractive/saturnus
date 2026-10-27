@@ -7,6 +7,13 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **"Download for Mac" and "Download for Windows".** The README and the
+  landing page link the newest desktop app directly. Each release now
+  also has `saturnus-mac.dmg`, `saturnus-windows-x64-setup.exe` and
+  `saturnus-windows-arm64-setup.exe`, copies without the version (so
+  `releases/latest/download/` finds them), and its notes start with
+  links to its own Mac and Windows installers
+  (`scripts/release-downloads.sh`).
 - tab-mcp client 0.9.1: its connect dialog's "How do I add it?" row and
   guide link changed; the web page shows only its confirmation, which is
   unchanged.

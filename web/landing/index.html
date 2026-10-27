@@ -750,8 +750,14 @@
   <div class="install-part has-side">
     <div class="install-text">
       <h3>Desktop app</h3>
-      <p>For Macs with Apple silicon, and for Windows and Linux on Intel, AMD or ARM processors. Download it from GitHub, or install it on a Mac with Homebrew. The Mac app is signed and notarised; Windows asks once before the first start, and the release notes say what to click.</p>
-      <p class="actions"><a class="button" href="https://github.com/ractive/saturnus/releases" target="_blank" rel="noopener noreferrer">Download from GitHub<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></p>
+      <p>For Macs with Apple silicon, and for Windows and Linux on Intel, AMD or ARM processors.</p>
+      <!-- The newest release's installers under names without the version (desktop.yml copies them). -->
+      <p class="actions">
+        <a class="button primary" href="https://github.com/ractive/saturnus/releases/latest/download/saturnus-mac.dmg" download>Download for Mac</a>
+        <a class="button primary" href="https://github.com/ractive/saturnus/releases/latest/download/saturnus-windows-x64-setup.exe" download>Download for Windows</a>
+      </p>
+      <p class="fine">Mac: Apple silicon. Windows: Intel or AMD; on ARM, take the <a href="https://github.com/ractive/saturnus/releases/latest/download/saturnus-windows-arm64-setup.exe" download>Windows on ARM installer</a>. <a href="https://github.com/ractive/saturnus/releases/latest" target="_blank" rel="noopener noreferrer">All downloads<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>: Linux (an AppImage, .deb or .rpm, the package <code>saturnus-app</code>), the .msi installers and older versions.</p>
+      <p>The Mac app is signed and notarised. The Windows installer is not signed yet: if Windows says "Windows protected your PC", click "More info", then "Run anyway". On a Mac you can also install it with Homebrew.</p>
     </div>
     <div class="terminal" aria-label="Install the desktop app with Homebrew">
       <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
@@ -759,7 +765,6 @@
 <span class="l">brew trust --cask ractive/tap/saturnus-app</span>
 <span class="l">brew install --cask ractive/tap/saturnus-app</span></code></pre>
     </div>
-    <p class="fine span">On the releases page: a .dmg for the Mac, a setup .exe or .msi for Windows, and an AppImage, .deb or .rpm for Linux (the package <code>saturnus-app</code>).</p>
   </div>
 
   <div id="cli" class="install-part has-side">
