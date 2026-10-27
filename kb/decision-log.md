@@ -4849,7 +4849,7 @@ saturnus".
 ## 2026-10-26 (tab-mcp client 0.9.1)
 
 - Vendored for the library's connect dialog changes ("How do I add it?"
-  as a bordered bold row, the guide at https://ractive.ch/tab-mcp/connect/).
+  as a bordered bold row, the guide at <https://ractive.ch/tab-mcp/connect/>).
   The page shows none of that dialog (its own, web/ai-dialog.js) and
   overrides no `.tab-mcp-help` or connect styles; the confirmation it
   does show is unchanged. The desktop app's confirmation points at the
