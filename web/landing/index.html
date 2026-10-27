@@ -33,6 +33,16 @@
       <circle cx="16" cy="16" r="8.6" fill="var(--logo-planet)"/>
       <path fill="none" stroke="var(--logo-ring)" stroke-width="2.6" stroke-linecap="round" transform="rotate(-24 16 16)" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16"/>
     </symbol>
+    <!-- The mark in one colour, the text's (the Open buttons): the front
+         ring is cut out of the planet by a stroke in the button's colour. -->
+    <symbol id="mark-mono" viewBox="0 0 32 32">
+      <g fill="none" stroke-linecap="round" transform="rotate(-24 16 16)">
+        <path stroke="currentColor" stroke-width="2.6" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16"/>
+        <circle cx="16" cy="16" r="8.6" fill="currentColor" transform="rotate(24 16 16)"/>
+        <path stroke="var(--mark-gap, var(--accent))" stroke-width="6" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16"/>
+        <path stroke="currentColor" stroke-width="2.6" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16"/>
+      </g>
+    </symbol>
   </defs>
 </svg>
 
@@ -52,7 +62,7 @@
     <p class="lead">saturnus emulates the HP 48SX, HP 48GX, HP 49G, HP 38G, HP 39G, HP 40G, HP 42S, HP 27S, HP 17BII, HP 17B, HP 28S and HP 19BII. Use it in the browser or as a desktop app.</p>
     <p class="docs-line">The <a href="docs/">docs</a> describe each model, every command, the Saturn processor and how to move files to a real calculator.</p>
     <p class="actions">
-      <a class="button primary" href="app/">Open saturnus</a>
+      <a class="button primary" href="app/"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Open saturnus</a>
     </p>
     <p class="fine">Free and open source (MIT). Everything runs locally: the ROM and your work never leave your device. No ROM is included; <a href="#rom">get one from hpcalc.org</a>.</p>
   </div>
@@ -729,7 +739,7 @@
       <h3>Web: nothing to install</h3>
       <p>Open saturnus in a browser. It works offline after the first visit and can be added to a phone's home screen to install it.</p>
       <p>You need your model's ROM: download it from <a href="https://www.hpcalc.org/" target="_blank" rel="noopener noreferrer">hpcalc.org<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> (the app links each model's page), unzip it, and choose the file or drop it onto the page. A ROM you already have works the same way. The browser keeps it, so you choose it only once, and the ROM and your work never leave your device.</p>
-      <p class="actions"><a class="button primary" href="app/">Open saturnus</a></p>
+      <p class="actions"><a class="button primary" href="app/"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Open saturnus</a></p>
     </div>
     <a class="shot-open" href="img/app-memory-2000.webp" data-dialog="dlg-app" title="Show it larger">
       <figure class="browser">
