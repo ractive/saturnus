@@ -483,6 +483,8 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
   .has-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); align-items: start; }
   .has-side .terminal { margin-top: 0; }
   .has-side .span { grid-column: 1 / -1; max-width: none; margin-top: calc(-1 * var(--s3)); }
+  /* The desktop downloads' small print sits close under their buttons. */
+  .has-side .span.dl-print { margin-top: calc(var(--s3) - var(--s5)); }
   .has-side .terminal pre { padding-inline: var(--s3); font-size: 12.5px; }
 }
 /* The app's screenshot in a drawn browser window. */
