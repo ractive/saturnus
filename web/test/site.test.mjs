@@ -109,8 +109,8 @@ test("the service worker precaches exactly the app's files, and a new build is a
     assert.doesNotMatch(landingIndex, /href="(emulator|transfer)\/"/, "and nothing else of it");
     assert.doesNotMatch(landingIndex, /Coming soon|saturnus tx/);
     // The headline leads with saturnus; HP only in running text (owner, 2026-10-14).
-    assert.match(landingIndex, /<title>saturnus: classic HP calculators in your browser<\/title>/);
-    assert.match(landingIndex, /<h1>saturnus: classic HP calculators in your browser<\/h1>/);
+    assert.match(landingIndex, /<title>saturnus: classic HP calculators, in your browser or as an app<\/title>/);
+    assert.match(landingIndex, /<h1>saturnus: classic HP calculators, in your browser or as an app<\/h1>/);
     const manifest = JSON.parse(readFileSync(join(a.out, "app", "manifest.webmanifest"), "utf8"));
     for (const icon of manifest.icons) assert.ok(a.files.includes(icon.src), `${icon.src} shipped`);
     assert.equal(manifest.start_url, "./");

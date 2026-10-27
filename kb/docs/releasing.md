@@ -318,8 +318,12 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `saturnus_V_…` (`saturnus-app_V_…` on Linux; see "Desktop app").
 7. **Release** (this publishes: crate versions on crates.io are
    permanent):
-   `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md`.
-   This starts `release.yml`, and `desktop.yml` once it succeeded (step 8). Watch it as in step 5. Check:
+   `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md --latest=false`.
+   `--latest=false`: `desktop.yml` makes the release the latest once its
+   installers are up (step 8, "Desktop app"). The notes file needs no
+   download links for the desktop app: `desktop.yml` puts them at the
+   top in step 8. This starts `release.yml`, and `desktop.yml` once it
+   succeeded (step 8). Watch it as in step 5. Check:
    `gh release view vV --json assets -q '.assets[].name'` lists both
    jobs' assets: the seven saturnus and eight satx archives, the .deb and
    .rpm of each, `saturnus-SHA256SUMS`, `satx-SHA256SUMS`, SBOMs; each crate answers `200` at
@@ -331,8 +335,16 @@ first release `V=0.1.0`. Every step says what to check before the next.
    and `.../bucket/satx.json` answer.
 8. **Installers on the release**: `release.yml`'s success started
    `desktop.yml` with the tag (`gh run list -w desktop.yml -e workflow_run -L 1`); watch it;
-   `gh release view vV` now also lists the six installers of the
-   one app, and with the Apple secrets the `cask` job has updated its
+   `gh release view vV` now also lists the installers of the
+   one app, the three copies without the version (`saturnus-mac.dmg`,
+   `saturnus-windows-x64-setup.exe`, `saturnus-windows-arm64-setup.exe`)
+   and `saturnus-app-SHA256SUMS`; the release is now the latest
+   (`gh release view --json tagName -q .tagName` prints `vV`);
+   `curl -sIL -o /dev/null -w '%{http_code}\n' https://github.com/ractive/saturnus/releases/latest/download/saturnus-mac.dmg`
+   prints `200`; the notes start with "Download the desktop app"
+   (`gh release view vV --json body -q .body | head -3`), linking
+   `saturnus_V_aarch64.dmg` and the setup `.exe`s; and with the Apple
+   secrets the `cask` job has updated its
    cask: `gh api repos/ractive/homebrew-tap/contents/Casks/saturnus-app.rb -q .name`
    answers.
 9. **Web page**: `gh workflow run pages.yml --ref main`, with `main`
@@ -379,6 +391,9 @@ Recovery:
   When a system's build failed, nothing was attached (the `attach` job
   needs every build): fix it on `main` if the cause is in the code (then
   `V+1`), else dispatch again.
+- **The notes block** fails (the `notes` job; the cask does not wait for
+  it): `scripts/release-downloads.sh vV` by hand (`--dry-run` prints the
+  notes first). It skips notes that have the block.
 - **A cask** fails (token, network, a check of the `.dmg`): rerun the
   failed `cask` job (`gh run rerun <id> --failed`); each cask is its own
   job and never moves a cask backwards.
@@ -485,6 +500,32 @@ release must exist first, for example from `release.yml`); assets
 already on the release are never replaced, so a rerun needs them deleted
 by hand first. With them goes one checksums file,
 `saturnus-app-SHA256SUMS` (`sha256sum --check` format).
+
+The installers most people want also go up under names without the
+version: `attach` copies `saturnus_V_aarch64.dmg` to `saturnus-mac.dmg`,
+`saturnus_V_x64-setup.exe` to `saturnus-windows-x64-setup.exe` and
+`saturnus_V_arm64-setup.exe` to `saturnus-windows-arm64-setup.exe`
+(listed in the checksums file too), and fails when one of the three is
+missing. So
+`https://github.com/ractive/saturnus/releases/latest/download/<name>`
+always gives the newest release's installer; the README's buttons and the
+landing page's "Download for Mac" and "Download for Windows" link these
+(`web/test/ext-links.test.mjs` checks the landing page's names against
+`desktop.yml`). The release is created with `--latest=false` (step 7),
+and `attach` makes it the latest after its upload, so these links never
+point at a release without installers, also when a build failed: until
+then they give the previous release's. `attach` marks only the newest
+published release (no drafts, no pre-releases); a rebuild of an older
+tag leaves the latest alone. Then the `notes` job runs
+`scripts/release-downloads.sh vV`: it puts a "Download the desktop app"
+block at the top of the release's notes, with links to that release's
+own `.dmg` and setup `.exe`s (the versioned names, so an older release's
+notes stay right) and a line for the rest. It is a job of its own so
+that a failure there does not hold back the cask; the script skips
+notes that already have the block (an HTML comment marks it), and
+`--dry-run` prints the new notes instead of saving them. Older releases
+can get the block by hand the same way; their links are only as good as
+the assets they have (the Windows on ARM line is left out before 0.8.1).
 A dispatch with `release-tag` is the rebuild and recovery path
 ("Recovery"). A pre-release later promoted to a release gets no new run
 (the casks skip pre-releases): delete its installers and dispatch.

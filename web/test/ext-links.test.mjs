@@ -1,7 +1,8 @@
 // Links to other sites on the landing page (web/landing/index.html, its
 // model dialogs included) and in the app's texts (web/shared/ext-links.js):
-// each opens in a new tab with rel="noopener noreferrer" and its ↗, and
-// one address is a link at most twice on the page, the header's and the
+// each opens in a new tab with rel="noopener noreferrer" and its ↗ (a
+// `download` link, a file, stays in the tab without them), and one
+// address is a link at most twice on the page, the header's and the
 // footer's navigation and the dialogs' source lists aside. The docs
 // pages' links: web/test/docs.test.mjs. Also the addresses
 // scripts/check-links.mjs reads from a docs page.
@@ -19,14 +20,28 @@ function anchors(html) {
   return [...html.matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)].map(([, attrs, inner]) => ({ attrs, inner, href: attrs.match(/href="([^"]*)"/)?.[1] ?? "" }));
 }
 
+/** A link to a file to save (the desktop app's installers): it opens no page. */
+const isDownload = (a) => /(^|\s)download(\s|=|$)/.test(a.attrs);
+
 test("the landing page: every link to another site opens in a new tab, with its arrow", () => {
-  const ext = anchors(landing).filter((a) => isExternal(a.href));
+  const ext = anchors(landing).filter((a) => isExternal(a.href) && !isDownload(a));
   assert.ok(ext.length > 40, `${ext.length} links to other sites`);
   for (const a of ext) {
     assert.match(a.attrs, /target="_blank" rel="noopener noreferrer"/, a.href);
     assert.ok(a.inner.endsWith(MARKS), `${a.href}: the arrow and the words for screen readers`);
   }
-  for (const a of anchors(landing).filter((x) => !isExternal(x.href))) assert.doesNotMatch(a.attrs, /target=/, `${a.href} stays in the tab`);
+  for (const a of anchors(landing).filter((x) => !isExternal(x.href) || isDownload(x))) {
+    assert.doesNotMatch(a.attrs, /target=/, `${a.href} stays in the tab`);
+    assert.doesNotMatch(a.inner, /class="ext"/, `${a.href}: no arrow`);
+  }
+});
+
+test("the landing page: the installers' links are the names desktop.yml gives the newest release's copies", () => {
+  const latest = "https://github.com/ractive/saturnus/releases/latest/download/";
+  const files = [...new Set(anchors(landing).filter(isDownload).map((a) => a.href))];
+  assert.deepEqual(files, ["saturnus-mac.dmg", "saturnus-windows-x64-setup.exe", "saturnus-windows-arm64-setup.exe"].map((f) => latest + f));
+  const workflow = readFileSync(new URL("../../.github/workflows/desktop.yml", import.meta.url), "utf8");
+  for (const f of files) assert.ok(workflow.includes(` ${f.slice(latest.length)}\n`), `desktop.yml copies an installer to ${f.slice(latest.length)}`);
 });
 
 test("the landing page: an address is a link at most twice, navigation and sources aside; hpcalc.org named is a link", () => {

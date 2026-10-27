@@ -202,7 +202,8 @@ pre {
 }
 .button:hover { background: var(--hover); text-decoration: none; }
 .button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.button.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); }
+.button .os { width: 18px; height: 18px; margin-right: var(--s2); fill: currentColor; flex: none; }
+.button.primary:hover { --mark-gap: color-mix(in srgb, var(--accent) 88%, var(--ink)); background: var(--mark-gap); }
 
 /* ------------------------------------------------------------------- top */
 
@@ -248,16 +249,15 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
   padding-top: var(--s6);
   padding-bottom: var(--s7);
 }
-.hero-text { max-width: 36rem; }
-.hero h1 { margin-bottom: var(--s4); }
+.hero-text { max-width: 40rem; }
+.hero h1 { max-width: 36rem; margin-bottom: var(--s4); }
 .lead { font-size: var(--fs-lg); max-width: 34rem; }
 .docs-line { margin-top: var(--s3); max-width: 34rem; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--s3); margin: var(--s5) 0 var(--s4); }
-.hero .fine { max-width: 34rem; }
 .hero-calc { margin: 0; justify-self: end; }
 .hero-calc img { display: block; width: 200px; height: auto; }
 
-@media (max-width: 799px) {
+@media (max-width: 899px) {
   .hero { grid-template-columns: 1fr; padding-top: var(--s4); }
   .hero-calc { justify-self: center; }
   .hero-calc img { width: 150px; }
@@ -476,12 +476,15 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
 .install-part p { max-width: 42rem; }
 .install-text p + p { margin-top: var(--s3); }
 .install-part .actions { margin: var(--s4) 0; }
+.install-text > .actions:last-child { margin-bottom: 0; }
 .install-part .terminal { margin-top: var(--s4); }
 /* On a wide screen the install lines or the screenshot sit beside the text. */
 @media (min-width: 900px) {
   .has-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); align-items: start; }
   .has-side .terminal { margin-top: 0; }
   .has-side .span { grid-column: 1 / -1; max-width: none; margin-top: calc(-1 * var(--s3)); }
+  /* The desktop downloads' small print sits close under their buttons. */
+  .has-side .span.dl-print { margin-top: calc(var(--s3) - var(--s5)); }
   .has-side .terminal pre { padding-inline: var(--s3); font-size: 12.5px; }
 }
 /* The app's screenshot in a drawn browser window. */

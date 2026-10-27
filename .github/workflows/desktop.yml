@@ -306,21 +306,40 @@ jobs:
           # One directory per platform's artifact.
           pattern: saturnus-app-*
           path: artifacts
+      # The installers in dist/, plus copies of the three most people want
+      # under names without the version, so that
+      # releases/latest/download/<name> always gives the newest (the README
+      # and the landing page link them). The versioned names stay: the
+      # cask and the notes block link those.
+      - name: Collect the installers
+        shell: bash
+        env:
+          TAG: ${{ github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag }}
+        run: |
+          set -euo pipefail
+          mkdir dist
+          for f in artifacts/saturnus-app-*/*; do
+            [ -e "$f" ] || { echo "no installers" >&2; exit 1; }
+            cp "$f" dist/
+          done
+          version="${TAG#v}"
+          copy() {
+            [ -f "dist/$1" ] || { echo "dist/$1 is missing, cannot copy it to $2" >&2; exit 1; }
+            cp "dist/$1" "dist/$2"
+          }
+          copy "saturnus_${version}_aarch64.dmg" saturnus-mac.dmg
+          copy "saturnus_${version}_x64-setup.exe" saturnus-windows-x64-setup.exe
+          copy "saturnus_${version}_arm64-setup.exe" saturnus-windows-arm64-setup.exe
       # One checksums file for the installers (saturnus-app-SHA256SUMS; the
       # CLIs' release has saturnus-SHA256SUMS and satx-SHA256SUMS), in
-      # `sha256sum --check` format, uploaded with them.
+      # `sha256sum --check` format, uploaded with them; it lists the
+      # copies too.
       - name: Checksums
         shell: bash
         run: |
           set -euo pipefail
-          mkdir dist
-          names=()
-          for f in artifacts/saturnus-app-*/*; do
-            cp "$f" dist/
-            names+=("$(basename "$f")")
-          done
-          [ "${#names[@]}" -gt 0 ] || { echo "no installers" >&2; exit 1; }
-          (cd dist && sha256sum "${names[@]}") > dist/saturnus-app-SHA256SUMS
+          (cd dist && sha256sum -- *) > saturnus-app-SHA256SUMS
+          mv saturnus-app-SHA256SUMS dist/
           cat dist/saturnus-app-SHA256SUMS
       - name: Upload to the release
         # The tag goes through the environment, not a `${{ }}` expansion
@@ -332,6 +351,55 @@ jobs:
         # No --clobber: a release's installers are never replaced; a rerun
         # fails on assets that already exist (delete them by hand first).
         run: gh release upload "$TAG" dist/*
+      # A release is created with --latest=false (kb/docs/releasing.md,
+      # step 7) and becomes the latest only here, once it has the
+      # installers: releases/latest/download/<name> never points at a
+      # release without them, also when a build failed. Only the newest
+      # published release: a rebuild of an older tag leaves the latest alone.
+      - name: Make it the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag }}
+        run: |
+          set -euo pipefail
+          state=$(gh release view "$TAG" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')
+          if [ "$state" != "false false" ]; then
+            echo "$TAG is a draft or a pre-release: the latest release stays"
+            exit 0
+          fi
+          newest=$(gh release list --exclude-drafts --exclude-pre-releases --limit 200 \
+                     --json tagName --jq '.[].tagName' | sort -V | tail -n 1)
+          if [ "$TAG" = "$newest" ]; then
+            gh release edit "$TAG" --latest
+          else
+            echo "$TAG is not the newest release ($newest): the latest release stays"
+          fi
+
+  # Only with a release tag: a "Download the desktop app" block with the
+  # Mac and Windows installers at the top of the release's notes
+  # (scripts/release-downloads.sh; it skips notes that have it). A job of
+  # its own, so that a failure here leaves the cask alone.
+  notes:
+    if: (github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag) != ''
+    needs: attach
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # The script from the workflow's own commit, not the tag's: older
+      # tags do not have it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
+      - name: Add the block to the notes
+        # The tag goes through the environment, as in `attach`.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag }}
+        run: bash scripts/release-downloads.sh "$TAG"
 
   # Only with a release tag and the Apple secrets: point the Homebrew cask
   # `saturnus-app` in ractive/homebrew-tap at this release's .dmg, the way
