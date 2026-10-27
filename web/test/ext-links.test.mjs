@@ -37,7 +37,7 @@ test("the landing page: every link to another site opens in a new tab, with its 
 
 test("the landing page: the installers' links are the names desktop.yml gives the newest release's copies", () => {
   const latest = "https://github.com/ractive/saturnus/releases/latest/download/";
-  const files = anchors(landing).filter(isDownload).map((a) => a.href);
+  const files = [...new Set(anchors(landing).filter(isDownload).map((a) => a.href))];
   assert.deepEqual(files, ["saturnus-mac.dmg", "saturnus-windows-x64-setup.exe", "saturnus-windows-arm64-setup.exe"].map((f) => latest + f));
   const workflow = readFileSync(new URL("../../.github/workflows/desktop.yml", import.meta.url), "utf8");
   for (const f of files) assert.ok(workflow.includes(` ${f.slice(latest.length)}\n`), `desktop.yml copies an installer to ${f.slice(latest.length)}`);

@@ -249,8 +249,8 @@ section > h2 + p { color: var(--muted); margin-bottom: var(--s5); }
   padding-top: var(--s6);
   padding-bottom: var(--s7);
 }
-.hero-text { max-width: 36rem; }
-.hero h1 { margin-bottom: var(--s4); }
+.hero-text { max-width: 40rem; }
+.hero h1 { max-width: 36rem; margin-bottom: var(--s4); }
 .lead { font-size: var(--fs-lg); max-width: 34rem; }
 .docs-line { margin-top: var(--s3); max-width: 34rem; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--s3); margin: var(--s5) 0 var(--s4); }
