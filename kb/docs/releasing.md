@@ -318,9 +318,12 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `saturnus_V_…` (`saturnus-app_V_…` on Linux; see "Desktop app").
 7. **Release** (this publishes: crate versions on crates.io are
    permanent):
-   `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md`.
-   The notes file needs no download links for the desktop app:
-   `desktop.yml` puts them at the top in step 8. This starts `release.yml`, and `desktop.yml` once it succeeded (step 8). Watch it as in step 5. Check:
+   `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md --latest=false`.
+   `--latest=false`: `desktop.yml` makes the release the latest once its
+   installers are up (step 8, "Desktop app"). The notes file needs no
+   download links for the desktop app: `desktop.yml` puts them at the
+   top in step 8. This starts `release.yml`, and `desktop.yml` once it
+   succeeded (step 8). Watch it as in step 5. Check:
    `gh release view vV --json assets -q '.assets[].name'` lists both
    jobs' assets: the seven saturnus and eight satx archives, the .deb and
    .rpm of each, `saturnus-SHA256SUMS`, `satx-SHA256SUMS`, SBOMs; each crate answers `200` at
@@ -335,7 +338,8 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `gh release view vV` now also lists the installers of the
    one app, the three copies without the version (`saturnus-mac.dmg`,
    `saturnus-windows-x64-setup.exe`, `saturnus-windows-arm64-setup.exe`)
-   and `saturnus-app-SHA256SUMS`;
+   and `saturnus-app-SHA256SUMS`; the release is now the latest
+   (`gh release view --json tagName -q .tagName` prints `vV`);
    `curl -sIL -o /dev/null -w '%{http_code}\n' https://github.com/ractive/saturnus/releases/latest/download/saturnus-mac.dmg`
    prints `200`; the notes start with "Download the desktop app"
    (`gh release view vV --json body -q .body | head -3`), linking
@@ -507,8 +511,12 @@ missing. So
 always gives the newest release's installer; the README's buttons and the
 landing page's "Download for Mac" and "Download for Windows" link these
 (`web/test/ext-links.test.mjs` checks the landing page's names against
-`desktop.yml`). Between the release and the end of `attach` (about 20
-minutes) those links answer 404. Then the `notes` job runs
+`desktop.yml`). The release is created with `--latest=false` (step 7),
+and `attach` makes it the latest after its upload, so these links never
+point at a release without installers, also when a build failed: until
+then they give the previous release's. `attach` marks only the newest
+published release (no drafts, no pre-releases); a rebuild of an older
+tag leaves the latest alone. Then the `notes` job runs
 `scripts/release-downloads.sh vV`: it puts a "Download the desktop app"
 block at the top of the release's notes, with links to that release's
 own `.dmg` and setup `.exe`s (the versioned names, so an older release's

@@ -1,7 +1,8 @@
 // Links to other sites on the landing page (web/landing/index.html, its
 // model dialogs included) and in the app's texts (web/shared/ext-links.js):
 // each opens in a new tab with rel="noopener noreferrer" and its ↗ (a
-// `download` link, a file, stays in the tab without them), and one address is a link at most twice on the page, the header's and the
+// `download` link, a file, stays in the tab without them), and one
+// address is a link at most twice on the page, the header's and the
 // footer's navigation and the dialogs' source lists aside. The docs
 // pages' links: web/test/docs.test.mjs. Also the addresses
 // scripts/check-links.mjs reads from a docs page.

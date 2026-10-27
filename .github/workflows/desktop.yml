@@ -351,6 +351,30 @@ jobs:
         # No --clobber: a release's installers are never replaced; a rerun
         # fails on assets that already exist (delete them by hand first).
         run: gh release upload "$TAG" dist/*
+      # A release is created with --latest=false (kb/docs/releasing.md,
+      # step 7) and becomes the latest only here, once it has the
+      # installers: releases/latest/download/<name> never points at a
+      # release without them, also when a build failed. Only the newest
+      # published release: a rebuild of an older tag leaves the latest alone.
+      - name: Make it the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag }}
+        run: |
+          set -euo pipefail
+          state=$(gh release view "$TAG" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')
+          if [ "$state" != "false false" ]; then
+            echo "$TAG is a draft or a pre-release: the latest release stays"
+            exit 0
+          fi
+          newest=$(gh release list --exclude-drafts --exclude-pre-releases --limit 200 \
+                     --json tagName --jq '.[].tagName' | sort -V | tail -n 1)
+          if [ "$TAG" = "$newest" ]; then
+            gh release edit "$TAG" --latest
+          else
+            echo "$TAG is not the newest release ($newest): the latest release stays"
+          fi
 
   # Only with a release tag: a "Download the desktop app" block with the
   # Mac and Windows installers at the top of the release's notes
