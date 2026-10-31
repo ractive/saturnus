@@ -5,7 +5,8 @@
 //! ([`rom`]) and its download from hpcalc.org ([`fetch`]), the screen as
 //! text or PNG ([`screen`]), the native hosts' files ([`files`]) and the machine thread that drives the front-end protocol's
 //! state machine (`saturnus_host::protocol`) for the desktop app and the
-//! CLI's control API ([`runner`]), and the HTTP servers on 127.0.0.1 of
+//! CLI's control API ([`runner`]) with its auto-saves' writer thread
+//! ([`save_writer`]), and the HTTP servers on 127.0.0.1 of
 //! the control API and the desktop app's MCP endpoint, under one set of
 //! rules ([`loopback`]).
 //!
@@ -19,6 +20,7 @@ pub mod files;
 pub mod loopback;
 pub mod rom;
 pub mod runner;
+pub mod save_writer;
 pub mod screen;
 pub mod script;
 pub mod session;

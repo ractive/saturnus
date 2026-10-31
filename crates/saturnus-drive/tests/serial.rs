@@ -119,7 +119,7 @@ fn kermit_through_the_page_s_serial_port_on_the_machine_thread() {
         let thread = std::thread::spawn(move || {
             let mut r = Runner::for_host(sink, "tauri");
             // A host that keeps the calculator answers "Try To Recover Memory?".
-            r.set_store(Box::new(StateDir(states)));
+            r.set_store(Box::new(StateDir(states))).unwrap();
             r.run(&rx);
         });
         call(&tx, Some(rom), json!({"cmd": "boot", "model": model})).unwrap();
@@ -237,7 +237,7 @@ fn a_hidden_write_keeps_the_uart_from_the_serial_bridge() {
         };
         let thread = std::thread::spawn(move || {
             let mut r = Runner::for_host(Collect::default(), "http");
-            r.set_store(Box::new(StateDir(states)));
+            r.set_store(Box::new(StateDir(states))).unwrap();
             r.set_hook(Box::new(hook));
             r.run(&rx);
         });

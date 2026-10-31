@@ -5,6 +5,14 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **The desktop app saves the calculator without holding it up.** The
+  auto-save is written on a thread of its own, so a key pressed while
+  the 49G's state is written is no longer delayed; only the newest
+  state waits to be written, and a boot, a fresh start and closing the
+  window wait for it.
+
 ## 0.10.1 (2026-10-31)
 
 - **"Download for Mac" and "Download for Windows".** The README and the
