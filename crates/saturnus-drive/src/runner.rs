@@ -298,8 +298,15 @@ impl<S: Sink> Runner<S> {
                     "model": saved.model,
                     "cycles": saved.cycles,
                 })),
-                // The next change tries again.
-                Err(e) => eprintln!("saturnus: the {} state was not kept: {e}", saved.model),
+                // The next change tries again. Not `eprintln!`, which
+                // panics when stderr is closed.
+                Err(e) => {
+                    let _ = writeln!(
+                        std::io::stderr(),
+                        "saturnus: the {} state was not kept: {e}",
+                        saved.model
+                    );
+                }
             }),
         )?;
         self.store = Some(writer);

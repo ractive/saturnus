@@ -4884,9 +4884,15 @@ saturnus".
 - **Errors where they were.** `autoSaved` goes to the page from the
   writer's thread once the state has landed (the `Sink` is shared, so
   `Sink` is now `Send + Sync`); a failed write is the same stderr line
-  as before, "the {model} state was not kept", and the next change tries
-  again. A store that panics is reported as a failed write and the
-  writer goes on, so a flush never waits for ever. `set_store` returns
+  as before, "the {model} state was not kept" (written so that a closed
+  stderr cannot panic), and the next change tries again.
+- **A wait never outlasts the writer** (review of PR 252). A store that
+  panics is reported as a failed write; a report that panics (a broken
+  sink) is caught and logged; either way the writer goes on. The end of
+  each write clears "writing" and wakes the waiters from a drop guard,
+  whatever happened in it, and should the thread end anyway, a second
+  guard marks it gone, logs what was still queued as not kept, and every
+  flush and `with_store` returns instead of waiting. `set_store` returns
   an error if the thread cannot start (`spawn_with` passes it on).
 - The second option, the 49G's flash saved apart, stays open as backlog
   `save-49g-flash-apart`.

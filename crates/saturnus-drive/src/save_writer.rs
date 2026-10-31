@@ -17,7 +17,14 @@
 //! read or deleted. [`SaveWriter::flush`] waits the same way (the page
 //! hidden, the window closing, the machine thread ending), and dropping the
 //! writer writes what is queued and joins its thread.
+//!
+//! A wait never outlasts the writer's thread: a write or a report that
+//! panics is caught (logged, and the thread goes on), the end of a write
+//! wakes the waiters whatever happened in it, and should the thread end
+//! anyway, whatever was still queued is logged as lost and every wait
+//! returns.
 
+use std::io::Write as _;
 use std::panic::AssertUnwindSafe;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread::JoinHandle;
@@ -39,12 +46,20 @@ struct Queue {
     writing: bool,
     /// No more saves come: the thread writes what is queued and ends.
     closed: bool,
+    /// The thread has ended: nothing more lands, nobody waits for it.
+    gone: bool,
 }
 
 impl Queue {
     fn idle(&self) -> bool {
-        self.queued.is_empty() && !self.writing
+        self.gone || (self.queued.is_empty() && !self.writing)
     }
+}
+
+/// A line on stderr that cannot panic (`eprintln!` does when stderr is
+/// closed): the writer's thread must outlive its own logging.
+fn log(msg: std::fmt::Arguments<'_>) {
+    let _ = writeln!(std::io::stderr(), "{msg}");
 }
 
 struct Shared {
@@ -67,8 +82,9 @@ impl Shared {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    /// Wait until nothing is queued or being written; returns the queue
-    /// still locked, so nothing new is taken meanwhile.
+    /// Wait until nothing is queued or being written (or the thread is
+    /// gone); returns the queue still locked, so nothing new is taken
+    /// meanwhile.
     fn idle(&self) -> MutexGuard<'_, Queue> {
         let mut q = lock(&self.queue);
         while !q.idle() {
@@ -121,6 +137,13 @@ impl SaveWriter {
     /// queued, not yet being written, is replaced: only the newest lands.
     pub fn save(&self, saved: Saved) {
         let mut q = lock(&self.shared.queue);
+        if q.gone {
+            log(format_args!(
+                "saturnus: the {} state was not kept: the state writer has stopped",
+                saved.model
+            ));
+            return;
+        }
         q.queued.retain(|s| s.model != saved.model);
         q.queued.push(saved);
         self.shared.changed.notify_all();
@@ -150,30 +173,69 @@ impl Drop for SaveWriter {
         if let Some(t) = self.thread.take()
             && t.join().is_err()
         {
-            eprintln!("saturnus: the state writer stopped with a panic");
+            log(format_args!(
+                "saturnus: the state writer stopped with a panic"
+            ));
         }
+    }
+}
+
+/// Ends a write whatever happened in it: `writing` is cleared and the
+/// waiters are woken, also when the write or its report panicked.
+struct Writing<'a>(&'a Shared);
+
+impl Drop for Writing<'_> {
+    fn drop(&mut self) {
+        lock(&self.0.queue).writing = false;
+        self.0.changed.notify_all();
+    }
+}
+
+/// Marks the thread gone when [`work`] ends, by returning or by a panic
+/// nothing caught: what is still queued is logged as lost, and the
+/// waiters return instead of waiting for a thread that is not there.
+struct Gone<'a>(&'a Shared);
+
+impl Drop for Gone<'_> {
+    fn drop(&mut self) {
+        let mut q = lock(&self.0.queue);
+        q.gone = true;
+        for s in q.queued.drain(..) {
+            log(format_args!(
+                "saturnus: the {} state was not kept: the state writer has stopped",
+                s.model
+            ));
+        }
+        self.0.changed.notify_all();
     }
 }
 
 /// The writer's thread: take the oldest queued save, write it, report it,
 /// until closed with nothing queued.
 fn work(shared: &Shared, report: &Report) {
+    let _gone = Gone(shared);
     let mut q = lock(&shared.queue);
     loop {
         if !q.queued.is_empty() {
             let saved = q.queued.remove(0);
             q.writing = true;
             drop(q);
-            // A store that panics is a failed write, reported as one; the
-            // writer goes on, so a flush never waits for ever.
-            let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                lock(&shared.store).save(saved.model, &saved.state)
-            }))
-            .unwrap_or_else(|_| Err("the store panicked".to_string()));
-            report(&saved, result);
+            {
+                let _writing = Writing(shared);
+                // A store that panics is a failed write, reported as one,
+                // and a report that panics is logged; the writer goes on.
+                let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                    lock(&shared.store).save(saved.model, &saved.state)
+                }))
+                .unwrap_or_else(|_| Err("the store panicked".to_string()));
+                if std::panic::catch_unwind(AssertUnwindSafe(|| report(&saved, result))).is_err() {
+                    log(format_args!(
+                        "saturnus: the report of the {} state's save panicked",
+                        saved.model
+                    ));
+                }
+            }
             q = lock(&shared.queue);
-            q.writing = false;
-            shared.changed.notify_all();
         } else if q.closed {
             return;
         } else {
@@ -395,6 +457,48 @@ pub(crate) mod tests {
         dropped.try_recv().unwrap();
         assert_eq!(gate.log(), ["save 49g 1", "save 49g last"]);
         assert_eq!(*reports.lock().unwrap(), ["49g 1", "49g last"]);
+    }
+
+    /// A report that panics (a sink that broke, stderr closed) does not
+    /// stop the writer: the flush returns, and the next save lands and is
+    /// reported.
+    #[test]
+    fn a_report_that_panics_does_not_stop_the_writer() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let (store, mut gate) = gated();
+        gate.open();
+        let reports = Reports::default();
+        let heard = Arc::clone(&reports);
+        let first = AtomicBool::new(true);
+        let w = Arc::new(
+            SaveWriter::spawn(
+                Box::new(store),
+                Box::new(move |s, _| {
+                    assert!(!first.swap(false, Ordering::SeqCst), "the sink broke");
+                    let state = String::from_utf8_lossy(&s.state);
+                    heard.lock().unwrap().push(format!("{} {state}", s.model));
+                }),
+            )
+            .unwrap(),
+        );
+        // A flush that hung would fail here, not hang the test run.
+        let flushed = |w: &Arc<SaveWriter>| {
+            let (done, flushed) = channel();
+            let w = Arc::clone(w);
+            std::thread::spawn(move || {
+                w.flush();
+                done.send(()).unwrap();
+            });
+            flushed.recv_timeout(GATE_LIMIT).unwrap();
+        };
+        w.save(saved("48sx", "1"));
+        flushed(&w);
+        w.save(saved("48sx", "2"));
+        flushed(&w);
+        assert_eq!(gate.log(), ["save 48sx 1", "save 48sx 2"]);
+        assert_eq!(*reports.lock().unwrap(), ["48sx 2"]);
+        let kept = w.with_store(|st| st.load("48sx")).unwrap();
+        assert_eq!(kept.as_deref(), Some(&b"2"[..]));
     }
 
     /// A failed write is reported, and the next save is written.
