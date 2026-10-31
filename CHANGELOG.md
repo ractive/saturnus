@@ -5,7 +5,7 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## Unreleased
+## 0.10.1 (2026-10-31)
 
 - **"Download for Mac" and "Download for Windows".** The README and the
   landing page link the newest desktop app directly. Each release now

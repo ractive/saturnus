@@ -1873,7 +1873,7 @@ dependencies = [
 
 [[package]]
 name = "kermit-proto"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "web-time",
 ]
@@ -2882,7 +2882,7 @@ dependencies = [
 
 [[package]]
 name = "saturnus"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -2897,14 +2897,14 @@ dependencies = [
 
 [[package]]
 name = "saturnus-core"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "saturnus-core",
 ]
 
 [[package]]
 name = "saturnus-drive"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "getrandom 0.4.3",
@@ -2918,7 +2918,7 @@ dependencies = [
 
 [[package]]
 name = "saturnus-host"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "kermit-proto",
  "saturnus-core",
@@ -2929,7 +2929,7 @@ dependencies = [
 
 [[package]]
 name = "saturnus-kermit"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "kermit-proto",
@@ -2944,7 +2944,7 @@ dependencies = [
 
 [[package]]
 name = "saturnus-objects"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "saturnus-core",
  "serde",
@@ -2953,7 +2953,7 @@ dependencies = [
 
 [[package]]
 name = "saturnus-refgen"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "saturnus-core",
@@ -2967,7 +2967,7 @@ dependencies = [
 
 [[package]]
 name = "saturnus-tauri"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "objc2-foundation",
  "saturnus-core",
@@ -2984,7 +2984,7 @@ dependencies = [
 
 [[package]]
 name = "saturnus-tx"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "kermit-proto",
  "saturnus-core",
@@ -2995,7 +2995,7 @@ dependencies = [
 
 [[package]]
 name = "saturnus-web"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "js-sys",
@@ -3012,7 +3012,7 @@ dependencies = [
 
 [[package]]
 name = "satx"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3030,7 +3030,7 @@ dependencies = [
 
 [[package]]
 name = "satx-core"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "kermit-proto",
  "png",
@@ -5018,7 +5018,7 @@ dependencies = [
 
 [[package]]
 name = "xmodem-proto"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "kermit-proto",
  "web-time",
