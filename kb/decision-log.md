@@ -4854,3 +4854,39 @@ saturnus".
   overrides no `.tab-mcp-help` or connect styles; the confirmation it
   does show is unchanged. The desktop app's confirmation points at the
   new UI chunk.
+
+## 2026-10-31 (the desktop app's auto-save off the machine thread)
+
+- **A writer thread, latest wins** (backlog `save-off-the-machine-thread`,
+  its first option). `Runner::set_store` starts a `SaveWriter`
+  (`saturnus-drive`, `save_writer.rs`), a thread named `saturnus-save`
+  that owns the `StateStore` from then on. The runner hands each
+  `Output::Save` to it (`SaveWriter::save`, the state moved, not copied)
+  and goes on: a key pressed while the 49G's 2.6 MB are written is no
+  longer held up by the write. The write itself is unchanged
+  (`StateDir::save`: `write_atomic`, fsynced, renamed into place).
+- **Only the newest state waits.** The queue keeps one state per model; a
+  save that comes while another is being written replaces the queued one
+  of its model and goes to the end. Saves land in the order given, so the
+  newest is always the last one written.
+- **Who waits for the queue.** `SaveWriter::with_store` waits until
+  nothing is queued or being written and then runs on the store with the
+  queue locked: the boot's read of the kept state and the fresh start's
+  delete (`Runner::kept`) go through it, after the boot's `save_now`, so
+  an older save is never written over a slot that was read or deleted. A
+  Load state or an unload needs no wait: neither reads the slot, and a
+  loaded state counts as a change, saved after the old machine's. The
+  reply to `visibility` with `hidden: true` goes once the save it made
+  has landed (the desktop app's `save_before_close` waits for that reply
+  when the window closes, as before). `Runner::run` flushes before it
+  returns, and dropping the writer writes what is queued and joins its
+  thread.
+- **Errors where they were.** `autoSaved` goes to the page from the
+  writer's thread once the state has landed (the `Sink` is shared, so
+  `Sink` is now `Send + Sync`); a failed write is the same stderr line
+  as before, "the {model} state was not kept", and the next change tries
+  again. A store that panics is reported as a failed write and the
+  writer goes on, so a flush never waits for ever. `set_store` returns
+  an error if the thread cannot start (`spawn_with` passes it on).
+- The second option, the 49G's flash saved apart, stays open as backlog
+  `save-49g-flash-apart`.

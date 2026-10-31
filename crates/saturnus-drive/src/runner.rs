@@ -12,7 +12,8 @@
 //! chose ([`crate::files`]), and
 //! the commands only the native hosts serve (`screen`, `info`, `model`,
 //! `peek`, `poke`, `keyScript`), and the auto-saved states of a host that
-//! keeps them ([`Runner::set_store`]: the desktop app). Key scripts run at once in emulated time
+//! keeps them ([`Runner::set_store`]: the desktop app), written by a
+//! thread of their own ([`crate::save_writer`]). Key scripts run at once in emulated time
 //! on this thread, as the CLI runs a key script, and reply when the
 //! calculator is idle again; nothing else is served meanwhile. Sends
 //! (`insert`, `run`, ...) run in the engine's turns, between other
@@ -33,6 +34,7 @@ use saturnus_host::protocol::{self, Clock, CommandKind, Engine, Output, Pacing, 
 use saturnus_host::{AnnunciatorFlags, Emulator};
 use serde_json::{Value, json};
 
+use crate::save_writer::SaveWriter;
 use crate::script;
 use crate::session::{Limits, Session};
 
@@ -54,8 +56,9 @@ pub const MAX_MEM_NIBBLES: usize = 64 * 1024;
 pub const SCRIPT_WALL_LIMIT: Duration = Duration::from_millis(protocol::WALL_LIMIT_MS as u64);
 
 /// Where events go: the Tauri window, the CLI's log, or a test's
-/// collector.
-pub trait Sink: Send + 'static {
+/// collector. Shared with the auto-saves' writer thread, which sends
+/// `autoSaved` once a state has landed.
+pub trait Sink: Send + Sync + 'static {
     /// Deliver one event (a protocol message with a `type`).
     fn event(&self, msg: Value);
 }
@@ -226,7 +229,7 @@ fn text(e: impl std::fmt::Display) -> String {
 
 /// The machine thread's state.
 pub struct Runner<S: Sink> {
-    sink: S,
+    sink: Arc<S>,
     engine: Engine,
     clock: Wall,
     /// The host's name in `hello` and `info` ("tauri", "http").
@@ -241,8 +244,11 @@ pub struct Runner<S: Sink> {
     /// The abort flag of the command being handled, if its sender can
     /// withdraw it.
     abort: Option<Arc<AtomicBool>>,
-    /// Where the auto-saved states go, if this host keeps them.
-    store: Option<Box<dyn StateStore>>,
+    /// The writer of the auto-saved states, if this host keeps them.
+    store: Option<SaveWriter>,
+    /// The reply of the command being served waits for the queued saves
+    /// (the page hidden: the window may be closing).
+    flush_replies: bool,
 }
 
 impl<S: Sink> std::fmt::Debug for Runner<S> {
@@ -263,7 +269,7 @@ impl<S: Sink> Runner<S> {
     /// A runner with no machine yet for the host called `host`.
     pub fn for_host(sink: S, host: &'static str) -> Self {
         Self {
-            sink,
+            sink: Arc::new(sink),
             engine: Engine::new(host, Pacing::NATIVE),
             clock: Wall(Instant::now()),
             host,
@@ -273,16 +279,33 @@ impl<S: Sink> Runner<S> {
             next_tag: 0,
             abort: None,
             store: None,
+            flush_replies: false,
         }
     }
 
     /// Keep the machine's state in `store` once it changed and settled,
     /// and boot each model with the state kept for it (iteration 27); a
     /// cold boot's "Try To Recover Memory?" is answered NO for the user.
-    pub fn set_store(&mut self, store: Box<dyn StateStore>) {
-        self.store = Some(store);
+    /// The writes run on a thread of their own ([`SaveWriter`]); an error
+    /// if it cannot start.
+    pub fn set_store(&mut self, store: Box<dyn StateStore>) -> std::io::Result<()> {
+        let sink = Arc::clone(&self.sink);
+        let writer = SaveWriter::spawn(
+            store,
+            Box::new(move |saved, result| match result {
+                Ok(()) => sink.event(json!({
+                    "type": "autoSaved",
+                    "model": saved.model,
+                    "cycles": saved.cycles,
+                })),
+                // The next change tries again.
+                Err(e) => eprintln!("saturnus: the {} state was not kept: {e}", saved.model),
+            }),
+        )?;
+        self.store = Some(writer);
         self.engine.set_auto_save(true);
         self.engine.set_answer_recover(true);
+        Ok(())
     }
 
     /// Run `hook` beside the machine (see [`Hook`]).
@@ -336,8 +359,17 @@ impl<S: Sink> Runner<S> {
     }
 
     /// Serve `rx` until every sender is gone or the hook says stop; returns
-    /// the runner, which still holds the machine.
-    pub fn run(mut self, rx: &Receiver<Request>) -> Self {
+    /// the runner, which still holds the machine, once the auto-saves
+    /// given so far have landed.
+    pub fn run(self, rx: &Receiver<Request>) -> Self {
+        let runner = self.serve_all(rx);
+        if let Some(w) = &runner.store {
+            w.flush();
+        }
+        runner
+    }
+
+    fn serve_all(mut self, rx: &Receiver<Request>) -> Self {
         loop {
             if self.service() {
                 return self;
@@ -407,6 +439,11 @@ impl<S: Sink> Runner<S> {
             return;
         }
         self.abort = req.ticket.as_ref().map(|t| Arc::clone(&t.abort));
+        // Hidden is the last moment before the window may close (the
+        // desktop app's `save_before_close` waits for this reply): the
+        // save it makes has landed before the reply goes.
+        self.flush_replies = req.msg.get("cmd").and_then(Value::as_str) == Some("visibility")
+            && req.msg.get("hidden").and_then(Value::as_bool) == Some(true);
         let tag = req.reply.map(|reply| {
             self.next_tag += 1;
             self.pending.insert(
@@ -422,6 +459,7 @@ impl<S: Sink> Runner<S> {
         self.handle(&req.msg, req.file.as_deref(), tag);
         self.abort = None;
         self.deliver();
+        self.flush_replies = false;
     }
 
     /// Hand the engine's output on: events to the sink, replies to their
@@ -435,6 +473,11 @@ impl<S: Sink> Runner<S> {
                     }
                 }
                 Output::Reply(r) => {
+                    if self.flush_replies
+                        && let Some(w) = &self.store
+                    {
+                        w.flush();
+                    }
                     let Some(p) = self.pending.remove(&r.tag) else {
                         continue;
                     };
@@ -446,36 +489,33 @@ impl<S: Sink> Runner<S> {
                     };
                     let _ = p.reply.send(result);
                 }
-                Output::Save(saved) => self.keep(&saved),
+                Output::Save(saved) => self.keep(saved),
             }
         }
     }
 
-    /// Put an auto-saved state into the store; the page hears `autoSaved`.
-    /// A failure is logged: the next change tries again.
-    fn keep(&self, saved: &protocol::Saved) {
-        let Some(store) = &self.store else {
-            return;
-        };
-        match store.save(saved.model, &saved.state) {
-            Ok(()) => self.sink.event(json!({
-                "type": "autoSaved",
-                "model": saved.model,
-                "cycles": saved.cycles,
-            })),
-            Err(e) => eprintln!("saturnus: the {} state was not kept: {e}", saved.model),
+    /// Hand an auto-saved state to the writer and go on; once it has
+    /// landed the page hears `autoSaved`, a failure is logged
+    /// ([`Runner::set_store`]).
+    fn keep(&self, saved: protocol::Saved) {
+        if let Some(w) = &self.store {
+            w.save(saved);
         }
     }
 
     /// The state kept for `model`, unless the boot is `fresh` (which
-    /// forgets it); failures are logged and boot cold.
+    /// forgets it); failures are logged and boot cold. Both wait until
+    /// the queued saves have landed, so an older one is never written
+    /// over the slot after it was read or deleted.
     fn kept(&self, model: &str, fresh: bool) -> Option<Vec<u8>> {
-        let store = self.store.as_ref()?;
-        let result = if fresh {
-            store.clear(model).map(|()| None)
-        } else {
-            store.load(model)
-        };
+        let writer = self.store.as_ref()?;
+        let result = writer.with_store(|store| {
+            if fresh {
+                store.clear(model).map(|()| None)
+            } else {
+                store.load(model)
+            }
+        });
         result.unwrap_or_else(|e| {
             eprintln!("saturnus: the kept {model} state cannot be read: {e}");
             None
@@ -777,15 +817,13 @@ pub fn spawn_with<S: Sink>(
     store: Option<Box<dyn StateStore>>,
 ) -> std::io::Result<Sender<Request>> {
     let (tx, rx) = std::sync::mpsc::channel();
+    let mut runner = Runner::new(sink);
+    if let Some(store) = store {
+        runner.set_store(store)?;
+    }
     std::thread::Builder::new()
         .name("saturnus-machine".into())
-        .spawn(move || {
-            let mut runner = Runner::new(sink);
-            if let Some(store) = store {
-                runner.set_store(store);
-            }
-            runner.run(&rx);
-        })?;
+        .spawn(move || drop(runner.run(&rx)))?;
     Ok(tx)
 }
 
@@ -971,6 +1009,64 @@ mod tests {
         assert_eq!(e, "cancelled");
         drop(tx);
         thread.join().unwrap();
+    }
+
+    /// An auto-save is handed to the writer and the machine thread goes
+    /// on while it is written (the store holds the write at its gate); a
+    /// boot's read of the slot waits for it and gets the newest state.
+    #[test]
+    fn an_auto_save_does_not_hold_the_machine_thread() {
+        use crate::save_writer::tests::{gated, saved};
+        let (store, mut gate) = gated();
+        let mut r = runner();
+        r.set_store(Box::new(store)).unwrap();
+        r.keep(saved("48sx", "1"));
+        assert_eq!(gate.started(), "48sx 1");
+        // Served while the write waits.
+        send(&mut r, json!({"cmd": "keyDown", "key": "on"}), None).unwrap();
+        r.keep(saved("48sx", "2"));
+        r.keep(saved("48sx", "3"));
+        let (done, booted) = std::sync::mpsc::channel();
+        let boot = std::thread::spawn(move || {
+            done.send(r.kept("48sx", false)).unwrap();
+            r
+        });
+        assert_eq!(
+            booted.try_recv(),
+            Err(TryRecvError::Empty),
+            "the read waits for the write"
+        );
+        gate.open();
+        let kept = booted.recv_timeout(Duration::from_secs(30)).unwrap();
+        assert_eq!(kept.as_deref(), Some(&b"3"[..]));
+        assert_eq!(gate.log(), ["save 48sx 1", "save 48sx 3", "load 48sx"]);
+        drop(boot.join().unwrap());
+    }
+
+    /// The machine thread ends (every sender gone): `run` returns once the
+    /// queued save has landed.
+    #[test]
+    fn the_last_save_lands_before_run_returns() {
+        use crate::save_writer::tests::{gated, saved};
+        let (store, mut gate) = gated();
+        let mut r = runner();
+        r.set_store(Box::new(store)).unwrap();
+        r.keep(saved("48sx", "1"));
+        assert_eq!(gate.started(), "48sx 1");
+        r.keep(saved("48sx", "last"));
+        let (tx, rx) = std::sync::mpsc::channel::<Request>();
+        drop(tx);
+        let (done, ended) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            let r = r.run(&rx);
+            done.send(()).unwrap();
+            r
+        });
+        assert_eq!(ended.try_recv(), Err(TryRecvError::Empty), "it waits");
+        gate.open();
+        ended.recv_timeout(Duration::from_secs(30)).unwrap();
+        assert_eq!(gate.log(), ["save 48sx 1", "save 48sx last"]);
+        drop(thread.join().unwrap());
     }
 
     /// A reply's bytes go into its object; a reply that is not one is an

@@ -2,7 +2,7 @@
 type: backlog
 title: Save the state off the machine thread
 date: 2026-10-25
-status: planned
+status: completed
 priority: low
 tags:
   - backlog
@@ -41,3 +41,12 @@ A reload within 1 s of a change still loses it in the browser: the save
 on `pagehide` does not land when the tab's Worker dies with the page, and
 the timed save is the one that counts. A shorter delay narrows the window,
 it does not close it.
+
+## Outcome
+
+Done with the first option (decision log, 2026-10-31): the runner hands
+each auto-save to `SaveWriter` (`crates/saturnus-drive/src/save_writer.rs`),
+a thread of its own that keeps only the newest queued state per model; a
+boot's read or delete of the slot, the page hidden and the machine thread
+ending wait for what is queued. The second option is
+[[backlog/save-49g-flash-apart]].
