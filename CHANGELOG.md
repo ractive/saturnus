@@ -7,6 +7,11 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The Windows binaries start without the VC++ runtime.** `saturnus.exe`
+  and `satx.exe` link the C runtime statically, so they run on a Windows
+  without the VC++ Redistributable (from the zip, Scoop or winget). A
+  bare `saturnus` or `satx` prints its short help and exits 0 instead of
+  an error.
 - **The desktop app saves the calculator without holding it up.** The
   auto-save is written on a thread of its own, so a key pressed while
   the 49G's state is written is no longer delayed; only the newest
