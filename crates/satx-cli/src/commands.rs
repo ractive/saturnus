@@ -1,5 +1,6 @@
 //! The commands: connect, act, build an [`Outcome`].
 
+use std::ffi::OsString;
 use std::fmt::Write as _;
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
@@ -196,7 +197,7 @@ pub struct SettingsArgs {
 
 /// Parse the command line, run it, print the results or the error.
 pub fn main_entry() -> ExitCode {
-    let matches = Cli::command().get_matches();
+    let matches = Cli::command().get_matches_from(help_when_bare(std::env::args_os()));
     let cli = match Cli::from_arg_matches(&matches) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
@@ -252,6 +253,19 @@ pub fn main_entry() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// The command line, with `-h` added when it has no arguments: a bare `satx`
+/// prints the short help on stdout and exits 0 (winget's validator runs it
+/// so; kb/decision-log.md, 2026-11-01). Global options alone (`satx --json`)
+/// still fail for the missing command.
+fn help_when_bare(args: impl IntoIterator<Item = OsString>) -> Vec<OsString> {
+    let mut args: Vec<OsString> = args.into_iter().collect();
+    if args.len() <= 1 {
+        let program = args.pop().unwrap_or_else(|| "satx".into());
+        args = vec![program, "-h".into()];
+    }
+    args
 }
 
 pub(crate) struct Ctx {

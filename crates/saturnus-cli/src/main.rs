@@ -10,6 +10,7 @@ mod reference;
 mod rom;
 mod serial;
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -254,7 +255,7 @@ fn parse_count(s: &str) -> Result<u64> {
 }
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let cli = Cli::parse_from(help_when_bare(std::env::args_os()));
     match cli.command {
         Cmd::Run(args) => run(&args),
         Cmd::Ctl(args) => control::client::run(&args),
@@ -289,6 +290,18 @@ fn main() -> Result<()> {
             command: RomCmd::Fetch { model, dir, yes },
         } => rom::fetch(model, &dir, yes).map(|_| ()),
     }
+}
+
+/// The command line, with `-h` added when it has no arguments: a bare
+/// `saturnus` prints the short help on stdout and exits 0 (winget's
+/// validator runs it so; kb/decision-log.md, 2026-11-01).
+fn help_when_bare(args: impl IntoIterator<Item = OsString>) -> Vec<OsString> {
+    let mut args: Vec<OsString> = args.into_iter().collect();
+    if args.len() <= 1 {
+        let program = args.pop().unwrap_or_else(|| "saturnus".into());
+        args = vec![program, "-h".into()];
+    }
+    args
 }
 
 /// What a serving run serves: the serial bridge's spec and whether the
