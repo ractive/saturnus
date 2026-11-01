@@ -17,6 +17,9 @@ the desktop app and the web page share one version.
   the 49G's state is written is no longer delayed; only the newest
   state waits to be written, and a boot, a fresh start and closing the
   window wait for it.
+- tab-mcp client 0.10.0: its dialogs set `margin: auto`, so they stay
+  centred under a CSS reset; the web page's confirmation looks the same,
+  since its CSS resets no margins.
 
 ## 0.10.1 (2026-10-31)
 
