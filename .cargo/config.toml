@@ -1,0 +1,12 @@
+# Link the C runtime statically into Windows MSVC binaries, so `saturnus.exe`
+# and `satx.exe` import neither VCRUNTIME140.dll nor the UCRT's DLLs. The
+# VC++ runtime ships with the VC++ Redistributable, not with Windows: zip,
+# Scoop and winget users without it could not start the binaries (0xC0000135,
+# and winget's validator runs each executable). C code built through `cc`
+# follows `crt-static` (/MT). The desktop app (saturnus-tauri) cooperates:
+# tauri-build's staticVCRuntime (on by default) links vcruntime statically
+# and the UCRT dynamically, the combination it recommends with this flag.
+# An env `RUSTFLAGS` would replace this setting; no workflow here or in
+# ractive/release-workflows sets one. kb/decision-log.md, 2026-11-01.
+[target.'cfg(all(target_os = "windows", target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]

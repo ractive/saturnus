@@ -4896,3 +4896,31 @@ saturnus".
   an error if the thread cannot start (`spawn_with` passes it on).
 - The second option, the 49G's flash saved apart, stays open as backlog
   `save-49g-flash-apart`.
+
+## 2026-11-01 (Windows: static C runtime; a bare command prints its help)
+
+- **The Windows binaries link the C runtime statically.**
+  `.cargo/config.toml` sets `-C target-feature=+crt-static` for
+  `cfg(all(target_os = "windows", target_env = "msvc"))`, so
+  `saturnus.exe` and `satx.exe` import neither `VCRUNTIME140.dll` nor
+  the UCRT's `api-ms-win-crt-*` DLLs. The VC++ runtime comes with the
+  VC++ Redistributable, not with Windows: zip and Scoop users without it
+  could not start the binaries (0xC0000135, STATUS_DLL_NOT_FOUND), and
+  the winget manifests needed a VCRedist dependency. From the next
+  release on they do not. C code built through `cc` follows the flag
+  (/MT). The desktop app keeps tauri-build's `staticVCRuntime` (on by
+  default): vcruntime static, the UCRT (part of Windows 10 and later)
+  dynamic, the combination `static_vcruntime` recommends with this
+  flag. An env `RUSTFLAGS` would replace the setting; no workflow here
+  or in ractive/release-workflows v0.3.1 sets one, and none may. So that
+  a lost flag cannot go unnoticed (the runners have the VC++ runtime),
+  release.yml's pre-package-command fails a Windows build whose binary
+  names `vcruntime*`, `msvcp*`, `ucrtbase` or `api-ms-win-crt-*` DLLs
+  (review of PR 255).
+- **A bare `saturnus` or `satx` prints the short help on stdout and
+  exits 0**, exactly what `-h` prints: a command line with no arguments
+  is parsed as `-h`. Before, both exited 2 with clap's missing-subcommand
+  error. winget's validator runs each executable without arguments and
+  counts a non-zero exit as `Validation-Executable-Error` (winget-pkgs
+  PRs #462444 and #462445). Unknown commands, bad options and global
+  options without a command (`satx --json`) still exit 2.

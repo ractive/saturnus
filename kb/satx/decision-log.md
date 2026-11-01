@@ -108,7 +108,8 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   with `hints: [{description, cmd}]`; text on a TTY, JSON when piped,
   `--format`/`--json` override, `--jq` (jaq) filters the envelope. Errors go
   to stderr, as `{error, hint}` in JSON mode (`stack` added for a failed
-  host command); exit 1, or 2 for usage errors.
+  host command); exit 1, or 2 for usage errors. A bare `satx` prints the
+  short help and exits 0 ([[decision-log]], 2026-11-01).
 - **Directory navigation is stateless.** `--dir PATH` and `ls PATH` take a
   path from HOME (`HOME/A/B`, `A/B`, `{ HOME A B }`) and call core `cd`; the
   calculator stays there afterwards and the help says so.

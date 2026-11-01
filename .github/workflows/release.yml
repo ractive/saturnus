@@ -52,7 +52,10 @@ jobs:
       # (a release-workflows bump changed one), or the swapped binary is not
       # static, it fails instead of packaging the glibc binary. Pure Rust,
       # so the musl target needs no musl-gcc. kb/docs/releasing.md, "Linux
-      # packages".
+      # packages". On Windows it also fails when the binary imports the C
+      # runtime's DLLs (VCRUNTIME140.dll, api-ms-win-crt-*): the static CRT
+      # of .cargo/config.toml is lost if an env RUSTFLAGS replaces it, and
+      # the runners have the VC++ runtime, so nothing else would notice.
       pre-package-command: |
         in_job=false; [ "$GITHUB_JOB" = "linux-packages" ] && in_job=true
         at_path=false; [ "$BIN_PATH" = "target/release/$BIN_NAME" ] && at_path=true
@@ -60,6 +63,13 @@ jobs:
           echo "musl swap: job '$GITHUB_JOB' with BIN_PATH '$BIN_PATH'; release-workflows changed, see kb/docs/releasing.md" >&2
           exit 1
         fi
+        case "$TARGET" in *-windows-msvc)
+          crt=$(LC_ALL=C grep -a -i -o -E '(vcruntime|msvcp)[0-9a-z_]*\.dll|ucrtbase\.dll|api-ms-win-crt-[a-z0-9-]*\.dll' "$BIN_PATH" | sort -fu || true)
+          if [ -n "$crt" ]; then
+            echo "$BIN_PATH imports the C runtime ($(echo $crt)): +crt-static from .cargo/config.toml was not applied (an env RUSTFLAGS?)" >&2
+            exit 1
+          fi ;;
+        esac
         if [ "$in_job" = true ]; then
           rustup target add x86_64-unknown-linux-musl
           cargo build --release --locked -p saturnus --bin "$BIN_NAME" --target x86_64-unknown-linux-musl
@@ -114,6 +124,7 @@ jobs:
       # Then the same musl swap as release-saturnus's (see there): the
       # packages carry the static x86_64 musl satx, not the glibc 2.39 one.
       # satx's dependencies are pure Rust too (serialport without libudev).
+      # And the same C runtime check on Windows.
       pre-package-command: |
         in_job=false; [ "$GITHUB_JOB" = "linux-packages" ] && in_job=true
         at_path=false; [ "$BIN_PATH" = "target/release/$BIN_NAME" ] && at_path=true
@@ -121,6 +132,13 @@ jobs:
           echo "musl swap: job '$GITHUB_JOB' with BIN_PATH '$BIN_PATH'; release-workflows changed, see kb/docs/releasing.md" >&2
           exit 1
         fi
+        case "$TARGET" in *-windows-msvc)
+          crt=$(LC_ALL=C grep -a -i -o -E '(vcruntime|msvcp)[0-9a-z_]*\.dll|ucrtbase\.dll|api-ms-win-crt-[a-z0-9-]*\.dll' "$BIN_PATH" | sort -fu || true)
+          if [ -n "$crt" ]; then
+            echo "$BIN_PATH imports the C runtime ($(echo $crt)): +crt-static from .cargo/config.toml was not applied (an env RUSTFLAGS?)" >&2
+            exit 1
+          fi ;;
+        esac
         mkdir -p completions
         if [ "$CROSS" = "true" ] || [ "$TARGET" = "aarch64-pc-windows-msvc" ]; then
           # The target binary is not host-runnable: generate with a host build.
