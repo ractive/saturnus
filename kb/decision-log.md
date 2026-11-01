@@ -4912,7 +4912,11 @@ saturnus".
   default): vcruntime static, the UCRT (part of Windows 10 and later)
   dynamic, the combination `static_vcruntime` recommends with this
   flag. An env `RUSTFLAGS` would replace the setting; no workflow here
-  or in ractive/release-workflows v0.3.1 sets one, and none may.
+  or in ractive/release-workflows v0.3.1 sets one, and none may. So that
+  a lost flag cannot go unnoticed (the runners have the VC++ runtime),
+  release.yml's pre-package-command fails a Windows build whose binary
+  names `vcruntime*`, `msvcp*`, `ucrtbase` or `api-ms-win-crt-*` DLLs
+  (review of PR 255).
 - **A bare `saturnus` or `satx` prints the short help on stdout and
   exits 0**, exactly what `-h` prints: a command line with no arguments
   is parsed as `-h`. Before, both exited 2 with clap's missing-subcommand
