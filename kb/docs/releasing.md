@@ -10,7 +10,7 @@ tags:
 # Releasing
 
 `.github/workflows/release.yml` calls the shared pipeline
-`ractive/release-workflows/.github/workflows/release.yml@v0.3.1` twice, once
+`ractive/release-workflows/.github/workflows/release.yml@v0.3.2` twice, once
 per command-line tool, because the shared pipeline packages one binary per
 archive. One tag releases both:
 
@@ -119,7 +119,7 @@ binary on `ubuntu-latest` (Ubuntu 24.04), and packaged as it was that
 needed glibc 2.39: the first dry run (37911820913, on 27b22ae) had
 `Depends: libc6 (>= 2.39)` in the .deb and `libc.so.6(GLIBC_2.39)` among
 the .rpm's requirements, so Ubuntu 24.04+, Debian 13+, Fedora 40+ and
-RHEL 10 only. v0.3.1 has no input for the package's target, so
+RHEL 10 only. v0.3.2 has no input for the package's target, so
 `release.yml`'s `pre-package-command` builds the musl binary in the
 `linux-packages` job and copies it over `target/release/saturnus` before
 cargo-deb and cargo-generate-rpm run. It recognises that job by its id,
@@ -182,7 +182,8 @@ non-blocking. Releases made before that are pushed by hand
 (`cloudsmith push deb ractive/saturnus/any-distro/any-version <file>`,
 and `push rpm` likewise).
 
-`release-workflows` is at v0.3.1, which finds each SBOM by its package's
+`release-workflows` is at v0.3.2 (v0.3.2 changed only the winget job,
+now komac 2.16.0); since v0.3.1 it finds each SBOM by its package's
 manifest directory (the package `saturnus` lives in `crates/saturnus-cli`,
 `satx` in `crates/satx-cli`; v0.3.0 shipped no SBOM for them) and fails
 the build when one is missing; v0.3.0 brought two callers in one run and
@@ -677,6 +678,6 @@ ones for the bundle id, not yet checked on an installed app.
 Third-party actions are pinned to a full commit SHA with a `# vX.Y.Z`
 comment; Dependabot proposes the updates. First-party reusable workflows
 and actions are referenced by tag, not SHA: `ractive/release-workflows`
-by exact tag (`@v0.3.1`), `ractive/setup-hyalo@v1` floating on its major
+by exact tag (`@v0.3.2`), `ractive/setup-hyalo@v1` floating on its major
 tag, as in hyalo. Both repositories belong to the owner, so a tag is a
 reviewed release; Dependabot ignores them.

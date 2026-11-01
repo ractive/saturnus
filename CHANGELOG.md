@@ -5,7 +5,7 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## Unreleased
+## 0.10.2 (2026-11-01)
 
 - **The Windows binaries start without the VC++ runtime.** `saturnus.exe`
   and `satx.exe` link the C runtime statically, so they run on a Windows
