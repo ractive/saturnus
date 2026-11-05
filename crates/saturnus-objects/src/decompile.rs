@@ -987,13 +987,13 @@ impl Tree {
         }
     }
 
-    /// Render node `root` into `t` without recursion (garbage can nest
-    /// arbitrarily deep).
     /// Whether node `i` starts with a sign or prefix operator.
     fn signed(&self, i: usize) -> bool {
         matches!(self.nodes[i], Node::Prefix { .. } | Node::Negative(_))
     }
 
+    /// Render node `root` into `t` without recursion (garbage can nest
+    /// arbitrarily deep).
     fn render(&self, root: usize, t: &mut Text, all_parens: bool, power_right: bool) {
         enum Work<'a> {
             Node(usize),

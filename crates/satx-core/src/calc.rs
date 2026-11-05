@@ -279,7 +279,7 @@ impl CalcOps<'_> {
         self.host_once(command, timeout).await
     }
 
-    /// [`host`](Calculator::host) with a reply timeout of `timeout`.
+    /// [`host`](Self::host) with a reply timeout of `timeout`.
     async fn host_once(&mut self, command: &str, timeout: Duration) -> Result<StackReply> {
         let normal = self.k.config().clone();
         let mut once = normal.clone();
@@ -579,9 +579,20 @@ impl CalcOps<'_> {
         self.refuse_existing(BACKUP_VAR).await?;
         self.exec(&[format!(":0:{BACKUP_VAR} ARCHIVE")]).await?;
         let result = self.backup_steps().await;
-        if result.is_err() {
+        if let Err(error) = &result {
             // Best effort: the error being reported matters more.
             self.retry_link();
+            // A `STO` that failed (no room for the copy) leaves the name
+            // and the recalled archive on the stack, which keeps the port
+            // object in use: its `PURGE` would fail too.
+            let sto_failed = matches!(
+                error,
+                Error::Calculator { stack, .. }
+                    if stack.first().and_then(|l| parse_name(l)).as_deref() == Some(BACKUP_VAR)
+            );
+            if sto_failed {
+                let _ = self.drop_levels(2).await;
+            }
             let _ = self.exec(&[format!(":0:{BACKUP_VAR} PURGE")]).await;
             self.retry_link();
             let _ = self.exec(&[format!("'{BACKUP_VAR}' PGDIR")]).await;
@@ -1772,6 +1783,32 @@ pub(crate) mod tests {
             sent(&log),
             ["G D", "PICT RCL 'SATXTMP' STO", "-35 SF", "'SATXTMP' PURGE"]
         );
+    }
+
+    /// A `STO` that fails for lack of room leaves the name and the recalled
+    /// archive on the stack; they go first, or the port object's `PURGE`
+    /// fails with "Object In Use". Any other failure drops nothing.
+    #[test]
+    fn a_failed_backup_drops_what_keeps_the_port_object_in_use() {
+        for (level, dropped) in [("'SATXBK'", true), ("'OTHER'", false)] {
+            let (mut c, log) = calc(move |cmd| match cmd {
+                "G D" => "{ HOME } 1000\r\n".to_string(),
+                ":0:SATXBK RCL 'SATXBK' STO :0:SATXBK PURGE" => {
+                    format!("Error: Insufficient Memory\r\n2: Directory\r\n1: {level}\r\n")
+                }
+                _ => "Empty Stack\r\n".to_string(),
+            });
+            let err = c.backup().unwrap_err();
+            assert!(matches!(err, Error::Calculator { .. }), "{err:?}");
+            let sent = log.lock().unwrap().clone();
+            let purge = sent.iter().position(|s| s == ":0:SATXBK PURGE").unwrap();
+            let drop2 = sent.iter().position(|s| s == "DROP2");
+            if dropped {
+                assert!(drop2.is_some_and(|d| d < purge), "{sent:?}");
+            } else {
+                assert_eq!(drop2, None, "{sent:?}");
+            }
+        }
     }
 
     /// Audit PR #18, #3: a backup whose directory walk fails (here cut in

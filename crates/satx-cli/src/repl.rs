@@ -602,7 +602,12 @@ impl Ctx {
         let shown = self.repl_eval(calc, line);
         let no_reply = matches!(&shown, Err(e) if is_no_reply(e));
         let flow = self.show(shown, output)?;
-        if no_reply && let Err(e) = calc.sync() {
+        // A reader that closed stdout ends the session here: nothing more
+        // reaches the calculator, not even the markers.
+        if no_reply
+            && flow == Flow::Continue
+            && let Err(e) = calc.sync()
+        {
             let err = anyhow::Error::new(e).context("resyncing after a line without a reply");
             return match output {
                 Output::Text => Err(err),

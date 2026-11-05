@@ -258,7 +258,12 @@ impl Uart {
                     self.brk = Some(0);
                     self.rx_start();
                 } else if !brk {
-                    self.brk = None;
+                    // Let go before it read as a byte: the receiver is idle
+                    // again, unless the looped-back shifter feeds it
+                    // (inferred; io-guide 2.4.2 covers a full break only).
+                    if self.brk.take().is_some_and(|p| p < BYTE_DONE_16THS) && self.tx.is_none() {
+                        self.rcs &= !RCS_RBZ;
+                    }
                 }
             }
             CRER => self.rcs &= !RCS_RER,
@@ -668,6 +673,30 @@ mod tests {
         u.write(CRER, 0);
         assert_eq!(u.peek(RCS), 0);
         assert_eq!(u.brk, None);
+    }
+
+    /// A looped-back break let go before it read as a byte leaves the
+    /// receiver idle, not "receiving" for good; the shifter's own looped
+    /// byte keeps it busy.
+    #[test]
+    fn a_short_looped_back_break_ends_the_receive() {
+        let mut u = on(0);
+        u.write(TCS, TCS_LPB | TCS_BRK);
+        run(&mut u, 100);
+        u.write(TCS, TCS_LPB);
+        assert_eq!(u.peek(RCS), 0);
+        run(&mut u, 500);
+        assert_eq!(u.peek(RCS), 0, "no byte comes of it");
+
+        let mut u = on(0);
+        u.write(TCS, TCS_LPB);
+        u.write(TBR_LO, 0x1);
+        u.write(TBR_HI, 0x4);
+        run(&mut u, 1);
+        u.write(TCS, TCS_LPB | TCS_BRK);
+        run(&mut u, 10);
+        u.write(TCS, TCS_LPB);
+        assert_eq!(u.peek(RCS), RCS_RBZ);
     }
 
     #[test]

@@ -43,6 +43,28 @@ pub(super) enum Running {
     },
 }
 
+impl Running {
+    /// The key this step may hold down.
+    fn held_key(&self) -> Option<Key> {
+        match self {
+            Running::Drop { .. } => Some(Key::Backspace),
+            Running::EndServer { .. } | Running::CancelLine { .. } => Some(Key::On),
+            _ => None,
+        }
+    }
+
+    /// Let go of every key this step holds: a line being typed stops
+    /// where it is.
+    fn let_go(&mut self, m: &mut Machine) {
+        if let Running::Typing(job) = self {
+            job.stop(m);
+        }
+        if let Some(key) = self.held_key() {
+            let _ = m.key_up(key);
+        }
+    }
+}
+
 /// Where [`Running::EndServer`] is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum EndPhase {
@@ -154,8 +176,8 @@ impl Leftovers {
         }
     }
 
-    /// The lines a stop types once the server has ended, to remove what
-    /// the backup made (nothing it did not make).
+    /// The lines a stop or a dead server types once the server has ended,
+    /// to remove what the backup made (nothing it did not make).
     pub(super) fn typed_cleanup(&self) -> Vec<String> {
         let Some(n) = &self.backup else {
             return Vec::new();
@@ -249,7 +271,18 @@ impl Transfer {
                 }
                 continue;
             };
-            self.running = self.advance(m, running, stop)?;
+            let held = running.held_key();
+            self.running = match self.advance(m, running, stop) {
+                Ok(next) => next,
+                Err(e) => {
+                    // The step is gone with the error: `abandon` cannot
+                    // see what it held.
+                    if let Some(key) = held {
+                        let _ = m.key_up(key);
+                    }
+                    return Err(e);
+                }
+            };
         }
         Ok(true)
     }
@@ -704,15 +737,8 @@ impl Transfer {
 
     /// The machine failed: let go of every key, run nothing more.
     pub(super) fn abandon(mut self, m: &mut Machine) {
-        match self.running.take() {
-            Some(Running::Typing(mut job)) => job.stop(m),
-            Some(Running::Drop { .. }) => {
-                let _ = m.key_up(Key::Backspace);
-            }
-            Some(Running::EndServer { .. } | Running::CancelLine { .. }) => {
-                let _ = m.key_up(Key::On);
-            }
-            _ => {}
+        if let Some(running) = self.running.as_mut() {
+            running.let_go(m);
         }
         // A given-up write owns no inbound bytes (a probe's or a packet's).
         m.serial_clear_inbound();
@@ -786,6 +812,18 @@ impl Transfer {
     pub(super) fn abort(&mut self, m: &mut Machine, error: String) -> Option<Running> {
         self.error.get_or_insert(error);
         self.steps.retain(Step::after_server);
+        // A backup's purges were host commands of the plan just dropped:
+        // what it made goes by typed lines once the server has ended, as
+        // after a stop, what its failed command left on the stack first.
+        let lines = self.leftovers.typed_cleanup();
+        if !lines.is_empty() {
+            for line in lines.into_iter().rev() {
+                self.steps.push_front(Step::TypeCleanup(line));
+            }
+            if let Some(depth) = self.baseline.or(self.algebraic) {
+                self.steps.push_front(Step::DropTo(depth));
+            }
+        }
         if !self.server {
             return None;
         }
@@ -800,12 +838,16 @@ impl Transfer {
     /// or why algebraic mode could not be set again.
     pub fn stop(&mut self, m: &mut Machine) {
         if self.stopped || self.done {
+            // A second stop gives up the cleanup: no key of it stays down.
+            if let Some(running) = self.running.as_mut() {
+                running.let_go(m);
+            }
             self.done = true;
             return;
         }
         self.stopped = true;
         self.error.get_or_insert_with(|| STOPPED.to_string());
-        let running = self.running.take();
+        let mut running = self.running.take();
         let waiting = matches!(running, Some(Running::WaitNak { .. }));
         // `probeServer`'s question leaves a server running: a stop in it
         // only drops its bytes; `endServer`'s ends one as after ON.
@@ -819,15 +861,8 @@ impl Transfer {
             self.wire.discard(m);
         }
         let typing = matches!(running, Some(Running::Typing(_)));
-        match running {
-            Some(Running::Typing(mut job)) => job.stop(m),
-            Some(Running::Drop { .. }) => {
-                let _ = m.key_up(Key::Backspace);
-            }
-            Some(Running::EndServer { .. } | Running::CancelLine { .. }) => {
-                let _ = m.key_up(Key::On);
-            }
-            _ => {}
+        if let Some(running) = running.as_mut() {
+            running.let_go(m);
         }
         self.restoring = false;
         self.asking = None;
