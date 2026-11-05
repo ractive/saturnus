@@ -5,7 +5,7 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## Unreleased
+## 0.10.3 (2026-11-05)
 
 - tab-mcp client 0.10.0: its dialogs set `margin: auto`, so they stay
   centred under a CSS reset; the web page's confirmation looks the same,
@@ -16,10 +16,12 @@ the desktop app and the web page share one version.
   a ROM that doesn't boot no longer deletes the kept state, and a ROM
   that boots as another model reads or clears that model's state, not
   the one asked for.
-- **A failed write no longer damages a file.** The desktop app's saved
-  files and its AI access setting, and a file `satx get --force` replaces,
-  are written to the side and then moved into place. `satx get` removes a
-  new file it could not finish.
+- **A failed write leaves the old file.** The desktop app's saved files
+  and its AI access setting, and a file `satx get --force` replaces, are
+  written to the side and then moved into place. `satx get` removes a new
+  file it could not finish. In a directory where `satx` can't create a
+  file, `--force` still writes in place, so a failed write there loses
+  the old content.
 - **A variable name with `@` is refused.** The calculator reads `@` as
   the start of a comment, so `satx` and Files no longer take such a name.
 - **A directory that isn't there changes nothing.** `satx --dir`, `satx ls
@@ -32,11 +34,14 @@ the desktop app and the web page share one version.
   answering removes what it made, as stopping one does. A port copy it
   can't be sure of stays, and the error says so.
 - **Files replaces a variable with a long name.** The swap goes out as
-  three commands when it doesn't fit in one packet.
+  three commands when it doesn't fit in one packet. A name too long even
+  for that is refused, and the old variable stays.
 - **Smaller `satx` fixes.** `satx rm X X` deletes X once instead of failing
-  on the second. `--force` still writes a file in a read-only directory.
-  `satx repl --json` sends nothing more once its reader has closed, not
-  even to get back in step.
+  on the second. `satx repl --json` sends nothing more once its reader has
+  closed, not even to get back in step.
+- **Smaller emulator fixes.** A transfer that fails lets go of a key it
+  held down. A UART break that is looped back and let go early leaves the
+  receiver idle (inferred: the manual covers a full break only).
 
 ## 0.10.2 (2026-11-01)
 
