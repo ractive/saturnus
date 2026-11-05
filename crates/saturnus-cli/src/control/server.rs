@@ -276,7 +276,7 @@ fn respond(
 /// `GET /v1/hello?nonce=N`: the token's proof for `N` and the bound port.
 /// It needs no slot and no machine; it tells nothing about the token.
 fn hello(head: &Head, cfg: &Config) -> Response {
-    match query(head, "nonce") {
+    match head.query("nonce") {
         Some(n) if n.len() == 64 && n.bytes().all(|b| b.is_ascii_hexdigit()) => {
             ok(json!({"proof": cfg.token.proof(n, cfg.port)}))
         }
@@ -284,19 +284,11 @@ fn hello(head: &Head, cfg: &Config) -> Response {
     }
 }
 
-/// The query parameter `name` of the request target.
-fn query<'a>(head: &'a Head, name: &str) -> Option<&'a str> {
-    head.second.split_once('?').and_then(|(_, q)| {
-        q.split('&')
-            .filter_map(|kv| kv.split_once('='))
-            .find(|(k, _)| *k == name)
-            .map(|(_, v)| v)
-    })
-}
-
 /// A number in a query: decimal, or hex after `0x` or `#` (`%23`).
 fn query_number(head: &Head, name: &str) -> Result<u64, Response> {
-    let v = query(head, name).ok_or_else(|| error(400, &format!("missing ?{name}=")))?;
+    let v = head
+        .query(name)
+        .ok_or_else(|| error(400, &format!("missing ?{name}=")))?;
     let hex = v
         .strip_prefix("0x")
         .or_else(|| v.strip_prefix("0X"))
@@ -318,23 +310,6 @@ fn media_type(head: &Head) -> Result<String, Response> {
         .unwrap_or_default()
         .trim()
         .to_ascii_lowercase())
-}
-
-/// Whether the client has closed its end (it gave up on the answer).
-fn client_gone(stream: &TcpStream) -> bool {
-    if stream.set_nonblocking(true).is_err() {
-        return false;
-    }
-    let r = stream.peek(&mut [0u8; 1]);
-    let _ = stream.set_nonblocking(false);
-    match r {
-        Ok(0) => true,
-        Ok(_) => false,
-        Err(e) => !matches!(
-            e.kind(),
-            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::Interrupted
-        ),
-    }
 }
 
 /// Send `msg` to the machine thread and wait for its reply. A command the
@@ -375,7 +350,7 @@ fn call(cfg: &Config, stream: &TcpStream, mut msg: Value) -> Result<Value, Respo
             }
             Err(RecvTimeoutError::Timeout) => {}
         }
-        if !left.is_zero() && !client_gone(stream) {
+        if !left.is_zero() && !guard::client_gone(stream) {
             continue;
         }
         if ticket.cancel() {
@@ -422,12 +397,12 @@ fn dispatch(
     match (ep, method) {
         (Endpoint::Screen, _) => {
             let accept = head.header("accept").map_err(|m| error(400, &m))?;
-            let png = query(head, "format") == Some("png")
+            let png = head.query("format") == Some("png")
                 || accept.is_some_and(|a| a.to_ascii_lowercase().contains("image/png"));
             if !png {
                 return get("screen");
             }
-            let scale = match query(head, "scale") {
+            let scale = match head.query("scale") {
                 Some(_) => query_number(head, "scale")?,
                 None => 1,
             };

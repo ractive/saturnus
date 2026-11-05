@@ -408,7 +408,8 @@ impl Local {
                         if let Some(dir) = f.parent() {
                             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
                         }
-                        std::fs::write(f, b).map_err(|e| e.to_string())
+                        crate::runner::write_atomic(f, &b, std::io::Write::write_all)
+                            .map_err(|e| e.to_string())
                     });
                 if let Err(e) = saved {
                     eprintln!("saturnus: the AI access setting is not kept: {e}");

@@ -22,7 +22,7 @@
 // pass only for a view alone on its engine. With one view the hub passes
 // its commands through unchanged (web/test/protocol-script.test.mjs).
 
-import init, { Host, identify_rom, model_names, plan_roms, rom_download, state_format } from "./pkg/saturnus_web.js";
+import init, { Host, identify_rom, model_for_rom, model_names, plan_roms, rom_download, state_format } from "./pkg/saturnus_web.js";
 import { RomStore } from "./romstore.js";
 import { CALC_STOPPED, SERIAL_SHARED } from "./shared/calc-hub.js";
 import "./shared/models.js";
@@ -555,18 +555,24 @@ export class Hub {
       .catch((err) => console.warn(`saturnus: the ${model} state was not kept: ${err?.message ?? err}`));
   }
 
-  /** The state kept for `model`, or null; a `fresh` start deletes it instead. */
-  async keptState(model, fresh) {
+  /** The state kept for `model`, or null. */
+  async keptState(model) {
     await this.keeping;
     try {
-      if (fresh) {
-        await this.states.delete(model);
-        return null;
-      }
       return await this.states.get(model);
     } catch (err) {
       console.warn(`saturnus: the kept ${model} state cannot be read: ${err?.message ?? err}`);
       return null;
+    }
+  }
+
+  /** Forget the state kept for `model`: a fresh start that booted. */
+  async forgetState(model) {
+    await this.keeping;
+    try {
+      await this.states.delete(model);
+    } catch (err) {
+      console.warn(`saturnus: the kept ${model} state cannot be removed: ${err?.message ?? err}`);
     }
   }
 
@@ -600,11 +606,16 @@ export class Hub {
       this.machines.set(model, e);
     }
     try {
-      const kept = await this.keptState(model, fresh);
+      // The slot of the model that boots: a ROM that only fits another
+      // model boots that one, whose saves then land in its own slot.
+      const kept = fresh ? null : await this.keptState(model_for_rom(model, rom));
       if (kept && tooNew(kept, state_format())) throw new Error(TOO_NEW);
       // Its pages hear the boot's status and frame.
       this.attach(conn, e);
       const booted = e.host.boot(model, rom, name, kept ?? undefined);
+      // Only a machine that booted replaces what is kept: a ROM that does
+      // not boot takes nothing with it.
+      if (fresh) await this.forgetState(booted.model);
       e.model = booted.model;
       e.romName = booted.romName ?? name;
       e.rom = rom;

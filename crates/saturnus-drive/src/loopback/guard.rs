@@ -168,11 +168,13 @@ fn accept<H>(
         }
         let stream = match listener.accept() {
             Ok((s, _)) => s,
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+            // Nothing yet (a stoppable server polls), or a failure that
+            // would only repeat at once (out of file descriptors): a
+            // retry without a wait would spin a core.
+            Err(_) => {
                 std::thread::sleep(STOP_POLL);
                 continue;
             }
-            Err(_) => continue,
         };
         // An accepted socket may inherit the listener's non-blocking mode.
         if stop.is_some() && stream.set_nonblocking(false).is_err() {
@@ -230,6 +232,24 @@ pub fn linger(stream: &mut TcpStream) {
             Ok(0) | Err(_) => break,
             Ok(n) => total += n,
         }
+    }
+}
+
+/// Whether the client has closed its end (it gave up on the answer): for
+/// a handler that waits for its answer, between looks at it.
+pub fn client_gone(stream: &TcpStream) -> bool {
+    if stream.set_nonblocking(true).is_err() {
+        return false;
+    }
+    let r = stream.peek(&mut [0u8; 1]);
+    let _ = stream.set_nonblocking(false);
+    match r {
+        Ok(0) => true,
+        Ok(_) => false,
+        Err(e) => !matches!(
+            e.kind(),
+            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::Interrupted
+        ),
     }
 }
 

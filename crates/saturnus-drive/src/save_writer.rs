@@ -57,8 +57,9 @@ impl Queue {
 }
 
 /// A line on stderr that cannot panic (`eprintln!` does when stderr is
-/// closed): the writer's thread must outlive its own logging.
-fn log(msg: std::fmt::Arguments<'_>) {
+/// closed): the writer's thread and the machine thread must outlive their
+/// own logging.
+pub(crate) fn log(msg: std::fmt::Arguments<'_>) {
     let _ = writeln!(std::io::stderr(), "{msg}");
 }
 

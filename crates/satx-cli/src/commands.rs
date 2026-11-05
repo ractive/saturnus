@@ -1525,6 +1525,13 @@ pub(crate) fn refuse_existing_file(file: &Path, force: bool) -> Result<()> {
 }
 
 pub(crate) fn write_file(file: &Path, data: &[u8], force: bool) -> Result<()> {
+    // A regular file is replaced whole; a link or a device (-o /dev/stdout)
+    // is written through, and a read-only file refused as before.
+    let replaceable = |m: std::fs::Metadata| m.is_file() && !m.permissions().readonly();
+    if force && std::fs::symlink_metadata(file).is_ok_and(replaceable) {
+        return replace_file(file, data)
+            .with_context(|| format!("cannot write {}", file.display()));
+    }
     let mut options = std::fs::OpenOptions::new();
     options.write(true);
     if force {
@@ -1535,8 +1542,39 @@ pub(crate) fn write_file(file: &Path, data: &[u8], force: bool) -> Result<()> {
     let mut f = options
         .open(file)
         .with_context(|| format!("cannot write {}", file.display()))?;
-    f.write_all(data)
-        .with_context(|| format!("cannot write {}", file.display()))
+    let written = f.write_all(data);
+    drop(f);
+    // A new file cut short would look like the variable, and stop the next
+    // try without --force.
+    if written.is_err() && !force {
+        let _ = std::fs::remove_file(file);
+    }
+    written.with_context(|| format!("cannot write {}", file.display()))
+}
+
+/// Replace `file` with `data` so that a failed write leaves the old one:
+/// a temporary file beside it, with its permissions, renamed over it.
+fn replace_file(file: &Path, data: &[u8]) -> std::io::Result<()> {
+    let mut temp = file.as_os_str().to_owned();
+    temp.push(format!(".{}.tmp", std::process::id()));
+    let temp = Path::new(&temp);
+    let permissions = std::fs::metadata(file)?.permissions();
+    // What an earlier run of this process id left, or a link planted at
+    // the name: `create_new` never follows or reuses one.
+    let _ = std::fs::remove_file(temp);
+    let mut f = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(temp)?;
+    let written = f
+        .write_all(data)
+        .and_then(|()| f.set_permissions(permissions));
+    drop(f);
+    let replaced = written.and_then(|()| std::fs::rename(temp, file));
+    if replaced.is_err() {
+        let _ = std::fs::remove_file(temp);
+    }
+    replaced
 }
 
 fn object_type_name(data: &[u8], mode: TransferMode) -> Option<String> {
@@ -1591,6 +1629,32 @@ fn iopar_json(iopar: &Iopar) -> Value {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+
+    /// --force replaces a regular file whole, with its permissions and no
+    /// temporary file left, and writes through a link to the file behind it.
+    #[cfg(unix)]
+    #[test]
+    fn force_replaces_a_file_and_writes_through_a_link() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let dir = std::env::temp_dir().join(format!("satx-force-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("X");
+        std::fs::write(&file, b"old").unwrap();
+        let mode = std::fs::Permissions::from_mode(0o640);
+        std::fs::set_permissions(&file, mode).unwrap();
+        write_file(&file, b"new", true).unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), b"new");
+        let kept = std::fs::metadata(&file).unwrap().permissions();
+        assert_eq!(kept.mode() & 0o777, 0o640);
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+        let link = dir.join("link");
+        symlink(&file, &link).unwrap();
+        write_file(&link, b"through", true).unwrap();
+        assert!(link.is_symlink());
+        assert_eq!(std::fs::read(&file).unwrap(), b"through");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn iopar_shapes() {

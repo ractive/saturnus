@@ -442,7 +442,8 @@ pub async fn save_file(app: AppHandle, request: Request<'_>) -> Result<bool, Str
         let path = chosen
             .into_path()
             .map_err(|e| format!("that place cannot be written: {e}"))?;
-        std::fs::write(&path, &bytes).map_err(|e| format!("{}: {e}", path.display()))?;
+        crate::runner::write_atomic(&path, &bytes, std::io::Write::write_all)
+            .map_err(|e| format!("{}: {e}", path.display()))?;
         Ok(true)
     })
     .await

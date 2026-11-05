@@ -1145,7 +1145,7 @@ fn quote(name: &str) -> Result<String> {
 /// Check that `name` is a plain global variable name
 /// (`saturnus_objects::transfer::is_plain_name`: 1 to 127 characters, not
 /// starting with a digit or `.`, no whitespace, control characters,
-/// backslash or RPL delimiters and operators, encodable in the HP character
+/// backslash, `@` or RPL delimiters and operators, encodable in the HP character
 /// set). The names Windows reserves for devices (`CON`, `NUL`, `COM1`, ...,
 /// also with an extension such as `NUL.X`, any case) are refused on every
 /// platform: a name is the default file name of a download, and the
