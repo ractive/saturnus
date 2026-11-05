@@ -219,7 +219,10 @@ impl<'a> Scanner<'a> {
         Some(&r[..end])
     }
 
-    /// From `open` to its matching `close`, skipping string literals.
+    /// From `open` to its matching `close`, skipping string literals and
+    /// comments (`@` to the next `@` or the line's end, as the ROM reads
+    /// them; wiki: protocols/server-commands): a delimiter in a comment
+    /// does not count, or the group would end later than the ROM's.
     fn balanced(&mut self, open: char, close: char) -> Option<&'a str> {
         self.skip_ws();
         let r = self.rest();
@@ -229,7 +232,12 @@ impl<'a> Scanner<'a> {
         let mut depth = 0usize;
         let mut in_string = false;
         let mut escaped = false;
+        let mut comment = false;
         for (i, c) in r.char_indices() {
+            if comment {
+                comment = !matches!(c, '@' | '\n');
+                continue;
+            }
             if in_string {
                 match c {
                     _ if escaped => escaped = false,
@@ -241,6 +249,8 @@ impl<'a> Scanner<'a> {
             }
             if c == '"' {
                 in_string = true;
+            } else if c == '@' {
+                comment = true;
             } else if c == open && (open != close || depth == 0) {
                 depth += 1;
             } else if c == close {
@@ -796,6 +806,36 @@ mod tests {
         assert_eq!(ascii_body("%%HP: T(1)A(D)F(.);\r\n{ 1 }\r\n"), "{ 1 }\r\n");
         assert_eq!(ascii_body("%%HP: T(3)A(R)F(,);\n« »"), "« »");
         assert_eq!(ascii_body("{ 1 }"), "{ 1 }");
+    }
+
+    /// The ROM reads `@` to the next `@` or the line's end as a comment
+    /// (wiki: protocols/server-commands), so a delimiter in a comment does
+    /// not count: the one-object check sees the program end where the ROM
+    /// does, and what follows it is refused, not run.
+    #[test]
+    fn a_comment_hides_no_command_after_a_program() {
+        let program = |s: &str| Object::Program {
+            source: Some(s.to_string()),
+        };
+        for run in [
+            "« @ « @ » 'X' PURGE @ »",
+            "« @ « \n » 'X' PURGE @ »",
+            "\\<< @ \\<< @ \\>> 'X' PURGE @ \\>>",
+        ] {
+            let e = to_source(&program(run), Family::Hp48).unwrap_err();
+            assert!(e.to_string().contains("one « ... » group"), "{run}: {e}");
+        }
+        for fine in ["« @ » @ 1 »", "« @ a »\n 1 »", "« \"@\" 1 »", "« 1 @ a @ »"] {
+            assert_eq!(
+                to_source(&program(fine), Family::Hp48).unwrap().as_deref(),
+                Some(fine),
+                "{fine}"
+            );
+        }
+        assert!(
+            to_source(&program("« 1 @ »"), Family::Hp48).is_err(),
+            "the end is in the comment"
+        );
     }
 
     #[test]

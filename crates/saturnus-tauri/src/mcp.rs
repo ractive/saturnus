@@ -308,13 +308,7 @@ fn check(head: &Head, cfg: &Config) -> Result<Endpoint, Response> {
 /// that holds the port while the app is closed never receives it. It
 /// needs no slot and tells nothing about the token.
 fn hello(head: &Head, cfg: &Config) -> Response {
-    let nonce = head.second.split_once('?').and_then(|(_, q)| {
-        q.split('&')
-            .filter_map(|kv| kv.split_once('='))
-            .find(|(k, _)| *k == "nonce")
-            .map(|(_, v)| v)
-    });
-    match nonce {
+    match head.query("nonce") {
         Some(n) if n.len() == 64 && n.bytes().all(|b| b.is_ascii_hexdigit()) => {
             json_response(200, &json!({"proof": cfg.token.proof(n, cfg.port)}))
         }
@@ -378,25 +372,8 @@ fn respond(
     };
     let peer: &TcpStream = stream;
     Some(handle(&head, &body, cfg, &|| {
-        cfg.stopped() || client_gone(peer)
+        cfg.stopped() || guard::client_gone(peer)
     }))
-}
-
-/// Whether the client has closed its end (it gave up on the answer).
-fn client_gone(stream: &TcpStream) -> bool {
-    if stream.set_nonblocking(true).is_err() {
-        return false;
-    }
-    let r = stream.peek(&mut [0u8; 1]);
-    let _ = stream.set_nonblocking(false);
-    match r {
-        Ok(0) => true,
-        Ok(_) => false,
-        Err(e) => !matches!(
-            e.kind(),
-            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::Interrupted
-        ),
-    }
 }
 
 /// Which era a request is of.

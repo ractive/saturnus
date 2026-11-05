@@ -10,6 +10,18 @@ the desktop app and the web page share one version.
 - tab-mcp client 0.10.0: its dialogs set `margin: auto`, so they stay
   centred under a CSS reset; the web page's confirmation looks the same,
   since its CSS resets no margins.
+- **Quitting the desktop app saves the calculator.** Cmd+Q on a Mac now
+  saves an unsaved change, as closing the window always did.
+- **A fresh start keeps what it should.** A ROM that doesn't boot no
+  longer deletes the kept state, and a ROM that boots as another model
+  reads or clears that model's state, not the one asked for.
+- **A failed write no longer damages a file.** The desktop app's saved
+  files and its AI access setting are written to the side and then
+  moved into place, and `satx get` removes a new file it could not
+  finish.
+- **`@` comments can't hide a command in a program sent to a calculator.**
+  The check that a host command only pushes one object now reads comments
+  as the ROM does.
 
 ## 0.10.2 (2026-11-01)
 

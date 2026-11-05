@@ -1535,8 +1535,14 @@ pub(crate) fn write_file(file: &Path, data: &[u8], force: bool) -> Result<()> {
     let mut f = options
         .open(file)
         .with_context(|| format!("cannot write {}", file.display()))?;
-    f.write_all(data)
-        .with_context(|| format!("cannot write {}", file.display()))
+    let written = f.write_all(data);
+    drop(f);
+    // A new file cut short would look like the variable, and stop the next
+    // try without --force.
+    if written.is_err() && !force {
+        let _ = std::fs::remove_file(file);
+    }
+    written.with_context(|| format!("cannot write {}", file.display()))
 }
 
 fn object_type_name(data: &[u8], mode: TransferMode) -> Option<String> {

@@ -77,8 +77,22 @@ impl Head {
         }
         match self.header("content-length")? {
             None => Ok(0),
-            Some(v) => v.parse().map_err(|_| format!("bad Content-Length {v:?}")),
+            // Digits only: `usize::from_str` would also take a `+`.
+            Some(v) if v.bytes().all(|b| b.is_ascii_digit()) => {
+                v.parse().map_err(|_| format!("bad Content-Length {v:?}"))
+            }
+            Some(v) => Err(format!("bad Content-Length {v:?}")),
         }
+    }
+
+    /// The query parameter `name` of a request's target, as it is written.
+    pub fn query(&self, name: &str) -> Option<&str> {
+        self.second.split_once('?').and_then(|(_, q)| {
+            q.split('&')
+                .filter_map(|kv| kv.split_once('='))
+                .find(|(k, _)| *k == name)
+                .map(|(_, v)| v)
+        })
     }
 }
 
@@ -258,6 +272,13 @@ mod tests {
         assert!(two.header("host").is_err());
         let te = parse_head(b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked").unwrap();
         assert!(te.content_length().is_err());
+        for bad in ["+5", "-5", "5 5", "", "0x5"] {
+            let h = parse_head(format!("POST / HTTP/1.1\r\nContent-Length: {bad}").as_bytes());
+            assert!(h.unwrap().content_length().is_err(), "{bad:?}");
+        }
+        let q = parse_head(b"GET /x?a=1&b=2&c HTTP/1.1").unwrap();
+        assert_eq!((q.query("a"), q.query("b")), (Some("1"), Some("2")));
+        assert_eq!((q.query("c"), q.query("d")), (None, None));
         assert!(parse_head(b"GET /\r\n").is_err());
         assert!(parse_head(b"GET / HTTP/1.1\r\n folded").is_err());
         assert!(parse_head(b"GET / HTTP/1.1\r\nno colon").is_err());

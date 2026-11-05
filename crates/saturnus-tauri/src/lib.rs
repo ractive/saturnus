@@ -29,7 +29,7 @@
 //! machine thread saves it into `states` in the app's data folder once it
 //! changed and settled, and boots each model with the state kept for it;
 //! `bootModel` with `fresh` cold-boots and forgets it. Closing the window
-//! saves an unsaved change first.
+//! or quitting the app saves an unsaved change first.
 //!
 //! One app (iteration 51): the document's Files view runs here too. It
 //! reaches the running calculator through the same `command` (the page
@@ -369,7 +369,8 @@ async fn save_file(app: AppHandle, msg: &Value) -> Result<Value, String> {
         let Some(path) = ask_for_file(&app, Need::SaveFile(name))? else {
             return Ok(Value::Null);
         };
-        std::fs::write(&path, &bytes).map_err(|e| format!("{}: {e}", path.display()))?;
+        runner::write_atomic(&path, &bytes, std::io::Write::write_all)
+            .map_err(|e| format!("{}: {e}", path.display()))?;
         Ok(json!({"path": path.display().to_string()}))
     })
     .await
@@ -561,9 +562,9 @@ fn state_dir(app: &AppHandle) -> Result<PathBuf, String> {
 /// How long closing the window waits for the last save.
 const CLOSE_SAVE_WAIT: Duration = Duration::from_secs(3);
 
-/// The window closes: as when a page is hidden, an unsaved change is
-/// saved now if the calculator has settled (a computation still running
-/// is not saved; the last settled state is kept).
+/// The window closes or the app quits: as when a page is hidden, an
+/// unsaved change is saved now if the calculator has settled (a computation
+/// still running is not saved; the last settled state is kept).
 fn save_before_close(app: &AppHandle) {
     let Some(machine) = app.try_state::<Machine>() else {
         return;
@@ -998,10 +999,19 @@ pub fn run() {
     let builder = builder.invoke_handler(handler![selftest_log]);
     #[cfg(not(debug_assertions))]
     let builder = builder.invoke_handler(handler![]);
-    let result = builder.run(tauri::generate_context!());
-    if let Err(e) = result {
-        eprintln!("saturnus: {e}");
-        std::process::exit(1);
+    match builder.build(tauri::generate_context!()) {
+        Ok(app) => app.run(|handle, event| {
+            // The macOS menu's Quit (Cmd+Q) ends the app without a
+            // `CloseRequested`: the window's save would not run. After a
+            // close this finds nothing left to save.
+            if matches!(event, tauri::RunEvent::Exit) {
+                save_before_close(handle);
+            }
+        }),
+        Err(e) => {
+            eprintln!("saturnus: {e}");
+            std::process::exit(1);
+        }
     }
 }
 

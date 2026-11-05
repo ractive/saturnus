@@ -28,13 +28,13 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::time::{Duration, Instant};
 
-use saturnus_core::Machine;
-use saturnus_host::host::{base64, pack_bits};
+use saturnus_core::{Machine, Model};
+use saturnus_host::host::{base64, model_for_rom, pack_bits};
 use saturnus_host::protocol::{self, Clock, CommandKind, Engine, Output, Pacing, RunError};
 use saturnus_host::{AnnunciatorFlags, Emulator};
 use serde_json::{Value, json};
 
-use crate::save_writer::SaveWriter;
+use crate::save_writer::{SaveWriter, log};
 use crate::script;
 use crate::session::{Limits, Session};
 
@@ -298,15 +298,11 @@ impl<S: Sink> Runner<S> {
                     "model": saved.model,
                     "cycles": saved.cycles,
                 })),
-                // The next change tries again. Not `eprintln!`, which
-                // panics when stderr is closed.
-                Err(e) => {
-                    let _ = writeln!(
-                        std::io::stderr(),
-                        "saturnus: the {} state was not kept: {e}",
-                        saved.model
-                    );
-                }
+                // The next change tries again.
+                Err(e) => log(format_args!(
+                    "saturnus: the {} state was not kept: {e}",
+                    saved.model
+                )),
             }),
         )?;
         self.store = Some(writer);
@@ -510,23 +506,34 @@ impl<S: Sink> Runner<S> {
         }
     }
 
-    /// The state kept for `model`, unless the boot is `fresh` (which
-    /// forgets it); failures are logged and boot cold. Both wait until
-    /// the queued saves have landed, so an older one is never written
-    /// over the slot after it was read or deleted.
-    fn kept(&self, model: &str, fresh: bool) -> Option<Vec<u8>> {
+    /// The state kept for `model`; a failure is logged and boots cold. It
+    /// waits until the queued saves have landed, so the slot read is the
+    /// newest. (`eprintln!` panics when stderr is closed, here on the
+    /// machine thread: [`log`].)
+    fn kept(&self, model: &str) -> Option<Vec<u8>> {
         let writer = self.store.as_ref()?;
-        let result = writer.with_store(|store| {
-            if fresh {
-                store.clear(model).map(|()| None)
-            } else {
-                store.load(model)
-            }
-        });
-        result.unwrap_or_else(|e| {
-            eprintln!("saturnus: the kept {model} state cannot be read: {e}");
-            None
-        })
+        writer
+            .with_store(|store| store.load(model))
+            .unwrap_or_else(|e| {
+                log(format_args!(
+                    "saturnus: the kept {model} state cannot be read: {e}"
+                ));
+                None
+            })
+    }
+
+    /// Forget the state kept for `model` (a fresh start that booted); it
+    /// waits as [`Runner::kept`], so an older save never comes back over
+    /// the empty slot.
+    fn forget(&self, model: &str) {
+        let Some(writer) = &self.store else {
+            return;
+        };
+        if let Err(e) = writer.with_store(|store| store.clear(model)) {
+            log(format_args!(
+                "saturnus: the kept {model} state cannot be removed: {e}"
+            ));
+        }
     }
 
     /// One protocol command; `file` is the host's choice for the commands
@@ -557,25 +564,37 @@ impl<S: Sink> Runner<S> {
                         // A fresh start forgets the kept state; any other
                         // boot restores it.
                         let fresh = msg.get("fresh").and_then(Value::as_bool) == Some(true);
+                        // The slot of the model that boots: a ROM that only
+                        // fits another model boots that one, whose saves
+                        // then land in its own slot.
+                        let slot = model
+                            .parse::<Model>()
+                            .map_or(model, |m| model_for_rom(&rom, m).name());
                         // The machine it replaces is stored first, so the
                         // slot read is the newest and a fresh start's
                         // delete comes after it.
                         self.engine.save_now();
                         self.deliver();
-                        let kept = self.kept(model, fresh);
+                        let kept = if fresh { None } else { self.kept(slot) };
                         let name = file_name(path);
-                        self.engine
+                        let booted = self
+                            .engine
                             .boot_restoring(&clock, model, &rom, &name, kept.as_deref())
-                            .map_err(text)
-                            .and_then(|b| {
-                                if let Some(e) = &b.restore_error {
-                                    eprintln!(
-                                        "saturnus: the kept {} state did not load ({e}); cold boot",
-                                        b.model
-                                    );
-                                }
-                                value_of(&b)
-                            })
+                            .map_err(text);
+                        // Only a machine that booted replaces what is kept:
+                        // a ROM that does not boot takes nothing with it.
+                        if fresh && booted.is_ok() {
+                            self.forget(slot);
+                        }
+                        booted.and_then(|b| {
+                            if let Some(e) = &b.restore_error {
+                                log(format_args!(
+                                    "saturnus: the kept {} state did not load ({e}); cold boot",
+                                    b.model
+                                ));
+                            }
+                            value_of(&b)
+                        })
                     }
                     Err(e) => Err(e),
                 }
@@ -1035,7 +1054,7 @@ mod tests {
         r.keep(saved("48sx", "3"));
         let (done, booted) = std::sync::mpsc::channel();
         let boot = std::thread::spawn(move || {
-            done.send(r.kept("48sx", false)).unwrap();
+            done.send(r.kept("48sx")).unwrap();
             r
         });
         assert_eq!(
@@ -1048,6 +1067,53 @@ mod tests {
         assert_eq!(kept.as_deref(), Some(&b"3"[..]));
         assert_eq!(gate.log(), ["save 48sx 1", "save 48sx 3", "load 48sx"]);
         drop(boot.join().unwrap());
+    }
+
+    /// A fresh start forgets the kept state only once its machine booted:
+    /// a ROM that does not boot leaves the state, and the old machine.
+    #[test]
+    fn a_fresh_start_that_does_not_boot_keeps_the_state() {
+        use crate::save_writer::tests::saved;
+        let dir = std::env::temp_dir().join(format!("saturnus-fresh-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let (bad, good) = (dir.join("bad"), dir.join("good"));
+        std::fs::write(&bad, b"not a ROM").unwrap();
+        std::fs::write(&good, vec![0u8; 256 * 1024]).unwrap();
+        let mut r = Runner::for_host(NoSink, "tauri");
+        r.set_store(Box::new(StateDir(dir.join("states")))).unwrap();
+        r.keep(saved("48sx", "kept"));
+        let fresh = json!({"cmd": "boot", "model": "48sx", "fresh": true});
+        send_file(&mut r, fresh.clone(), &bad).unwrap_err();
+        assert_eq!(r.kept("48sx").as_deref(), Some(&b"kept"[..]));
+        send_file(&mut r, fresh, &good).unwrap();
+        assert_eq!(r.kept("48sx"), None);
+        drop(r);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A ROM that only fits another model boots that model: the slot read
+    /// or cleared is that model's, which its saves land in, not the one
+    /// asked for.
+    #[test]
+    fn a_boot_uses_the_slot_of_the_model_that_boots() {
+        use crate::save_writer::tests::saved;
+        let dir = std::env::temp_dir().join(format!("saturnus-slot-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let rom = dir.join("rom");
+        std::fs::write(&rom, vec![0u8; Model::Hp48gx.rom_bytes()]).unwrap();
+        let mut r = Runner::for_host(NoSink, "tauri");
+        r.set_store(Box::new(StateDir(dir.join("states")))).unwrap();
+        r.keep(saved("48sx", "the 48SX's"));
+        r.keep(saved("48gx", "the 48GX's"));
+        let msg = json!({"cmd": "boot", "model": "48sx", "fresh": true});
+        let booted = send_file(&mut r, msg, &rom).unwrap();
+        assert_eq!(booted["model"], "48gx");
+        assert_eq!(r.kept("48gx"), None, "the booted model's slot is cleared");
+        assert_eq!(r.kept("48sx").as_deref(), Some(&b"the 48SX's"[..]));
+        drop(r);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// The machine thread ends (every sender gone): `run` returns once the

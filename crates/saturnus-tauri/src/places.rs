@@ -262,8 +262,11 @@ pub fn write_private(path: &Path, bytes: &[u8], durable: bool) -> std::io::Resul
         path.file_name().and_then(|n| n.to_str()).unwrap_or("file"),
         std::process::id()
     ));
+    // What an earlier run of this process id left, or a link planted at
+    // the name: removed, and `create_new` never follows or reuses one.
+    let _ = fs::remove_file(&temp);
     let mut opts = fs::OpenOptions::new();
-    opts.write(true).create(true).truncate(true);
+    opts.write(true).create_new(true);
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut opts, 0o600);
     let written = (|| {
@@ -284,6 +287,27 @@ pub fn write_private(path: &Path, bytes: &[u8], durable: bool) -> std::io::Resul
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
+
+    /// A link planted at the temporary name is not written through, and a
+    /// file left there does not stop the write.
+    #[cfg(unix)]
+    #[test]
+    fn writes_do_not_follow_a_link_at_the_temporary_name() {
+        let dir = temp_dir("link");
+        let path = dir.join("folders.json");
+        let temp = dir.join(format!(".folders.json.{}.tmp", std::process::id()));
+        let victim = dir.join("victim");
+        fs::write(&victim, b"victim").unwrap();
+        std::os::unix::fs::symlink(&victim, &temp).unwrap();
+        write_private(&path, b"one", false).unwrap();
+        assert_eq!(fs::read(&victim).unwrap(), b"victim");
+        assert_eq!(fs::read(&path).unwrap(), b"one");
+        fs::write(&temp, b"left over").unwrap();
+        write_private(&path, b"two", true).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"two");
+        assert!(!temp.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     fn temp_dir(tag: &str) -> PathBuf {
         let dir =

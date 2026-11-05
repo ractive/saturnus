@@ -247,10 +247,10 @@ fn main() {
             if at > m.cycles() {
                 break;
             }
-            if down {
-                m.key_down(key).unwrap();
-            } else {
-                m.key_up(key).unwrap();
+            let pressed = if down { m.key_down(key) } else { m.key_up(key) };
+            if let Err(e) = pressed {
+                eprintln!("{e}");
+                std::process::exit(2);
             }
             events.pop_front();
         }
