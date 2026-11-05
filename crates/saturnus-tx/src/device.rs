@@ -680,7 +680,8 @@ struct Shared {
     /// A restore warm-started the calculator; cleared by a connect.
     restarted: bool,
     /// The backup a restore left in port 0 (`:0:SATXRS`) is not purged
-    /// yet: tried at each connect and before each request until it is.
+    /// yet: tried at each connect and before each request (but a sync or
+    /// a disconnect) until it is.
     leftover: bool,
     /// A fast transfer ended server mode; cleared by a connect.
     left_server: Option<LeftServer>,
@@ -1056,7 +1057,14 @@ async fn perform(ctx: &Ctx, request: Request) -> Result<Outcome> {
         let sh = ctx.lock();
         sh.leftover && sh.session.is_some()
     };
-    if retry && !matches!(request, Request::Connect(_) | Request::Disconnect) {
+    // Not before a sync: the link is out of step, and a late reply read as
+    // the purge's would mark it done.
+    if retry
+        && !matches!(
+            request,
+            Request::Connect(_) | Request::Disconnect | Request::Sync
+        )
+    {
         purge_leftover(ctx).await;
     }
     match request {
@@ -1382,23 +1390,38 @@ pub(crate) async fn put_in(
     if target == name {
         return Ok(stored);
     }
-    // One command: STO replaces the old variable, PURGE drops the copy.
-    let swap = format!("'{stored}' RCL '{name}' STO '{stored}' PURGE");
-    let swapped = match ctx.op(Op::Run(swap)).await {
-        Ok(Reply::Stack(reply)) => match reply.error {
-            None => return Ok(name),
-            Some(message) => TxError::Calc(satx_core::Error::Calculator {
-                message,
-                stack: reply.levels,
-            }),
-        },
-        Ok(other) => unexpected("STO", &other),
-        Err(e) => e,
+    let Err(swapped) = swap_in(ctx, &stored, &name).await else {
+        return Ok(name);
     };
     // Best effort, as for a failed send: the old variable is as it was
     // (or already replaced); the copy in the unused name goes.
     let _ = ctx.op(Op::Remove(stored)).await;
     Err(swapped)
+}
+
+/// `STO` replaces the old variable, `PURGE` drops the copy: one host
+/// command, or if that is too long for a packet (a long variable name)
+/// each part on its own, in order.
+async fn swap_in(ctx: &Ctx, stored: &str, name: &str) -> Result<()> {
+    let recall = format!("'{stored}' RCL");
+    let store = format!("'{name}' STO");
+    let purge = format!("'{stored}' PURGE");
+    match ctx.op(Op::Run(format!("{recall} {store} {purge}"))).await {
+        Err(TxError::Calc(satx_core::Error::CommandTooLong { .. })) => {
+            expect_stack(ctx.op(Op::Run(recall)).await?)?;
+            match ctx.op(Op::Run(store)).await {
+                // Too long even alone, and refused unsent: the recalled
+                // copy must not stay on the user's stack.
+                Err(e @ TxError::Calc(satx_core::Error::CommandTooLong { .. })) => {
+                    let _ = ctx.op(Op::Run("DROP".to_string())).await;
+                    return Err(e);
+                }
+                reply => expect_stack(reply?)?,
+            }
+            expect_stack(ctx.op(Op::Run(purge)).await?)
+        }
+        reply => expect_stack(reply?),
+    }
 }
 
 /// [`Request::Sync`]: the sync markers again, the current directory

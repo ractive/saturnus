@@ -1369,6 +1369,33 @@ fn a_failed_leftover_purge_is_tried_again() {
     assert_eq!(purges, 2, "{:?}", peer.actions);
 }
 
+/// A sync is not preceded by the leftover's purge: the link is out of step
+/// then, and a late reply read as the purge's would mark it done.
+#[test]
+fn a_sync_leaves_the_leftover_purge_for_the_next_request() {
+    let trace = cut(&ops_trace("48gx"), "connect after restore", |b| {
+        contains(b, b":0:SATXRS PURGE")
+    });
+    let mut peer = then(&trace, Instant::now(), nak_all());
+    let mut env = replay_env(&mut peer);
+    let mut until = Until {
+        env: &mut env,
+        label: "list restored HOME",
+    };
+    let d2 = scenario::ops_dirs("48gx", &mut until).unwrap();
+    let stopped = scenario::ops_backup("48gx", &mut until, &d2).unwrap_err();
+    assert!(stopped.contains("Busy"), "{stopped}");
+    let ReplayEnv { mut host, .. } = env;
+    let sync = host.run(&mut peer, Request::Sync);
+    assert!(sync.is_err(), "{sync:?}");
+    let purges = peer
+        .actions
+        .iter()
+        .filter(|a| matches!(a, Action::Write(b) if contains(b, b":0:SATXRS PURGE")))
+        .count();
+    assert_eq!(purges, 1, "{:?}", peer.actions);
+}
+
 /// A tree got as text leaves out the kinds asked for and lists them; it
 /// does not even ask for them.
 #[test]

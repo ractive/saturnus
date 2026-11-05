@@ -325,6 +325,8 @@ fn xserv_cd(client: &mut XservClient, dir: &str) -> Result<()> {
             .map_err(|e| Error::Reply(e.to_string()))
             .with_context(|| label.clone())?;
         if !records.iter().any(|r| r.name == *name && r.is_directory()) {
+            // XSERV cannot say where it was: HOME, not part of the way.
+            let _ = client.send(&XservCommand::Execute("HOME".into()));
             return Err(Error::Reply(format!("{name}: no such directory"))).context(label);
         }
         client
@@ -702,6 +704,7 @@ mod tests {
                     && !ran.contains(&encode_packet(b"NOSUCH").unwrap()),
                 "{dir}: {ran:?}"
             );
+            assert_eq!(ran.last(), Some(&encode_packet(b"HOME").unwrap()), "{dir}");
         }
     }
 

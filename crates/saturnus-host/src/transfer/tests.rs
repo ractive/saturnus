@@ -166,6 +166,95 @@ fn a_stop_lets_go_of_on_and_ends_the_server_in_turns() {
     assert_eq!(t.error.as_deref(), Some("Kermit: timeout"));
 }
 
+/// A backup whose server stopped answering removes what it made like a
+/// stopped one: its purges were host commands, so they become typed lines
+/// behind the stack's extra levels, and come before the 49G's return to
+/// algebraic mode.
+#[test]
+fn a_backup_on_a_dead_link_removes_what_it_made() {
+    let mut m = Machine::new(Model::Hp48sx, &vec![0u8; Model::Hp48sx.rom_bytes()]).unwrap();
+    let plan = VecDeque::from([
+        Step::Unarchive,
+        Step::Host {
+            text: Leftovers::unstore("SATBKUP"),
+            cleanup: true,
+        },
+        Step::Algebraic,
+    ]);
+    let mut t = Transfer::planned(&m, plan, TransferResult::default());
+    t.leftovers.backup = Some("SATBKUP".into());
+    t.baseline = Some(2);
+    t.leftovers.started(":0:SATBKUP ARCHIVE");
+    t.leftovers.done(":0:SATBKUP ARCHIVE");
+    t.leftovers.started("'SATBKUP' STO");
+    assert!(t.abort(&mut m, "no answer".into()).is_none());
+    let tail: Vec<String> = t
+        .steps
+        .iter()
+        .map(|s| match s {
+            Step::DropTo(n) => format!("drop to {n}"),
+            Step::TypeCleanup(l) => l.clone(),
+            Step::Algebraic => "algebraic".to_string(),
+            other => format!("{other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        tail,
+        [
+            "drop to 2",
+            "IFERR :0:SATBKUP PURGE THEN END",
+            "IFERR 'SATBKUP' PGDIR THEN END",
+            "algebraic"
+        ]
+    );
+    // Nothing made: nothing typed, the stack left alone.
+    let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+    t.leftovers.backup = Some("SATBKUP".into());
+    t.baseline = Some(2);
+    assert!(t.abort(&mut m, "no answer".into()).is_none());
+    assert!(t.steps.is_empty(), "{:?}", t.steps);
+    assert_eq!(t.leftovers.note(), None);
+    // No reply to the ARCHIVE: a name taken in port 0 may be what refused
+    // it, so `:0:N` is not purged; the error names it.
+    let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+    t.leftovers.backup = Some("SATBKUP".into());
+    t.baseline = Some(2);
+    t.leftovers.started(":0:SATBKUP ARCHIVE");
+    assert!(t.abort(&mut m, "no answer".into()).is_none());
+    assert!(t.steps.is_empty(), "{:?}", t.steps);
+    assert_eq!(
+        t.leftovers.note().as_deref(),
+        Some("a copy of HOME may be left in port 0 as SATBKUP")
+    );
+}
+
+/// A machine that halts while a step holds a key: the key is let go,
+/// though the step is gone with the error.
+#[test]
+fn a_halt_lets_go_of_the_key_a_step_holds() {
+    // `105` at the reset address, an undefined opcode.
+    let mut rom = vec![0u8; Model::Hp48sx.rom_bytes()];
+    rom[..2].copy_from_slice(&[0x01, 0x05]);
+    let mut m = Machine::new(Model::Hp48sx, &rom).unwrap();
+    let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+    t.running = Some(t.press_on(&mut m));
+    assert!(m.key_is_down(Key::On));
+    assert!(t.step(&mut m, 1_000).is_err());
+    assert!(!m.key_is_down(Key::On));
+}
+
+/// A second stop ends the cleanup at once, with none of its keys down.
+#[test]
+fn a_second_stop_lets_go_of_the_cleanups_key() {
+    let mut m = Machine::new(Model::Hp48sx, &vec![0u8; Model::Hp48sx.rom_bytes()]).unwrap();
+    let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+    t.stop(&mut m);
+    t.running = Some(t.press_on(&mut m));
+    t.stop(&mut m);
+    assert!(t.done);
+    assert!(!m.key_is_down(Key::On));
+}
+
 /// A stopped backup removes what it made, and only that: the stack's
 /// extra levels dropped first (a recalled archive keeps the port's
 /// copy in use), then the port copy and the variable purged by typed

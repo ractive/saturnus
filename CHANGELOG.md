@@ -22,6 +22,21 @@ the desktop app and the web page share one version.
   new file it could not finish.
 - **A variable name with `@` is refused.** The calculator reads `@` as
   the start of a comment, so `satx` and Files no longer take such a name.
+- **A directory that isn't there changes nothing.** `satx --dir`, `satx ls
+  PATH` and the REPL's `:cd` and `:ls` leave the calculator where it was
+  when a name in the path is missing, not part of the way down it.
+  `satx xserv` goes back to HOME, as XSERV can't say where it was.
+- **A backup that fails no longer leaves its copies behind.** `satx backup`
+  and Files remove the copy in port 0 when the calculator runs out of
+  memory, and a backup of an emulated calculator whose server stops
+  answering removes what it made, as stopping one does. A port copy it
+  can't be sure of stays, and the error says so.
+- **Files replaces a variable with a long name.** The swap goes out as
+  three commands when it doesn't fit in one packet.
+- **Smaller `satx` fixes.** `satx rm X X` deletes X once instead of failing
+  on the second. `--force` still writes a file in a read-only directory.
+  `satx repl --json` sends nothing more once its reader has closed, not
+  even to get back in step.
 
 ## 0.10.2 (2026-11-01)
 

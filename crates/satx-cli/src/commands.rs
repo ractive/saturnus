@@ -978,9 +978,13 @@ impl Ctx {
         dry_run: bool,
     ) -> Result<Outcome> {
         let listing = calc.list().context("ls")?;
-        let mut targets = Vec::new();
+        let mut targets: Vec<Entry> = Vec::new();
         let mut missing = Vec::new();
         for name in names {
+            // A name given twice is deleted once.
+            if targets.iter().any(|t| &t.name == name) {
+                continue;
+            }
             match listing.entries.iter().find(|e| &e.name == name) {
                 Some(e) => targets.push(e.clone()),
                 None => missing.push(name.as_str()),
@@ -1427,13 +1431,30 @@ pub(crate) fn put_mode(args: &PutArgs, data: &[u8]) -> TransferMode {
     }
 }
 
-/// Change to `dir` (absolute from HOME).
+/// Change to `dir` (absolute from HOME). A name that is not there stops
+/// the walk part of the way, and the calculator goes back to where it was:
+/// the next `rm` or `put` must not hit a directory nobody asked for. A
+/// link that failed is not asked to move again, and the error says when
+/// going back failed.
 pub(crate) fn cd(calc: &mut Calculator, dir: &str) -> Result<()> {
     let components = util::parse_dir(dir);
     let mut path: Vec<&str> = vec!["HOME"];
     path.extend(components.iter().map(String::as_str));
-    calc.cd(&path)
-        .with_context(|| format!("cd {}", util::dir_string(&components)))
+    let origin = calc.path().context("PATH")?;
+    let moved = calc.cd(&path);
+    if matches!(moved, Err(Error::Reply(_) | Error::Calculator { .. })) {
+        let back: Vec<&str> = origin.iter().map(String::as_str).collect();
+        if let Err(e) = calc.cd(&back) {
+            return moved.with_context(|| {
+                format!(
+                    "cd {}, and going back to {{ {} }} failed too ({e})",
+                    util::dir_string(&components),
+                    origin.join(" ")
+                )
+            });
+        }
+    }
+    moved.with_context(|| format!("cd {}", util::dir_string(&components)))
 }
 
 /// Purge `:0:SATXRS`; `false` if it was not there. `PURGE` of a missing
@@ -1529,8 +1550,15 @@ pub(crate) fn write_file(file: &Path, data: &[u8], force: bool) -> Result<()> {
     // is written through, and a read-only file refused as before.
     let replaceable = |m: std::fs::Metadata| m.is_file() && !m.permissions().readonly();
     if force && std::fs::symlink_metadata(file).is_ok_and(replaceable) {
-        return replace_file(file, data)
-            .with_context(|| format!("cannot write {}", file.display()));
+        match replace_file(file, data) {
+            // No replacing it from this directory (read-only, sticky): a
+            // file we may write is written in place below, the one way
+            // left, where a failed write does lose the old content.
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {}
+            result => {
+                return result.with_context(|| format!("cannot write {}", file.display()));
+            }
+        }
     }
     let mut options = std::fs::OpenOptions::new();
     options.write(true);
@@ -1654,6 +1682,92 @@ mod tests {
         assert!(link.is_symlink());
         assert_eq!(std::fs::read(&file).unwrap(), b"through");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// --force still writes a file in a directory that takes no temporary
+    /// file (as root the directory's mode does not bite: then the temporary
+    /// is simply made).
+    #[cfg(unix)]
+    #[test]
+    fn force_writes_in_place_in_a_read_only_directory() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("satx-force-ro-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("X");
+        std::fs::write(&file, b"old").unwrap();
+        let mode = |m| std::fs::Permissions::from_mode(m);
+        std::fs::set_permissions(&dir, mode(0o555)).unwrap();
+        let written = write_file(&file, b"new", true);
+        std::fs::set_permissions(&dir, mode(0o755)).unwrap();
+        written.unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), b"new");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A path that stops at a missing name leaves the calculator where it
+    /// was, not part of the way there.
+    #[test]
+    fn a_failed_cd_goes_back() {
+        let at = std::sync::Arc::new(std::sync::Mutex::new(vec!["HOME", "WORK"]));
+        let here = std::sync::Arc::clone(&at);
+        let (mut calc, _) = crate::testkit::calc(move |cmd| {
+            let mut at = here.lock().unwrap();
+            match cmd {
+                "HOME" => *at = vec!["HOME"],
+                "WORK" | "GAMES" => at.push(if cmd == "WORK" { "WORK" } else { "GAMES" }),
+                "G D" => {
+                    let entries = match at.as_slice() {
+                        ["HOME"] => "WORK 10.5 Directory 1234\r\nGAMES 10.5 Directory 1234\r\n",
+                        _ => "",
+                    };
+                    return format!("{{ {} }} 1000\r\n{entries}", at.join(" "));
+                }
+                _ => {}
+            }
+            "Empty Stack\r\n".to_string()
+        });
+        let err = cd(&mut calc, "GAMES/TYPO").unwrap_err();
+        assert!(
+            format!("{err:#}").contains("TYPO: no such directory"),
+            "{err:#}"
+        );
+        assert_eq!(*at.lock().unwrap(), ["HOME", "WORK"]);
+        cd(&mut calc, "GAMES").unwrap();
+        assert_eq!(*at.lock().unwrap(), ["HOME", "GAMES"]);
+    }
+
+    /// A failed way back is said with the missing name.
+    #[test]
+    fn a_failed_cd_says_when_it_could_not_go_back() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let homes = AtomicUsize::new(0);
+        let (mut calc, _) = crate::testkit::calc(move |cmd| match cmd {
+            "HOME" if homes.fetch_add(1, Ordering::Relaxed) > 0 => {
+                "Error: Bad Argument Type\r\n".to_string()
+            }
+            "G D" => "{ HOME } 1000\r\nGAMES 10.5 Directory 1234\r\n".to_string(),
+            _ => "Empty Stack\r\n".to_string(),
+        });
+        let text = format!("{:#}", cd(&mut calc, "GAMES/TYPO").unwrap_err());
+        assert!(text.contains("TYPO: no such directory"), "{text}");
+        assert!(text.contains("going back to { HOME }"), "{text}");
+    }
+
+    /// A name given twice is deleted once, not refused the second time
+    /// after the first went.
+    #[test]
+    fn rm_takes_a_name_twice() {
+        let (mut calc, log) = crate::testkit::calc(|cmd| match cmd {
+            "G D" => "X 10.5 Real Number 1234\r\n".into(),
+            _ => "Empty Stack\r\n".into(),
+        });
+        let ctx = crate::testkit::ctx();
+        let names = ["X".to_string(), "X".to_string()];
+        let outcome = ctx.rm_on(&mut calc, &names, false).unwrap();
+        assert_eq!(outcome.total, Some(1));
+        let sent = crate::testkit::sent(&log);
+        assert_eq!(sent.iter().filter(|c| *c == "'X' PURGE").count(), 1);
     }
 
     #[test]
