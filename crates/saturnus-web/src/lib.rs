@@ -227,6 +227,21 @@ pub fn state_format() -> u16 {
     saturnus_core::STATE_FORMAT
 }
 
+/// The model that boots when `model` is asked for with `rom`
+/// ([`saturnus_host::host::model_for_rom`]): the slot of its kept state.
+/// A name that is no model stays as it is; the boot then refuses it.
+#[wasm_bindgen]
+pub fn model_for_rom(model: &str, rom: &[u8]) -> String {
+    model.parse::<Model>().map_or_else(
+        |_| model.to_string(),
+        |m| {
+            saturnus_host::host::model_for_rom(rom, m)
+                .name()
+                .to_string()
+        },
+    )
+}
+
 /// The names of the models the page offers ([`saturnus_host::skins::hosted_models`]).
 #[wasm_bindgen]
 pub fn model_names() -> Vec<String> {

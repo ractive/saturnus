@@ -136,6 +136,7 @@ pub fn is_plain_name(name: &str) -> bool {
                         | '<'
                         | '>'
                         | '\\'
+                        | '@'
                 )
         })
         && charset::encode(name).is_ok()
@@ -612,9 +613,9 @@ pub fn to_source(obj: &Object, family: Family) -> Result<Option<String>> {
     })
 }
 
-/// Whether `s` is one RPL token that cannot close a quote or a group:
-/// no whitespace, control characters, quotes or delimiters (parentheses
-/// only with `parens`, for unit expressions).
+/// Whether `s` is one RPL token that cannot close a quote or a group, nor
+/// open a comment: no whitespace, control characters, quotes, delimiters
+/// or `@` (parentheses only with `parens`, for unit expressions).
 fn plain_token(s: &str, parens: bool) -> bool {
     !s.is_empty()
         && s.chars().all(|c| {
@@ -622,7 +623,19 @@ fn plain_token(s: &str, parens: bool) -> bool {
                 && !c.is_control()
                 && !matches!(
                     c,
-                    '\'' | '"' | '«' | '»' | '{' | '}' | '[' | ']' | ':' | '#' | ',' | ';' | '\\'
+                    '\'' | '"'
+                        | '«'
+                        | '»'
+                        | '{'
+                        | '}'
+                        | '['
+                        | ']'
+                        | ':'
+                        | '#'
+                        | ','
+                        | ';'
+                        | '\\'
+                        | '@'
                 )
                 && (parens || !matches!(c, '(' | ')'))
         })
@@ -633,12 +646,21 @@ fn plain_token(s: &str, parens: bool) -> bool {
 /// nothing before or after it: a host command must push it, not run
 /// anything.
 fn one_object_source(obj: &Object, source: &str) -> Result<String> {
-    // The calculator reads the trigraphs as the delimiters themselves.
-    let text = source.trim().replace("\\<<", "«").replace("\\>>", "»");
+    // The calculator reads the trigraphs as the delimiters themselves,
+    // the numeric ones too (`charset::trigraph_at`).
+    let text = source
+        .trim()
+        .replace("\\<<", "«")
+        .replace("\\>>", "»")
+        .replace("\\171", "«")
+        .replace("\\187", "»");
     let mut scan = Scanner { s: &text, pos: 0 };
     let ok = match obj {
         Object::Program { .. } => scan.balanced('«', '»').is_some(),
-        Object::Algebraic { .. } => scan.quoted().is_some_and(|q| q.len() > 2),
+        // An `@` would hide the closing quote and what the host adds.
+        Object::Algebraic { .. } => scan
+            .quoted()
+            .is_some_and(|q| q.len() > 2 && !q.contains('@')),
         _ => plain_token(&text, true) && scan.token().is_some(),
     };
     if !ok || !scan.rest().trim().is_empty() {
@@ -838,6 +860,50 @@ mod tests {
         );
     }
 
+    /// `@` in a word opens a comment too (wiki: protocols/server-commands):
+    /// what holds one travels in binary or is refused, so it hides neither
+    /// a list's next item nor the host's own command.
+    #[test]
+    fn an_at_sign_opens_no_comment_outside_a_string() {
+        let name = Object::Name {
+            value: "X@".to_string(),
+        };
+        assert_eq!(to_source(&name, Family::Hp48).unwrap(), None);
+        let list = Object::List {
+            items: vec![
+                name,
+                Object::String {
+                    value: "@ } 'X' PURGE @".to_string(),
+                },
+            ],
+        };
+        assert_eq!(to_source(&list, Family::Hp48).unwrap(), None);
+        assert!(!plain_token("T@", false) && !plain_token("m@", true));
+        let command = Object::Command {
+            name: None,
+            address: None,
+            library: None,
+            command: None,
+            source: Some("X@".to_string()),
+        };
+        assert!(to_source(&command, Family::Hp48).is_err());
+        let algebraic = Object::Algebraic {
+            source: Some("'A@'".to_string()),
+        };
+        assert!(to_source(&algebraic, Family::Hp48).is_err());
+    }
+
+    /// `\\171` and `\\187` reach the calculator as « and », so they end
+    /// and open groups as the mnemonic trigraphs do.
+    #[test]
+    fn numeric_trigraphs_count_as_delimiters() {
+        let program = Object::Program {
+            source: Some("« \\187 'X' PURGE \\171 »".to_string()),
+        };
+        let e = to_source(&program, Family::Hp48).unwrap_err();
+        assert!(e.to_string().contains("one « ... » group"), "{e}");
+    }
+
     #[test]
     fn plain_names() {
         assert!(is_plain_name("X") && is_plain_name("ΣDAT") && is_plain_name("A.1"));
@@ -850,6 +916,7 @@ mod tests {
             "X'",
             "A+B",
             "a:b",
+            "X@",
             "€",
             &"A".repeat(128),
         ] {

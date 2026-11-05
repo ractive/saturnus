@@ -12,16 +12,16 @@ the desktop app and the web page share one version.
   since its CSS resets no margins.
 - **Quitting the desktop app saves the calculator.** Cmd+Q on a Mac now
   saves an unsaved change, as closing the window always did.
-- **A fresh start keeps what it should.** A ROM that doesn't boot no
-  longer deletes the kept state, and a ROM that boots as another model
-  reads or clears that model's state, not the one asked for.
+- **A fresh start keeps what it should.** In the app and on the web page,
+  a ROM that doesn't boot no longer deletes the kept state, and a ROM
+  that boots as another model reads or clears that model's state, not
+  the one asked for.
 - **A failed write no longer damages a file.** The desktop app's saved
-  files and its AI access setting are written to the side and then
-  moved into place, and `satx get` removes a new file it could not
-  finish.
-- **`@` comments can't hide a command in a program sent to a calculator.**
-  The check that a host command only pushes one object now reads comments
-  as the ROM does.
+  files and its AI access setting, and a file `satx get --force` replaces,
+  are written to the side and then moved into place. `satx get` removes a
+  new file it could not finish.
+- **A variable name with `@` is refused.** The calculator reads `@` as
+  the start of a comment, so `satx` and Files no longer take such a name.
 
 ## 0.10.2 (2026-11-01)
 

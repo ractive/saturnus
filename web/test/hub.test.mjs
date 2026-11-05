@@ -24,6 +24,7 @@ export const identify_rom = () => ({});
 export const plan_roms = () => ({});
 export const rom_download = () => null;
 export const state_format = () => 2;
+export const model_for_rom = (model) => globalThis.romFits ?? model;
 export class Host {
   constructor() { this.out = []; this.log = []; this.model = null; hosts.push(this); }
   setAutoSave(on) { this.autoSave = on; }
@@ -55,6 +56,7 @@ export class Host {
   boot(model, rom, name, kept) {
     this.model = model;
     this.booted = (this.booted ?? 0) + 1;
+    this.keptAtBoot = kept;
     this.out.push({ type: "status", model }, { type: "frame", n: 1 });
     return { model, romName: name, ...(kept ? { restored: true } : {}) };
   }
@@ -207,6 +209,39 @@ test("the emulator pages hear peers while a saturnus tx page is on their calcula
   await hub.bootKept(emu.conn, "48gx", ROM, "gx", true);
   assert.equal(tx2.events("gone").length, 1);
   assert.equal(emu.events("peers").at(-1).tx, false);
+});
+
+test("a fresh start forgets the kept state only once its machine booted", async () => {
+  const { hub, page } = setup();
+  const emu = await page("emulator");
+  await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  const { host } = engineOf(hub, "48gx");
+  await hub.states.put("48gx", { state: new Uint8Array([7]) });
+  const boot = host.boot;
+  host.boot = () => {
+    throw new Error("not a ROM");
+  };
+  await assert.rejects(hub.bootKept(emu.conn, "48gx", ROM, "gx", true), /not a ROM/);
+  assert.deepEqual(await hub.states.get("48gx"), new Uint8Array([7]));
+  host.boot = boot;
+  await hub.bootKept(emu.conn, "48gx", ROM, "gx", true);
+  assert.equal(await hub.states.get("48gx"), null);
+});
+
+test("a ROM that boots as another model uses that model's kept state", async () => {
+  const { hub, page } = setup();
+  const emu = await page("emulator");
+  await hub.states.put("48gx", { state: new Uint8Array([1]) });
+  await hub.states.put("49g", { state: new Uint8Array([2]) });
+  globalThis.romFits = "49g";
+  try {
+    const { hosts } = await import("./pkg/saturnus_web.js");
+    const before = hosts.length;
+    await hub.bootKept(emu.conn, "48gx", ROM, "g", false);
+    assert.deepEqual(hosts[before].keptAtBoot, new Uint8Array([2]));
+  } finally {
+    delete globalThis.romFits;
+  }
 });
 
 test("the speed is the emulator page's, whatever saturnus tx asks; tx's only with no emulator page", async () => {

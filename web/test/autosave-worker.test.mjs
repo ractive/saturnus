@@ -26,6 +26,7 @@ export const plan_roms = (input) => {
 };
 export const rom_download = () => null;
 export const state_format = () => 2;
+export const model_for_rom = (model) => globalThis.romFits ?? model;
 export class Host {
   constructor() { this.out = []; }
   setAutoSave(on) { log.push(["autoSave", on]); }
