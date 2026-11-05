@@ -185,6 +185,7 @@ fn a_backup_on_a_dead_link_removes_what_it_made() {
     t.leftovers.backup = Some("SATBKUP".into());
     t.baseline = Some(2);
     t.leftovers.started(":0:SATBKUP ARCHIVE");
+    t.leftovers.done(":0:SATBKUP ARCHIVE");
     t.leftovers.started("'SATBKUP' STO");
     assert!(t.abort(&mut m, "no answer".into()).is_none());
     let tail: Vec<String> = t
@@ -212,6 +213,19 @@ fn a_backup_on_a_dead_link_removes_what_it_made() {
     t.baseline = Some(2);
     assert!(t.abort(&mut m, "no answer".into()).is_none());
     assert!(t.steps.is_empty(), "{:?}", t.steps);
+    assert_eq!(t.leftovers.note(), None);
+    // No reply to the ARCHIVE: a name taken in port 0 may be what refused
+    // it, so `:0:N` is not purged; the error names it.
+    let mut t = Transfer::planned(&m, VecDeque::new(), TransferResult::default());
+    t.leftovers.backup = Some("SATBKUP".into());
+    t.baseline = Some(2);
+    t.leftovers.started(":0:SATBKUP ARCHIVE");
+    assert!(t.abort(&mut m, "no answer".into()).is_none());
+    assert!(t.steps.is_empty(), "{:?}", t.steps);
+    assert_eq!(
+        t.leftovers.note().as_deref(),
+        Some("a copy of HOME may be left in port 0 as SATBKUP")
+    );
 }
 
 /// A machine that halts while a step holds a key: the key is let go,

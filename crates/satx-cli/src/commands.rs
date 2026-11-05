@@ -1433,17 +1433,26 @@ pub(crate) fn put_mode(args: &PutArgs, data: &[u8]) -> TransferMode {
 
 /// Change to `dir` (absolute from HOME). A name that is not there stops
 /// the walk part of the way, and the calculator goes back to where it was:
-/// the next `rm` or `put` must not hit a directory nobody asked for.
+/// the next `rm` or `put` must not hit a directory nobody asked for. A
+/// link that failed is not asked to move again, and the error says when
+/// going back failed.
 pub(crate) fn cd(calc: &mut Calculator, dir: &str) -> Result<()> {
     let components = util::parse_dir(dir);
     let mut path: Vec<&str> = vec!["HOME"];
     path.extend(components.iter().map(String::as_str));
     let origin = calc.path().context("PATH")?;
     let moved = calc.cd(&path);
-    if matches!(moved, Err(Error::Reply(_))) {
-        // Best effort: the missing name is what the user must hear about.
-        let origin: Vec<&str> = origin.iter().map(String::as_str).collect();
-        let _ = calc.cd(&origin);
+    if matches!(moved, Err(Error::Reply(_) | Error::Calculator { .. })) {
+        let back: Vec<&str> = origin.iter().map(String::as_str).collect();
+        if let Err(e) = calc.cd(&back) {
+            return moved.with_context(|| {
+                format!(
+                    "cd {}, and going back to {{ {} }} failed too ({e})",
+                    util::dir_string(&components),
+                    origin.join(" ")
+                )
+            });
+        }
     }
     moved.with_context(|| format!("cd {}", util::dir_string(&components)))
 }
@@ -1543,7 +1552,8 @@ pub(crate) fn write_file(file: &Path, data: &[u8], force: bool) -> Result<()> {
     if force && std::fs::symlink_metadata(file).is_ok_and(replaceable) {
         match replace_file(file, data) {
             // No replacing it from this directory (read-only, sticky): a
-            // file we may write is written in place below.
+            // file we may write is written in place below, the one way
+            // left, where a failed write does lose the old content.
             Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {}
             result => {
                 return result.with_context(|| format!("cannot write {}", file.display()));
@@ -1725,6 +1735,23 @@ mod tests {
         assert_eq!(*at.lock().unwrap(), ["HOME", "WORK"]);
         cd(&mut calc, "GAMES").unwrap();
         assert_eq!(*at.lock().unwrap(), ["HOME", "GAMES"]);
+    }
+
+    /// A failed way back is said with the missing name.
+    #[test]
+    fn a_failed_cd_says_when_it_could_not_go_back() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let homes = AtomicUsize::new(0);
+        let (mut calc, _) = crate::testkit::calc(move |cmd| match cmd {
+            "HOME" if homes.fetch_add(1, Ordering::Relaxed) > 0 => {
+                "Error: Bad Argument Type\r\n".to_string()
+            }
+            "G D" => "{ HOME } 1000\r\nGAMES 10.5 Directory 1234\r\n".to_string(),
+            _ => "Empty Stack\r\n".to_string(),
+        });
+        let text = format!("{:#}", cd(&mut calc, "GAMES/TYPO").unwrap_err());
+        assert!(text.contains("TYPO: no such directory"), "{text}");
+        assert!(text.contains("going back to { HOME }"), "{text}");
     }
 
     /// A name given twice is deleted once, not refused the second time

@@ -117,6 +117,10 @@ pub(super) struct Leftovers {
     pub(super) backup: Option<String>,
     /// Its `ARCHIVE` made `:0:N`.
     pub(super) archive: bool,
+    /// A reply said so; a stop's purge goes without one.
+    pub(super) archived: bool,
+    /// The server died with no reply to `ARCHIVE`: `:0:N` may be there.
+    pub(super) archive_unsure: bool,
     /// `'N' STO` made the variable `N` in HOME.
     pub(super) variable: bool,
     /// A replacing store ([`Op::Store`]): the temporary name, the
@@ -160,10 +164,23 @@ impl Leftovers {
         }
     }
 
-    /// Host command `text` went through: note what it removed.
+    /// A dead server gave no reply to the `ARCHIVE`: it may have been
+    /// refused for a name taken in port 0, which is not this write's to
+    /// purge. The error names it instead ([`Leftovers::note`]).
+    pub(super) fn doubt_archive(&mut self) {
+        if self.archive && !self.archived {
+            self.archive = false;
+            self.archive_unsure = true;
+        }
+    }
+
+    /// Host command `text` went through: note what it made sure of or
+    /// removed.
     pub(super) fn done(&mut self, text: &str) {
         if let Some(n) = &self.backup {
-            if text == Self::unarchive(n) {
+            if text == format!(":0:{n} ARCHIVE") {
+                self.archived = true;
+            } else if text == Self::unarchive(n) {
                 self.archive = false;
             } else if text == Self::unstore(n) {
                 self.variable = false;
@@ -192,8 +209,12 @@ impl Leftovers {
         lines
     }
 
-    /// What an error adds: the new object kept under the temporary name.
+    /// What an error adds: a port copy that may be left, the new object
+    /// kept under the temporary name.
     pub(super) fn note(&self) -> Option<String> {
+        if let Some(n) = self.backup.as_ref().filter(|_| self.archive_unsure) {
+            return Some(format!("a copy of HOME may be left in port 0 as {n}"));
+        }
         let (t, name, dir) = self.replace.as_ref()?;
         self.temp
             .then(|| format!("the new {name} is kept as {t} in {{ {dir} }}"))
@@ -815,6 +836,7 @@ impl Transfer {
         // A backup's purges were host commands of the plan just dropped:
         // what it made goes by typed lines once the server has ended, as
         // after a stop, what its failed command left on the stack first.
+        self.leftovers.doubt_archive();
         let lines = self.leftovers.typed_cleanup();
         if !lines.is_empty() {
             for line in lines.into_iter().rev() {

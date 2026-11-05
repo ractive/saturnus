@@ -1390,13 +1390,7 @@ pub(crate) async fn put_in(
     if target == name {
         return Ok(stored);
     }
-    // STO replaces the old variable, PURGE drops the copy.
-    let swap = [
-        format!("'{stored}' RCL"),
-        format!("'{name}' STO"),
-        format!("'{stored}' PURGE"),
-    ];
-    let Err(swapped) = run_parts(ctx, &swap).await else {
+    let Err(swapped) = swap_in(ctx, &stored, &name).await else {
         return Ok(name);
     };
     // Best effort, as for a failed send: the old variable is as it was
@@ -1405,15 +1399,26 @@ pub(crate) async fn put_in(
     Err(swapped)
 }
 
-/// Run `parts` as one host command; if that is too long for a packet (a
-/// long variable name), each on its own, in order.
-async fn run_parts(ctx: &Ctx, parts: &[String]) -> Result<()> {
-    match ctx.op(Op::Run(parts.join(" "))).await {
+/// `STO` replaces the old variable, `PURGE` drops the copy: one host
+/// command, or if that is too long for a packet (a long variable name)
+/// each part on its own, in order.
+async fn swap_in(ctx: &Ctx, stored: &str, name: &str) -> Result<()> {
+    let recall = format!("'{stored}' RCL");
+    let store = format!("'{name}' STO");
+    let purge = format!("'{stored}' PURGE");
+    match ctx.op(Op::Run(format!("{recall} {store} {purge}"))).await {
         Err(TxError::Calc(satx_core::Error::CommandTooLong { .. })) => {
-            for part in parts {
-                expect_stack(ctx.op(Op::Run(part.clone())).await?)?;
+            expect_stack(ctx.op(Op::Run(recall)).await?)?;
+            match ctx.op(Op::Run(store)).await {
+                // Too long even alone, and refused unsent: the recalled
+                // copy must not stay on the user's stack.
+                Err(e @ TxError::Calc(satx_core::Error::CommandTooLong { .. })) => {
+                    let _ = ctx.op(Op::Run("DROP".to_string())).await;
+                    return Err(e);
+                }
+                reply => expect_stack(reply?)?,
             }
-            Ok(())
+            expect_stack(ctx.op(Op::Run(purge)).await?)
         }
         reply => expect_stack(reply?),
     }

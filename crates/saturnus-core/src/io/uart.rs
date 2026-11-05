@@ -259,9 +259,12 @@ impl Uart {
                     self.rx_start();
                 } else if !brk {
                     // Let go before it read as a byte: the receiver is idle
-                    // again, unless the looped-back shifter feeds it
-                    // (inferred; io-guide 2.4.2 covers a full break only).
-                    if self.brk.take().is_some_and(|p| p < BYTE_DONE_16THS) && self.tx.is_none() {
+                    // again, unless the looped-back shifter still feeds it
+                    // a byte (inferred; io-guide 2.4.2 covers a full break
+                    // only).
+                    if self.brk.take().is_some_and(|p| p < BYTE_DONE_16THS)
+                        && self.tx.is_none_or(|f| f.pos >= BYTE_DONE_16THS)
+                    {
                         self.rcs &= !RCS_RBZ;
                     }
                 }
@@ -697,6 +700,19 @@ mod tests {
         run(&mut u, 10);
         u.write(TCS, TCS_LPB);
         assert_eq!(u.peek(RCS), RCS_RBZ);
+
+        // Begun in the frame's stop bit: its byte was read already, so
+        // nothing feeds the receiver any more.
+        let mut u = on(0);
+        u.write(TCS, TCS_LPB);
+        u.write(TBR_LO, 0x1);
+        u.write(TBR_HI, 0x4);
+        run(&mut u, u64::from(BYTE_DONE_16THS) + 5);
+        assert!(u.tx.is_some());
+        u.write(TCS, TCS_LPB | TCS_BRK);
+        run(&mut u, 2);
+        u.write(TCS, TCS_LPB);
+        assert_eq!(u.peek(RCS) & RCS_RBZ, 0);
     }
 
     #[test]

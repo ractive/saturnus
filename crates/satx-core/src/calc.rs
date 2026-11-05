@@ -579,20 +579,9 @@ impl CalcOps<'_> {
         self.refuse_existing(BACKUP_VAR).await?;
         self.exec(&[format!(":0:{BACKUP_VAR} ARCHIVE")]).await?;
         let result = self.backup_steps().await;
-        if let Err(error) = &result {
+        if result.is_err() {
             // Best effort: the error being reported matters more.
             self.retry_link();
-            // A `STO` that failed (no room for the copy) leaves the name
-            // and the recalled archive on the stack, which keeps the port
-            // object in use: its `PURGE` would fail too.
-            let sto_failed = matches!(
-                error,
-                Error::Calculator { stack, .. }
-                    if stack.first().and_then(|l| parse_name(l)).as_deref() == Some(BACKUP_VAR)
-            );
-            if sto_failed {
-                let _ = self.drop_levels(2).await;
-            }
             let _ = self.exec(&[format!(":0:{BACKUP_VAR} PURGE")]).await;
             self.retry_link();
             let _ = self.exec(&[format!("'{BACKUP_VAR}' PGDIR")]).await;
@@ -610,12 +599,27 @@ impl CalcOps<'_> {
 
     async fn backup_steps(&mut self) -> Result<Vec<u8>> {
         // STO before PURGE, else "Object In Use".
-        self.exec(&[
-            format!(":0:{BACKUP_VAR} RCL"),
-            format!("'{BACKUP_VAR}' STO"),
-            format!(":0:{BACKUP_VAR} PURGE"),
-        ])
-        .await?;
+        let copied = self
+            .exec(&[
+                format!(":0:{BACKUP_VAR} RCL"),
+                format!("'{BACKUP_VAR}' STO"),
+                format!(":0:{BACKUP_VAR} PURGE"),
+            ])
+            .await;
+        // A `STO` that failed (no room for the copy) leaves the name and
+        // the recalled archive on the stack, which keeps the port object in
+        // use: the cleanup's `PURGE` would fail too. Only this command: a
+        // later failure's level 2 is the user's. A 49G in algebraic mode
+        // shows the name without its quotes.
+        if let Err(Error::Calculator { stack, .. }) = &copied
+            && stack.first().is_some_and(|l| {
+                l.trim() == BACKUP_VAR || parse_name(l).as_deref() == Some(BACKUP_VAR)
+            })
+        {
+            self.retry_link();
+            let _ = self.drop_levels(2).await;
+        }
+        copied?;
         let data = self.get(BACKUP_VAR, TransferMode::Binary).await?;
         self.exec(&[format!("'{BACKUP_VAR}' PGDIR")]).await?;
         Ok(data)
@@ -1790,7 +1794,7 @@ pub(crate) mod tests {
     /// fails with "Object In Use". Any other failure drops nothing.
     #[test]
     fn a_failed_backup_drops_what_keeps_the_port_object_in_use() {
-        for (level, dropped) in [("'SATXBK'", true), ("'OTHER'", false)] {
+        for (level, dropped) in [("'SATXBK'", true), ("SATXBK", true), ("'OTHER'", false)] {
             let (mut c, log) = calc(move |cmd| match cmd {
                 "G D" => "{ HOME } 1000\r\n".to_string(),
                 ":0:SATXBK RCL 'SATXBK' STO :0:SATXBK PURGE" => {

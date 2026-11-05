@@ -25,10 +25,12 @@ the desktop app and the web page share one version.
 - **A directory that isn't there changes nothing.** `satx --dir`, `satx ls
   PATH` and the REPL's `:cd` and `:ls` leave the calculator where it was
   when a name in the path is missing, not part of the way down it.
+  `satx xserv` goes back to HOME, as XSERV can't say where it was.
 - **A backup that fails no longer leaves its copies behind.** `satx backup`
   and Files remove the copy in port 0 when the calculator runs out of
   memory, and a backup of an emulated calculator whose server stops
-  answering removes what it made, as stopping one does.
+  answering removes what it made, as stopping one does. A port copy it
+  can't be sure of stays, and the error says so.
 - **Files replaces a variable with a long name.** The swap goes out as
   three commands when it doesn't fit in one packet.
 - **Smaller `satx` fixes.** `satx rm X X` deletes X once instead of failing
