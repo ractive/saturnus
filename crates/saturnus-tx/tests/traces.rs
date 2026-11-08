@@ -1782,7 +1782,10 @@ fn text_get(name: &str) -> Request {
 fn a_calculator_in_xserv_is_found_listed_and_changed() {
     let mut peer = XservCalc::new();
     let mut host = xserv_connected(&mut peer);
-    assert_eq!(host.device.connection().unwrap().model, satx_core::Model::Hp49G);
+    assert_eq!(
+        host.device.connection().unwrap().model,
+        satx_core::Model::Hp49G
+    );
     // Found by the first M: no Kermit probe went out; the identification
     // stored its variable and purged it again.
     assert!(
@@ -1798,7 +1801,11 @@ fn a_calculator_in_xserv_is_found_listed_and_changed() {
     );
     assert!(!peer.id_stored);
     assert_eq!(peer.executed.len(), 2, "{:?}", peer.executed);
-    assert!(peer.executed[0].starts_with("HOME DEPTH "), "{:?}", peer.executed);
+    assert!(
+        peer.executed[0].starts_with("HOME DEPTH "),
+        "{:?}",
+        peer.executed
+    );
     peer.executed.clear();
 
     // HOME: the sizes as the Kermit server gives them.
@@ -1924,7 +1931,11 @@ fn a_text_get_goes_through_the_nested_kermit_server() {
     );
     assert_eq!(peer.serving, Serving::Xserv);
     assert_eq!((peer.kermit_in_xserv, peer.xserv_in_kermit), (0, 0));
-    assert!(peer.executed.iter().any(|c| c == "-35 CF"), "{:?}", peer.executed);
+    assert!(
+        peer.executed.iter().any(|c| c == "-35 CF"),
+        "{:?}",
+        peer.executed
+    );
     let list = host.run(&mut peer, Request::List { dir: vec![] });
     assert!(matches!(list, Ok(Outcome::Listing(_))), "{list:?}");
 }
@@ -1946,7 +1957,11 @@ fn a_stop_while_entering_the_kermit_server_is_sorted_out() {
     assert_eq!(peer.serving, Serving::Xserv);
     assert_eq!((peer.kermit_in_xserv, peer.xserv_in_kermit), (0, 0));
     // The flag was never read, so it was not set back either.
-    assert!(!peer.executed.iter().any(|c| c.contains("-35")), "{:?}", peer.executed);
+    assert!(
+        !peer.executed.iter().any(|c| c.contains("-35")),
+        "{:?}",
+        peer.executed
+    );
 }
 
 /// FINISH's ACK is lost: the request fails, but the calculator is in XSERV
@@ -1963,7 +1978,10 @@ fn a_lost_finish_ack_is_sorted_out() {
     let resent = peer.kermit_in_xserv;
     let list = host.run(&mut peer, Request::List { dir: vec![] });
     assert!(matches!(list, Ok(Outcome::Listing(_))), "{list:?}");
-    assert_eq!(peer.kermit_in_xserv, resent, "no Kermit packet after the failure");
+    assert_eq!(
+        peer.kermit_in_xserv, resent,
+        "no Kermit packet after the failure"
+    );
     assert_eq!(peer.xserv_in_kermit, 0);
 }
 

@@ -523,8 +523,13 @@ As built (iteration 69, [[iterations/iteration-69-files-over-xserv]];
 `saturnus-tx`'s `xserv` module over `satx-core`'s XSERV client): a 49G
 running XSERV (typed `XSERV`, ENTER; the display says "Xmodem
 server") is found by the connect's `M` and is then an XSERV session:
-the connection's `server` is `xserv`, the model the 49G (XSERV is built
-into no other model this app emulates), the version not read. Facts:
+the connection's `server` is `xserv`, the model the 49G, the version
+not read. XSERV is built into the 49G from ROM 1.11 on. An HP 48
+running the XSrvr48 library answers `M` alike, so the connect tells
+them apart: in HOME `1. R→I` is stored and listed (an integer on the
+49G; on a 48, which has no `R→I`, the name `R→I`), the variable purged
+again, and a 48 is refused with a message to start `SERVER` (about
+2.5 s on the emulated 49G). Facts:
 wiki `protocols/xserv`; on the emulated 49G (ROM 2.15) all of it, on the
 real 49G (ROM 1.18) the commands and the nesting.
 
@@ -546,7 +551,11 @@ real 49G (ROM 1.18) the commands and the nesting.
   of the calculator's commands, `SUB` for one, or too little memory).
   While the RPL runs the calculator drops what it is sent, so the
   client sends `M` and `L` again while nothing answers (up to 60 s)
-  and asks `M` before a command packet that follows an `E`.
+  and asks `M` before a command packet (and, for at most 5 s, before
+  `Q`) that follows an `E`. Each change runs as a string in `DEPTH → d
+  « IFERR "…" STR→ THEN DEPTH d - DROPN END »`: an `E` whose RPL fails
+  leaves its text on the stack, where the user finds it after XSERV
+  ends (a rename to `PICT`, emulated 49G).
 - **The current directory**: XSERV cannot say it, so the device keeps
   it, and the directories seen in listings; it walks from where it is or
   from HOME, one listing per level not seen yet, and evaluates only
@@ -554,11 +563,24 @@ real 49G (ROM 1.18) the commands and the nesting.
 - **Through the Kermit server**: a get as text, a put of a text file or
   a file kept as a string (and a tree with any of them), PICT, backup
   and restore run on the Kermit server started inside XSERV: `SERVER`
-  through `E`, a 1 s pause, the sync, flag -35 read and set to binary;
-  afterwards flag -35 back and FINISH, and XSERV answers again about a
-  second later. One request runs wholly on XSERV or wholly on the
-  nested server. Restore warm-starts the calculator, which ends both;
-  the reconnect finds whichever server the user starts.
+  through `E`, a 1 s pause, the sync, flag -35 read (once per session)
+  and set to binary; afterwards flag -35 back and FINISH, and XSERV
+  answers again about a second later. One request runs wholly on XSERV
+  or wholly on the nested server; a request that would be refused (a
+  file that is no object, a bad name, a tree that does not lay out) is
+  refused before the round trip. Restore puts back the flag the nested
+  server found, warm-starts the calculator, which ends both; the
+  reconnect finds whichever server the user starts. The nested server
+  leaves the stack alone, also in algebraic mode: nothing is packed
+  into a list (emulated 49G, two nested cycles).
+- **Which server answers** is never guessed: from `SERVER` until the
+  sync, and from FINISH until its answer, it is unknown, as after a
+  stop during a nested request. The next request settles it first:
+  `M` asked three times (XSERV drops an `M` within about a second of
+  FINISH; the Kermit server ignores it), else the Kermit server is
+  synced and ended with FINISH. So no `L` or `M` goes on for 60 s to a
+  Kermit server, and no Kermit packet goes to XSERV, whose bytes could
+  read as commands.
 - **What is not offered**: the fast transfer items (every copy is XModem
   already; a request for one is `notForXmodem`).
 - **Disconnect**: `Q` ends XSERV (ROM 2.15: the calculator is back at
@@ -583,7 +605,11 @@ and replaces, refuses a missing name, renames, walks down and up, puts
 and gets a program as text through the Kermit server, gets a tree and
 puts it back as a new directory, PICT, the memory, purges with counts,
 a backup through the Kermit server, refuses a fast transfer, and ends
-XSERV (about 85 s); the page's words and menus with the fake calculator
+XSERV (about 85 s); in algebraic mode with numbers on the stack two
+nested cycles and a failed rename leave the stack and flag -95 as they
+were; a scripted XSERV and Kermit calculator (`tests/traces.rs`): a
+stop while entering the Kermit server, a lost FINISH ACK, the restore's
+flag -35, an HP 48, the refusals before the round trip; the page's words and menus with the fake calculator
 (`tx-flows`, `tx-xmodem`), the console (`tx-cable`). Not yet on the
 real 49G: the owner's check in the iteration.
 

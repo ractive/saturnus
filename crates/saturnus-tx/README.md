@@ -23,7 +23,8 @@ and in the desktop app (`kb/docs/saturnus-tx.md`): what a user does with an HP 4
 
 - **XSERV** (the 49G's XModem server, `xserv` module): the connect
   sends XSERV's `M` at each speed first and listens 0.5 s; an answer
-  makes an XSERV session (`Connection::server`). Listings, binary gets
+  makes an XSERV session (`Connection::server`); an HP 48 running the
+  XSrvr48 library is told apart and refused. Listings, binary gets
   and puts, the memory, changes (RPL through `E`, each checked in a
   fresh listing) run on XSERV; text, files kept as strings, PICT, backup
   and restore on the Kermit server started inside it (`SERVER` through

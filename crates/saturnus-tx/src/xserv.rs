@@ -15,7 +15,7 @@
 //!   (the calculator stays in XSERV), so the listing is the only proof.
 //!   Each change runs as a string in `IFERR … STR→`, which drops what a
 //!   failure leaves: else the `E` text stays on the stack (see
-//!   [`guarded`]).
+//!   `guarded`).
 //! - **The current directory**: XSERV cannot say it, so the device keeps
 //!   it and the directories it has seen in listings; it walks from HOME or
 //!   from where it is, a listing per level it has not seen, and evaluates
@@ -26,9 +26,14 @@
 //!   lists first and refuses an unknown name.
 //! - **The Kermit server, nested**: `SERVER` run through `E` starts it
 //!   inside XSERV, and its FINISH returns to XSERV (real 49G, ROM 1.18, and
-//!   the emulated one, ROM 2.15). The requests XSERV cannot do run there: text gets and puts, files stored as strings, PICT,
-//!   backup and restore. Restore warm-starts the calculator, which ends
-//!   both servers.
+//!   the emulated one, ROM 2.15). The requests XSERV cannot do run there:
+//!   text gets and puts, files stored as strings, PICT, backup and
+//!   restore. Restore warm-starts the calculator, which ends
+//!   both servers. Which server answers is kept (`Running`); while a
+//!   nest starts or ends, and after a stop in a nested request, it is
+//!   unknown, and the next request finds out first (`settle`).
+//! - **An HP 48**: the XSrvr48 library answers as XSERV does; the connect
+//!   tells it apart (`identify`) and refuses it.
 //! - **Disconnect**: `Q` ends XSERV (ROM 2.15); a ROM that ignores it is
 //!   told by `M` still answering.
 //!
@@ -206,7 +211,10 @@ pub(crate) async fn leave_kermit(ctx: &Ctx) -> Result<()> {
 async fn finish(ctx: &Ctx) -> Result<()> {
     set_running(ctx, Running::Unknown)?;
     let restored = match ctx.xserv_session(|x| x.user_mode)? {
-        Some(mode) => ctx.op(Op::SetTransferMode(mode)).await.and_then(expect_done),
+        Some(mode) => ctx
+            .op(Op::SetTransferMode(mode))
+            .await
+            .and_then(expect_done),
         None => Ok(()),
     };
     expect_done(ctx.op(Op::Finish).await?)?;
@@ -245,9 +253,7 @@ pub(crate) async fn identify(ctx: &Ctx) -> Result<bool> {
     ctx.session(|s| s.cwd = None)?;
     execute(
         ctx,
-        format!(
-            "HOME DEPTH \\-> satxd \\<< 1. R\\->I '{ID_VAR}' STO DEPTH satxd - DROPN \\>>"
-        ),
+        format!("HOME DEPTH \\-> satxd \\<< 1. R\\->I '{ID_VAR}' STO DEPTH satxd - DROPN \\>>"),
     )
     .await?;
     let entries = list_here(ctx, &home).await?;
@@ -407,9 +413,7 @@ fn guarded(rpl: &str, names: &[&str]) -> String {
         .into_iter()
         .find(|d| !names.contains(d))
         .unwrap_or("satxg");
-    format!(
-        "DEPTH \\-> {depth} \\<< IFERR \"{rpl}\" STR\\-> THEN DEPTH {depth} - DROPN END \\>>"
-    )
+    format!("DEPTH \\-> {depth} \\<< IFERR \"{rpl}\" STR\\-> THEN DEPTH {depth} - DROPN END \\>>")
 }
 
 fn quoted(name: &str) -> Result<String> {
