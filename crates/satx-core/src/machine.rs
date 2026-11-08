@@ -98,10 +98,12 @@ use crate::link::Link;
 pub use crate::link::Progress;
 use crate::reply::{Iopar, Listing, StackReply};
 use crate::session::{KermitCore, Options, Transcript};
+use crate::time::Duration;
 use crate::time::Instant;
 use crate::xmodem::{
     self, XmodemDirection, XmodemOptions, XmodemPlan, XmodemReceived, XmodemReport,
 };
+use crate::xserv::{self, DirRecord, XservCommand, XservOptions, XservState};
 
 /// One operation of a [`Machine`]; each is the
 /// [`Calculator`](crate::Calculator) or
@@ -210,6 +212,33 @@ pub enum Op {
         /// The XModem options (see [`XmodemOptions::for_model`]).
         options: XmodemOptions,
     },
+    /// XSERV: send `M` once and wait this long for the answer (see
+    /// [`xserv::memory_reply`]). [`Reply::XservProbe`].
+    XservProbe(Duration),
+    /// XSERV `L`. [`Reply::XservListing`].
+    XservList,
+    /// XSERV `M`. [`Reply::Real`].
+    XservMemory,
+    /// XSERV `E`: run RPL text; nothing comes back. [`Reply::Done`].
+    XservExecute(String),
+    /// XSERV `G`, then XModem. [`Reply::XmodemReceived`].
+    XservGet {
+        /// The variable, in the current directory.
+        name: String,
+        /// The XModem options (see [`xserv::transfer_options`]).
+        options: XmodemOptions,
+    },
+    /// XSERV `P`, then XModem. [`Reply::XmodemSent`].
+    XservPut {
+        /// The variable name.
+        name: String,
+        /// The file.
+        data: Vec<u8>,
+        /// The XModem options (see [`xserv::transfer_options`]).
+        options: XmodemOptions,
+    },
+    /// XSERV `Q`, then `M` once. [`Reply::XservQuit`].
+    XservQuit,
 }
 
 /// The result of an [`Op`].
@@ -248,6 +277,12 @@ pub enum Reply {
     XmodemSent(XmodemReport),
     /// An XModem receive finished.
     XmodemReceived(XmodemReceived),
+    /// XSERV's answer to the probe: the free memory, `None` for no XSERV.
+    XservProbe(Option<f64>),
+    /// An XSERV directory listing.
+    XservListing(Vec<DirRecord>),
+    /// Whether XSERV ended at `Q` (`false`: it still answers).
+    XservQuit(bool),
 }
 
 /// [`Machine::start`] while an operation runs.
@@ -267,6 +302,7 @@ impl std::error::Error for Busy {}
 struct Core {
     kermit: KermitCore,
     calc: CalcState,
+    xserv: XservState,
 }
 
 type Task = Pin<Box<dyn Future<Output = (Box<Core>, Result<Reply>)> + Send>>;
@@ -282,6 +318,8 @@ pub struct Machine {
     result: Option<Result<Reply>>,
     /// Seed of the next [`CalcState`] (after an abort).
     seed: u64,
+    /// The XSERV client's timing (kept for the state after an abort).
+    xserv_options: XservOptions,
 }
 
 impl fmt::Debug for Machine {
@@ -302,6 +340,7 @@ impl Machine {
         let core = Core {
             kermit: KermitCore::new(link.clone(), &options),
             calc: CalcState::new(seed),
+            xserv: XservState::new(XservOptions::default()),
         };
         Machine {
             options,
@@ -310,7 +349,17 @@ impl Machine {
             task: None,
             result: None,
             seed: seed.rotate_left(17) ^ 0xA5A5_A5A5_A5A5_A5A5,
+            xserv_options: XservOptions::default(),
         }
+    }
+
+    /// The XSERV operations' timing (default [`XservOptions::default`]).
+    /// Takes effect at once while idle, else after the running operation.
+    pub fn set_xserv_options(&mut self, options: XservOptions) {
+        if let Some(core) = self.core.as_mut() {
+            core.xserv.options = options.clone();
+        }
+        self.xserv_options = options;
     }
 
     /// Begin `op`; its first bytes are ready for [`Machine::poll_transmit`]
@@ -411,6 +460,7 @@ impl Machine {
         self.core = Some(Box::new(Core {
             kermit,
             calc: CalcState::new(seed),
+            xserv: XservState::new(self.xserv_options.clone()),
         }));
     }
 
@@ -432,6 +482,12 @@ async fn perform(
     drain: crate::time::Duration,
     op: Op,
 ) -> Result<Reply> {
+    let xs = &mut core.xserv;
+    if !op.is_xserv() {
+        // A Kermit operation (a nested server) or an XModem transfer: XSERV
+        // may need a moment before it answers again.
+        xs.settle = true;
+    }
     let mut c = CalcOps {
         k: &mut core.kermit,
         st: &mut core.calc,
@@ -484,7 +540,39 @@ async fn perform(
         Op::XmodemReceive { options } => {
             Reply::XmodemReceived(xmodem::receive(link, &options).await?)
         }
+        Op::XservProbe(wait) => Reply::XservProbe(xserv::probe(link, xs, wait).await?),
+        Op::XservList => Reply::XservListing(xserv::list(link, xs).await?),
+        Op::XservMemory => Reply::Real(xserv::memory(link, xs).await?),
+        Op::XservExecute(text) => {
+            xserv::command(link, xs, &XservCommand::Execute(text)).await?;
+            Reply::Done
+        }
+        Op::XservGet { name, options } => {
+            Reply::XmodemReceived(xserv::get(link, xs, &name, &options).await?)
+        }
+        Op::XservPut {
+            name,
+            data,
+            options,
+        } => Reply::XmodemSent(xserv::put(link, xs, &name, &data, &options).await?),
+        Op::XservQuit => Reply::XservQuit(xserv::quit(link, xs).await?),
     })
+}
+
+impl Op {
+    /// Whether the operation talks to XSERV.
+    fn is_xserv(&self) -> bool {
+        matches!(
+            self,
+            Op::XservProbe(_)
+                | Op::XservList
+                | Op::XservMemory
+                | Op::XservExecute(_)
+                | Op::XservGet { .. }
+                | Op::XservPut { .. }
+                | Op::XservQuit
+        )
+    }
 }
 
 #[cfg(test)]

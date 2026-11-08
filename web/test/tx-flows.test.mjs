@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
 import { HOME, checksumCell, directoriesOf, parentPath, pathKey, pathTitle, samePath, sizeCell, sortEntries } from "../shared/device.js";
 import {
-  AUTO_PREVIEW_BYTES, MODELS, START_SERVER, bytesText, disconnectNote, downloadUrl, failureText, linkSettings, placeTitle, previewPlan,
+  AUTO_PREVIEW_BYTES, MODELS, START_SERVER, bytesText, connectedText, disconnectNote, downloadUrl, failureText, linkSettings, placeTitle, previewPlan,
   progressText, putPlan, replaceQuestion, searchText, settingsText, stringQuestion,
 } from "../tx/flows.js";
 import { SERIAL_MODELS, slotsOf } from "../tx/kept-roms.js";
@@ -45,6 +45,7 @@ test("no protocol words in what the main flows say", () => {
   const said = [
     ...Object.values(START_SERVER).flatMap((s) => [s.title, ...s.steps, s.keysNote]),
     stringQuestion("a.md", "A").body, replaceQuestion("A").body, disconnectNote("49g"),
+    disconnectNote("49g", { server: "xserv", ended: false }), connectedText({ model: "49g", server: "kermit", settings: { baud: 9600 } }),
     ...["noAnswer", "nameClash", "isDirectory", "badName", "notAnObject", "cancelled", "busy", "notConnected"].map((kind) => failureText({ kind, varName: "A" })),
   ].join(" ");
   assert.doesNotMatch(said, /kermit|packet|iopar|xmodem|baud rate/i);
@@ -54,8 +55,12 @@ test("the connect dialog has every model, the 49G's keys quickly", () => {
   assert.deepEqual(MODELS, ["48sx", "48gx", "49g"]);
   for (const m of MODELS) assert.ok(START_SERVER[m].steps.length && START_SERVER[m].keys.length, m);
   assert.match(START_SERVER["48sx"].steps[0], /SERVER/);
-  assert.match(START_SERVER["49g"].steps[0], /quickly/);
-  assert.match(START_SERVER["49g"].keysNote, /pause/);
+  // XSERV on the 49G: typed, as its right-shift → starts either server depending on a pause.
+  assert.equal(START_SERVER["49g"].steps[0], "Type XSERV and press ENTER.");
+  assert.deepEqual(START_SERVER["49g"].keys, ["X", "S", "E", "R", "V", "ENTER"]);
+  assert.match(START_SERVER["49g"].keysNote, /^Alpha mode for the letters/);
+  assert.match(START_SERVER["49g"].keysNote, /ROM 1\.10 and earlier have no XSERV: type SERVER instead\./);
+  assert.match(START_SERVER["49g"].shown, /Xmodem server/);
 });
 
 test("the stored connection settings, and the defaults for anything else", () => {
@@ -96,6 +101,19 @@ test("failures read as sentences; the 49G's note after FINISH", () => {
   assert.equal(failureText(new Error('no request "pict"')), "The app's files are from different versions. Reload the page.");
   assert.equal(problemText(new Error('no request "pict"')), "The app's files are from different versions. Reload the page.");
   assert.equal(disconnectNote("48gx"), "The calculator has left server mode.");
+  assert.equal(disconnectNote("49g", { type: "disconnected", server: "xserv", ended: true }), "XSERV has ended on the calculator.");
+  assert.match(disconnectNote("49g", { type: "disconnected", server: "xserv", ended: false }), /still runs XSERV: press ON/);
+  const conn = (model, server) => ({ model, server, settings: { baud: 9600, parity: "none" } });
+  assert.equal(connectedText(conn("49g", "xserv")), "Connected to XSERV at 9600 baud.");
+  assert.match(connectedText(conn("49g", "kermit")), /^Connected at 9600 baud\. XSERV copies faster: disconnect, type XSERV on the 49G and connect again\.$/);
+  assert.equal(connectedText(conn("49g", "kermit"), { emulated: true }), "Connected at 9600 baud.");
+  assert.equal(connectedText(conn("48gx", "kermit")), "Connected at 9600 baud.");
+  // The hint only where the ROM has XSERV (1.11 and later), or its revision is not known.
+  const v = (version) => ({ ...conn("49g", "kermit"), version });
+  assert.equal(connectedText(v("Version HP49-C\r\nRevision #1.05")), "Connected at 9600 baud.");
+  assert.equal(connectedText(v("Version HP49-C\r\nRevision #1.10")), "Connected at 9600 baud.");
+  for (const r of ["1.11", "1.18", "1.19-6", "2.15"]) assert.match(connectedText(v(`Version HP48-C\r\nRevision #${r}`)), /XSERV copies faster/, r);
+  assert.match(connectedText(v("Version HP49-C")), /XSERV copies faster/);
   assert.match(disconnectNote("49g"), /^The calculator has left server mode\. .*algebraic mode.*one list/);
 });
 

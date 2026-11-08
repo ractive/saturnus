@@ -30,7 +30,7 @@ A Kermit **server** waits for commands from the **client**: send a file, take a 
 |---|---|
 | HP 48S, 48SX | type `SERVER` and press ENTER |
 | HP 48G series | right-shift, then → (the right arrow) |
-| HP 49G | right-shift and → quickly; with a pause between them they start XSERV, the XModem server |
+| HP 49G | right-shift and → quickly, or type `SERVER` and press ENTER; with a pause between the two keys they start XSERV, the XModem server, which typing `XSERV` and ENTER starts too |
 
 The display then says "Awaiting Server Cmd.".
 
@@ -41,7 +41,7 @@ The 38G, 39G and 40G have no server. The calculator is the client and the comput
 XModem goes back to [Ward Christensen](https://en.wikipedia.org/wiki/Ward_Christensen)'s MODEM program of 1977. It sends one file in checked blocks, without its name.
 
 - **48G series**: `XSEND` and `XRECV` with the variable's name. Binary only, 128-byte blocks with a checksum and no [CRC](https://en.wikipedia.org/wiki/Cyclic_redundancy_check); the computer's program must fall back to the checksum.
-- **49G**: 128-byte and 1 KB blocks, checksum or CRC, and noticeably faster than Kermit. It also has an XModem server, XSERV.
+- **49G**: 128-byte and 1 KB blocks, checksum or CRC, and noticeably faster than Kermit. It also has an XModem server, XSERV, which [Files](files.md) and satx's `xserv` commands use: it lists the current directory, sends and stores variables and runs commands, the display saying "Xmodem server" meanwhile.
 - **39G and 40G**: binary aplets, from "HP39/40 (Wire)".
 
 ## Binary and ASCII

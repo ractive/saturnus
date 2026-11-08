@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 69: Files over XSERV on the 49G"
 date: 2026-11-08
-status: planned
+status: completed
 tags:
   - iteration
   - web
@@ -76,20 +76,20 @@ it". After [[iterations/iteration-68a-aplet-folder-and-add-calculator]] and [[it
 
 ## Tasks
 
-- [ ] Settle XSERV on the emulated 49G (above); record in the wiki and fix
+- [x] Settle XSERV on the emulated 49G (above); record in the wiki and fix
   the `xserv.rs` claim either way.
-- [ ] Detection in satx-core (probe, timeout, tests with scripted replies;
+- [x] Detection in satx-core (probe, timeout, tests with scripted replies;
   the 48SX and 48GX Kermit servers on the emulator).
-- [ ] XSERV session in `crates/saturnus-tx` (device ops over XSERV, the
+- [x] XSERV session in `crates/saturnus-tx` (device ops over XSERV, the
   Kermit nesting, events and progress as for Kermit), wasm and desktop.
-- [ ] Files UI: connect flow, the hint, no fast-transfer items under XSERV,
+- [x] Files UI: connect flow, the hint, no fast-transfer items under XSERV,
   directory navigation, messages.
-- [ ] satx CLI as above.
-- [ ] Tests: unit tests with scripted XSERV replies; the e2e on the
+- [x] satx CLI as above.
+- [x] Tests: unit tests with scripted XSERV replies; the e2e on the
   emulated 49G if it runs XSERV; page tests; traces.
-- [ ] kb: `kb/docs/saturnus-tx.md` (Files over XSERV), the satx docs, the
+- [x] kb: `kb/docs/saturnus-tx.md` (Files over XSERV), the satx docs, the
   wiki's XSERV page (hardware facts above).
-- [ ] Owner check on the real 49G: connect in XSERV, list, download,
+- [-] Owner check on the real 49G: connect in XSERV, list, download,
   upload, rename, purge, a directory, PICT and a backup (through the
   Kermit nesting).
 
@@ -101,3 +101,25 @@ it". After [[iterations/iteration-68a-aplet-folder-and-add-calculator]] and [[it
   back.
 - The 48SX and 48GX connect exactly as before.
 - `just gates`, `hyalo lint` clean.
+
+## As built
+
+- satx-core: the XSERV client over the link (`XservSession`, the
+  Machine's `Xserv*` operations), `memory_reply` for the probe, `L`
+  records sized as the Kermit server's; satx probes `M` while it drains
+  at connect (`satx info` names the server, Kermit commands stop with a
+  hint), `satx xserv quit`.
+- saturnus-tx: the search probes `M` at each speed first; `xserv.rs`
+  runs list, get, put, changes (RPL through `E`, checked by listing),
+  directory walks and the Kermit nesting; disconnect sends `Q`.
+- Files: the 49G's connect step types `XSERV`; the status names XSERV,
+  or on a 49G on the Kermit server says XSERV is faster; no fast
+  transfer under XSERV; the disconnect note; the console names XSERV.
+- Traces recorded again with the probe (the page's at a real 48GX's
+  speed: at Max every pause got an idle NAK).
+- Tests: satx-core's client against scripted replies, a scripted XSERV
+  calculator in `saturnus-tx/tests/traces.rs`, the whole session on the
+  emulated 49G in `saturnus-tx/tests/xserv.rs`, the page with the fake
+  calculator's `server: "xserv"`, the console.
+- The facts for the wiki's XSERV page went to the main session (the
+  wiki is written there).

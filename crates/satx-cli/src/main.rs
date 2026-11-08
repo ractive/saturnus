@@ -335,20 +335,24 @@ Examples:
     Finish,
     /// Talk to a 49G, 49g+ or 50g running XSERV, the XModem server.
     #[command(after_help = "\
-Tested on a real 49G (ROM 1.18) on 2026-11-08: mem, ls, get, put and eval
-worked. Not yet tried on a 49g+ or 50g (the emulated 49G has no XSERV).
+Tested on a real 49G (ROM 1.18) on 2026-11-08 (mem, ls, get, put and eval)
+and on the emulated 49G (ROM 2.15). Not yet tried on a 49g+ or 50g.
 Reports are welcome.
 
-Start XSERV on the calculator instead of SERVER. --dir is sent as an E
-command (HOME A B) first. get and put run XModem with HP's CRC and 1k blocks;
---timeout is the wait for each answer.
+Start XSERV on the calculator instead of SERVER: type XSERV and press
+ENTER. --dir is sent as E commands (HOME, then each directory once a
+listing shows it) first. get and put run XModem with HP's CRC and 1k
+blocks; --timeout is how long they wait for the transfer to start. A
+calculator still busy with an eval gets M and L again until it answers.
+ls gives the sizes `satx ls` gives.
 
 Examples:
   satx xserv ls
   satx xserv get PRG -o prg.hp
   satx xserv put prg.hp --as PRG2
   satx xserv eval 'HOME GAMES' --dry-run   # the bytes it would send
-  satx xserv mem")]
+  satx xserv mem
+  satx xserv quit                          # end XSERV")]
     Xserv {
         #[command(subcommand)]
         command: xserv::XservCmd,

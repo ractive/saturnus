@@ -28,7 +28,7 @@ import { clearRecentNative, computerFolder, isTauri, pickNative, recentNative, u
 import { KermitDevice } from "./kermit-device.js";
 import { ProtocolClient } from "./protocol.js";
 import { renderPreview, textObject, updateReading } from "./preview.js";
-import { disconnectNote, downloadUrl, failureText, modelTitle, placeTitle, previewPlan, searchText, settingsText } from "./flows.js";
+import { connectedText, disconnectNote, downloadUrl, failureText, modelTitle, placeTitle, previewPlan, searchText, settingsText } from "./flows.js";
 import { fileItem, folderItem, problemText, removeQuestion, restoreQuestion } from "./transfers.js";
 import { EVAL_KEYS, XMODEM_WAIT_S, XmodemDialog, fastDone, fastWords, hasXmodem } from "./xmodem.js";
 
@@ -104,10 +104,10 @@ export class Pane {
 
   get other() { return this.app.other(this); }
 
-  /** Whether the place is a calculator with the fast transfer (XModem: the 48GX and 49G; never the emulator's own, which needs none). */
+  /** Whether the place is a calculator with the fast transfer (XModem: the 48GX and 49G; never the emulator's own, which needs none, nor one in XSERV, where every copy is XModem). */
   get xmodem() {
     const p = this.place;
-    return p?.kind === "device" && !p.hub && hasXmodem(p.model);
+    return p?.kind === "device" && !p.hub && hasXmodem(p.model) && p.device.connection?.server !== "xserv";
   }
   /** Whether the pane may show a folder: the right one only; the left shows calculators. */
   get folders() { return this.id === "right"; }
@@ -137,7 +137,7 @@ export class Pane {
       if (p.hub) return p.device.connection ? "Connected to the calculator open in Calculator." : "";
       if (p.device.restarted) return "The calculator restarted.";
       if (p.device.leftServer) return "The calculator left server mode.";
-      return p.device.connection ? `Connected at ${settingsText(p.device.connection.settings)}.` : "";
+      return p.device.connection ? connectedText(p.device.connection, { emulated: p.emulated }) : "";
     }
     const f = p.folder;
     if (f.kind === "native") return "The files on this computer.";
@@ -304,12 +304,14 @@ export class Pane {
       // Ending the server, and letting go of the emulator's calculator (which waits for a send there to end), may take a while: said.
       this.step = { title: p.heading, status: "Disconnecting…", busy: true };
       this.setStatus(this.step.status);
+      let result = null;
       try {
         if (p.device.connection) {
+          const shows = p.device.connection.server === "xserv" ? "Xmodem server" : "Awaiting Server Cmd.";
           try {
-            await p.device.disconnect();
+            result = await p.device.disconnect();
           } catch (err) {
-            this.say(err?.kind === "noAnswer" ? "The calculator did not answer the end of server mode. If it still shows “Awaiting Server Cmd.”, press ON on it." : `The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
+            this.say(err?.kind === "noAnswer" ? `The calculator did not answer the end of server mode. If it still shows “${shows}”, press ON on it.` : `The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
           }
         }
         if (this.place === p) this.render();
@@ -318,7 +320,7 @@ export class Pane {
       } finally {
         this.step = null;
       }
-      this.note = note ?? (p.hub ? "Disconnected. The calculator stays in Calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : disconnectNote(p.model));
+      this.note = note ?? (p.hub ? "Disconnected. The calculator stays in Calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : disconnectNote(p.model, result));
     } else {
       this.note = note ?? "";
     }

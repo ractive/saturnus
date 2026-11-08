@@ -5,6 +5,8 @@
 // read on the emulated serial port, with the timing, through a
 // RecordingLink around the EmulatorLink. Serial bytes only: protocol
 // packets, the listings and the session's own files, no ROM content.
+// At the speed of a real 48GX: at Max its server's timeouts pass between
+// the page's requests and every pause gets an idle NAK.
 // `just tx-page-trace DIR`. Not a test (the runner takes *.test.mjs).
 
 import { existsSync, writeFileSync } from "node:fs";
@@ -37,7 +39,7 @@ try {
   const p = txPage(c);
   await p.open(port);
   await c.ev(`tx.app.deviceOptions = { seed: ${PAGE_SEED} }; tx.app.wrapLink = (l) => (window.__rec = new tx.links.RecordingLink(l)); true`);
-  await c.ev(`fetch("/rom.bin").then((r) => r.arrayBuffer()).then((b) => { tx.panes[0].addEmulated(new Uint8Array(b), "gxrom-r", "48gx"); return true; })`);
+  await c.ev(`fetch("/rom.bin").then((r) => r.arrayBuffer()).then((b) => { tx.panes[0].addEmulated(new Uint8Array(b), "gxrom-r", "48gx", { speed: "1" }); return true; })`);
   await p.until("!!tx.panes[0].place?.device?.connection", 120_000, "connected to the emulated 48GX");
   const seen = await pageSession(c);
   const trace = await c.ev(`__rec.trace([
