@@ -4924,3 +4924,26 @@ saturnus".
   counts a non-zero exit as `Validation-Executable-Error` (winget-pkgs
   PRs #462444 and #462445). Unknown commands, bad options and global
   options without a command (`satx --json`) still exit 2.
+
+## 2026-11-08 (Files over XSERV on the 49G, iteration 69)
+
+- **XSERV is back** (owner, 2026-11-08: "Files should use XSERV"),
+  reversing "No XSERV for now" of 2026-10-10: on a real 49G a 4 KB
+  string took 8.4 s over XSERV and 16.7 s over Kermit, and XSERV's
+  listing is not cut at the display width. Files finds it by itself:
+  the connect sends `M` at each speed before the Kermit probes (every
+  Kermit server tried ignores a lone `M`, and XSERV ignores the Kermit
+  probes). What XSERV cannot do (text, files kept as strings, PICT,
+  backup, restore) goes through the Kermit server started inside XSERV
+  with `SERVER` through `E`, and FINISH returns to XSERV; one request
+  runs either wholly on XSERV or wholly on the nested server.
+- **One size**: a variable's size in Files and in `satx xserv ls` is the
+  Kermit server's (`G D`): the object and its entry in the directory,
+  4.5 bytes and one per name character. XSERV's `L` gives the object
+  alone; the device adds the entry (checked on seven variables of the
+  emulated 49G).
+- **Changes over XSERV are RPL through `E`, checked in a fresh listing**:
+  `E` answers before its RPL runs and reports no error, and a calculator
+  still running it drops the bytes it gets, so the client sends `M` and
+  `L` again while nothing answers and asks `M` before a command packet
+  that follows an `E`.

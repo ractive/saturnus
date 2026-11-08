@@ -78,9 +78,6 @@ everything.
   instead of offering it.
 - The 49g+, 50g and later USB models: saturnus does not emulate them and
   their USB link is another protocol.
-- **XSERV** (owner, 2026-10-10): Kermit works on every supported model,
-  and XSERV belongs to the 49g+/50g. It can come back if the owner ever
-  has one of those.
 - Infrared transfers (calculator to calculator, IR printing).
 - Flashing a 49G ROM (`ROMUPLOAD`): one wrong step and the calculator
   needs recovery. Out of scope for good.
@@ -102,7 +99,7 @@ one); the right pane shows a folder or a device (owner, 2026-10-11).
 | --- | --- | --- | --- |
 | 48S/SX | Kermit | the computer (calculator in `SERVER`) | list, get, put, rename, purge, new directory, backup, restore |
 | 48G/GX | Kermit, XModem started on the calculator | the computer | as the 48SX; XModem as a faster put/get option typed on the calculator |
-| 49G | Kermit, XModem (1k blocks) | the computer | as the 48GX |
+| 49G | Kermit, XModem (1k blocks), or XSERV (XModem server) | the computer | as the 48GX; under XSERV every copy is XModem ("Files over XSERV") |
 | 38G | Kermit, calculator as client | the calculator (SEND, RECEIVE) | send aplets to a folder, receive aplets from a folder |
 | 39G, 40G | Kermit as the 38G; XModem for binary aplets | the calculator | as the 38G; binary aplets by XModem (HPGComm's README: RECV, "HP39/40 (Wire)") |
 | 42S | none | | not offered |
@@ -403,14 +400,19 @@ and asks for a new one if the calculator would refuse it (`satx-core`'s
 
 1. "Add a calculator": the dialog says what to do on the calculator,
    per model, with the keys drawn as saturnus draws them (48G/GX:
-   right-shift then →; 48S/SX: type `SERVER`, ENTER; 49G: right-shift
-   and → pressed quickly, wiki `protocols/xserv`), then "Choose the port"
-   opens the browser's chooser.
+   right-shift then →; 48S/SX: type `SERVER`, ENTER; 49G since
+   iteration 69: type `XSERV`, ENTER, or `SERVER` for the Kermit server,
+   as its right-shift → starts either depending on a pause, wiki
+   `protocols/xserv`), then "Choose the port" opens the browser's
+   chooser.
 2. The page opens the port at 9600 baud, 8 data bits, no parity, one stop
    bit, no flow control, and syncs (`satx-core`'s `Calculator::sync`)
    once the search below has heard the calculator.
 3. **Speed and parity found by probing** (`saturnus-tx`'s search): at
-   each speed (9600, 4800, 2400, 1200) a Kermit I packet, which the
+   each speed (9600, 4800, 2400, 1200) first XSERV's `M`, 1.5 s for
+   its answer (an answer is an XSERV session, "Files over XSERV"; the
+   Kermit servers of the real 49G and the emulated 48SX, 48GX and 49G
+   ignore a lone `M`), then a Kermit I packet, which the
    server only ACKs, goes out framed for no, odd and even parity 500 ms
    apart (bit 7 as the parity bit; a calculator with parity checks it on
    receive), and the page listens 6 s (the probes again halfway) for the
@@ -514,6 +516,76 @@ a replace. A folder's rename, delete and new folder work the same way
   `48GX-HOME-2026-10-11-1432` there. A restore takes a file chosen from
   the calculator's "⋯", or a `.hp` row of the folder in the other pane;
   "Reconnect" on an emulated calculator types `SERVER` again itself.
+
+### Files over XSERV (49G)
+
+As built (iteration 69, [[iterations/iteration-69-files-over-xserv]];
+`saturnus-tx`'s `xserv` module over `satx-core`'s XSERV client): a 49G
+running XSERV (typed `XSERV`, ENTER; the display says "Xmodem
+server") is found by the connect's `M` and is then an XSERV session:
+the connection's `server` is `xserv`, the model the 49G (XSERV is built
+into no other model this app emulates), the version not read. Facts:
+wiki `protocols/xserv`; on the emulated 49G (ROM 2.15) all of it, on the
+real 49G (ROM 1.18) the commands and the nesting.
+
+- **Over XSERV itself**: listing (`L`), get (`G`, then XModem with HP's
+  CRC and 1k blocks), put (`P`, then XModem), free memory (`M`). Gets
+  and puts are binary: `G` sends the binary object whatever flag -35
+  says, and `P` of a file that is no binary object stores it as a
+  string with the XModem padding in it, so those go through the Kermit
+  server. A get lists first and refuses a name that is not there: `G`
+  of a missing name leaves the 49G in an "Undefined Name" box until a
+  key is pressed. A replacing put goes to an unused name first and is
+  swapped in with `RCL STO PURGE` as over Kermit.
+- **Changes** (new directory, rename, purge, the swap) and directory
+  changes are RPL through `E` (`'X' CRDIR`, `'A' RCL 'B' STO 'A'
+  PURGE`, `PGDIR` for a directory), each followed by a fresh listing
+  that must show it: `E` is ACKed before its RPL runs and XSERV reports
+  no RPL error, so the listing is the only proof; a change it does not
+  show is an error that says XSERV gives no reason (a name that is one
+  of the calculator's commands, `SUB` for one, or too little memory).
+  While the RPL runs the calculator drops what it is sent, so the
+  client sends `M` and `L` again while nothing answers (up to 60 s)
+  and asks `M` before a command packet that follows an `E`.
+- **The current directory**: XSERV cannot say it, so the device keeps
+  it, and the directories seen in listings; it walks from where it is or
+  from HOME, one listing per level not seen yet, and evaluates only
+  names seen as directories.
+- **Through the Kermit server**: a get as text, a put of a text file or
+  a file kept as a string (and a tree with any of them), PICT, backup
+  and restore run on the Kermit server started inside XSERV: `SERVER`
+  through `E`, a 1 s pause, the sync, flag -35 read and set to binary;
+  afterwards flag -35 back and FINISH, and XSERV answers again about a
+  second later. One request runs wholly on XSERV or wholly on the
+  nested server. Restore warm-starts the calculator, which ends both;
+  the reconnect finds whichever server the user starts.
+- **What is not offered**: the fast transfer items (every copy is XModem
+  already; a request for one is `notForXmodem`).
+- **Disconnect**: `Q` ends XSERV (ROM 2.15: the calculator is back at
+  its stack, with what `E` left there); `M` once more tells whether it
+  did. The page says "XSERV has ended on the calculator." or, for a ROM
+  that ignores `Q`, to press ON.
+- **On the Kermit server of a 49G on a cable**, the status line says
+  that XSERV copies faster: disconnect, type `XSERV`, connect again.
+- **One size**: the size Files shows for a variable is the Kermit
+  server's, whatever the server: the object and its entry in the
+  directory (4.5 bytes and one per name character). XSERV's `L` gives
+  the object alone; the device adds the entry. Checked on seven
+  variables of the emulated 49G (names of one to eight characters, two
+  directories, a list, a string, reals, a program). Checksums are the
+  same as Kermit's.
+- **The cable console** names XSERV's command bytes and packets.
+
+Tested: `crates/saturnus-tx/tests/xserv.rs` on the emulated 49G
+(`SATURNUS_ROM_DIR`): the connect finds XSERV, lists HOME (IOPAR 29.5
+bytes, as Kermit), makes, puts and gets byte for byte, refuses a clash
+and replaces, refuses a missing name, renames, walks down and up, puts
+and gets a program as text through the Kermit server, gets a tree and
+puts it back as a new directory, PICT, the memory, purges with counts,
+a backup through the Kermit server, refuses a fast transfer, and ends
+XSERV (about 85 s); the page's words and menus with the fake calculator
+(`tx-flows`, `tx-xmodem`), the console (`tx-cable`). Not yet on the
+real 49G: the owner's check in the iteration.
 
 ### Fast transfer (XModem, 48GX and 49G)
 

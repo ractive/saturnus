@@ -24,8 +24,8 @@ Windows and Linux. A GUI follows once the CLI is solid.
 
 ```text
 kermit-proto   sans-IO Kermit state machine (generic, publishable)
-xmodem-proto   sans-IO XModem (+1k, CRC, HP variants, XSERV framing)
-satx-core      HP layer: server commands, object format, IOPAR, GROB,
+xmodem-proto   sans-IO XModem (+1k, CRC, HP variants)
+satx-core      HP layer: server commands, object format, IOPAR, GROB, XSERV,
                transports (serial via `serialport`, TCP, in-memory)
 satx           the CLI (crates/satx-cli), binary `satx`
 ```

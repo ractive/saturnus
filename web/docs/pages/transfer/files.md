@@ -16,7 +16,7 @@ Files is the app's second view, beside Calculator. It shows two places side by s
 | An emulated calculator | any browser |
 | A real calculator | Chrome or Edge on a computer, or the desktop app |
 | A folder on your disk | Chrome or Edge, or the desktop app |
-| Models on a cable | 48S/SX, 48G/G+/GX and 49G as servers; 38G, 39G and 40G served a folder |
+| Models on a cable | 48S/SX, 48G/G+/GX and 49G as servers (the 49G's Kermit server or XSERV); 38G, 39G and 40G served a folder |
 | Not supported | the 42S and the other Pioneer models, which have no serial port |
 
 Chrome and Edge reach the serial port through [Web Serial](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API) and a folder through the [File System Access API](https://developer.chrome.com/docs/capabilities/web-apis/file-system-access). Firefox and Safari have neither: there Files keeps its files in the page ("Files in this browser"), which you add from your computer and download again, and works with emulated calculators only. A real calculator then needs the desktop app, which has native serial ports and folders.
@@ -34,10 +34,14 @@ Nothing is replaced without asking. Before a copy starts, one question lists wha
 ## A real calculator on a cable
 
 1. Plug in the [cable](cables.md) and its USB serial adapter.
-2. In Files, choose "Add a calculator", then "An HP 48 or 49", and pick the model. The dialog shows the keys that start the Kermit server on that model: `SERVER` and ENTER on a 48S or 48SX, right-shift then → on the 48G series, right-shift and → quickly on the 49G.
+2. In Files, choose "Add a calculator", then "An HP 48 or 49", and pick the model. The dialog shows the keys that start the server on that model: `SERVER` and ENTER on a 48S or 48SX, right-shift then → on the 48G series, `XSERV` and ENTER on the 49G (or `SERVER` and ENTER for its Kermit server).
 3. Choose "Choose the port". The browser lists the serial ports; pick the adapter. A port the page was given before is offered again next time.
 
 Files then finds the speed and parity by itself: it tries 9600, 4800, 2400 and 1200 baud, with no, odd and even parity, and listens for the server's answer. It reads the model from the calculator, switches it to binary transfers for exact copies and loads the HOME directory. When you disconnect, it ends the server and puts the calculator's own transfer setting back.
+
+### XSERV on the 49G
+
+XSERV, the 49G's XModem server, copies about twice as fast as its Kermit server: a 4 KB string took 8.4 seconds instead of 16.7 on a real 49G. Files finds it by itself and lists, copies, makes, renames and purges over it. Text files, files kept as strings, the graphics screen, backup and restore need the Kermit server: Files starts it inside XSERV for them and comes back to XSERV afterwards, which adds a few seconds. Every copy is XModem already, so there is no fast transfer. Disconnect ends XSERV. A variable's size is the same with either server. Connected over the Kermit server, Files says that XSERV is faster.
 
 If the port does not open, the dialog's "Trouble with the cable?" lists the usual reasons. On Linux your user has to be in the `dialout` group (`uucp` on Arch). On Windows, current drivers refuse adapters with fake Prolific chips; one with an [FTDI](https://en.wikipedia.org/wiki/FTDI) or a genuine chip works. If the speed is not found, "Connection settings…" in the pane's "⋯" menu sets a fixed one.
 
@@ -48,7 +52,7 @@ What the calculator's "⋯" menu offers:
 - **Copy everything to a folder**: the whole HOME tree as folders and `.hp` files, one variable at a time. Slower, but it needs no free memory.
 - **Restore from a backup file…**: puts a backup back. It replaces everything in HOME, and the calculator warm-starts; Files offers to reconnect once `SERVER` runs again.
 - **Graphics screen**: PICT, the plots and drawings, as a picture.
-- **Fast transfer (XModem)**, on the 48G series and the 49G: Files puts the command (`« 'PRG' XSEND »`) on the calculator's stack and ends the server; you press EVAL on a 48G, right-shift then SYMB on the 49G. Afterwards start the server again: right-shift, then → on a 48G; on the 49G type `SERVER`, since right-shift → can start its XModem server instead.
+- **Fast transfer (XModem)**, on the 48G series and the 49G in its Kermit server: Files puts the command (`« 'PRG' XSEND »`) on the calculator's stack and ends the server; you press EVAL on a 48G, right-shift then SYMB on the 49G. Afterwards start the server again: right-shift, then → on a 48G; on the 49G type `SERVER`, since right-shift → can start its XModem server instead.
 
 A variable's own menu has Download and Download as text, for a file in your downloads instead of the other pane.
 

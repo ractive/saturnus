@@ -7,6 +7,21 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **Files works with XSERV on the 49G.** Type `XSERV` on the 49G
+  instead of `SERVER`, and Files finds it by itself: it lists, copies
+  both ways, makes, renames and purges, about twice as fast as with the
+  Kermit server. For what XSERV can't do (text files, files kept as
+  strings, the graphics screen, backup and restore) Files starts the
+  Kermit server inside XSERV and comes back to XSERV afterwards. The
+  fast transfer items go away there: every copy is XModem already.
+  Disconnect ends XSERV. Connected to a 49G over the Kermit server,
+  Files says that XSERV is faster. The sizes in the list are the same
+  with either server.
+- **`satx` knows XSERV.** `satx info` says which server answered, and
+  `satx ls`, `get`, `put` and the other Kermit commands say so when the
+  calculator runs XSERV, and how to go on. `satx xserv quit` ends
+  XSERV, `satx xserv mem` gives the free memory as a number, and `satx
+  xserv ls` gives the sizes `satx ls` gives.
 - **`satx` reads a 49G whole.** The 49G sends each stack level only as
   wide as its display (20 characters on ROM 1.18), without saying so, so
   `satx info` and `satx settings` failed on IOPAR on a real 49G, and the

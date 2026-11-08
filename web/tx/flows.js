@@ -40,7 +40,7 @@ export const START_SERVER = {
     title: "HP 49G",
     steps: ["Type XSERV and press ENTER."],
     keys: ["X", "S", "E", "R", "V", "ENTER"],
-    keysNote: "XSERV copies about twice as fast as the Kermit server. SERVER and ENTER start the Kermit server instead; Files works with either.",
+    keysNote: "XSERV copies about twice as fast. SERVER and ENTER start the other server instead; Files works with either.",
     shown: "The display says “Xmodem server” (or “Awaiting Server Cmd.” after SERVER).",
   },
 };
