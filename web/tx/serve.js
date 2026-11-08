@@ -51,17 +51,33 @@ export const HOME_REFUSED = "The home folder itself is not served: the calculato
 /** The aplet Worker. */
 export const apletWorker = () => new Worker(new URL("./aplet-worker.js", import.meta.url), { type: "module" });
 
-/** The folder's files as the server wants them: `[{name, head}]` (all of a directory file). */
-export async function folderFiles(folder, path = folder.home) {
+/**
+ * The folder's files as the server wants them: `[{name, head}]` (all of a
+ * directory file). With `known` (a Map kept across calls), a file whose
+ * size and time are unchanged is not read again: the calculator waits for
+ * its list while the folder is read, at every RECV.
+ */
+export async function folderFiles(folder, path = folder.home, known = null) {
   const listing = await folder.list(path);
   const out = [];
+  const seen = new Set();
   for (const e of listing.entries) {
     if (out.length >= MAX_FILES) break;
     if (e.directory || (e.size ?? 0) > MAX_FILE_BYTES) continue;
-    // Only a directory file is read whole; of the rest the header and the title.
-    const head = await (isDirFile(e.name) ? folder.read(path, e.name).then((f) => f.data) : folder.head(path, e.name, HEAD_BYTES)).catch(() => null);
+    seen.add(e.name);
+    // Only a directory file is read whole, and always: the calculator rewrites it.
+    const dir = isDirFile(e.name);
+    const key = `${e.size ?? ""}/${e.modified ?? ""}`;
+    const old = dir ? null : known?.get(e.name);
+    let head = old?.key === key ? old.head : null;
+    if (!head) {
+      // Of the rest the header and the title.
+      head = await (dir ? folder.read(path, e.name).then((f) => f.data) : folder.head(path, e.name, HEAD_BYTES)).catch(() => null);
+      if (head && !dir) known?.set(e.name, { key, head });
+    }
     if (head) out.push({ name: e.name, head });
   }
+  if (known) for (const name of known.keys()) if (!seen.has(name)) known.delete(name);
   return out;
 }
 
@@ -104,7 +120,9 @@ export class ServeSession extends EventTarget {
 
   async starting() {
     if (await this.servesHome()) throw new Error(HOME_REFUSED);
-    const files = await folderFiles(this.folder, this.path);
+    // The heads read so far, by name: a RECV reads only what changed.
+    this.heads = new Map();
+    const files = await folderFiles(this.folder, this.path, this.heads);
     this.replaceable = new Set();
     this.keepReplaceable(files);
     this.worker = this.makeWorker();
@@ -158,7 +176,7 @@ export class ServeSession extends EventTarget {
       case "needFolder":
         // The calculator waits for its list: the folder as it is now.
         this.later(async () => {
-          const files = await folderFiles(this.folder, this.path).catch(() => null);
+          const files = await folderFiles(this.folder, this.path, this.heads).catch(() => null);
           if (files) {
             this.keepReplaceable(files);
             this.emit({ type: "folderRead", files });

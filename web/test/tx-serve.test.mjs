@@ -70,6 +70,27 @@ test("the folder's files: heads, directory files whole, folders and big files le
   assert.equal(files.find((f) => f.name === "HP38DIR.000").head.length, dir.length);
 });
 
+test("the folder read again at a RECV reads only what changed", async () => {
+  const folder = new Folder(new MemoryDirectory("f"), { kind: "memory", title: "f" });
+  const aplet = (title) => new TextEncoder().encode(`HP38BinB${String.fromCharCode(title.length)}${title}`);
+  await folder.write(folder.home, "A.000", aplet("Alpha"));
+  await folder.write(folder.home, "HP38DIR.000", new TextEncoder().encode("HP38AscA B 5 A.0005 Alpha"));
+  const reads = [];
+  const head = folder.head.bind(folder);
+  folder.head = (path, name, n) => (reads.push(name), head(path, name, n));
+  const known = new Map();
+  await folderFiles(folder, folder.home, known);
+  assert.deepEqual(reads, ["A.000"]);
+  reads.length = 0;
+  await folder.write(folder.home, "B.000", aplet("Beta"));
+  const files = await folderFiles(folder, folder.home, known);
+  assert.deepEqual(reads, ["B.000"], "the unchanged A.000 is not read again");
+  assert.deepEqual(files.map((f) => f.name).sort(), ["A.000", "B.000", "HP38DIR.000"]);
+  await folder.purge(folder.home, "A.000");
+  await folderFiles(folder, folder.home, known);
+  assert.deepEqual([...known.keys()], ["B.000"], "a file gone is forgotten");
+});
+
 test("aplet_info reads a file's header", { skip: !existsSync(PKG) && "web/pkg not built (just web)" }, async () => {
   const api = await wasm();
   assert.deepEqual(api.aplet_info(new TextEncoder().encode("HP39BinB\x03XYZ")), { family: "39", binary: true, kind: "B", title: "XYZ", wire: true });

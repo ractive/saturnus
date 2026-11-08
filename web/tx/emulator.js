@@ -26,7 +26,7 @@ export function emulatedRefusal(model, { aplets = false } = {}) {
   if (aplets) return APLET_MODELS.includes(model) ? null : "This ROM is not one of a 38G, 39G or 40G.";
   if (SERIAL_MODELS.includes(model)) return null;
   if (NO_SERIAL.includes(model)) return `The ${modelTitle(model)} has no serial port: it cannot be a device here.`;
-  if (APLET_MODELS.includes(model)) return `The ${modelTitle(model)} sends and receives aplets itself: serve a folder to it instead.`;
+  if (APLET_MODELS.includes(model)) return `The ${modelTitle(model)} sends and receives aplets itself: serve a folder to it instead (Add a calculator, then “An HP 38G, 39G or 40G”).`;
   return "This ROM is not one of a 48SX, 48GX or 49G.";
 }
 
