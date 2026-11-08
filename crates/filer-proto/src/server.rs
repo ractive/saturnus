@@ -88,6 +88,10 @@ impl Default for ServerConfig {
 pub const SLOTS: usize = 8;
 /// Listing contexts in the ring.
 pub const LISTINGS: usize = 10;
+/// The largest file the server holds, [`crate::session::MAX_FILE`]: a
+/// seek past it, or a write that would grow a file past it, gets
+/// [`FsError::DISK_FULL`] (the palmtops' cards hold far less).
+pub const MAX_FILE: usize = crate::session::MAX_FILE;
 
 #[derive(Debug)]
 struct Slot {
@@ -487,7 +491,11 @@ impl<F: FileSystem> Server<F> {
                 if !slot.writing {
                     return Err(fs_err(FsError::ACCESS_DENIED));
                 }
-                let end = slot.position + data.len();
+                let end = slot
+                    .position
+                    .checked_add(data.len())
+                    .filter(|&end| end <= MAX_FILE)
+                    .ok_or(fs_err(FsError::DISK_FULL))?;
                 if slot.data.len() < end {
                     slot.data.resize(end, 0);
                 }
@@ -508,7 +516,11 @@ impl<F: FileSystem> Server<F> {
                 Response::Position(u32::try_from(slot.position).unwrap_or(u32::MAX))
             }
             Request::Seek { handle, position } => {
-                slot(s, *handle)?.position = *position as usize;
+                let position = usize::try_from(*position)
+                    .ok()
+                    .filter(|&p| p <= MAX_FILE)
+                    .ok_or(fs_err(FsError::DISK_FULL))?;
+                slot(s, *handle)?.position = position;
                 Response::Done
             }
             Request::Close(handle) => {
@@ -630,14 +642,34 @@ pub(crate) fn matches(pattern: &[u8], name: &[u8]) -> bool {
     glob(&pattern.to_ascii_uppercase(), &name)
 }
 
+/// Iterative wildcard match, O(pattern x name): on a mismatch go back to
+/// the last `*` and let it take one more character. Only the last `*`
+/// matters, so a run of them costs no more than one.
 fn glob(p: &[u8], n: &[u8]) -> bool {
-    match (p.first(), n.first()) {
-        (None, None) => true,
-        (Some(b'*'), _) => glob(&p[1..], n) || (!n.is_empty() && glob(p, &n[1..])),
-        (Some(b'?'), Some(_)) => glob(&p[1..], &n[1..]),
-        (Some(a), Some(b)) if a == b => glob(&p[1..], &n[1..]),
-        _ => false,
+    let (mut pi, mut ni) = (0, 0);
+    // The last `*` seen and the name position it was tried at.
+    let mut star: Option<(usize, usize)> = None;
+    while ni < n.len() {
+        match p.get(pi) {
+            Some(b'*') => {
+                star = Some((pi, ni));
+                pi += 1;
+            }
+            Some(&c) if c == b'?' || c == n[ni] => {
+                pi += 1;
+                ni += 1;
+            }
+            _ => match star {
+                Some((sp, sn)) => {
+                    star = Some((sp, sn + 1));
+                    pi = sp + 1;
+                    ni = sn + 1;
+                }
+                None => return false,
+            },
+        }
     }
+    p[pi..].iter().all(|&c| c == b'*')
 }
 
 #[cfg(test)]
@@ -734,5 +766,109 @@ mod tests {
         assert!(matches(b"*.TXT", b"hello.txt"));
         assert!(!matches(b"*.TXT", b"HELLO.BIN"));
         assert!(matches(b"H?LLO.*", b"HELLO.TXT"));
+        assert!(matches(b"**H*O.T?T", b"HELLO.TXT"));
+        assert!(matches(b"*", b""));
+        assert!(!matches(b"?", b""));
+        assert!(!matches(b"H*X", b"HELLO.TXT"));
+    }
+
+    #[test]
+    fn pathological_patterns_finish_at_once() {
+        // Recursive backtracking takes exponential time on these.
+        let stars = [b"*".repeat(2000), b"X".to_vec()].concat();
+        let name = b"A".repeat(64);
+        assert!(!matches(&stars, &name));
+        let mut alternating = b"*A".repeat(500);
+        alternating.push(b'B');
+        assert!(!matches(&alternating, &b"A".repeat(600)));
+        assert!(matches(&b"*A".repeat(500), &b"A".repeat(600)));
+        // The same through a listing request.
+        let mut s = server();
+        exchange(&mut s, &request(0x40, 0, &[])).unwrap();
+        let find = Request::FindFirst {
+            pattern: [&b"C:\\"[..], &b"*".repeat(1500), b"Q"].concat(),
+            attributes: 0,
+        }
+        .encode();
+        let f = exchange(&mut s, &request(0x12, 1, &find)).unwrap();
+        assert_eq!(f.data, Response::Done.encode());
+        let f = exchange(&mut s, &request(0x09, 2, &[])).unwrap();
+        assert_eq!(f.data, Response::Entry(None).encode());
+    }
+
+    /// Open a new file on a connected server; its handle.
+    fn create(s: &mut Server<MemoryFs>) -> u16 {
+        exchange(s, &request(0x40, 0, &[])).unwrap();
+        let create = Request::Create {
+            name: b"C:\\NEW.BIN".to_vec(),
+            attributes: 0,
+        }
+        .encode();
+        let f = exchange(s, &request(Code::Create.byte(), 1, &create)).unwrap();
+        assert_eq!(f.data, Response::Handle(0).encode());
+        0
+    }
+
+    #[test]
+    fn seek_past_the_largest_file_is_refused() {
+        let mut s = server();
+        let handle = create(&mut s);
+        let seek = |position: u32| Request::Seek { handle, position }.encode();
+        let full = encode_failure(Failure::Fs(FsError::DISK_FULL));
+        let f = exchange(&mut s, &request(Code::Seek.byte(), 2, &seek(u32::MAX))).unwrap();
+        assert_eq!(f.data, full);
+        let f = exchange(
+            &mut s,
+            &request(Code::Seek.byte(), 3, &seek(MAX_FILE as u32 + 1)),
+        )
+        .unwrap();
+        assert_eq!(f.data, full);
+        // Up to the limit is fine, and a write there that would grow the
+        // file past it is refused before anything grows.
+        let f = exchange(
+            &mut s,
+            &request(Code::Seek.byte(), 4, &seek(MAX_FILE as u32 - 1)),
+        )
+        .unwrap();
+        assert_eq!(f.data, Response::Done.encode());
+        let write = Request::Write {
+            handle,
+            data: vec![1, 2],
+        }
+        .encode();
+        let f = exchange(&mut s, &request(Code::Write.byte(), 5, &write)).unwrap();
+        assert_eq!(f.data, full);
+        let slot = s.session.as_ref().unwrap().slots[0].as_ref().unwrap();
+        assert!(slot.data.is_empty());
+        // A write that ends at the limit is not.
+        let one = Request::Write {
+            handle,
+            data: vec![7],
+        }
+        .encode();
+        let f = exchange(&mut s, &request(Code::Write.byte(), 6, &one)).unwrap();
+        assert_eq!(f.data, Response::Done.encode());
+        let slot = s.session.as_ref().unwrap().slots[0].as_ref().unwrap();
+        assert_eq!(slot.data.len(), MAX_FILE);
+    }
+
+    #[test]
+    fn a_write_whose_end_overflows_is_refused() {
+        // On a 32-bit target (wasm32) position + len can overflow usize;
+        // put the position where it does here.
+        let mut s = server();
+        let handle = create(&mut s);
+        s.session.as_mut().unwrap().slots[0]
+            .as_mut()
+            .unwrap()
+            .position = usize::MAX - 1;
+        let write = Request::Write {
+            handle,
+            data: vec![1, 2, 3],
+        }
+        .encode();
+        let f = exchange(&mut s, &request(Code::Write.byte(), 2, &write)).unwrap();
+        assert_eq!(f.data, encode_failure(Failure::Fs(FsError::DISK_FULL)));
+        assert!(s.in_session());
     }
 }
