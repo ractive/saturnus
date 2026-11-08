@@ -327,6 +327,8 @@
   .connect-steps { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); background: var(--paper); border: 1px solid var(--rule-soft); border-radius: var(--r-md); }
   .keys { display: flex; flex-wrap: wrap; gap: var(--s1); }
   & kbd.calc-key { min-width: 28px; text-align: center; font-size: var(--fs-md); padding: 2px 6px; }
+  .connect-part { display: flex; flex-direction: column; gap: var(--s3); }
+  .connect-part[hidden] { display: none; }
   .connect-help summary { cursor: pointer; color: var(--accent-text); }
   .connect-help ul { margin-top: var(--s2); font-size: var(--fs-md); }
   .xmodem-program { margin: 0; }

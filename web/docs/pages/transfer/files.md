@@ -34,7 +34,7 @@ Nothing is replaced without asking. Before a copy starts, one question lists wha
 ## A real calculator on a cable
 
 1. Plug in the [cable](cables.md) and its USB serial adapter.
-2. In Files, choose "Add a calculator" and pick the model. The dialog shows the keys that start the Kermit server on that model: `SERVER` and ENTER on a 48S or 48SX, right-shift then → on the 48G series, right-shift and → quickly on the 49G.
+2. In Files, choose "Add a calculator", then "An HP 48 or 49", and pick the model. The dialog shows the keys that start the Kermit server on that model: `SERVER` and ENTER on a 48S or 48SX, right-shift then → on the 48G series, right-shift and → quickly on the 49G.
 3. Choose "Choose the port". The browser lists the serial ports; pick the adapter. A port the page was given before is offered again next time.
 
 Files then finds the speed and parity by itself: it tries 9600, 4800, 2400 and 1200 baud, with no, odd and even parity, and listens for the server's answer. It reads the model from the calculator, switches it to binary transfers for exact copies and loads the HOME directory. When you disconnect, it ends the server and puts the calculator's own transfer setting back.
@@ -64,7 +64,9 @@ A ROM file chosen in Files instead starts a calculator of its own, which talks o
 
 ## The 38G, 39G and 40G
 
-These calculators start every transfer themselves, as clients, and expect a "disk drive" on the cable. Files can be that disk drive: choose "Serve a folder to a 38G, 39G or 40G", pick a folder and the calculator, on a cable or emulated, and "Start serving".
+These calculators start every transfer themselves, as clients, and expect a "disk drive" on the cable. Files can be that disk drive: choose "Add a calculator", then "An HP 38G, 39G or 40G", pick a folder and the calculator, on a cable or emulated, and "Start serving". In a browser that cannot reach a serial port, choose "Serve a folder to a 38G, 39G or 40G" instead, for an emulated one.
+
+Files reads the folder each time the calculator asks for its list of files, so an aplet put in the folder while serving shows up at the next RECV.
 
 On the calculator, choose SEND or RECV in the Aplet Library (LIB on the 38G, APLET on the 39G and 40G), then "Disk drive…". Files lists the transfers as they happen. The aplets the calculator sends land in the folder under its own names, and any aplet of that family in the folder can be received, including ones from elsewhere. On the 39G and 40G, "Send by wire" also sends a binary aplet by XModem, to the calculator's "HP39/40 (Wire)". That way is tested on the emulated 39G only.
 
