@@ -25,6 +25,7 @@ export class RplEditor {
     this.onKey = onKey;
     this.hl = el("pre", { class: "rpl-hl", "aria-hidden": "true" });
     this.area = el("textarea", {
+      name: "rpl",
       class: "rpl-text",
       "aria-label": "RPL text",
       spellcheck: "false",

@@ -256,7 +256,7 @@ export class SatShortcuts extends HTMLElement {
   numberRow() {
     const b = this.bindings;
     const isMac = b.isMac;
-    const select = el("select", { class: "number-mod", "aria-label": "Modifier of the search rows' numbers" },
+    const select = el("select", { name: "number-mod", class: "number-mod", "aria-label": "Modifier of the search rows' numbers" },
       ...NUMBER_MODIFIERS.map((m) => {
         const o = el("option", { value: m, text: `${numberLabel(m, isMac, "1")} … ${numberLabel(m, isMac, "9")}` });
         if (m === b.numberModifier) o.selected = true;

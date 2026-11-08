@@ -75,8 +75,8 @@ const TEMPLATE = `
       <div class="toolbar vars-bar">
         <nav class="crumbs" aria-label="Directory shown"></nav>
         <button type="button" class="vars-new write" aria-haspopup="menu" aria-expanded="false" data-menu-key="new">New${icon("chevron-down")}</button>
-        <input type="file" class="vars-file" multiple hidden>
-        <input class="find vars-find" type="search" placeholder="Find a variable" aria-label="Find a variable in all directories" autocomplete="off" spellcheck="false">
+        <input type="file" name="vars-file" class="vars-file" multiple hidden>
+        <input class="find vars-find" name="find-variable" type="search" placeholder="Find a variable" aria-label="Find a variable in all directories" autocomplete="off" spellcheck="false">
       </div>
       <div class="vars-making"></div>
       <p class="vars-where"></p>
@@ -101,7 +101,7 @@ const TEMPLATE = `
 
     <div class="pane pane-flags" id="pane-flags" role="tabpanel" aria-labelledby="tab-flags" hidden>
       <div class="toolbar flags-bar">
-        <input class="find flags-find" type="search" placeholder="Find a flag" aria-label="Find a flag by number or meaning" autocomplete="off" spellcheck="false">
+        <input class="find flags-find" name="find-flag" type="search" placeholder="Find a flag" aria-label="Find a flag by number or meaning" autocomplete="off" spellcheck="false">
         <button type="button" class="flags-only" aria-pressed="false">Set only</button>
       </div>
       <div class="flags-scroll" tabindex="0" aria-label="Flags"></div>
@@ -109,7 +109,7 @@ const TEMPLATE = `
 
     <div class="pane pane-commands" id="pane-commands" role="tabpanel" aria-labelledby="tab-commands" hidden>
       <div class="toolbar cmds-bar">
-        <input class="find cmds-find" type="search" placeholder="Find a command" aria-label="Find a command by name or description" autocomplete="off" spellcheck="false">
+        <input class="find cmds-find" name="find-command" type="search" placeholder="Find a command" aria-label="Find a command by name or description" autocomplete="off" spellcheck="false">
         <span class="cmds-count"></span>
       </div>
       <p class="cmds-note" hidden></p>
@@ -186,7 +186,7 @@ async function copyText(text) {
     await navigator.clipboard.writeText(text);
     return;
   } catch { /* not allowed here: the old way */ }
-  const area = el("textarea", { class: "copy-area", "aria-hidden": "true" });
+  const area = el("textarea", { name: "copy", class: "copy-area", "aria-hidden": "true" });
   area.value = text;
   document.body.append(area);
   area.select();
@@ -1498,7 +1498,7 @@ export class SatExplorer extends HTMLElement {
       this.renderVars();
     });
     if (ed.mode === "copyto" || ed.mode === "moveto") return this.pickRow(sel, v, ed, cancel);
-    const input = el("input", { type: "text", value: ed.value, "aria-label": `New name for ${v.name}`, spellcheck: "false", autocomplete: "off", "data-keep": true });
+    const input = el("input", { name: "new-name", type: "text", value: ed.value, "aria-label": `New name for ${v.name}`, spellcheck: "false", autocomplete: "off", "data-keep": true });
     input.addEventListener("input", () => { ed.value = input.value; });
     const ok = this.button("Rename", "", () => {
       const to = input.value.trim();
@@ -1693,7 +1693,7 @@ export class SatExplorer extends HTMLElement {
     }
     const elsewhere = !same(dir, this.browse);
     const what = screen ? `Screen to a variable in ${pathText(dir)}` : `New directory in ${pathText(dir)}`;
-    const input = el("input", { type: "text", value: mk.value, placeholder: "Name", "aria-label": screen ? `Name of the variable for the screen, in ${pathText(dir)}` : `Name of the new directory in ${pathText(dir)}`,
+    const input = el("input", { name: "name", type: "text", value: mk.value, placeholder: "Name", "aria-label": screen ? `Name of the variable for the screen, in ${pathText(dir)}` : `Name of the new directory in ${pathText(dir)}`,
       "aria-invalid": mk.error ? "true" : null, readonly: mk.busy, spellcheck: "false", autocomplete: "off" });
     input.addEventListener("input", () => { mk.value = input.value; });
     const cancel = el("button", { type: "button", text: "Cancel" });

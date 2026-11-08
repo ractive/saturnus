@@ -91,7 +91,7 @@ export async function openAiDialog(ai, doc = document) {
   const opener = doc.activeElement;
   const dialog = el("dialog", { class: "ai", "aria-labelledby": "ai-title" });
   const status = statusLine();
-  const address = el("input", { class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
+  const address = el("input", { name: "mcp-address", class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
   const copy = copyButton("Copy");
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
   const block = installBlock({ newOnly: true });
@@ -268,7 +268,7 @@ export function installBlock({ connector: connectorText = null, newOnly = false 
   const vscode = el("a", { class: "button small", text: "Add to VS Code" });
   const forClaude = copyButton("Copy for Claude Code", "small");
   const forCodex = copyButton("Copy for Codex", "small");
-  const cmd = el("textarea", { class: "input ai-cmd", readonly: true, rows: 1, hidden: true, "aria-label": "Command", spellcheck: "false" });
+  const cmd = el("textarea", { name: "mcp-command", class: "input ai-cmd", readonly: true, rows: 1, hidden: true, "aria-label": "Command", spellcheck: "false" });
   const connector = el("p", { class: "ai-note" });
   const codexNote = el("p", { class: "ai-note", hidden: !newOnly });
   codexNote.append("Copy for Codex also turns on Codex's feature ", el("code", { text: CODEX_FEATURE }), ", which this address needs. It applies to all of Codex's MCP servers; ", el("code", { text: `codex features disable ${CODEX_FEATURE}` }), " turns it off. Start a new chat in Codex once it is connected.");
@@ -338,7 +338,7 @@ export async function openLocalDialog(ai, doc = document) {
   const on = el("input", { type: "checkbox", id: "ai-on" });
   const onRow = el("label", { class: "switch ai-keep" }, on, el("span", {}, "Let AI apps on this computer use the calculators", el("small", { text: "Off by default. Turning it off stops access at once." })));
   const status = statusLine();
-  const address = el("input", { class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
+  const address = el("input", { name: "mcp-address", class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
   const copy = copyButton("Copy");
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
   const block = installBlock({ connector: "Add to Claude Desktop installs an extension in Claude Desktop that starts saturnus when Claude needs a calculator. Claude on the web and ChatGPT connect from the internet, so they cannot use this address." });
