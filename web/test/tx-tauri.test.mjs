@@ -182,7 +182,7 @@ test("the app: the right pane is the computer's files at the home folder; Open a
   await c.ev(`tx.panes[1].navigate(["This computer"]); true`);
   await p.until(`JSON.stringify(tx.names(1)) === '["Users"]'`, 5_000, "the top listed");
   // The Change menu: the app's dialog and the computer's files, no page files.
-  assert.deepEqual(await c.ev(CHANGE_MENU), ["A folder on this computer…", "This computer's files", "-", "A calculator on a cable…", "An emulated calculator…", "-", "Serve a folder to a 38G, 39G or 40G…", "-", "Nothing (close the folder)"]);
+  assert.deepEqual(await c.ev(CHANGE_MENU), ["Open a folder…", "This computer's files", "-", "Add a calculator…", "Add an emulated calculator…", "-", "Nothing (close the folder)"]);
   // "Open a folder…": the dialog's choice, shown in the same place.
   await c.ev(`fakeTauri.pick = ["Users", "ann", "hp"]; tx.panes[1].openFolder().then(() => true)`);
   await p.until(`JSON.stringify(tx.names(1)) === '["OLD.hp"]'`, 5_000, "the picked folder listed");
@@ -297,8 +297,8 @@ test("the app: changes only under home and the picked folders, the aplet server'
   // Another folder shown, then the Change menu: both, newest first; the home folder is not listed.
   await c.ev(`tx.panes[1].navigate(["This computer", "Users", "ann", "hp"]); true`);
   await p.until(`fakeTauri.recent.length === 2`, 5_000, "the folder shown reported");
-  assert.deepEqual(await c.ev(CHANGE_MENU), ["A folder on this computer…", "This computer's files", "-", "hp", "shared", "Clear recent folders", "-",
-    "A calculator on a cable…", "An emulated calculator…", "-", "Serve a folder to a 38G, 39G or 40G…", "-", "Nothing (close the folder)"]);
+  assert.deepEqual(await c.ev(CHANGE_MENU), ["Open a folder…", "This computer's files", "-", "hp", "shared", "Clear recent folders", "-",
+    "Add a calculator…", "Add an emulated calculator…", "-", "Nothing (close the folder)"]);
   assert.deepEqual(await c.ev(`fakeTauri.recent.map((r) => [r.names.join("/"), r.picked])`), [["Users/ann/hp", false], ["Users/shared", true]]);
   // One click reopens one.
   await c.ev(`(async () => {

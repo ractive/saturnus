@@ -20,6 +20,7 @@ import "../shared/components/device-tree.js";
 import "../shared/components/device-list.js";
 import { keyAction, paneActions, rowActions } from "./actions.js";
 import { EmulatedCalculator } from "./emulator.js";
+import { APLET_MODELS } from "./kept-roms.js";
 import { HubClient } from "../shared/calc-hub.js";
 import { HubDevice } from "../shared/hub-device.js";
 import { canPickFolder, clearRecentFolders, download as downloadFolder, fallbackFolder, keptFolder, nameProblem as fileNameProblem, openRecent, pickFolder, recentFolders } from "./folder.js";
@@ -28,7 +29,7 @@ import { clearRecentNative, computerFolder, isTauri, pickNative, recentNative, u
 import { KermitDevice } from "./kermit-device.js";
 import { ProtocolClient } from "./protocol.js";
 import { renderPreview, textObject, updateReading } from "./preview.js";
-import { connectedText, disconnectNote, downloadUrl, failureText, modelTitle, placeTitle, previewPlan, searchText, settingsText } from "./flows.js";
+import { START_SERVER, connectedText, disconnectNote, downloadUrl, failureText, modelTitle, placeTitle, previewPlan, restartWords, searchText, xservHint } from "./flows.js";
 import { fileItem, folderItem, problemText, removeQuestion, restoreQuestion } from "./transfers.js";
 import { EVAL_KEYS, XMODEM_WAIT_S, XmodemDialog, fastDone, fastWords, hasXmodem } from "./xmodem.js";
 
@@ -69,6 +70,7 @@ export class Pane {
       change: q(".pane-change"), refresh: q(".pane-refresh"), more: q(".pane-more"), emulator: q(".pane-emulator"),
       empty: q(".pane-empty"), body: q(".pane-body"), tree: q("device-tree"), list: q("device-list"),
       crumbs: q(".crumbs"), preview: q(".preview"),
+      hint: q(".pane-hint"), hintText: q(".pane-hint-text"), hintClose: q(".pane-hint-close"),
     };
     this.ui.title.id = `pane-title-${id}`;
     root.setAttribute("aria-labelledby", this.ui.title.id);
@@ -104,10 +106,10 @@ export class Pane {
 
   get other() { return this.app.other(this); }
 
-  /** Whether the place is a calculator with the fast transfer (XModem: the 48GX and 49G; never the emulator's own, which needs none, nor one in XSERV, where every copy is XModem). */
+  /** Whether the place is a calculator with the fast transfer (XModem: the 48GX, a 49G without XSERV; never the emulator's own, which needs none, nor one in XSERV). */
   get xmodem() {
     const p = this.place;
-    return p?.kind === "device" && !p.hub && hasXmodem(p.model) && p.device.connection?.server !== "xserv";
+    return p?.kind === "device" && !p.hub && hasXmodem(p.model, p.device.connection?.version) && p.device.connection?.server !== "xserv";
   }
   /** Whether the pane may show a folder: the right one only; the left shows calculators. */
   get folders() { return this.id === "right"; }
@@ -129,6 +131,17 @@ export class Pane {
 
   setProgress(text) { this.ui.progress.textContent = text; }
 
+  /** The hint under the head (`text`, null: none), until its button closes it. */
+  setHint(text) {
+    this.ui.hint.hidden = !text;
+    this.ui.hintText.textContent = text ?? "";
+  }
+
+  /** A connection made: its hint, once (the 49G's XSERV, kb/docs/saturnus-tx.md). */
+  connectedHint(place) {
+    this.setHint(xservHint(place.device.connection, { emulated: place.emulated }));
+  }
+
   /** The status of an idle place. */
   idleStatus() {
     const p = this.place;
@@ -137,7 +150,8 @@ export class Pane {
       if (p.hub) return p.device.connection ? "Connected to the calculator open in Calculator." : "";
       if (p.device.restarted) return "The calculator restarted.";
       if (p.device.leftServer) return "The calculator left server mode.";
-      return p.device.connection ? connectedText(p.device.connection, { emulated: p.emulated }) : "";
+      if (p.device.notAnswering) return "Not answering.";
+      return p.device.connection ? connectedText(p.device.connection) : "";
     }
     const f = p.folder;
     if (f.kind === "native") return "The files on this computer.";
@@ -150,9 +164,13 @@ export class Pane {
 
   /** Show `place` (null: none); the old one's events are let go. */
   show(place) {
+    // A hint is for the connection it came with: gone with another place, or once this one is out of server mode or silent.
+    if (place !== this.place || (place?.kind === "device" && !place.device.connection)) this.setHint(null);
     this.place = place;
     this.selected = null;
     this.previews.clear();
+    // What the preview shows (a variable, the graphics screen) was the old place's, or read before a restart.
+    renderPreview(this.ui.preview, null, null);
     this.dropDragUrls();
     const source = place?.device ?? place?.folder ?? null;
     this.path = [...homeOf(source)];
@@ -207,20 +225,24 @@ export class Pane {
       actions.append(b);
       return b;
     };
+    // Out of server mode (a restore, a fast transfer) or not answering: how to start the server again, then Reconnect.
+    const again = (lead, emulatedLead) => {
+      const r = restartWords(p.model, { server: p.server, version: p.version });
+      box.append(el("p", { text: p.emulated ? emulatedLead : `${lead} ${r.text} Then reconnect.` }));
+      if (!p.emulated && r.keys) box.append(el("p", { class: "keys", "aria-hidden": "true" }, ...r.keys.map((k) => el("kbd", { class: "calc-key", text: k }))));
+      button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
+      button(p.emulated && !p.hub ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
+    };
     if (p?.kind === "device" && p.device.restarted) {
-      box.append(
-        el("h2", { text: "The calculator restarted" }),
-        el("p", { text: p.emulated ? "The restore is done and the emulated calculator left server mode. Reconnect starts its server again." : "The restore is done and the calculator left server mode. Start its server on the calculator again, then reconnect." }),
-      );
-      button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
-      button(p.emulated && !p.hub ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
+      box.append(el("h2", { text: "The calculator restarted" }));
+      again("The restore is done and the calculator left server mode.", "The restore is done and the emulated calculator left server mode. Reconnect starts its server again.");
     } else if (p?.kind === "device" && p.device.leftServer) {
-      box.append(
-        el("h2", { text: "The calculator left server mode" }),
-        el("p", { text: p.emulated ? "The fast transfer ended the emulated calculator's server. Reconnect starts it again." : "The fast transfer ended the calculator's server. Start its server on the calculator again, then reconnect." }),
-      );
-      button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
-      button(p.emulated && !p.hub ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
+      box.append(el("h2", { text: "The calculator left server mode" }));
+      again("The fast transfer ended the calculator's server.", "The fast transfer ended the emulated calculator's server. Reconnect starts it again.");
+    } else if (p?.kind === "device" && p.device.notAnswering) {
+      const shows = p.server === "xserv" ? START_SERVER["49g"].shown : "Awaiting Server Cmd.";
+      box.append(el("h2", { text: "The calculator stopped answering" }));
+      again(`It sent nothing for a while. If its display no longer says “${shows}”, its server has ended (ON pressed, or a key typed). Check the cable too.`, "The emulated calculator sent nothing for a while. Reconnect starts its server again.");
     } else if (this.pending) {
       box.append(
         el("h2", { text: `Use the folder ${this.pending.title} again?` }),
@@ -240,16 +262,17 @@ export class Pane {
       const pick = canPickFolder();
       const app = isTauri();
       if (!left) {
-        if (pick) button("Open a folder", "folder-open", () => this.openFolder(), { primary: true, id: "open-folder" });
+        if (pick) button("Open a folder…", "folder-open", () => this.openFolder(), { primary: true, id: "open-folder" });
         if (app) button("This computer's files", "folder", () => this.useComputer(), { id: "use-computer" });
         else button(`Use ${BROWSER_FILES.toLowerCase()}`, "folder", () => this.useFiles(), { primary: !pick, id: "use-files" });
       }
-      if (serial) button("Add a calculator", "plug", () => this.app.openConnect(this), { primary: left, id: "add-serial" });
-      button("Add an emulated calculator", "calculator", () => this.app.openEmulated(this), { primary: left && !serial, id: "add-emulated" });
+      if (serial) button("Add a calculator…", "plug", () => this.app.openConnect(this), { primary: left, id: "add-serial" });
+      button("Add an emulated calculator…", "calculator", () => this.app.openEmulated(this), { primary: left && !serial, id: "add-emulated" });
       // "Add a calculator" asks which kind and leads a 38G, 39G or 40G to
-      // the serve screen; without a serial port that screen still serves
-      // an emulated one.
-      if (!serial && left) button("Serve a folder to a 38G, 39G or 40G", "calculator", () => this.app.openServe(), { id: "serve-aplets" });
+      // the serve screen, as a kept 38G, 39G or 40G ROM in "Add an
+      // emulated calculator" does; without a serial port this is the way
+      // to serve one from a ROM file.
+      if (!serial && left) button("Serve a folder to a 38G, 39G or 40G…", "calculator", () => this.app.openServe(), { id: "serve-aplets" });
       box.append(actions);
       if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open the app in Chrome or Edge on a computer. The emulated calculator works here too." }));
       if (pick && !left && !app) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
@@ -305,12 +328,15 @@ export class Pane {
       this.step = { title: p.heading, status: "Disconnecting…", busy: true };
       this.setStatus(this.step.status);
       let result = null;
+      // A calculator that stopped answering was asked nothing: whether its server ended is not known either.
+      let unanswered = Boolean(p.device.notAnswering);
       try {
         if (p.device.connection) {
           const shows = p.device.connection.server === "xserv" ? "Xmodem server" : "Awaiting Server Cmd.";
           try {
             result = await p.device.disconnect();
           } catch (err) {
+            unanswered = true;
             this.say(err?.kind === "noAnswer" ? `The calculator did not answer the end of server mode. If it still shows “${shows}”, press ON on it.` : `The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
           }
         }
@@ -320,7 +346,8 @@ export class Pane {
       } finally {
         this.step = null;
       }
-      this.note = note ?? (p.hub ? "Disconnected. The calculator stays in Calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : disconnectNote(p.model, result));
+      // Not answered: whether the server ended is not known, so the note does not say it did (the toast said what to check).
+      this.note = note ?? (p.hub ? "Disconnected. The calculator stays in Calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : unanswered ? "Disconnected." : disconnectNote(p.model, result));
     } else {
       this.note = note ?? "";
     }
@@ -356,6 +383,10 @@ export class Pane {
     });
     device.addEventListener("search", (e) => {
       if (this.place === place) this.setStatus(searchText(e.detail));
+    });
+    // The silence watchdog ended the session: the card says how to go on.
+    device.addEventListener("notAnswering", () => {
+      if (this.place === place) this.show(place);
     });
     device.addEventListener("lost", (e) => {
       if (this.place !== place) return;
@@ -399,6 +430,8 @@ export class Pane {
       const conn = await device.connect(emulated ? { find: true } : settings);
       if (this.mine !== place) return null;
       place.model = conn.model;
+      place.server = conn.server;
+      place.version = conn.version;
       place.heading = placeTitle({ model: conn.model, emulated, linkLabel: link.label });
       place.title = place.heading;
     } catch (err) {
@@ -414,6 +447,7 @@ export class Pane {
     }
     this.step = null;
     this.show(place);
+    this.connectedHint(place);
     return place;
   }
 
@@ -486,6 +520,11 @@ export class Pane {
       this.step = null;
       this.mine = null;
       this.render();
+      // A 38G, 39G or 40G ROM file: these start every transfer themselves, so the serve screen opens with it.
+      if (APLET_MODELS.includes(emu.model)) {
+        this.app.openServe({ key: "file", bytes: rom, name });
+        return null;
+      }
       this.say(String(err?.message ?? err), { error: true });
       return null;
     }
@@ -509,6 +548,8 @@ export class Pane {
       if (p.emulator) await p.emulator.startServer();
       const conn = await this.app.queue.add({ label: `Reconnect to ${p.title}`, places: [p.id], run: () => p.device.connect(p.emulated ? { find: true } : this.app.settings) });
       p.model = conn.model;
+      p.server = conn.server;
+      p.version = conn.version;
     } catch (err) {
       this.step = null;
       this.render();
@@ -517,6 +558,7 @@ export class Pane {
     }
     this.step = null;
     this.show(p);
+    this.connectedHint(p);
     this.say("Connected again.");
   }
 
@@ -1206,7 +1248,7 @@ export class Pane {
   async fast({ direction, name, path, bytes = null, size = null }) {
     const p = this.place;
     const d = xmodemDialog();
-    const base = { direction, name, model: p.model, emulated: p.emulated, waitS: XMODEM_WAIT_S };
+    const base = { direction, name, model: p.model, version: p.version, emulated: p.emulated, waitS: XMODEM_WAIT_S };
     let planned = null;
     const put = direction === "put";
     const onProgress = (e) => {
@@ -1363,7 +1405,8 @@ export class Pane {
     }
     let state;
     try {
-      state = { status: "shown", object: h.describe_file(got.data) };
+      // A graphics screen nothing was drawn on since the calculator started is 0 × 0 (a fresh 49G).
+      state = got.width && got.height ? { status: "shown", object: h.describe_file(got.data) } : { status: "none", note: "The graphics screen is empty: nothing was plotted or drawn on it yet." };
     } catch (err) {
       state = { status: "error", error: String(err?.message ?? err) };
     }
@@ -1404,7 +1447,6 @@ export class Pane {
       case "pict": return this.pict();
       case "xmodemPut": return this.app.chooseFile((file) => file.arrayBuffer().then((b) => this.xmodemPut(new Uint8Array(b), file.name)));
       case "copyAll": return this.copyAll();
-      case "settings": return this.app.openSettings();
       case "refresh": return this.refresh();
       case "close": return this.close();
       case "emulator": return p.kind === "device" && p.hub ? this.app.openEmulator(p.model) : undefined;
@@ -1454,6 +1496,7 @@ export class Pane {
       this.navigate(entry.up ? parentPath(this.path) : [...this.path, entry.name]);
     });
     tree.addEventListener("navigate", (e) => this.navigate(e.detail.path));
+    this.ui.hintClose.addEventListener("click", () => this.setHint(null));
     this.ui.refresh.addEventListener("click", () => this.refresh());
     this.ui.change.addEventListener("click", () => this.openSwitcher());
     this.ui.emulator.addEventListener("click", async () => {
@@ -1537,14 +1580,15 @@ export class Pane {
   async openSwitcher() {
     const items = [];
     if (this.folders) {
-      if (canPickFolder()) items.push({ text: "A folder on this computer…", icon: "folder-open", run: () => this.openFolder() });
+      if (canPickFolder()) items.push({ text: "Open a folder…", icon: "folder-open", run: () => this.openFolder() });
       if (isTauri()) items.push({ text: "This computer's files", icon: "folder", run: () => this.useComputer() }, "-");
-      else items.push({ text: BROWSER_FILES, icon: "folder", run: () => this.useFiles() }, "-");
+      else items.push({ text: `Use ${BROWSER_FILES.toLowerCase()}`, icon: "folder", run: () => this.useFiles() }, "-");
       items.push(...(await this.recentItems()));
     }
-    if (hasSerial()) items.push({ text: "A calculator on a cable…", icon: "plug", run: () => this.app.openConnect(this) });
-    items.push({ text: "An emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });
-    items.push("-", { text: "Serve a folder to a 38G, 39G or 40G…", icon: "calculator", run: () => this.app.openServe() });
+    if (hasSerial()) items.push({ text: "Add a calculator…", icon: "plug", run: () => this.app.openConnect(this) });
+    items.push({ text: "Add an emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });
+    // Without a serial port "Add a calculator" is not there to ask the kind: the serve screen keeps its own way in (as the empty card's button).
+    if (!hasSerial()) items.push({ text: "Serve a folder to a 38G, 39G or 40G…", icon: "calculator", run: () => this.app.openServe() });
     if (this.place) items.push("-", { text: this.place.kind === "device" ? (this.place.emulated && !this.place.hub ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });
     openMenu({ anchor: this.ui.change, align: "end", label: "Show in this pane", returnFocus: () => this.ui.change, items });
   }

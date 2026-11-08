@@ -34,15 +34,18 @@ export class ProtocolClient extends EventTarget {
   /**
    * `link` a Link; `worker()` makes the Worker (tests pass one that runs
    * the driver in the page); `seed` fixes the device's seed (tests; a
-   * random one otherwise); `listenMs` the speed search's time per speed.
+   * random one otherwise); `listenMs` the speed search's time per speed;
+   * `silenceMs` how long the calculator may say nothing (tests).
    */
-  constructor(link, { worker = protocolWorker, seed = null, listenMs = undefined } = {}) {
+  constructor(link, { worker = protocolWorker, seed = null, listenMs = undefined, silenceMs = undefined } = {}) {
     super();
     this.link = link;
     this.worker = worker();
     this.nextId = 1;
     this.waiting = new Map();
     this.connection = null;
+    /** The calculator stopped answering (the device's state, posted with the connection after each request). */
+    this.notAnswering = false;
     this.closed = false;
     /** The link's operations, one after the other. */
     this.io = Promise.resolve();
@@ -59,7 +62,7 @@ export class ProtocolClient extends EventTarget {
     };
     link.addEventListener("data", this.onData);
     link.addEventListener("lost", this.onLost);
-    this.worker.postMessage({ cmd: "init", seed, listenMs });
+    this.worker.postMessage({ cmd: "init", seed, listenMs, silenceMs });
   }
 
   failAll(message, kind = "failed") {
@@ -95,6 +98,8 @@ export class ProtocolClient extends EventTarget {
         break;
       case "connection":
         this.connection = m.connection ?? null;
+        // saturnus-tx's silence watchdog ended the session (whatever error the request reports: a tree put's `partial` too).
+        this.notAnswering = Boolean(m.notAnswering);
         this.dispatchEvent(new CustomEvent("connection", { detail: this.connection }));
         break;
       case "result": {

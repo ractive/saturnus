@@ -268,11 +268,6 @@ test("Calculator's Files link connects Files' left pane to the running 48GX, HOM
   await emu.ev("window.__place = tx.panes[0].place; tx.connectFromEmulator('48gx').then((r) => r === null)");
   assert.equal(await emu.ev("tx.panes[0].place === window.__place && !tx.panes[0].step && !document.querySelector('dialog[open]')"), true, "the same connection, nothing started, nothing asked");
 
-  // Settings opens while on it (owner, 2026-10-17: it did nothing, the shared calculator has no line settings).
-  await emu.ev(`document.getElementById("open-settings").click()`);
-  await p.until(`document.getElementById("settings-dialog").open && document.getElementById("set-now").hidden`, 5_000, "the settings, no line to name");
-  await emu.ev(`document.getElementById("settings-dialog").close(); true`);
-
   // Disconnected in Files; back in Calculator, Files again: connected again.
   await emu.ev("tx.panes[0].close().then(() => true)");
   await p.until("!tx.panes[0].place", 10_000, "disconnected");

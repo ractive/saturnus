@@ -30,7 +30,7 @@ There are also archives and `.deb` and `.rpm` packages on the [releases page](ht
 ## First connection
 
 1. Connect the calculator with a [cable](cables.md) and a USB serial adapter.
-2. Start the calculator's Kermit server: on a 48S or 48SX type `SERVER` and press ENTER; on the 48G series press right-shift, then →; on the 49G press right-shift and → quickly, without a pause. The display says "Awaiting Server Cmd.".
+2. Start the calculator's Kermit server: on a 48S or 48SX type `SERVER` and press ENTER; on the 48G series press right-shift, then →; on the 49G type `SERVER` and press ENTER (right-shift, then → starts it too when pressed quickly, but after a pause the same keys start XSERV). The display says "Awaiting Server Cmd.".
 3. Find the port:
 
 ```sh

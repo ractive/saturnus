@@ -1,8 +1,8 @@
 // A calculator in Kermit server mode on any link, as a Device
 // (web/shared/device.js): connect, list, read (get), write (put), mkdir,
 // rename, purge, a directory's tree got and put, the memory, backup,
-// restore, the graphics screen, the fast transfer (XModem, the 48GX and
-// 49G), disconnect, over the protocol Worker
+// restore, the graphics screen, the fast transfer (XModem; Files offers
+// it on the 48GX), disconnect, over the protocol Worker
 // (protocol.js). One operation at a
 // time, as the link is half duplex; more wait in a queue (`queued`), and
 // those not started yet can be cancelled. Listings are kept until the
@@ -15,7 +15,8 @@
 // Events: `change` (`{path}`; no path: everything), `busy` (`{label,
 // queued}`, label null when idle), `progress` (`{label, done, total}`),
 // `search` (the speed search: `{type: "listening" | "found", settings}`),
-// `connection` (the calculator or null), `lost` (why).
+// `connection` (the calculator or null), `notAnswering` (the calculator
+// stopped answering: saturnus-tx's silence watchdog), `lost` (why).
 
 import { HOME, pathKey } from "../shared/device.js";
 import { TxFailure } from "./protocol.js";
@@ -48,6 +49,8 @@ export class KermitDevice extends EventTarget {
     this.restarted = false;
     /** A fast transfer ended server mode: not connected until `connect` again. */
     this.leftServer = false;
+    /** The calculator stopped answering (`notAnswering`): not connected until `connect` again. */
+    this.notAnswering = false;
     /** How long `disconnect` waits for the calculator (tests make it short). */
     this.disconnectWaitMs = DISCONNECT_WAIT_MS;
     this.forward = (type) => (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail }));
@@ -113,6 +116,14 @@ export class KermitDevice extends EventTarget {
     try {
       op.resolve(await op.fn());
     } catch (err) {
+      // The device's own state, posted with each result: a request that wraps the silence (a tree put's `partial`) counts too.
+      if ((this.client.notAnswering || err?.kind === "notAnswering" || err?.source?.kind === "notAnswering") && !this.notAnswering) {
+        this.notAnswering = true;
+        this.listings.clear();
+        // The waiting operations would only fail the same way.
+        this.cancelQueued();
+        this.dispatchEvent(new CustomEvent("notAnswering"));
+      }
       op.reject(err);
     } finally {
       this.running = null;
@@ -136,6 +147,7 @@ export class KermitDevice extends EventTarget {
       const r = await this.client.request({ type: "connect", find: options.find ?? true, baud: options.baud ?? 9600, parity: options.parity ?? "none" });
       this.restarted = false;
       this.leftServer = false;
+      this.notAnswering = false;
       this.listings.clear();
       return r.connection;
     });

@@ -151,7 +151,6 @@
   <a class="brand" href="#/" title="Home: your calculators"><svg class="logo" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true"><path class="ring" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16" transform="rotate(-24 16 16)"/><circle class="planet" cx="16" cy="16" r="8.6"/><path class="ring" d="M 30.4 16 A 14.4 4.6 0 0 1 1.6 16" transform="rotate(-24 16 16)"/></svg><span>saturnus</span></a>
   <button id="show-cable" class="bar-link bar-cable" type="button" aria-label="Show the packets" aria-expanded="false" aria-controls="cable" title="Every packet to and from the calculator, live"><svg class="ic" aria-hidden="true"><use href="#ic-cable"/></svg><span>Show the packets</span></button>
   <a id="to-emulator" class="bar-link" href="#/calculator" data-route title="Calculator: the emulated HP calculators" hidden><svg class="ic" aria-hidden="true"><use href="#ic-calculator"/></svg><span>Calculator</span></a>
-  <button id="open-settings" class="icon" type="button" title="Settings" aria-label="Settings"><svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg></button>
 </header>
 
 <main id="files-stage" class="tx-main">
@@ -196,6 +195,7 @@
         <button class="pane-more icon" type="button" hidden title="More" aria-label="More"><svg class="ic" aria-hidden="true"><use href="#ic-more"/></svg></button>
       </div>
     </div>
+    <div class="pane-hint" hidden><p class="pane-hint-text"></p><button class="pane-hint-close icon" type="button" title="Close the hint" aria-label="Close the hint"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-close"/></svg></button></div>
     <div class="pane-empty"></div>
     <div class="pane-body" hidden>
       <device-tree aria-label="Directories"></device-tree>
@@ -216,12 +216,11 @@
   <form method="dialog" class="tx-dialog-box">
     <h2 id="connect-title">Add a calculator</h2>
     <div id="connect-ask" class="connect-part">
-      <p id="connect-ask-text">Which calculator is on the cable?</p>
+      <p id="connect-ask-text">Which calculator?</p>
       <div id="connect-kind" class="emulated-roms" role="group" aria-labelledby="connect-ask-text"></div>
     </div>
     <div id="connect-cable" class="connect-part" hidden>
-      <p>Which model?</p>
-      <div id="connect-models" class="segmented" role="radiogroup" aria-label="Model"></div>
+      <p>Start the calculator's server:</p>
       <div id="connect-steps" class="connect-steps"></div>
       <details class="connect-help">
         <summary>Trouble with the cable?</summary>
@@ -229,8 +228,26 @@
           <li>The calculator needs its own serial cable, and most computers a USB serial adapter for it.</li>
           <li>On Linux, your user must be in the <code>dialout</code> group (<code>uucp</code> on Arch) to reach the port.</li>
           <li>On Windows, adapters with fake Prolific chips are refused by current drivers; one with an FTDI or a genuine chip works.</li>
-          <li>Files finds the speed by itself. If that fails, set a fixed speed in Settings.</li>
+          <li>Files finds the speed and parity by itself. If that fails, set them here; the calculator starts at 9600 baud with no parity.</li>
         </ul>
+        <label class="switch"><input id="set-fixed" type="checkbox"> <span>Use a fixed speed</span></label>
+        <div class="settings-row">
+          <label for="set-baud">Speed</label>
+          <select id="set-baud">
+            <option value="9600">9600 baud</option>
+            <option value="4800">4800 baud</option>
+            <option value="2400">2400 baud</option>
+            <option value="1200">1200 baud</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label for="set-parity">Parity</label>
+          <select id="set-parity">
+            <option value="none">None</option>
+            <option value="odd">Odd</option>
+            <option value="even">Even</option>
+          </select>
+        </div>
       </details>
       <p id="connect-known" class="muted" hidden></p>
     </div>
@@ -262,7 +279,7 @@
 <dialog id="emulated-dialog" class="tx-dialog" aria-labelledby="emulated-title">
   <form method="dialog" class="tx-dialog-box">
     <h2 id="emulated-title">Add an emulated calculator</h2>
-    <p>The 48SX, 48GX or 49G you use in Calculator, as you left it. While it is open here, Calculator shows it as in use.</p>
+    <p>The 48SX, 48GX or 49G you use in Calculator, as you left it. While it is open here, Calculator shows it as in use. A 38G, 39G or 40G opens the screen that serves it a folder.</p>
     <div id="emulated-roms" class="emulated-roms"></div>
     <p id="emulated-none" class="muted" hidden>No ROM is kept in this browser yet: add one in Calculator. Or choose a ROM file here; that calculator starts empty and is not kept.</p>
     <div class="tx-dialog-actions">
@@ -272,35 +289,6 @@
   </form>
 </dialog>
 
-<dialog id="settings-dialog" class="tx-dialog" aria-labelledby="settings-title">
-  <form method="dialog" class="tx-dialog-box">
-    <h2 id="settings-title">Settings</h2>
-    <h3 class="caps">Connection</h3>
-    <label class="switch"><input id="set-find" type="checkbox" checked> <span>Find the speed and parity automatically</span></label>
-    <div class="settings-row">
-      <label for="set-baud">Speed</label>
-      <select id="set-baud">
-        <option value="9600">9600 baud</option>
-        <option value="4800">4800 baud</option>
-        <option value="2400">2400 baud</option>
-        <option value="1200">1200 baud</option>
-      </select>
-    </div>
-    <div class="settings-row">
-      <label for="set-parity">Parity</label>
-      <select id="set-parity">
-        <option value="none">None</option>
-        <option value="odd">Odd</option>
-        <option value="even">Even</option>
-      </select>
-    </div>
-    <p id="set-now" class="settings-note" hidden></p>
-    <p class="muted settings-note">Changes apply the next time you connect. A calculator starts at 9600 baud with no parity. The rest is fixed: Kermit, 8 data bits (7 with parity), one stop bit, no flow control.</p>
-    <div class="tx-dialog-actions">
-      <button class="primary" value="close" type="submit">Done</button>
-    </div>
-  </form>
-</dialog>
 
 <dialog id="name-dialog" class="tx-dialog" aria-labelledby="name-title">
   <form method="dialog" class="tx-dialog-box">

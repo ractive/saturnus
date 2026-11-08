@@ -54,6 +54,7 @@ export function inProcessWorker(TxDevice) {
             post: (msg) => setTimeout(() => !w.terminated && w.onmessage?.({ data: msg }), 0),
             seed: m.seed,
             listenMs: m.listenMs,
+            silenceMs: m.silenceMs,
           });
           w.onmessage?.({ data: { type: "ready" } });
           return;
@@ -164,4 +165,34 @@ test("the search names every speed it listened at when nothing answers", { timeo
   await assert.rejects(device.connect(), (err) => err.kind === "noAnswer");
   assert.deepEqual(heard.filter((e) => e.type === "listening").map((e) => e.settings.baud), [9600, 4800, 2400, 1200]);
   await device.close();
+});
+
+test("a calculator that goes silent fails the request as notAnswering, and the device waits for a connect", { timeout: 60_000 }, async (t) => {
+  const pkg = await load();
+  if (!pkg) {
+    t.skip("web/pkg not built (just web)");
+    return;
+  }
+  // The 48SX's recorded session up to the connect and the listing, then a calculator that takes every write and says nothing.
+  const link = new FakeLink(readFileSync(new URL("48sx-session.trace", TRACES), "utf8"));
+  const client = new ProtocolClient(link, { worker: () => inProcessWorker(pkg.TxDevice), seed: SEED, silenceMs: 300 });
+  const device = new KermitDevice(client);
+  const said = [];
+  device.addEventListener("notAnswering", () => said.push("notAnswering"));
+  try {
+    await device.connect();
+    await device.list(["HOME"]);
+    link.write = async () => {};
+    const started = performance.now();
+    await assert.rejects(device.read(["HOME"], "IOPAR"), (err) => err.kind === "notAnswering");
+    assert.ok(performance.now() - started < 5_000, "within the silence, not after the Kermit retries");
+    assert.deepEqual(said, ["notAnswering"]);
+    assert.equal(device.notAnswering, true);
+    assert.equal(client.notAnswering, true, "the device's state posted with the connection");
+    assert.equal(device.connection, null);
+    // Every request but a connect is refused at once.
+    await assert.rejects(device.list(["HOME", "X"]), (err) => err.kind === "notAnswering");
+  } finally {
+    await device.close();
+  }
 });

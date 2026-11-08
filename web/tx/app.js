@@ -27,7 +27,7 @@ import { confirmAction } from "../shared/components/confirm.js";
 import { iconEl, loadIcons } from "../shared/components/icons.js";
 import { placeToasts, toast } from "../shared/components/toast.js";
 import { HUB_RESTORE } from "./actions.js";
-import { SERIAL_MODELS, keptRomBytes, keptRoms } from "./kept-roms.js";
+import { APLET_MODELS, SERIAL_MODELS, keptRomBytes, keptRoms } from "./kept-roms.js";
 import { KermitDevice } from "./kermit-device.js";
 import { FakeLink, RecordingLink, WebSerialLink, hasWebSerial } from "./links.js";
 import { Folder, canPickFolder, fallbackFolder } from "./folder.js";
@@ -41,7 +41,7 @@ import { CableLog } from "./cable.js";
 import { CableView } from "./cable-view.js";
 import { connectRefusal, refusalText } from "../shared/site-links.js";
 import { nativeHub } from "../native-hub.js";
-import { EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, bytesText, linkSettings, progressText, settingsText } from "./flows.js";
+import { EMULATED_NAMES, MODELS, START_SERVER, bytesText, linkSettings, modelTitle, progressText } from "./flows.js";
 
 // ------------------------------------------------------------ preferences
 
@@ -94,12 +94,12 @@ export function mountFiles(root, { shown = () => true } = {}) {
     stage: $("files-stage"), panes: $("panes"), switch: $("pane-switch"), template: $("pane-template"),
     queue: $("queue"), queueList: $("queue-list"), cancelWaiting: $("cancel-waiting"),
     fileInput: $("file-input"), restoreInput: $("restore-input"), romInput: $("rom-input"),
-    connectDialog: $("connect-dialog"), connectModels: $("connect-models"), connectSteps: $("connect-steps"),
+    connectDialog: $("connect-dialog"), connectSteps: $("connect-steps"),
     connectGo: $("connect-go"), connectOther: $("connect-other"), connectKnown: $("connect-known"),
     connectAsk: $("connect-ask"), connectKind: $("connect-kind"), connectCable: $("connect-cable"), connectBack: $("connect-back"),
     portDialog: $("port-dialog"), portSelect: $("port-select"), portNone: $("port-none"), portAgain: $("port-again"), portGo: $("port-go"),
     emulatedDialog: $("emulated-dialog"), emulatedRoms: $("emulated-roms"), emulatedNone: $("emulated-none"), emulatedFile: $("emulated-file"),
-    settingsDialog: $("settings-dialog"), setFind: $("set-find"), setBaud: $("set-baud"), setParity: $("set-parity"),
+    setFixed: $("set-fixed"), setBaud: $("set-baud"), setParity: $("set-parity"),
     nameDialog: $("name-dialog"), nameTitle: $("name-title"), nameWhy: $("name-why"), nameInput: $("name-input"), nameProblem: $("name-problem"), nameOk: $("name-ok"),
     backupDialog: $("backup-dialog"), backupText: $("backup-text"), backupMemory: $("backup-memory"), backupAlt: $("backup-alt"),
     backupGo: $("backup-go"), backupCopy: $("backup-copy"), backupCancel: $("backup-cancel"),
@@ -211,7 +211,6 @@ export function mountFiles(root, { shown = () => true } = {}) {
     paneById: (id) => panes.find((p) => p.id === id) ?? null,
     openConnect: (pane) => openConnectDialog(pane),
     openEmulated: (pane) => openEmulatedDialog(pane),
-    openSettings: () => openSettings(),
     download: (name, bytes) => download(name, bytes),
     chooseFile: (fn) => choose(ui.restoreInput, (files) => files[0] && fn(files[0])),
     chooseFiles: (fn) => choose(ui.fileInput, fn),
@@ -225,7 +224,8 @@ export function mountFiles(root, { shown = () => true } = {}) {
     app,
     folders: () => panes.map((p) => (p.place?.kind === "folder" ? p.place.folder : null)).filter(Boolean),
   });
-  app.openServe = () => serve.show();
+  /** The serve screen; `calc` chosen already (`{key: "serial"}`, a kept ROM's). */
+  app.openServe = (calc = null) => serve.show({ calc });
   // The desktop app saves downloads through its save dialog.
   if (isTauri()) app.downloadDeps = { save: saveFile };
   app.transfers = new Transfers({
@@ -508,19 +508,24 @@ export function mountFiles(root, { shown = () => true } = {}) {
   /** The pane the connect and emulated dialogs fill. */
   let target = panes[0];
 
-  let connectModel = MODELS.includes(store.get(TRANSFER_KEYS.model)) ? store.get(TRANSFER_KEYS.model) : "48gx";
-
+  /**
+   * The connect step: how each model starts its server, in one table
+   * (Files reads the model and the server from the calculator), and the
+   * fixed speed under "Trouble with the cable?".
+   */
   function renderConnectDialog() {
-    const tabs = radioTabIndexes(MODELS, connectModel);
-    ui.connectModels.replaceChildren(...MODELS.map((m, i) => el("button", { type: "button", role: "radio", "aria-checked": String(m === connectModel), tabindex: String(tabs[i]), "data-model": m, text: MODEL_NAMES[m].replace(/^HP /, "") })));
-    const s = START_SERVER[connectModel];
-    ui.connectSteps.replaceChildren(
-      el("h3", { class: "caps", text: `On the ${s.title}` }),
-      el("ol", {}, ...s.steps.map((t) => el("li", { text: t }))),
-      el("p", { class: "keys", "aria-hidden": "true" }, ...s.keys.map((k) => el("kbd", { class: "calc-key", text: k }))),
-      el("p", { class: "muted", text: s.keysNote }),
-      el("p", { text: `${s.shown ?? SERVER_SHOWN} Then:` }),
-    );
+    ui.connectSteps.replaceChildren(el("table", { class: "connect-table" },
+      el("tbody", {}, ...MODELS.map((m) => {
+        const st = START_SERVER[m];
+        return el("tr", { "data-model": m },
+          el("th", { scope: "row", text: st.title }),
+          el("td", {},
+            el("p", { text: st.step }),
+            el("p", { class: "keys", "aria-hidden": "true" }, ...st.keys.map((k) => el("kbd", { class: "calc-key", text: k }))),
+            el("p", { class: "muted", text: st.note })));
+      }))),
+      el("p", { text: "The display then says “Awaiting Server Cmd.”, or “Xmodem server” after XSERV. Files finds the model and the server by itself." }));
+    renderSettings();
   }
 
   /** Whether the connect dialog offers a port given before ("Choose another port" then too). */
@@ -541,7 +546,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
       kind("48-49", "An HP 48 or 49", "48SX, 48GX or 49G: you start its server, Files shows its memory", "plug", () => connectCableStep(true)),
       kind("38-40", "An HP 38G, 39G or 40G", "These start every transfer themselves: Files serves them a folder", "calculator", () => {
         ui.connectDialog.close();
-        serve.show();
+        serve.show({ calc: { key: "serial" } });
       }),
     );
     connectCableStep(false);
@@ -554,29 +559,10 @@ export function mountFiles(root, { shown = () => true } = {}) {
     ui.connectBack.hidden = !cable;
     ui.connectGo.hidden = !cable;
     ui.connectOther.hidden = !cable || !connectHasKnown;
-    if (cable) ui.connectModels.querySelector('[aria-checked="true"]')?.focus();
+    if (cable) ui.connectGo.focus();
     else ui.connectKind.querySelector("button")?.focus();
   }
   ui.connectBack.addEventListener("click", () => connectCableStep(false));
-
-  function setConnectModel(m) {
-    connectModel = m;
-    store.set(TRANSFER_KEYS.model, m);
-    renderConnectDialog();
-    ui.connectModels.querySelector('[aria-checked="true"]')?.focus();
-  }
-
-  ui.connectModels.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-model]");
-    if (b) setConnectModel(b.dataset.model);
-  });
-  ui.connectModels.addEventListener("keydown", (e) => {
-    const next = radioStep(MODELS, connectModel, e.key);
-    if (next) {
-      e.preventDefault();
-      setConnectModel(next);
-    }
-  });
 
   /** A port the page was given before (Chrome remembers it) that no pane holds, or null. */
   async function knownPort() {
@@ -678,7 +664,8 @@ export function mountFiles(root, { shown = () => true } = {}) {
     }
     if (!port) return; // the app's chooser was cancelled
     ui.connectDialog.close();
-    await target.connectLink(makeLink(port), { model: connectModel, settings: app.settings });
+    // The model is read from the calculator.
+    await target.connectLink(makeLink(port), { model: null, settings: app.settings });
   }
 
   /**
@@ -755,15 +742,24 @@ export function mountFiles(root, { shown = () => true } = {}) {
   async function openEmulatedDialog(pane) {
     target = pane;
     const roms = await keptRoms();
-    ui.emulatedRoms.replaceChildren(...roms.map((r) => {
-      const b = el("button", { type: "button", class: "rom-choice" }, iconEl("calculator"), el("span", {}, el("strong", { text: EMULATED_NAMES[r.model] }), el("span", { class: "muted", text: r.name })));
-      b.addEventListener("click", async () => {
+    // A kept 38G, 39G or 40G ROM: these start every transfer themselves, so it opens the serve screen with it chosen.
+    const aplets = await keptRoms(undefined, APLET_MODELS).catch(() => []);
+    const choice = (r, sub, run) => {
+      const b = el("button", { type: "button", class: "rom-choice", "data-model": r.model }, iconEl("calculator"), el("span", {}, el("strong", { text: modelTitle(r.model) }), el("span", { class: "muted", text: sub })));
+      b.addEventListener("click", run);
+      return b;
+    };
+    ui.emulatedRoms.replaceChildren(
+      ...roms.map((r) => choice(r, r.name, async () => {
         ui.emulatedDialog.close();
         await addKept(target, r);
-      });
-      return b;
-    }));
-    ui.emulatedNone.hidden = roms.length > 0;
+      })),
+      ...aplets.map((r) => choice(r, `${r.name} · Files serves it a folder`, () => {
+        ui.emulatedDialog.close();
+        serve.show({ calc: { key: `rom:${r.sha256}:${r.model}`, rom: r } });
+      })),
+    );
+    ui.emulatedNone.hidden = roms.length + aplets.length > 0;
     ui.emulatedDialog.showModal();
   }
 
@@ -778,35 +774,42 @@ export function mountFiles(root, { shown = () => true } = {}) {
       say(`${f.name} is larger than any calculator's ROM (${bytesText(MAX_ROM_FILE)} at most).`, { error: true });
       return;
     }
-    // Its model is known once it boots.
-    await target.addEmulated(new Uint8Array(await f.arrayBuffer()), f.name, null);
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    // What the ROM is (the core's identify_rom): a 38G, 39G or 40G's opens
+    // the serve screen with it, as these start every transfer themselves
+    // (a 512 KB file may be a 38G's or a 48GX's: only a known one is told).
+    let models = [];
+    try {
+      models = (await helpers()).identify_rom(bytes)?.models ?? [];
+    } catch {
+      models = [];
+    }
+    if (models.length && models.every((m) => APLET_MODELS.includes(m))) {
+      serve.show({ calc: { key: "file", bytes, name: f.name } });
+      return;
+    }
+    // Else its model is known once it boots.
+    await target.addEmulated(bytes, f.name, models.length === 1 && SERIAL_MODELS.includes(models[0]) ? models[0] : null);
   });
 
-  // ------------------------------------------------------------ settings
+  // ------------------------------------------------------------ the fixed speed
 
+  /** The fixed speed under the connect step's "Trouble with the cable?": off, Files searches. */
   function renderSettings() {
-    const now = $("set-now");
-    // The emulator's calculator has no line: no speed, no parity to say.
-    const conn = panes.map((p) => (p.place?.kind === "device" && p.place.device.connection?.settings ? `${p.place.heading}, ${settingsText(p.place.device.connection.settings)}` : null)).filter(Boolean);
-    now.hidden = !conn.length;
-    now.textContent = conn.length ? `Connected now: ${conn.join("; ")}.` : "";
-    ui.setFind.checked = app.settings.find;
+    ui.setFixed.checked = !app.settings.find;
     ui.setBaud.value = String(app.settings.baud);
     ui.setParity.value = app.settings.parity;
+    ui.setBaud.disabled = app.settings.find;
+    ui.setParity.disabled = app.settings.find;
   }
 
   function saveSettings() {
-    app.settings = { find: ui.setFind.checked, baud: Number(ui.setBaud.value), parity: ui.setParity.value };
+    app.settings = { find: !ui.setFixed.checked, baud: Number(ui.setBaud.value), parity: ui.setParity.value };
     store.set(TRANSFER_KEYS.link, JSON.stringify(app.settings));
-  }
-
-  function openSettings() {
     renderSettings();
-    ui.settingsDialog.showModal();
   }
 
-  for (const input of [ui.setFind, ui.setBaud, ui.setParity]) input.addEventListener("change", saveSettings);
-  $("open-settings").addEventListener("click", openSettings);
+  for (const input of [ui.setFixed, ui.setBaud, ui.setParity]) input.addEventListener("change", saveSettings);
 
   // ------------------------------------------------------------ start
 

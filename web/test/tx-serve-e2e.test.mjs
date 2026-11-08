@@ -50,10 +50,12 @@ for (const { model, file, family, library, disk } of MODELS) {
     await p.open(c.port);
     await ev(`tx.memoryFolder(1, "aplets").then(() => true)`);
 
-    // The serve screen: the folder of the right pane is offered; an emulated calculator from a ROM file.
-    await ev(`tx.serve.show().then(() => true)`);
+    // The ROM file chosen in "Add an emulated calculator…": a 38G, 39G or 40G opens the serve screen
+    // with it chosen (iteration 70); the folder of the right pane is offered.
+    await ev(`fetch("/${file}").then((r) => r.arrayBuffer()).then((b) => { const dt = new DataTransfer(); dt.items.add(new File([b], ${JSON.stringify(file)})); const input = document.getElementById("rom-input"); input.files = dt.files; input.dispatchEvent(new Event("change")); return true; })`);
+    await p.until(`!document.getElementById("serve").hidden && document.querySelector('#serve [data-calc="file"]')?.getAttribute("aria-checked") === "true"`, 240_000, `${model}: the serve screen with the ROM file`);
     assert.equal(await ev(`document.querySelector("#serve .serve-choice").textContent`), "aplets");
-    await ev(`fetch("/${file}").then((r) => r.arrayBuffer()).then((b) => { tx.serve.setCalc({ key: "file", bytes: new Uint8Array(b), name: ${JSON.stringify(file)} }); return true; })`);
+    assert.equal(await ev(`[...document.querySelectorAll(".toast.error")].length`), 0, "no refusal said");
     await ev(`(window.__serving = tx.serve.start().then(() => true), true)`);
     await p.until(`window.__serving && (!!tx.serve.session || !tx.serve.busy)`, 240_000, `${model}: booted`);
     await ev(`window.__serving`);

@@ -501,7 +501,8 @@ pub fn outcome_json(o: Outcome) -> (Value, Attached) {
 /// `namesInUse` (`names`: send the tree put again with `replace`),
 /// `notADirectory`, `duplicate`, `noRoom` (`needed`, `free`),
 /// `restarted` (reconnect), `leftServer` (reconnect after a fast
-/// transfer), `notForXmodem`, `xmodemTimeout` (nobody started XRECV or
+/// transfer), `notAnswering` (the calculator stopped answering:
+/// reconnect once its server runs), `notForXmodem`, `xmodemTimeout` (nobody started XRECV or
 /// XSEND), `calculator`.
 pub fn error_json(e: &TxError) -> Value {
     let (kind, name) = match e {
@@ -522,6 +523,7 @@ pub fn error_json(e: &TxError) -> Value {
         TxError::Restarted => ("restarted", None),
         TxError::Partial { .. } => ("partial", None),
         TxError::LeftServer => ("leftServer", None),
+        TxError::NotAnswering => ("notAnswering", None),
         TxError::NotForXmodem(_) => ("notForXmodem", None),
         TxError::Calc(satx_core::Error::Xmodem(satx_core::xmodem_proto::Error::Timeout)) => {
             ("xmodemTimeout", None)
@@ -632,12 +634,24 @@ impl TxDevice {
 impl TxDevice {
     /// A device for one link; `seed` should be random (the sync markers),
     /// `listen_ms` how long the speed search listens at each speed (the
-    /// default 6000 when absent).
+    /// default 6000 when absent), `silence_ms` how long the calculator may
+    /// say nothing before it counts as not answering, for the Kermit
+    /// server and XSERV alike (the defaults, 25 s and 8 s, when absent;
+    /// tests make it short).
     #[wasm_bindgen(constructor)]
-    pub fn new(now_ms: f64, seed: f64, listen_ms: Option<f64>) -> TxDevice {
+    pub fn new(
+        now_ms: f64,
+        seed: f64,
+        listen_ms: Option<f64>,
+        silence_ms: Option<f64>,
+    ) -> TxDevice {
         let mut options = DeviceOptions::default();
         if let Some(ms) = listen_ms.filter(|ms| *ms > 0.0) {
             options.listen = Duration::from_millis(ms as u64);
+        }
+        if let Some(ms) = silence_ms.filter(|ms| *ms > 0.0) {
+            options.silence_kermit = Duration::from_millis(ms as u64);
+            options.silence_xserv = Duration::from_millis(ms as u64);
         }
         let base = Instant::now();
         TxDevice {
@@ -706,6 +720,13 @@ impl TxDevice {
     #[wasm_bindgen(js_name = leftServer)]
     pub fn left_server(&self) -> bool {
         self.device.left_server()
+    }
+
+    /// Whether the calculator stopped answering since the last connect:
+    /// every request but `connect` fails with `notAnswering`.
+    #[wasm_bindgen(js_name = notAnswering)]
+    pub fn not_answering(&self) -> bool {
+        self.device.not_answering()
     }
 
     /// Whether a request runs.
@@ -1115,7 +1136,7 @@ mod tests {
     #[test]
     fn the_clock_reaches_its_deadline() {
         for base in [1000.0, 0.1, 123_456.789] {
-            let mut d = TxDevice::new(base, 1.0, None);
+            let mut d = TxDevice::new(base, 1.0, None, None);
             let now = d.at(base + 6690.0 - 1e-9);
             d.device
                 .start(now, Request::Connect(Default::default()))
@@ -1373,6 +1394,7 @@ mod tests {
         );
         assert_eq!(p(256, None), json!({"type": "progress", "done": 256}));
         assert_eq!(error_json(&TxError::LeftServer)["kind"], "leftServer");
+        assert_eq!(error_json(&TxError::NotAnswering)["kind"], "notAnswering");
         assert_eq!(
             error_json(&TxError::NotForXmodem("why".into()))["kind"],
             "notForXmodem"

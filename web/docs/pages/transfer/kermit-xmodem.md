@@ -30,7 +30,7 @@ A Kermit **server** waits for commands from the **client**: send a file, take a 
 |---|---|
 | HP 48S, 48SX | type `SERVER` and press ENTER |
 | HP 48G series | right-shift, then → (the right arrow) |
-| HP 49G | right-shift and → quickly, or type `SERVER` and press ENTER; with a pause between the two keys they start XSERV, the XModem server, which typing `XSERV` and ENTER starts too |
+| HP 49G | type `SERVER` and press ENTER; right-shift and → pressed quickly start it too, but with a pause between the two keys they start XSERV, the XModem server, which typing `XSERV` and ENTER starts as well |
 
 The display then says "Awaiting Server Cmd.".
 

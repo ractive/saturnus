@@ -1588,6 +1588,17 @@ struct XservCalc {
     kermit_in_xserv: usize,
     /// XSERV command bytes other than `M` that reached the Kermit server.
     xserv_in_kermit: usize,
+    /// After `P`: its name packet comes next, then an XModem receive.
+    expect_put: bool,
+    /// The name of the XModem receive running, if one runs.
+    receiving: Option<String>,
+    /// The blocks received in it, and the variables stored by `P`.
+    blocks: usize,
+    stored: Vec<String>,
+    /// How long a block takes on the wire before its ACK (the link's
+    /// speed), and the block whose first ACK is lost.
+    block_time: Duration,
+    lose_ack_of: Option<usize>,
 }
 
 impl XservCalc {
@@ -1609,10 +1620,46 @@ impl XservCalc {
             home_integer: false,
             kermit_in_xserv: 0,
             xserv_in_kermit: 0,
+            expect_put: false,
+            receiving: None,
+            blocks: 0,
+            stored: Vec::new(),
+            block_time: Duration::from_millis(5),
+            lose_ack_of: None,
+        }
+    }
+
+    /// XModem receive (after `P`): HP's CRC asked with `D`, each block
+    /// ACKed once it is through the wire (the first ACK of `lose_ack_of`
+    /// lost), the EOT ACKed and the variable stored.
+    fn xmodem_rx(&mut self, w: &[u8]) -> Option<(Duration, Vec<Vec<u8>>)> {
+        let name = self.receiving.clone()?;
+        match w.first() {
+            Some(0x01 | 0x02) => {
+                self.blocks += 1;
+                if self.lose_ack_of == Some(self.blocks) {
+                    self.lose_ack_of = None;
+                    self.blocks -= 1;
+                    return Some((self.block_time, Vec::new()));
+                }
+                Some((self.block_time, vec![vec![0x06]]))
+            }
+            Some(0x04) => {
+                self.receiving = None;
+                self.stored.push(name);
+                Some((Duration::from_millis(5), vec![vec![0x06]]))
+            }
+            _ => Some((Duration::from_millis(5), Vec::new())),
         }
     }
 
     fn xserv(&mut self, now: Instant, w: &[u8]) -> Vec<Vec<u8>> {
+        if self.expect_put && w.len() >= 3 {
+            self.expect_put = false;
+            self.receiving = Some(String::from_utf8_lossy(&w[2..w.len() - 1]).to_string());
+            self.blocks = 0;
+            return vec![vec![0x06], b"D".to_vec()];
+        }
         if self.expect_packet && w.len() >= 3 {
             self.expect_packet = false;
             let text = String::from_utf8_lossy(&w[2..w.len() - 1]).to_string();
@@ -1651,6 +1698,9 @@ impl XservCalc {
                     if self.id_stored {
                         d.extend(record("SATXID", self.id_prolog, 10));
                     }
+                    for n in &self.stored {
+                        d.extend(record(n, 0x2A2C, 2100));
+                    }
                     d
                 } else {
                     let mut d = record("X", 0x2933, 21);
@@ -1663,6 +1713,10 @@ impl XservCalc {
             }
             b"E" => {
                 self.expect_packet = true;
+                Vec::new()
+            }
+            b"P" => {
+                self.expect_put = true;
                 Vec::new()
             }
             b"Q" => {
@@ -1742,6 +1796,14 @@ impl Peer for XservCalc {
         let Action::Write(w) = action else {
             return;
         };
+        if self.serving == Serving::Xserv
+            && let Some((delay, replies)) = self.xmodem_rx(w)
+        {
+            for bytes in replies {
+                self.due.push_back((now + delay, bytes));
+            }
+            return;
+        }
         let replies = match self.serving {
             Serving::Xserv => self.xserv(now, w),
             Serving::Kermit => self.kermit(now, w),
@@ -2024,4 +2086,197 @@ fn a_restore_over_xserv_puts_the_users_transfer_mode_back() {
         .expect("RESTORE");
     let cf = peer.executed.iter().rposition(|c| c == "-35 CF");
     assert!(cf.is_some_and(|cf| cf < restore), "{:?}", peer.executed);
+}
+
+/// The Kermit server goes silent (ON pressed, the cable pulled): a get
+/// fails as `NotAnswering` after the silence allowed, not after the
+/// Kermit retries (two minutes and more); the session is over, and every
+/// request but a connect is refused without a byte sent.
+#[test]
+fn a_silent_kermit_server_is_not_answering_within_the_silence() {
+    let trace = trace("48sx").before_note("request get PRG binary");
+    let mut host = Host::new();
+    let mut replay = Replay::new(&trace, host.clock);
+    let mut driver = |label: &str, request| {
+        if label == "get PRG binary" {
+            return Err(TxError::Busy);
+        }
+        host.run(&mut replay, request)
+    };
+    scenario::run("48sx", &mut driver).unwrap_err();
+    let mut silent = then(&Trace::new(), host.clock, |_| Vec::new());
+    let before = host.clock;
+    let result = host.run(
+        &mut silent,
+        Request::Get {
+            dir: vec![],
+            name: "PRG".into(),
+            format: saturnus_tx::Format::Binary,
+        },
+    );
+    assert!(matches!(result, Err(TxError::NotAnswering)), "{result:?}");
+    let took = host.clock - before;
+    let silence = DeviceOptions::default().silence_kermit;
+    assert!(
+        took >= silence && took < silence + Duration::from_secs(2),
+        "{took:?}"
+    );
+    assert!(host.device.not_answering());
+    assert!(host.device.connection().is_none());
+    let writes = silent.actions.len();
+    let again = host.run(&mut silent, Request::List { dir: vec![] });
+    assert!(matches!(again, Err(TxError::NotAnswering)), "{again:?}");
+    assert_eq!(silent.actions.len(), writes, "nothing sent");
+}
+
+/// XSERV goes silent: a listing of a directory not seen yet (an `E` to
+/// walk there, then `L`) fails as `NotAnswering` after XSERV's silence,
+/// not after the 60 s it waits for a calculator busy with an `E`.
+#[test]
+fn a_silent_xserv_is_not_answering_within_its_silence() {
+    let mut peer = XservCalc::new();
+    let mut host = xserv_connected(&mut peer);
+    peer.serving = Serving::Nothing;
+    // Some time after the connect's last `E` (right after it, a busy
+    // calculator still has XSERV's 60 s).
+    host.clock += Duration::from_secs(120);
+    let before = host.clock;
+    let result = host.run(
+        &mut peer,
+        Request::List {
+            dir: vec!["D".into()],
+        },
+    );
+    assert!(matches!(result, Err(TxError::NotAnswering)), "{result:?}");
+    let took = host.clock - before;
+    let silence = DeviceOptions::default().silence_xserv;
+    assert!(
+        took >= silence && took < silence + Duration::from_secs(3),
+        "{took:?}"
+    );
+    assert!(host.device.not_answering());
+    assert!(host.device.connection().is_none());
+}
+
+/// A 1K XModem block over XSERV at 1200 baud takes 8.6 s before its ACK,
+/// longer than XSERV's 8 s silence: the put goes through, as the watchdog
+/// allows XModem's timeout and one block at the link's speed.
+#[test]
+fn a_1k_put_over_xserv_at_1200_baud_is_not_cut_off() {
+    let mut peer = XservCalc::new();
+    let mut host = Host::new();
+    let settings = LinkSettings {
+        baud: 1200,
+        parity: Parity::None,
+    };
+    let connected = host.run(
+        &mut peer,
+        Request::Connect(saturnus_tx::device::ConnectOptions {
+            find: false,
+            settings,
+        }),
+    );
+    assert!(
+        matches!(connected, Ok(Outcome::Connected(_))),
+        "{connected:?}"
+    );
+    peer.block_time = Duration::from_secs_f64(1029.0 * 10.0 / 1200.0);
+    let result = host.run(&mut peer, big_put("BIG"));
+    assert!(matches!(result, Ok(Outcome::Stored(_))), "{result:?}");
+    assert_eq!(peer.blocks, 2);
+    assert!(!host.device.not_answering());
+}
+
+/// An ACK lost during an XModem put over XSERV: the sender sends the
+/// block again after XModem's 10 s timeout, longer than XSERV's 8 s
+/// silence, and the put goes through.
+#[test]
+fn a_lost_ack_in_an_xserv_put_is_recovered() {
+    let mut peer = XservCalc::new();
+    let mut host = xserv_connected(&mut peer);
+    peer.lose_ack_of = Some(1);
+    let result = host.run(&mut peer, big_put("BIG"));
+    assert!(matches!(result, Ok(Outcome::Stored(_))), "{result:?}");
+    assert!(!host.device.not_answering());
+}
+
+/// A string of 2,000 characters as a 49G binary file (prolog #02A2C, a
+/// 5-nibble length, two nibbles a character): two 1K blocks.
+fn big_put(name: &str) -> Request {
+    let nibbles: u32 = 5 + 2 * 2000;
+    let mut nib: Vec<u8> = vec![0xC, 0x2, 0xA, 0x2, 0x0];
+    nib.extend((0..5).map(|k| ((nibbles >> (4 * k)) & 0xF) as u8));
+    for _ in 0..2000 {
+        nib.extend([0x1, 0x4]);
+    }
+    let mut data = b"HPHP49-C".to_vec();
+    data.extend(
+        nib.chunks(2)
+            .map(|p| p[0] | (p.get(1).copied().unwrap_or(0) << 4)),
+    );
+    Request::Put {
+        dir: vec![],
+        name: name.into(),
+        data,
+        replace: false,
+        as_string: false,
+    }
+}
+
+/// The Kermit server goes silent when a replacing put sends its copy: the
+/// put fails as `NotAnswering` after the silence, and the purge of the
+/// copy is not sent to a calculator that does not answer (it would wait
+/// the Kermit timeout again), so the pane learns it after one silence.
+#[test]
+fn after_the_watchdog_nothing_more_goes_out() {
+    let trace = cut(&trace("48sx"), "put PRG replace", |b| kind(b) == Some(b'S'));
+    let mut peer = then(&trace, Instant::now(), |_| Vec::new());
+    let mut host = Host::new();
+    let mut started = None;
+    let mut driver = |label: &str, request| {
+        if label == "put PRG replace" {
+            started = Some(host.clock);
+        }
+        host.run(&mut peer, request)
+    };
+    let stopped = scenario::run("48sx", &mut driver).unwrap_err();
+    assert!(stopped.starts_with("put PRG"), "{stopped}");
+    assert!(host.device.not_answering(), "{stopped}");
+    let took = host.clock - started.expect("the put started");
+    let silence = DeviceOptions::default().silence_kermit;
+    assert!(took < silence + Duration::from_secs(3), "{took:?}");
+    assert!(
+        !peer
+            .actions
+            .iter()
+            .any(|a| matches!(a, Action::Write(b) if contains(b, b"PURGE"))),
+        "no purge after the silence"
+    );
+}
+
+/// The Kermit server is silent when a listing of another directory sends
+/// its `HOME X` host command: satx-core gives up on the command after the
+/// Kermit timeout, before the silence runs out, and that counts as not
+/// answering too (nothing came at all).
+#[test]
+fn a_host_command_with_no_byte_back_is_not_answering() {
+    let trace = trace("48sx").before_note("request get PRG binary");
+    let mut host = Host::new();
+    let mut replay = Replay::new(&trace, host.clock);
+    let mut driver = |label: &str, request| {
+        if label == "get PRG binary" {
+            return Err(TxError::Busy);
+        }
+        host.run(&mut replay, request)
+    };
+    scenario::run("48sx", &mut driver).unwrap_err();
+    let mut silent = then(&Trace::new(), host.clock, |_| Vec::new());
+    let result = host.run(
+        &mut silent,
+        Request::List {
+            dir: vec!["NOWHERE".into()],
+        },
+    );
+    assert!(matches!(result, Err(TxError::NotAnswering)), "{result:?}");
+    assert!(host.device.not_answering());
 }

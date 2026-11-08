@@ -1326,8 +1326,10 @@ and checks that the code uses only these.
 `web/tx/` is Files, the app's view at `#/files` (`kb/docs/saturnus-tx.md`;
 `mountFiles(root, {shown})` in `tx/app.js`, its markup `#files-view` in
 `index.html`, its styles under `:where(#files-view)`): files between HP 48S/SX, 48G/GX and 49G
-calculators in Kermit server mode (on a serial cable through Web Serial
-in Chrome and Edge on a computer, or emulated in the page) and folders
+calculators in server mode (the Kermit server, or XSERV on the 49G; on a
+serial cable through Web Serial in Chrome, Edge and Firefox on a
+computer, Firefox not yet tried on a cable, or emulated in the page)
+and folders
 on the computer. Two panes, each showing a place: the left one a
 calculator, the right one a folder or a second calculator, each with
 its directory tree (`<device-tree>`), the list of the shown directory
@@ -1368,8 +1370,8 @@ with a switch above them.
   `preview.js` the preview through `shared/objects.js` and
   `shared/graphic.js`; `pane.js` one pane (its place, tree, list,
   preview, actions, drops); `app.js` the composition root, the queue's
-  list and the dialogs (connect, emulated calculator, settings, a name,
-  the backup).
+  list and the dialogs (connect with the fixed speed, emulated
+  calculator, a name, the backup).
 - **Shared calculators**: an emulated 48SX,
   48GX or 49G started from a ROM Calculator keeps is Calculator's own
   live calculator of that model, shown by both views at once. The
@@ -1418,8 +1420,10 @@ with a switch above them.
   one native calculator, through `native-hub.js` instead of the hub: its
   kept ROMs are the app's ROM library's (`kept-roms.js`, `emulator_roms`),
   a model other than the one running gets a private calculator.
-- **Places**: "Change" in a pane's head shows a calculator on a cable, an
-  emulated one, a folder on this computer (Chrome and Edge:
+- **Places**: "Change" in a pane's head, with the empty card's labels
+  ("Add a calculator…", "Add an emulated calculator…", "Open a
+  folder…", "Use files in this browser"), shows a calculator on a
+  cable, an emulated one, a folder on this computer (Chrome and Edge:
   `showDirectoryPicker` with read and write asked at once, the handle
   kept for the next visit, when "Allow" asks again before anything is
   listed) or "Files in this browser" (OPFS, or memory; the right pane's
@@ -1451,8 +1455,10 @@ with a switch above them.
   `#/calculator/<model>` shows Calculator on that calculator, in the same
   document, which Files goes on using.
 - **Aplets** (38G, 39G, 40G): "Serve a folder to a 38G, 39G or 40G"
-  ("Add a calculator", then "An HP 38G, 39G or 40G"; "Change"; the left
-  pane's empty state without a serial port) opens
+  ("Add a calculator…", then "An HP 38G, 39G or 40G", the cable chosen;
+  a kept 38G, 39G or 40G ROM in "Add an emulated calculator…", or such
+  a ROM file chosen there, that calculator chosen; the left pane's
+  empty state and the Change menu without a serial port) opens
   `serve.js` over the panes (`serve.css`): a folder and a calculator (on
   a cable, or emulated from a kept or chosen 38G, 39G or 40G ROM, its
   display and the keys a transfer needs shown), then the waiting screen
@@ -1465,14 +1471,44 @@ with a switch above them.
   `serve-flows.js` has the words (pure). Tests: `tx-serve.test.mjs`
   (ROM-free, the 38G's recorded session) and `tx-serve-e2e.test.mjs`
   (`just tx-e2e`, the emulated 38G and 39G).
-- **Connect**: "Add a calculator" asks first which kind: "An HP 48 or
-  49" goes on, "An HP 38G, 39G or 40G" opens the serve screen. It names
-  the model's keys for SERVER
-  (the 49G's right-shift and → quickly, no pause), then Chrome's port
-  chooser (a port given before connects in one click). The search finds
-  speed and parity unless the settings fix them; the model comes from
-  `VERSION`. Disconnect ends server mode; on a 49G the page says that a
-  server started in algebraic mode leaves the stack packed in one list.
+- **Connect**: "Add a calculator…" asks first which kind: "An HP 48 or
+  49" goes on, "An HP 38G, 39G or 40G" opens the serve screen. One step
+  then lists every model's keys (`flows.js`'s `START_SERVER`, no model
+  to pick: `SERVER` on the 48S/SX, right-shift then → on the 48G
+  series, `XSERV` on the 49G, or `SERVER` for its Kermit server), then
+  the browser's port chooser (a port given before connects in one
+  click). "Trouble with the cable?" has "Use a fixed speed" (speed and
+  parity, stored; no Settings dialog since iteration 70). The search
+  sends XSERV's `M` first at each speed, then finds speed and parity
+  unless a fixed speed is set; the model comes from `VERSION` (from XSERV: the 49G, told
+  from an HP 48 running XSrvr48, which is refused). Disconnect ends
+  server mode (FINISH, or XSERV's `Q`); on a 49G the page says that a
+  Kermit server started in algebraic mode leaves the stack packed in
+  one list.
+- **XSERV** (49G): list, get, put and free memory over XSERV itself;
+  changes and directory walks as RPL through its `E`, each checked by a
+  listing; a text get or put, PICT, backup and restore on the Kermit
+  server started inside XSERV and ended again. The status says
+  "Connected to XSERV"; on a 49G's Kermit server on a cable a note under
+  the pane's head (`.pane-hint`, `flows.js` `xservHint`) says once that
+  XSERV copies faster, closed by its button.
+- **Fast transfer** (`xmodem.js`; the 48GX, and a 49G whose ROM has no
+  XSERV, `hasXmodem(model, version)`; a 49G with XSERV copies as fast over it):
+  "Fast transfer …(XModem)…" on a variable, in the calculator's "⋯"
+  and on a folder's `.hp`; the device leaves `« 'NAME' XSEND »` (or
+  `XRECV`) on the stack and ends the server, the dialog says to press
+  EVAL (right-shift SYMB on the 49G; "Press the keys for me" on an
+  emulated one) and how to start the server again, then offers
+  "Reconnect".
+- **Not answering**: saturnus-tx's watchdog fails an operation the
+  calculator answers at once when it sends nothing for 25 s (Kermit) or
+  8 s (XSERV; an XModem transfer its timeout plus a block at the link's
+  speed), kind `notAnswering`; the driver posts the device's state with
+  the connection after every request (`ProtocolClient.notAnswering`, so
+  a tree put's `partial` counts too); `KermitDevice` sets `notAnswering`
+  and fires the event, the pane shows "The calculator stopped answering"
+  with the model's keys (`restartWords`, as after a restore or a fast
+  transfer) and Reconnect.
 - **Copies**: rows dragged to the other pane, F5, or "Copy to the other
   pane" in a row's menu; files dragged from the file manager onto a pane
   (and folders, where the browser gives them: `webkitGetAsEntry`), into
@@ -1509,7 +1545,7 @@ with a switch above them.
   folder's `.hp` and `%%HP:` files decoded the same way. "Graphics
   screen" in a calculator's "⋯" shows PICT as a GROB, with a button to
   save it.
-- **Without Web Serial** (Firefox, Safari, phones) the page says so and
+- **Without Web Serial** (Safari, phones) the page says so and
   offers the emulated calculator; without a folder picker the right pane
   holds the files in this browser.
 - **Tests**: `web/test/tx-flows.test.mjs` (pure modules, the device with
