@@ -23,6 +23,8 @@
 //!   satx CLI names files the same way.
 //! - [`xmodem`]: the fast transfer of the 48GX and 49G (XModem, the user
 //!   pressing EVAL on the calculator for `XRECV` or `XSEND`).
+//! - [`xserv`]: a 49G running XSERV, the XModem server: the requests over
+//!   it, and the Kermit server nested in it for what XSERV cannot do.
 //! - [`trace`]: recorded serial traffic with its timing, and its replay
 //!   against a [`Device`] on a fake clock (the unit tests; a fake link for
 //!   the page).
@@ -43,6 +45,7 @@ mod ops;
 mod search;
 pub mod trace;
 pub mod xmodem;
+pub mod xserv;
 
 pub use device::{
     Action, Backup, Connection, Device, DeviceOptions, Entry, Event, File, Format, LinkSettings,
@@ -50,3 +53,4 @@ pub use device::{
 };
 pub use satx_core::{Model, Progress};
 pub use search::{hear, probe};
+pub use xserv::Server;

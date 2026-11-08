@@ -519,7 +519,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
       el("ol", {}, ...s.steps.map((t) => el("li", { text: t }))),
       el("p", { class: "keys", "aria-hidden": "true" }, ...s.keys.map((k) => el("kbd", { class: "calc-key", text: k }))),
       el("p", { class: "muted", text: s.keysNote }),
-      el("p", { text: `${SERVER_SHOWN} Then:` }),
+      el("p", { text: `${s.shown ?? SERVER_SHOWN} Then:` }),
     );
   }
 

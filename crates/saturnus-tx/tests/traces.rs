@@ -254,8 +254,8 @@ fn flag_35_is_set_for_the_session_and_put_back() {
     }
 }
 
-/// Nothing answers at any speed: four settings tried, 6 s each, no
-/// connection.
+/// Nothing answers at any speed: four settings tried, 1.5 s for XSERV's
+/// answer to `M` and 6 s for the Kermit server's each, no connection.
 #[test]
 fn no_answer_tries_every_speed() {
     let mut host = Host::new();
@@ -266,10 +266,12 @@ fn no_answer_tries_every_speed() {
     };
     let speeds: Vec<u32> = tried.iter().map(|s| s.baud).collect();
     assert_eq!(speeds, [9600, 4800, 2400, 1200]);
-    assert_eq!(host.elapsed(), Duration::from_secs(24));
-    // Each speed: open, the probe in three framings, again halfway.
-    assert_eq!(peer.actions.len(), 28);
-    let probes: Vec<&Action> = peer.actions[1..7].iter().collect();
+    assert_eq!(host.elapsed(), Duration::from_secs(30));
+    // Each speed: open, XSERV's M, the probe in three framings, again
+    // halfway.
+    assert_eq!(peer.actions.len(), 32);
+    assert_eq!(peer.actions[1], Action::Write(b"M".to_vec()));
+    let probes: Vec<&Action> = peer.actions[2..8].iter().collect();
     let framed: Vec<Action> = [Parity::None, Parity::Odd, Parity::Even]
         .into_iter()
         .map(|p| Action::Write(probe(p)))
@@ -364,9 +366,10 @@ fn the_wrong_speed_is_searched_past() {
             Event::Found(at(2400)),
         ]
     );
-    // 6 s at 9600 and at 4800, then the connection at 2400.
+    // 7.5 s at 9600 and at 4800, 1.5 s for XSERV at 2400, then the
+    // connection.
     assert!(
-        (12..14).contains(&host.elapsed().as_secs()),
+        (16..19).contains(&host.elapsed().as_secs()),
         "{:?}",
         host.elapsed()
     );
@@ -402,7 +405,8 @@ fn the_parity_is_found() {
         .before_note("request list")
         .steps
         .iter()
-        .skip_while(|(_, s)| !matches!(s, Step::Out(_)))
+        // The Kermit probe, after XSERV's M.
+        .skip_while(|(_, s)| !matches!(s, Step::Out(b) if b.first() == Some(&0x01)))
         .skip(1)
         .take_while(|(_, s)| matches!(s, Step::In(_)))
         .flat_map(|(_, s)| match s {
@@ -472,7 +476,8 @@ fn the_parity_is_found() {
             expected_opens.iter().collect::<Vec<_>>(),
             "{parity:?}"
         );
-        assert!(host.elapsed() < Duration::from_secs(2), "{parity:?}");
+        // XSERV's 1.5 s, then the probes 0.5 s apart.
+        assert!(host.elapsed() < Duration::from_millis(3500), "{parity:?}");
         if parity == Parity::None {
             continue;
         }

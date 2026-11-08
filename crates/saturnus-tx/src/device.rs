@@ -69,6 +69,7 @@ use crate::names::{self, FileKind};
 use crate::ops;
 use crate::search::{hear, probe};
 use crate::xmodem;
+use crate::xserv::{self, Server, XservSession};
 
 /// The speeds the search tries, in order (IOPAR's four, wiki:
 /// protocols/iopar).
@@ -440,8 +441,13 @@ pub struct Connection {
     pub model: Model,
     /// The ROM version text; `None` on the 48S/SX.
     pub version: Option<String>,
-    /// The transfer mode the user had (flag -35), put back at disconnect.
+    /// The transfer mode the user had (flag -35), put back at disconnect;
+    /// binary under XSERV, which leaves the flag alone.
     pub user_mode: TransferMode,
+    /// The server that answered: the Kermit server, or XSERV (the 49G),
+    /// which then also reaches the Kermit server nested in it
+    /// ([`crate::xserv`]).
+    pub server: Server,
 }
 
 /// A variable got from the calculator.
@@ -472,6 +478,13 @@ pub enum Outcome {
     Stored(String),
     /// Server mode ended.
     Disconnected,
+    /// XSERV was asked to end (`Q`): whether it did. Either way the device
+    /// has let go of the calculator; one that still runs XSERV ends it
+    /// with ON.
+    XservQuit {
+        /// Whether XSERV ended.
+        ended: bool,
+    },
     /// The directory made.
     Created(String),
     /// A variable or directory renamed.
@@ -656,6 +669,8 @@ pub(crate) struct Session {
     pub(crate) connection: Connection,
     /// The calculator's current directory, when known.
     pub(crate) cwd: Option<Vec<String>>,
+    /// An XSERV session's own state; `None` for the Kermit server.
+    pub(crate) xserv: Option<XservSession>,
 }
 
 #[derive(Debug)]
@@ -1021,6 +1036,11 @@ impl Ctx {
 
     /// Collect input until a packet is heard or `until`.
     async fn listen(&self, until: Instant) -> Result<Vec<u8>> {
+        self.listen_for(until, |heard| hear(heard).is_some()).await
+    }
+
+    /// Collect input until `enough` says so or `until`.
+    async fn listen_for(&self, until: Instant, enough: impl Fn(&[u8]) -> bool) -> Result<Vec<u8>> {
         {
             let mut sh = self.lock();
             sh.listening = true;
@@ -1032,7 +1052,7 @@ impl Ctx {
             if let Some((kind, msg)) = sh.link_error.take() {
                 return Poll::Ready(Err(TxError::Calc(io::Error::new(kind, msg).into())));
             }
-            if hear(&sh.heard).is_some() || sh.now >= until {
+            if enough(&sh.heard) || sh.now >= until {
                 return Poll::Ready(Ok(std::mem::take(&mut sh.heard)));
             }
             sh.wake = Some(until);
@@ -1043,12 +1063,54 @@ impl Ctx {
         heard
     }
 
+    /// Send XSERV's `M` and listen [`xserv::PROBE_WAIT`] for its answer;
+    /// an answer is ACKed.
+    async fn probe_xserv(&self) -> Result<bool> {
+        self.write(vec![b'M']);
+        let until = self.lock().now + xserv::PROBE_WAIT;
+        let heard = self
+            .listen_for(until, |h| satx_core::xserv::memory_reply(h).is_some())
+            .await?;
+        let found = satx_core::xserv::memory_reply(&heard).is_some();
+        if found {
+            self.write(vec![satx_core::xmodem_proto::codec::ACK]);
+        }
+        Ok(found)
+    }
+
     pub(crate) fn session<T>(&self, f: impl FnOnce(&mut Session) -> T) -> Result<T> {
         self.lock()
             .session
             .as_mut()
             .map(f)
             .ok_or(TxError::NotConnected)
+    }
+
+    /// The XSERV session's own state ([`TxError::NotConnected`] on a
+    /// Kermit session).
+    pub(crate) fn xserv_session<T>(&self, f: impl FnOnce(&mut XservSession) -> T) -> Result<T> {
+        self.lock()
+            .session
+            .as_mut()
+            .and_then(|s| s.xserv.as_mut())
+            .map(f)
+            .ok_or(TxError::NotConnected)
+    }
+
+    /// Whether requests go to XSERV itself: an XSERV session without the
+    /// Kermit server nested in it.
+    pub(crate) fn via_xserv(&self) -> bool {
+        self.lock()
+            .session
+            .as_ref()
+            .and_then(|s| s.xserv.as_ref())
+            .is_some_and(|x| x.nested.is_none())
+    }
+
+    /// Wait `period`; input meanwhile is dropped.
+    pub(crate) async fn pause(&self, period: Duration) {
+        let until = self.lock().now + period;
+        let _ = self.listen_for(until, |_| false).await;
     }
 }
 
@@ -1059,20 +1121,63 @@ async fn perform(ctx: &Ctx, request: Request) -> Result<Outcome> {
     if ctx.lock().left_server.is_some() && !matches!(request, Request::Connect(_)) {
         return Err(TxError::LeftServer);
     }
+    let on_xserv = ctx
+        .lock()
+        .session
+        .as_ref()
+        .is_some_and(|s| s.xserv.is_some());
+    let own = matches!(
+        request,
+        Request::Connect(_) | Request::Disconnect | Request::Sync
+    );
+    if on_xserv && !own {
+        return perform_on_xserv(ctx, request).await;
+    }
     let retry = {
         let sh = ctx.lock();
         sh.leftover && sh.session.is_some()
     };
     // Not before a sync: the link is out of step, and a late reply read as
     // the purge's would mark it done.
-    if retry
-        && !matches!(
-            request,
-            Request::Connect(_) | Request::Disconnect | Request::Sync
-        )
-    {
+    if retry && !own && !on_xserv {
         purge_leftover(ctx).await;
     }
+    dispatch(ctx, request).await
+}
+
+/// A request on an XSERV session: to XSERV itself, or to the Kermit server
+/// nested in it for what XSERV cannot do ([`xserv::needs_kermit`]), which
+/// ends with FINISH back to XSERV (but after a restore, which ends both).
+async fn perform_on_xserv(ctx: &Ctx, request: Request) -> Result<Outcome> {
+    if matches!(
+        request,
+        Request::XmodemPut { .. } | Request::XmodemGet { .. }
+    ) {
+        return Err(TxError::NotForXmodem(
+            "the calculator runs XSERV, which moves every file by XModem: the normal copy is the fast one"
+                .into(),
+        ));
+    }
+    if !xserv::needs_kermit(&request) {
+        xserv::leave_kermit(ctx).await?;
+        return dispatch(ctx, request).await;
+    }
+    xserv::enter_kermit(ctx).await?;
+    if ctx.lock().leftover {
+        purge_leftover(ctx).await;
+    }
+    let result = dispatch(ctx, request).await;
+    if ctx.lock().session.is_none() {
+        // Restored: the calculator restarted.
+        return result;
+    }
+    let left = xserv::leave_kermit(ctx).await;
+    let outcome = result?;
+    left?;
+    Ok(outcome)
+}
+
+async fn dispatch(ctx: &Ctx, request: Request) -> Result<Outcome> {
     match request {
         Request::Connect(options) => connect(ctx, options).await,
         Request::List { dir } => list_dir(ctx, &absolute(dir)).await.map(Outcome::Listing),
@@ -1135,8 +1240,9 @@ pub(crate) fn absolute(dir: Vec<String>) -> Vec<String> {
     }
 }
 
-/// Probe each speed and listen for the answer (see `search`).
-async fn search(ctx: &Ctx) -> Result<LinkSettings> {
+/// Probe each speed and listen for the answer (see `search`): XSERV's to
+/// `M` first, then the Kermit server's.
+async fn search(ctx: &Ctx) -> Result<(LinkSettings, Server)> {
     let mut tried = Vec::new();
     for baud in SPEEDS {
         let settings = LinkSettings {
@@ -1145,6 +1251,10 @@ async fn search(ctx: &Ctx) -> Result<LinkSettings> {
         };
         ctx.open(settings);
         ctx.event(Event::Listening(settings));
+        if ctx.probe_xserv().await? {
+            ctx.event(Event::Found(settings));
+            return Ok((settings, Server::Xserv));
+        }
         let (start, listen) = {
             let sh = ctx.lock();
             (sh.now, sh.options.listen)
@@ -1173,7 +1283,7 @@ async fn search(ctx: &Ctx) -> Result<LinkSettings> {
                 ctx.open(found);
             }
             ctx.event(Event::Found(found));
-            return Ok(found);
+            return Ok((found, Server::Kermit));
         }
     }
     Err(TxError::NoAnswer { tried })
@@ -1188,11 +1298,13 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
         sh.machine = None;
         sh.op_result = None;
     }
-    let settings = if options.find {
+    let (settings, server) = if options.find {
         search(ctx).await?
     } else {
         ctx.open(options.settings);
-        options.settings
+        let xserv = options.settings.parity == Parity::None && ctx.probe_xserv().await?;
+        let server = if xserv { Server::Xserv } else { Server::Kermit };
+        (options.settings, server)
     };
     {
         let mut sh = ctx.lock();
@@ -1209,6 +1321,9 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
         let mut machine = Machine::new(sh.now, session, seed);
         machine.set_events(sh.keep_progress);
         sh.machine = Some(machine);
+    }
+    if server == Server::Xserv {
+        return connect_xserv(ctx, settings).await;
     }
     expect_done(ctx.op(Op::Connect).await?)?;
     let version = match ctx.op(Op::Version).await? {
@@ -1227,6 +1342,7 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
         model,
         version,
         user_mode,
+        server: Server::Kermit,
     };
     {
         let mut sh = ctx.lock();
@@ -1235,6 +1351,7 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
         sh.session = Some(Session {
             connection: connection.clone(),
             cwd: None,
+            xserv: None,
         });
     }
     if let Some(left) = left {
@@ -1242,6 +1359,43 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
     }
     if ctx.lock().leftover {
         purge_leftover(ctx).await;
+    }
+    Ok(Outcome::Connected(connection))
+}
+
+/// The rest of a connect to XSERV: the 49G (XSERV is built into no other
+/// model), its directory unknown (XSERV cannot say it). After a fast
+/// transfer a 49G switched to RPN goes back to algebraic mode; the program
+/// left on the stack is not dropped (XSERV's own objects sit above it).
+async fn connect_xserv(ctx: &Ctx, settings: LinkSettings) -> Result<Outcome> {
+    let left = ctx.lock().left_server.clone();
+    let connection = Connection {
+        settings,
+        model: Model::Hp49G,
+        version: None,
+        user_mode: TransferMode::Binary,
+        server: Server::Xserv,
+    };
+    {
+        let mut sh = ctx.lock();
+        sh.restarted = false;
+        sh.left_server = None;
+        sh.session = Some(Session {
+            connection: connection.clone(),
+            cwd: None,
+            xserv: Some(XservSession::default()),
+        });
+    }
+    if left.is_some_and(|l| l.algebraic) {
+        let _ = ctx.op(Op::XservExecute("-95. SF".into())).await;
+    }
+    if ctx.lock().leftover {
+        // XSERV does not say whether it went: a missing port object is no
+        // error anyway (see `purge_leftover`).
+        let purge = format!(":0:{} PURGE", satx_core::calc::RESTORE_VAR);
+        if let Ok(Reply::Done) = ctx.op(Op::XservExecute(purge)).await {
+            ctx.lock().leftover = false;
+        }
     }
     Ok(Outcome::Connected(connection))
 }
@@ -1258,6 +1412,9 @@ async fn purge_leftover(ctx: &Ctx) {
 
 /// Make `dir` the calculator's current directory.
 pub(crate) async fn cd(ctx: &Ctx, dir: &[String]) -> Result<()> {
+    if ctx.via_xserv() {
+        return xserv::cd(ctx, dir).await;
+    }
     if ctx.session(|s| s.cwd.as_deref() == Some(dir))? {
         return Ok(());
     }
@@ -1268,6 +1425,9 @@ pub(crate) async fn cd(ctx: &Ctx, dir: &[String]) -> Result<()> {
 
 pub(crate) async fn list_dir(ctx: &Ctx, dir: &[String]) -> Result<Listing> {
     ctx.session(|_| ())?;
+    if ctx.via_xserv() {
+        return xserv::list_dir(ctx, dir).await;
+    }
     cd(ctx, dir).await?;
     match ctx.op(Op::List).await? {
         Reply::Listing(mut listing) => {
@@ -1294,6 +1454,16 @@ pub(crate) async fn get(
 ) -> Result<Outcome> {
     ctx.session(|_| ())?;
     validate_name(&name).map_err(|_| TxError::BadName(name.clone()))?;
+    if ctx.via_xserv() {
+        // Text goes through the Kermit server (`xserv::needs_kermit`).
+        let data = xserv::get(ctx, dir, &name).await?;
+        return Ok(Outcome::File(File {
+            file_name: names::file_name(&name, Format::Binary),
+            name,
+            format: Format::Binary,
+            data,
+        }));
+    }
     cd(ctx, dir).await?;
     let mode = match format {
         Format::Binary => TransferMode::Binary,
@@ -1336,15 +1506,16 @@ async fn put(
         return Err(TxError::NotAnObject);
     }
     let listing = list_dir(ctx, dir).await?;
-    put_in(ctx, &listing.entries, name, data, replace)
+    put_in(ctx, dir, &listing.entries, name, data, replace)
         .await
         .map(Outcome::Stored)
 }
 
-/// Put `data` as `name` into the current directory, whose variables are
-/// `entries` (the name checked, the file one [`put`] takes).
+/// Put `data` as `name` into the current directory, `here`, whose
+/// variables are `entries` (the name checked, the file one [`put`] takes).
 pub(crate) async fn put_in(
     ctx: &Ctx,
+    here: &[String],
     entries: &[Entry],
     name: String,
     data: Vec<u8>,
@@ -1365,6 +1536,23 @@ pub(crate) async fn put_in(
             .map(|n| format!("{REPLACE_VAR}{n}"))
             .find(|t| !entries.iter().any(|e| &e.name == t))
             .unwrap_or_else(|| REPLACE_VAR.to_string());
+    }
+    if ctx.via_xserv() {
+        // A binary file (others go through the Kermit server).
+        if let Err(e) = xserv::put(ctx, here, &target, data).await {
+            if target != name {
+                xserv::drop_copy(ctx, &target).await;
+            }
+            return Err(e);
+        }
+        if target == name {
+            return Ok(name);
+        }
+        if let Err(e) = xserv::swap_in(ctx, here, &target, &name).await {
+            xserv::drop_copy(ctx, &target).await;
+            return Err(e);
+        }
+        return Ok(name);
     }
     let mode = match kind {
         FileKind::Text => TransferMode::Ascii,
@@ -1434,12 +1622,33 @@ async fn swap_in(ctx: &Ctx, stored: &str, name: &str) -> Result<()> {
 /// forgotten (the next request changes to its own).
 async fn resync(ctx: &Ctx) -> Result<Outcome> {
     ctx.session(|_| ())?;
+    if ctx
+        .lock()
+        .session
+        .as_ref()
+        .is_some_and(|s| s.xserv.is_some())
+    {
+        xserv::resync(ctx).await?;
+        return Ok(Outcome::Synced);
+    }
     expect_done(ctx.op(Op::Sync).await?)?;
     ctx.session(|s| s.cwd = None)?;
     Ok(Outcome::Synced)
 }
 
 async fn disconnect(ctx: &Ctx) -> Result<Outcome> {
+    if ctx
+        .lock()
+        .session
+        .as_ref()
+        .is_some_and(|s| s.xserv.is_some())
+    {
+        let ended = xserv::quit(ctx).await?;
+        let mut sh = ctx.lock();
+        sh.session = None;
+        sh.machine = None;
+        return Ok(Outcome::XservQuit { ended });
+    }
     let user_mode = ctx.session(|s| s.connection.user_mode)?;
     // FINISH even when flag -35 could not be put back.
     let restored = ctx.op(Op::SetTransferMode(user_mode)).await;

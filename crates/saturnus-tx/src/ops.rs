@@ -20,6 +20,7 @@ use crate::device::{
     get, list_dir, put_in, unexpected,
 };
 use crate::names::FileKind;
+use crate::xserv;
 use crate::{File, Format};
 
 /// `name` as the calculator takes it, else [`TxError::BadName`].
@@ -37,6 +38,14 @@ fn shown(path: &[String]) -> String {
     path.join("/")
 }
 
+/// Make directory `name` in the current directory, `here`.
+async fn make_dir(ctx: &Ctx, here: &[String], name: &str) -> Result<()> {
+    if ctx.via_xserv() {
+        return xserv::mkdir(ctx, here, name).await;
+    }
+    expect_done(ctx.op(Op::Mkdir(name.to_string())).await?)
+}
+
 pub(crate) async fn mkdir(ctx: &Ctx, dir: &[String], name: String) -> Result<Outcome> {
     ctx.session(|_| ())?;
     check_name(&name)?;
@@ -44,7 +53,7 @@ pub(crate) async fn mkdir(ctx: &Ctx, dir: &[String], name: String) -> Result<Out
     if listing.entries.iter().any(|e| e.name == name) {
         return Err(TxError::NameClash(name));
     }
-    expect_done(ctx.op(Op::Mkdir(name.clone())).await?)?;
+    make_dir(ctx, dir, &name).await?;
     Ok(Outcome::Created(name))
 }
 
@@ -60,13 +69,21 @@ pub(crate) async fn rename(ctx: &Ctx, dir: &[String], from: String, to: String) 
         if listing.entries.iter().any(|e| e.name == to) {
             return Err(TxError::NameClash(to));
         }
-        expect_done(
-            ctx.op(Op::Rename {
-                from: from.clone(),
-                to: to.clone(),
-            })
-            .await?,
-        )?;
+        if ctx.via_xserv() {
+            let directory = listing
+                .entries
+                .iter()
+                .any(|e| e.name == from && e.is_directory());
+            xserv::rename(ctx, dir, &from, &to, directory).await?;
+        } else {
+            expect_done(
+                ctx.op(Op::Rename {
+                    from: from.clone(),
+                    to: to.clone(),
+                })
+                .await?,
+            )?;
+        }
     }
     Ok(Outcome::Renamed { from, to })
 }
@@ -101,12 +118,17 @@ pub(crate) async fn purge(
         .find(|e| e.name == name)
         .ok_or_else(|| TxError::NotFound(name.clone()))?;
     let mut count = 0;
-    if entry.is_directory() {
+    let directory = entry.is_directory();
+    if directory {
         count = count_tree(ctx, &join(dir, std::slice::from_ref(&name))).await?;
         if count > 0 && confirmed != Some(count) {
             return Err(TxError::NotEmpty { name, count });
         }
         cd(ctx, dir).await?;
+    }
+    if ctx.via_xserv() {
+        xserv::remove(ctx, dir, &name, directory).await?;
+        return Ok(Outcome::Purged { name, count });
     }
     // satx-core's remove lists once more and sends `PGDIR` for a
     // directory, `PURGE` for a variable.
@@ -303,7 +325,7 @@ pub(crate) async fn put_tree(ctx: &Ctx, dir: &[String], tree: PutTree) -> Result
         if let Some(name) = &tree.name {
             ctx.event(Event::Item(root.clone()));
             cd(ctx, dir).await?;
-            expect_done(ctx.op(Op::Mkdir(name.clone())).await?)?;
+            make_dir(ctx, dir, name).await?;
             made += 1;
             existing.insert(Vec::new(), Vec::new());
         }
@@ -331,10 +353,10 @@ pub(crate) async fn put_tree(ctx: &Ctx, dir: &[String], tree: PutTree) -> Result
                 let path = join(&parent, std::slice::from_ref(name));
                 ctx.event(Event::Item(join(&root, &path)));
                 if let Some(bytes) = data.remove(&path) {
-                    put_in(ctx, &entries, name.clone(), bytes, tree.replace).await?;
+                    put_in(ctx, &at, &entries, name.clone(), bytes, tree.replace).await?;
                     stored += 1;
                 } else if let hash_map::Entry::Vacant(new) = existing.entry(path) {
-                    expect_done(ctx.op(Op::Mkdir(name.clone())).await?)?;
+                    make_dir(ctx, &at, name).await?;
                     made += 1;
                     new.insert(Vec::new());
                 }
@@ -365,6 +387,7 @@ pub(crate) async fn memory(ctx: &Ctx) -> Result<Memory> {
     let home = listing.entries.iter().map(|e| e.size).sum();
     let free = match listing.free {
         Some(free) => free,
+        None if ctx.via_xserv() => xserv::memory(ctx).await?,
         // The 48S/SX's listing has no header.
         None => match ctx.op(Op::Mem).await? {
             Reply::Real(free) => free,

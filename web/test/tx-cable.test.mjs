@@ -37,11 +37,14 @@ function packet(seq, type, data, check = 1) {
 test("the page's recorded session: one line per packet, with types, sequence numbers and plain words", () => {
   const lines = decode(read("./fixtures/tx-page.trace"));
   assert.equal(lines[0].desc, "opened at 9600 baud, no parity");
-  const init = lines[1];
+  // XSERV's M first, which the Kermit server ignores (its idle NAK may come meanwhile).
+  assert.deepEqual([lines[1].dir, lines[1].type, lines[1].desc], ["out", "M", "XSERV: how much memory is free?"]);
+  const at = lines.findIndex((l) => l.type === "I");
+  const init = lines[at];
   assert.deepEqual([init.dir, init.type, init.seq], ["out", "I", 0]);
   assert.match(init.desc, /^init: up to 94 bytes a packet, check type 1$/);
-  assert.equal(lines[2].desc, "ack of the init: up to 94 bytes a packet, check type 1");
-  assert.equal(lines[3].desc, 'host command: "SATX-bcfbdd"');
+  assert.equal(lines[at + 1].desc, "ack of the init: up to 94 bytes a packet, check type 1");
+  assert.match(lines[at + 2].desc, /^host command: "SATX-[0-9a-f]{6}"$/);
   const kinds = new Set(lines.map((l) => l.type));
   for (const k of ["I", "Y", "C", "S", "X", "D", "Z", "B", "G", "F", "R"]) assert.ok(kinds.has(k), `a ${k} packet`);
   // Nothing in a clean session is red, and nothing is left outside a packet.
@@ -237,4 +240,42 @@ test("what a preview being read says: where from, how far, and how long when it 
   assert.deepEqual(readingText({ name: "P" }), { line: "Reading P…", amount: "", hint: "" });
   assert.ok(estimateSeconds(1106, 9600) > 4 && estimateSeconds(1106, 9600) < 6);
   assert.ok(estimateSeconds(1106, 2400) > 3 * estimateSeconds(1106, 9600) - 3);
+});
+
+test("XSERV: the probe a Kermit server ignores, then a session's commands and replies", () => {
+  const log = new CableLog({ now: () => 0 });
+  const d = new CableDecoder({ source: "left", log });
+  const enc = (s) => new TextEncoder().encode(s);
+  const xpacket = (bytes) => {
+    const sum = bytes.reduce((a, b) => (a + b) & 0xff, 0);
+    return Uint8Array.from([bytes.length >> 8, bytes.length & 0xff, ...bytes, sum]);
+  };
+  // A Kermit server: M goes unanswered, its idle NAK reads as Kermit, the probe goes on.
+  d.feed("out", enc("M"));
+  d.feed("in", packet(0, "N", ""));
+  d.feed("out", packet(0, "I", "~* @-#Y1 "));
+  // XSERV: M and its answer, E with its packet, L and a listing of 300 bytes (its length starts with SOH).
+  d.feed("out", enc("M"));
+  d.feed("in", xpacket(enc("245478.")));
+  d.feed("out", Uint8Array.of(0x06));
+  d.feed("out", enc("E"));
+  d.feed("out", xpacket(enc("HOME")));
+  d.feed("in", Uint8Array.of(0x06));
+  d.feed("out", enc("L"));
+  d.feed("in", xpacket(new Uint8Array(300)));
+  const lines = log.since(0);
+  assert.deepEqual(lines.map((l) => l.desc), [
+    "XSERV: how much memory is free?",
+    "nak: send 0 again",
+    "init: up to 94 bytes a packet, check type 1",
+    "XSERV: how much memory is free?",
+    "XSERV: 245478. bytes free",
+    "ack",
+    "XSERV: run a command",
+    "XSERV command: HOME",
+    "ack",
+    "XSERV: list the directory",
+    "XSERV: the listing, 300 bytes",
+  ]);
+  assert.deepEqual(lines.filter((l) => l.bad && l.type !== "N"), [], "nothing red");
 });

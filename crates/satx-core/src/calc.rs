@@ -67,7 +67,7 @@ const PICT_VAR: &str = "SATXTMP";
 /// Temporary variable and port-0 object for [`Calculator::backup`].
 const BACKUP_VAR: &str = "SATXBK";
 /// Temporary variable and port-0 object for [`Calculator::restore`].
-const RESTORE_VAR: &str = "SATXRS";
+pub const RESTORE_VAR: &str = "SATXRS";
 /// Reply timeout for the final `RESTORE`, which never gets a reply (the
 /// session's timeout when that is shorter).
 const RESTORE_TIMEOUT: Duration = Duration::from_secs(3);
