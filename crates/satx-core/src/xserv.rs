@@ -45,7 +45,8 @@
 //! when nothing comes back within [`XservOptions::answer`], and before
 //! `E`, `G` or `P` after anything that may have left the calculator busy
 //! it asks `M` until it answers: a command byte lost while the packet that
-//! follows it is read as command bytes would do harm.
+//! follows it is read as command bytes would do harm. Before `Q` it asks
+//! for at most 5 s (a lost `Q` would read as "XSERV has ended").
 //!
 //! # Detection
 //!
@@ -334,6 +335,11 @@ pub fn memory_reply(heard: &[u8]) -> Option<f64> {
 /// The longest `M` reply [`memory_reply`] takes.
 const MEMORY_REPLY_MAX: usize = 24;
 
+/// How long `Q` waits for a busy calculator (`M` asked until it answers)
+/// before it goes out anyway: just after a nested Kermit server's FINISH,
+/// XSERV answers about 1 s later.
+const QUIT_SETTLE: Duration = Duration::from_secs(5);
+
 /// Tries for a command packet before giving up (HP's client: 5).
 const COMMAND_TRIES: u32 = 5;
 /// Bad replies before giving up (HP's client: 4).
@@ -508,6 +514,21 @@ pub(crate) async fn command(
         return Ok(Some(data));
     }
     let packet = command.packet()?;
+    if state.settle {
+        if packet.is_some() {
+            ask(link, &options, b'M').await?;
+        } else {
+            // Q: a calculator that does not answer any more (XSERV ended
+            // with ON) gets it anyway, after a short wait.
+            let mut short = options.clone();
+            short.busy = short.busy.min(QUIT_SETTLE);
+            match ask(link, &short, b'M').await {
+                Ok(_) | Err(Error::Reply(_)) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        state.settle = false;
+    }
     let Some(packet) = packet else {
         // Q: nothing comes back.
         quiet(link, options.quiet).await?;
@@ -516,10 +537,6 @@ pub(crate) async fn command(
         state.settle = true;
         return Ok(None);
     };
-    if state.settle {
-        ask(link, &options, b'M').await?;
-        state.settle = false;
-    }
     quiet(link, options.quiet).await?;
     link.write(vec![command.byte()])?;
     link.flush().await?;
@@ -591,8 +608,10 @@ pub(crate) async fn probe(
     }
 }
 
-/// End XSERV (`Q`), then ask `M` once: `true` when nothing answers (XSERV
-/// has ended), `false` when it still runs (a ROM without `Q`).
+/// End XSERV (`Q`, after `M` answers while the calculator may be busy, as
+/// before other commands, but for at most 5 s), then ask `M` once: `true`
+/// when nothing answers (XSERV has ended), `false` when it still runs (a
+/// ROM without `Q`).
 pub(crate) async fn quit(link: &Link, state: &mut XservState) -> Result<bool> {
     command(link, state, &XservCommand::Quit).await?;
     let wait = state.options.answer;
@@ -1049,16 +1068,39 @@ mod tests {
         );
     }
 
+    /// `Q` waits for the calculator to answer `M` first (it may still be
+    /// busy), then the `M` after it says whether XSERV ended.
     #[test]
     fn quit_says_whether_xserv_ended() {
-        let (mut s, log) = session(|_| vec![]);
+        let mut ended = false;
+        let mut busy = 2;
+        let (mut s, log) = session(move |w| match w {
+            b"Q" => {
+                ended = true;
+                vec![]
+            }
+            b"M" if busy > 0 => {
+                busy -= 1;
+                vec![]
+            }
+            b"M" if !ended => vec![encode_packet(b"5.").unwrap()],
+            _ => vec![],
+        });
         assert!(s.quit().unwrap());
-        assert_eq!(*log.lock().unwrap(), [b"Q".to_vec(), b"M".to_vec()]);
+        let m = b"M".to_vec();
+        assert_eq!(
+            *log.lock().unwrap(),
+            [m.clone(), m.clone(), m.clone(), vec![ACK], b"Q".to_vec(), m]
+        );
         let (mut s, _) = session(|w| match w {
             b"M" => vec![encode_packet(b"5.").unwrap()],
             _ => vec![],
         });
         assert!(!s.quit().unwrap());
+        // Nothing answers at all (XSERV ended with ON): Q goes out anyway.
+        let (mut s, log) = session(|_| vec![]);
+        assert!(s.quit().unwrap());
+        assert!(log.lock().unwrap().contains(&b"Q".to_vec()));
     }
 
     /// A NAKed command packet is sent again; a reply with a bad checksum is
