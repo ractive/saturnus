@@ -1260,7 +1260,7 @@ impl Calculator {
     /// the name (it must exist for `XSEND`), switches a 49G in algebraic
     /// mode to RPN (flag -95; EVAL of the program needs RPN), puts the
     /// program `« 'NAME' XRECV »` (or `XSEND`) on the stack
-    /// ([`stacked_program`](crate::xmodem::stacked_program)) and ends
+    /// ([`stacked_program`]) and ends
     /// server mode with Kermit FINISH. An existing `NAME` is refused for
     /// `XRECV` on the 48G/GX ("XRECV Error: Name Conflict"); the 49G stores
     /// the object as `NAME.1` instead, which the plan's notes say. The user then presses
