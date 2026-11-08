@@ -1582,6 +1582,8 @@ struct XservCalc {
     queue: Vec<Vec<u8>>,
     due: VecDeque<(Instant, Vec<u8>)>,
     actions: Vec<Action>,
+    /// HOME also holds an integer (49G-only): identification stores nothing.
+    home_integer: bool,
     /// Kermit packets that reached XSERV.
     kermit_in_xserv: usize,
     /// XSERV command bytes other than `M` that reached the Kermit server.
@@ -1604,6 +1606,7 @@ impl XservCalc {
             queue: Vec::new(),
             due: VecDeque::new(),
             actions: Vec::new(),
+            home_integer: false,
             kermit_in_xserv: 0,
             xserv_in_kermit: 0,
         }
@@ -1642,6 +1645,9 @@ impl XservCalc {
             b"L" => {
                 let data: Vec<u8> = if self.cwd == ["HOME"] {
                     let mut d = [record("IOPAR", 0x2A74, 40), record("D", 0x2A96, 30)].concat();
+                    if self.home_integer {
+                        d.extend(record("MODULO", 0x2614, 6));
+                    }
                     if self.id_stored {
                         d.extend(record("SATXID", self.id_prolog, 10));
                     }
@@ -1777,6 +1783,21 @@ fn text_get(name: &str) -> Request {
     }
 }
 
+/// A 49G whose HOME already holds an integer is told from a 48 without
+/// storing anything in it.
+#[test]
+fn an_xserv_49g_with_an_integer_in_home_is_identified_without_a_write() {
+    let mut peer = XservCalc::new();
+    peer.home_integer = true;
+    let host = xserv_connected(&mut peer);
+    assert_eq!(
+        host.device.connection().unwrap().model,
+        satx_core::Model::Hp49G
+    );
+    assert_eq!(peer.executed, ["HOME"], "no store, no purge");
+    assert!(!peer.id_stored);
+}
+
 /// The scripted 49G in XSERV: found, told from a 48, listed and changed.
 #[test]
 fn a_calculator_in_xserv_is_found_listed_and_changed() {
@@ -1786,10 +1807,10 @@ fn a_calculator_in_xserv_is_found_listed_and_changed() {
         host.device.connection().unwrap().model,
         satx_core::Model::Hp49G
     );
-    // Found by the first M: no Kermit probe went out; the identification
-    // stored its variable and purged it again.
+    // Found by the first M: no Kermit probe went out; HOME holds no 49G-only
+    // object, so the identification stored its variable and purged it again.
     assert!(
-        host.elapsed() < Duration::from_secs(1),
+        host.elapsed() < Duration::from_secs(2),
         "{:?}",
         host.elapsed()
     );
@@ -1800,9 +1821,10 @@ fn a_calculator_in_xserv_is_found_listed_and_changed() {
             .any(|a| *a == Action::Write(probe(Parity::None)))
     );
     assert!(!peer.id_stored);
-    assert_eq!(peer.executed.len(), 2, "{:?}", peer.executed);
+    assert_eq!(peer.executed.len(), 3, "{:?}", peer.executed);
+    assert_eq!(peer.executed[0], "HOME");
     assert!(
-        peer.executed[0].starts_with("HOME DEPTH "),
+        peer.executed[1].starts_with("HOME DEPTH "),
         "{:?}",
         peer.executed
     );

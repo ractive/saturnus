@@ -242,6 +242,16 @@ pub(crate) async fn settle(ctx: &Ctx) -> Result<()> {
 /// The variable [`identify`] stores in HOME and purges again.
 const ID_VAR: &str = "SATXID";
 
+/// Object kinds only a 49G holds (satx-core's object table): one in HOME
+/// tells the families apart without [`identify`] storing anything.
+const KINDS_49G: &[&str] = &[
+    "Integer",
+    "Symbolic Matrix",
+    "Long Real (49G)",
+    "Long Complex (49G)",
+    "Flash Pointer",
+];
+
 /// Whether the calculator in XSERV is a 49G (`false`: an HP 48 running
 /// the XSrvr48 library, which answers alike). In HOME, `1. R→I` is stored
 /// in a variable and listed: on the 49G it is an integer (prolog #2614),
@@ -251,6 +261,17 @@ const ID_VAR: &str = "SATXID";
 pub(crate) async fn identify(ctx: &Ctx) -> Result<bool> {
     let home = vec!["HOME".to_string()];
     ctx.session(|s| s.cwd = None)?;
+    execute(ctx, "HOME".to_string()).await?;
+    // HOME as it is: an object only the 49G has settles it without storing
+    // anything, and a `SATXID` of the user's is never overwritten.
+    let before = list_here(ctx, &home).await?;
+    if before
+        .iter()
+        .any(|e| e.name == ID_VAR || KINDS_49G.contains(&e.kind.as_str()))
+    {
+        ctx.session(|s| s.cwd = Some(home))?;
+        return Ok(true);
+    }
     execute(
         ctx,
         format!("HOME DEPTH \\-> satxd \\<< 1. R\\->I '{ID_VAR}' STO DEPTH satxd - DROPN \\>>"),
