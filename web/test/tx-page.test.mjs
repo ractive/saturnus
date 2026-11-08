@@ -610,7 +610,7 @@ test("a browser without Web Serial or a folder picker says so plainly and still 
     };
   })()`);
   assert.equal(s.serial, false);
-  assert.match(s.note, /cannot reach a serial port.*Chrome or Edge.*emulated calculator works here/);
+  assert.match(s.note, /cannot reach a serial port.*Chrome, Edge or Firefox.*emulated calculator works here/);
   assert.equal(s.add, false);
   assert.equal(s.emulated, true);
   // No "Add a calculator" to ask the kind: the serve screen has its own button (for an emulated 38G, 39G or 40G).

@@ -1,10 +1,10 @@
 // The home page (`#/`, iteration 50d), since iteration 53 the one place
 // where calculators are chosen, given a ROM and removed: the calculators
 // with a kept ROM, each with Calculator and Files and a "⋯" (Change ROM…,
-// Remove…), those that run now marked; "New calculator", the models
+// Remove…), those that run now marked; "Add an emulated calculator", the models
 // without a ROM, each with Choose… (and where to download it); the
 // notice of what a choice found (another model's file, several at once,
-// a file that fits more than one model); "Connect a calculator" (a
+// a file that fits more than one model); "Connect a real calculator" (a
 // calculator on a serial cable, in Files; where the browser has no Web
 // Serial, the line that says why); and the ROMs' settings: start the
 // last calculator when the app opens, whether the browser keeps them for
@@ -70,8 +70,8 @@ function logo() {
   return t.content.firstElementChild;
 }
 
-/** Why "Connect a calculator" is not offered in this browser. */
-export const NO_SERIAL_PORT = "A calculator on a cable needs Chrome or Edge on a computer: this browser cannot reach a serial port.";
+/** Why "Connect a real calculator" is not offered in this browser. */
+export const NO_SERIAL_PORT = "A calculator on a cable needs a browser with Web Serial (Chrome, Edge or Firefox) on a computer: this browser cannot reach a serial port.";
 
 /**
  * The rows of the home page's list (pure): one per model with a kept ROM
@@ -275,7 +275,7 @@ export class Home {
 
   // ---------------------------------------------------------- new calculator
 
-  /** "New calculator": the models without a ROM, read with their download links. */
+  /** "Add an emulated calculator": the models without a ROM, read with their download links. */
   async toggleNew() {
     const open = this.ui.newSection.hidden;
     this.ui.newSection.hidden = !open;

@@ -239,7 +239,7 @@ fifth menu key) shows "OK-19B II".
 The app runs in the browser and, with the same pages, as the desktop
 app.
 
-**Calculators.** On the home page, choose New calculator, then the
+**Calculators.** On the home page, choose Add an emulated calculator, then the
 model's ROM file (the same files as for the command line). Each ROM is
 kept per model, so you choose it once: the home page lists your
 calculators, each opened with its Calculator button, and the app can

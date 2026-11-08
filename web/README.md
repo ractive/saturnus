@@ -41,7 +41,7 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   removed. It lists the kept ROMs, each with Calculator, Files (48SX,
   48GX, 49G) and a ⋯ menu (Change ROM…, Download again… in the desktop
   app, Remove…), the running ones marked "Running" (the hub's `engines`,
-  asked only once the hub runs). "New calculator" lists the models
+  asked only once the hub runs). "Add an emulated calculator" lists the models
   without a ROM, with Choose… and where to get the ROM (the hpcalc.org
   link in the browser, Download… in the desktop app). Below them come
   the notice of what a choice found and its offers, "Connect a
@@ -58,7 +58,7 @@ in the command/event protocol of [`protocol.md`](protocol.md):
   calculator. Calculator's panel shows its calculator, read only, with
   "Switch calculator" (`#/`); without one, the display and the memory
   view say so and link home. Tests: `romrows-page.test.mjs` (the ⋯,
-  New calculator, the removals), `nav-page.test.mjs`, `overflow.test.mjs`
+  Add an emulated calculator, the removals), `nav-page.test.mjs`, `overflow.test.mjs`
   (the home page at every width, the offer to keep a ROM).
 - `backend.js`: `WorkerBackend` runs the wasm core in the calculators'
   hub (`worker.js` over `hub.js`, a plain module Worker, one for the
@@ -343,7 +343,7 @@ file you already have. These ROM files are accepted in either of the
 two byte orders they come in (wiki: hardware/saturn-models "ROM image
 forms").
 
-1. On the home page, New calculator, then Choose… the model's ROM file.
+1. On the home page, Add an emulated calculator, then Choose… the model's ROM file.
    The ROM is read in the page and kept in this browser, per model, so
    you choose it once; choosing it opens that calculator, and a kept
    calculator opens with its Calculator button. The app opens on the

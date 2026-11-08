@@ -396,7 +396,7 @@ export class ServeView {
     }
     choice("file", "An emulated one from a ROM file…", "A 38G, 39G or 40G ROM; it is not kept", "calculator", () => this.chooseRomFile());
     calcBox.append(choices);
-    if (!hasWebSerial() && !isTauri()) calcBox.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port: for a real calculator, open the app in Chrome or Edge on a computer. The emulated ones work here too." }));
+    if (!hasWebSerial() && !isTauri()) calcBox.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port: for a real calculator, open the app in Chrome, Edge or Firefox on a computer. The emulated ones work here too." }));
     if (!(this.roms ?? []).length) calcBox.append(el("p", { class: "muted", text: "Calculator keeps the ROMs you give it; a 38G, 39G or 40G ROM kept there shows up here." }));
 
     const actions = el("div", { class: "tx-dialog-actions serve-actions" });

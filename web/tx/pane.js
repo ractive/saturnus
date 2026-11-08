@@ -274,7 +274,7 @@ export class Pane {
       // to serve one from a ROM file.
       if (!serial && left) button("Serve a folder to a 38G, 39G or 40G…", "calculator", () => this.app.openServe(), { id: "serve-aplets" });
       box.append(actions);
-      if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open the app in Chrome or Edge on a computer. The emulated calculator works here too." }));
+      if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open the app in Chrome, Edge or Firefox on a computer. The emulated calculator works here too." }));
       if (pick && !left && !app) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
       if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the app keeps files in the browser instead, not on your disk. Add files to them, and download what you copy there (⋯ → Download)." }));
       if (this.note) box.append(el("p", { class: "start-note last-note", role: "status", text: this.note }));

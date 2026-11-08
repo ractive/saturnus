@@ -639,7 +639,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
   async function openConnectDialog(pane) {
     if (isTauri()) return openNativeConnect(pane);
     if (!hasWebSerial()) {
-      say("This browser cannot reach a serial port: open the app in Chrome or Edge on a computer.", { error: true });
+      say("This browser cannot reach a serial port: open the app in Chrome, Edge or Firefox on a computer.", { error: true });
       return;
     }
     target = pane;
@@ -845,7 +845,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
     serve,
     /** The route's request to connect `model` (`#/files/<model>`, web/router.js). */
     connectFromEmulator: connectWhenStarted,
-    /** "Connect a calculator" (the home page): the connect dialog for the left pane, or why there is none. */
+    /** "Connect a real calculator" (the home page): the connect dialog for the left pane, or why there is none. */
     openConnect: () => started.then(() => openConnectDialog(panes[0])),
     KermitDevice,
     Folder,
