@@ -223,6 +223,10 @@ test("the app: the port list names the adapters, remembers the last port, and th
   assert.equal(await c.ev(`!!document.querySelector('.pane[data-pane=left] [data-action="add-serial"]')`), true);
   await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-serial"]').click(); true`);
   await p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog");
+  // First the kind of calculator; an HP 48 or 49 goes on to the model and the port.
+  assert.equal(await c.ev(`document.getElementById("connect-go").hidden`), true);
+  await c.ev(`document.querySelector('#connect-kind [data-kind="48-49"]').click(); true`);
+  assert.equal(await c.ev(`document.getElementById("connect-go").hidden`), false);
   assert.equal(await c.ev(`document.getElementById("connect-go").textContent`), "Choose the port");
   await c.ev(`document.getElementById("connect-go").click(); true`);
   await p.until(`document.getElementById("port-dialog").open && document.getElementById("port-select").options.length === 2`, 5_000, "the port list");
@@ -263,6 +267,8 @@ test("the app: the port list names the adapters, remembers the last port, and th
   // The connect dialog offers the port used last directly.
   await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-serial"]').click(); true`);
   await p.until(`document.getElementById("connect-dialog").open && !document.getElementById("connect-known").hidden`, 5_000, "the last port offered");
+  assert.equal(await c.ev(`document.getElementById("connect-other").hidden`), true, "not before the kind is chosen");
+  await c.ev(`document.querySelector('#connect-kind [data-kind="48-49"]').click(); true`);
   assert.equal(await c.ev(`document.getElementById("connect-go").textContent`), "Connect");
   assert.match(await c.ev(`document.getElementById("connect-known").textContent`), /FT232R USB UART \(FTDI\)/);
   assert.equal(await c.ev(`document.getElementById("connect-other").hidden`), false);

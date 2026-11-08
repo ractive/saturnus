@@ -1428,7 +1428,8 @@ with a switch above them.
   `#/calculator/<model>` shows Calculator on that calculator, in the same
   document, which Files goes on using.
 - **Aplets** (38G, 39G, 40G): "Serve a folder to a 38G, 39G or 40G"
-  (the left pane's empty state, "Change", the connect dialog) opens
+  ("Add a calculator", then "An HP 38G, 39G or 40G"; "Change"; the left
+  pane's empty state without a serial port) opens
   `serve.js` over the panes (`serve.css`): a folder and a calculator (on
   a cable, or emulated from a kept or chosen 38G, 39G or 40G ROM, its
   display and the keys a transfer needs shown), then the waiting screen
@@ -1441,7 +1442,9 @@ with a switch above them.
   `serve-flows.js` has the words (pure). Tests: `tx-serve.test.mjs`
   (ROM-free, the 38G's recorded session) and `tx-serve-e2e.test.mjs`
   (`just tx-e2e`, the emulated 38G and 39G).
-- **Connect**: "Add a calculator" names the model's keys for SERVER
+- **Connect**: "Add a calculator" asks first which kind: "An HP 48 or
+  49" goes on, "An HP 38G, 39G or 40G" opens the serve screen. It names
+  the model's keys for SERVER
   (the 49G's right-shift and → quickly, no pause), then Chrome's port
   chooser (a port given before connects in one click). The search finds
   speed and parity unless the settings fix them; the model comes from

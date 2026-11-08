@@ -211,22 +211,28 @@
 <dialog id="connect-dialog" class="tx-dialog" aria-labelledby="connect-title">
   <form method="dialog" class="tx-dialog-box">
     <h2 id="connect-title">Add a calculator</h2>
-    <p>Which calculator is on the cable?</p>
-    <div id="connect-models" class="segmented" role="radiogroup" aria-label="Model"></div>
-    <div id="connect-steps" class="connect-steps"></div>
-    <details class="connect-help">
-      <summary>Trouble with the cable?</summary>
-      <ul>
-        <li>The calculator needs its own serial cable, and most computers a USB serial adapter for it.</li>
-        <li>On Linux, your user must be in the <code>dialout</code> group (<code>uucp</code> on Arch) to reach the port.</li>
-        <li>On Windows, adapters with fake Prolific chips are refused by current drivers; one with an FTDI or a genuine chip works.</li>
-        <li>Files finds the speed by itself. If that fails, set a fixed speed in Settings.</li>
-      </ul>
-    </details>
-    <p id="connect-known" class="muted" hidden></p>
-    <p class="connect-aplets">A 38G, 39G or 40G? Those start every transfer themselves: <button id="connect-serve" class="link" type="button">serve a folder to them</button>.</p>
+    <div id="connect-ask" class="connect-part">
+      <p id="connect-ask-text">Which calculator is on the cable?</p>
+      <div id="connect-kind" class="emulated-roms" role="group" aria-labelledby="connect-ask-text"></div>
+    </div>
+    <div id="connect-cable" class="connect-part" hidden>
+      <p>Which model?</p>
+      <div id="connect-models" class="segmented" role="radiogroup" aria-label="Model"></div>
+      <div id="connect-steps" class="connect-steps"></div>
+      <details class="connect-help">
+        <summary>Trouble with the cable?</summary>
+        <ul>
+          <li>The calculator needs its own serial cable, and most computers a USB serial adapter for it.</li>
+          <li>On Linux, your user must be in the <code>dialout</code> group (<code>uucp</code> on Arch) to reach the port.</li>
+          <li>On Windows, adapters with fake Prolific chips are refused by current drivers; one with an FTDI or a genuine chip works.</li>
+          <li>Files finds the speed by itself. If that fails, set a fixed speed in Settings.</li>
+        </ul>
+      </details>
+      <p id="connect-known" class="muted" hidden></p>
+    </div>
     <div class="tx-dialog-actions">
       <button value="cancel" type="submit">Cancel</button>
+      <button id="connect-back" type="button" hidden>Back</button>
       <button id="connect-other" type="button" hidden>Choose another port</button>
       <button id="connect-go" class="primary" type="button">Choose the port</button>
     </div>

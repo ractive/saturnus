@@ -599,6 +599,7 @@ test("a browser without Web Serial or a folder picker says so plainly and still 
       note: left.querySelector(".start-note")?.textContent ?? null,
       add: !!left.querySelector('[data-action="add-serial"]'),
       emulated: !!left.querySelector('[data-action="add-emulated"]'),
+      serve: !!left.querySelector('[data-action="serve-aplets"]'),
       primary: left.querySelector('[data-action="add-emulated"]')?.classList.contains("primary"),
       right: document.querySelector(".pane[data-pane=right] .pane-title").textContent,
     };
@@ -607,6 +608,8 @@ test("a browser without Web Serial or a folder picker says so plainly and still 
   assert.match(s.note, /cannot reach a serial port.*Chrome or Edge.*emulated calculator works here/);
   assert.equal(s.add, false);
   assert.equal(s.emulated, true);
+  // No "Add a calculator" to ask the kind: the serve screen has its own button (for an emulated 38G, 39G or 40G).
+  assert.equal(s.serve, true);
   assert.equal(s.primary, true);
   // No folder picker: the right pane holds the page's own files.
   assert.equal(s.right, "Files in this browser");
@@ -630,6 +633,33 @@ test("where a folder can be opened, the page says which folders the browser refu
   assert.ok(notes.includes("The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them."), JSON.stringify(notes));
   assert.equal(await c.ev(`!!document.querySelector('.pane[data-pane=right] [data-action="open-folder"]')`), true);
   assert.equal(await c.ev(`[...document.querySelectorAll(".pane[data-pane=left] .start-note")].some((n) => /home folder, Desktop or Downloads/.test(n.textContent))`), false, "the left pane holds no folder: no folder note");
+  assert.deepEqual(c.errors, []);
+});
+
+test("\"Add a calculator\" asks the kind first: an HP 48 or 49 goes on to the model, a 38G, 39G or 40G to the serve screen", { timeout: 60_000 }, async (t) => {
+  const c = await open(t);
+  if (!c) return;
+  await c.send("Page.enable");
+  await c.send("Runtime.enable");
+  const p = txPage(c);
+  await p.open(c.port);
+  const step = `(() => {
+    const d = document.getElementById("connect-dialog");
+    return { open: d.open, ask: !document.getElementById("connect-ask").hidden, cable: !document.getElementById("connect-cable").hidden, go: !document.getElementById("connect-go").hidden, back: !document.getElementById("connect-back").hidden, kinds: [...document.querySelectorAll("#connect-kind strong")].map((s) => s.textContent) };
+  })()`;
+  await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-serial"]').click(); true`);
+  await p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog");
+  assert.deepEqual(await c.ev(step), { open: true, ask: true, cable: false, go: false, back: false, kinds: ["An HP 48 or 49", "An HP 38G, 39G or 40G"] });
+  await c.ev(`document.querySelector('#connect-kind [data-kind="48-49"]').click(); true`);
+  assert.deepEqual(await c.ev(step), { open: true, ask: false, cable: true, go: true, back: true, kinds: ["An HP 48 or 49", "An HP 38G, 39G or 40G"] });
+  // Back to the question, then the other kind: the dialog closes, the serve screen opens.
+  await c.ev(`document.getElementById("connect-back").click(); true`);
+  assert.equal((await c.ev(step)).ask, true);
+  await c.ev(`document.querySelector('#connect-kind [data-kind="38-40"]').click(); true`);
+  await p.until(`!document.getElementById("serve").hidden && !!document.getElementById("serve-title")`, 5_000, "the serve screen");
+  assert.equal(await c.ev(`document.getElementById("connect-dialog").open`), false);
+  // The left pane's card has no separate serve link where a port can be reached.
+  assert.equal(await c.ev(`!!document.querySelector('.pane[data-pane=left] [data-action="serve-aplets"], #serve-aplets')`), false);
   assert.deepEqual(c.errors, []);
 });
 

@@ -96,6 +96,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
     fileInput: $("file-input"), restoreInput: $("restore-input"), romInput: $("rom-input"),
     connectDialog: $("connect-dialog"), connectModels: $("connect-models"), connectSteps: $("connect-steps"),
     connectGo: $("connect-go"), connectOther: $("connect-other"), connectKnown: $("connect-known"),
+    connectAsk: $("connect-ask"), connectKind: $("connect-kind"), connectCable: $("connect-cable"), connectBack: $("connect-back"),
     portDialog: $("port-dialog"), portSelect: $("port-select"), portNone: $("port-none"), portAgain: $("port-again"), portGo: $("port-go"),
     emulatedDialog: $("emulated-dialog"), emulatedRoms: $("emulated-roms"), emulatedNone: $("emulated-none"), emulatedFile: $("emulated-file"),
     settingsDialog: $("settings-dialog"), setFind: $("set-find"), setBaud: $("set-baud"), setParity: $("set-parity"),
@@ -225,10 +226,6 @@ export function mountFiles(root, { shown = () => true } = {}) {
     folders: () => panes.map((p) => (p.place?.kind === "folder" ? p.place.folder : null)).filter(Boolean),
   });
   app.openServe = () => serve.show();
-  $("connect-serve").addEventListener("click", () => {
-    ui.connectDialog.close();
-    serve.show();
-  });
   // The desktop app saves downloads through its save dialog.
   if (isTauri()) app.downloadDeps = { save: saveFile };
   app.transfers = new Transfers({
@@ -526,6 +523,42 @@ export function mountFiles(root, { shown = () => true } = {}) {
     );
   }
 
+  /** Whether the connect dialog offers a port given before ("Choose another port" then too). */
+  let connectHasKnown = false;
+
+  /**
+   * The connect dialog's first step: which kind of calculator is on the
+   * cable. An HP 48 or 49 goes on to its model and the port; a 38G, 39G
+   * or 40G starts every transfer itself, so it goes to "Serve a folder".
+   */
+  function askConnectKind() {
+    const kind = (key, label, sub, icon, run) => {
+      const b = el("button", { type: "button", class: "rom-choice", "data-kind": key }, iconEl(icon), el("span", {}, el("strong", { text: label }), el("span", { class: "muted", text: sub })));
+      b.addEventListener("click", run);
+      return b;
+    };
+    ui.connectKind.replaceChildren(
+      kind("48-49", "An HP 48 or 49", "48SX, 48GX or 49G: you start its server, Files shows its memory", "plug", () => connectCableStep(true)),
+      kind("38-40", "An HP 38G, 39G or 40G", "These start every transfer themselves: Files serves them a folder", "calculator", () => {
+        ui.connectDialog.close();
+        serve.show();
+      }),
+    );
+    connectCableStep(false);
+  }
+
+  /** Show the connect dialog's model and port step (`cable`), or the first step again. */
+  function connectCableStep(cable) {
+    ui.connectAsk.hidden = cable;
+    ui.connectCable.hidden = !cable;
+    ui.connectBack.hidden = !cable;
+    ui.connectGo.hidden = !cable;
+    ui.connectOther.hidden = !cable || !connectHasKnown;
+    if (cable) ui.connectModels.querySelector('[aria-checked="true"]')?.focus();
+    else ui.connectKind.querySelector("button")?.focus();
+  }
+  ui.connectBack.addEventListener("click", () => connectCableStep(false));
+
   function setConnectModel(m) {
     connectModel = m;
     store.set(TRANSFER_KEYS.model, m);
@@ -608,12 +641,13 @@ export function mountFiles(root, { shown = () => true } = {}) {
     const known = await lastNativePort();
     ui.connectKnown.hidden = !known;
     ui.connectKnown.textContent = known ? `The port used last: ${known.label}.` : "";
-    ui.connectOther.hidden = !known;
+    connectHasKnown = Boolean(known);
     ui.connectGo.textContent = known ? "Connect" : "Choose the port";
     const go = (choosing) => connectPort(choosing, (port) => new TauriSerialLink(port));
     ui.connectGo.onclick = () => go(known ? Promise.resolve(known) : choosePort());
     ui.connectOther.onclick = () => go(choosePort());
     ui.connectDialog.showModal();
+    askConnectKind();
   }
 
   async function openConnectDialog(pane) {
@@ -627,11 +661,12 @@ export function mountFiles(root, { shown = () => true } = {}) {
     const known = await knownPort();
     ui.connectKnown.hidden = !known;
     ui.connectKnown.textContent = known ? "This browser remembers the port from last time." : "";
-    ui.connectOther.hidden = !known;
+    connectHasKnown = Boolean(known);
     ui.connectGo.textContent = known ? "Connect" : "Choose the port";
     ui.connectGo.onclick = () => connectPort(known ? Promise.resolve(known) : navigator.serial.requestPort());
     ui.connectOther.onclick = () => connectPort(navigator.serial.requestPort());
     ui.connectDialog.showModal();
+    askConnectKind();
   }
 
   async function connectPort(choosing, makeLink = (port) => new WebSerialLink(port)) {
