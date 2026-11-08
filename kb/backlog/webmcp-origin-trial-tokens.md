@@ -1,10 +1,9 @@
 ---
 type: backlog
-title: Renew the WebMCP origin trial tokens before they expire
+title: Renew the WebMCP origin trial tokens (Edge by 2026-12-23)
 date: 2026-11-08
 status: planned
 priority: high
-due: 2026-12-23
 tags:
   - backlog
   - web
