@@ -57,15 +57,21 @@
 //!   calculator ([`XmodemSession`]).
 //! - [`xserv`]: XSERV (49g+/50g, the 49G): framing, the detection probe and
 //!   a client ([`XservSession`]); tested on a real 49G and the emulated one.
+//! - `filer` (not on wasm32): the HP 100LX/200LX palmtops' Filer server
+//!   over a transport, on `filer-proto` (`Palmtop`).
 //!
 //! Wiki references (calculator-knowledgebase,
 //! <https://github.com/ractive/calculator-knowledgebase>): `protocols/server-commands`,
 //! `protocols/hp-object-format`, `protocols/iopar`, `hardware/uart`,
-//! `protocols/xmodem-hp`, `protocols/xserv`.
+//! `protocols/xmodem-hp`, `protocols/xserv`, `protocols/filer-hplx`.
 
 pub mod calc;
 pub mod charset;
 mod error;
+// Blocking, like `Calculator`: not in the wasm32 build, where
+// `filer_proto::Session` itself is the face.
+#[cfg(not(target_arch = "wasm32"))]
+pub mod filer;
 pub mod grob;
 mod link;
 pub mod machine;
@@ -92,6 +98,7 @@ pub mod time {
 pub use calc::Calculator;
 pub use calc::{Model, TransferMode};
 pub use error::{Error, Result, SerialError};
+pub use filer_proto;
 pub use machine::{Machine, Op, Progress, Reply};
 pub use session::Options;
 #[cfg(not(target_arch = "wasm32"))]
