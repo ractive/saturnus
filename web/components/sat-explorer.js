@@ -154,9 +154,11 @@ const TAB_HINTS_TOUCH = {
 /** What the page says for a model without a memory view (app.js, too). */
 export const NO_MEMORY_VIEW = "The memory view works with the HP 48SX, 48GX and 49G.";
 
-/** The hint for `tab`, for a finger (`coarse`) or a mouse. */
-export function tabHint(tab, coarse) {
-  return (coarse ? TAB_HINTS_TOUCH : TAB_HINTS)[tab] ?? "";
+/** The hint for `tab`, for a finger (`coarse`) or a mouse; the Reference
+ * tab's names search's key (`searchKey`, rebindable) when it has one. */
+export function tabHint(tab, coarse, searchKey = "") {
+  const hint = (coarse ? TAB_HINTS_TOUCH : TAB_HINTS)[tab] ?? "";
+  return tab === "commands" && !coarse && searchKey ? `${hint} ${searchKey} searches from anywhere.` : hint;
 }
 
 function el(tag, attrs = {}, ...children) {
@@ -1832,7 +1834,7 @@ export class SatExplorer extends HTMLElement {
     else if (s.memoryStale && !this.empty) [live, kind] = ["The calculator is busy. This is its memory as it was; it updates when the calculator waits for a key.", "note"];
     // The flags are set by a click only where the model has writes.
     const coarse = Boolean(globalThis.matchMedia?.("(pointer: coarse)").matches);
-    const hint = live || this.empty || (this.tab === "flags" && !this.writes) ? "" : tabHint(this.tab, coarse);
+    const hint = live || this.empty || (this.tab === "flags" && !this.writes) ? "" : tabHint(this.tab, coarse, this.bindings?.labelOf("palette"));
     const ui = this.ui;
     if (ui.statusLive.textContent !== live) ui.statusLive.textContent = live;
     if (ui.statusHint.textContent !== hint) ui.statusHint.textContent = hint;

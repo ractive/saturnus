@@ -994,10 +994,11 @@ test("a click anywhere on a single flag's row sets or clears it", { timeout: 120
 test("a refused write stays until the next action; each tab has its hint", { timeout: 120_000 }, async (t) => {
   const p = await page(t);
   if (!p) return;
+  const search = await p.ev(`window.saturnus.bindings.labelOf("palette")`);
   const hints = {
     vars: "Double-click a directory to open it. Right-click a name for more.",
     stack: "Click a level to see it. Right-click for more.",
-    commands: "Click a command to see its details.",
+    commands: `Click a command to see its details. ${search} searches from anywhere.`,
   };
   for (const [tab, hint] of Object.entries(hints)) {
     await p.ev(`window.saturnus.explorer.setTab("${tab}"); true`);
