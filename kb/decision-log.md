@@ -5015,3 +5015,27 @@ saturnus".
   reading VERSION through the nested Kermit server, and it keeps `-95.
   SF` and the 49G's XModem settings away from a 48. The probe waits
   0.5 s, as satx's.
+
+## 2026-11-08 (a leaner satx e2e; the web package from CI)
+
+- **satx e2e in two sets** (owner): pushes to `main` that touch satx
+  paths and PRs with the `e2e` label run the quick set, satx-core's e2e
+  suite per model and `lx-e2e` (about 5 minutes); the CLI script
+  against the saturnng oracle (6-7.5 minutes per model, the bulk of the
+  14-18) runs nightly at 03:17 UTC on `main`, by hand with
+  `-f full=true`, and before a release (step 4 of the checklist). The
+  nightly skips a fork and a `main` still at the last green nightly's
+  commit; any commit counts, so the push filter's path list is not
+  copied a second time.
+- **The licence in `web/pkg`**: wasm-pack 0.15 copies the crate
+  directory's `LICENSE*` into the package, and without `license` reads `license-file` as a
+  path relative to both the crate and the output directory (so
+  `../../LICENSE` would write outside `web/pkg`). saturnus-web gets the
+  copy of the root `LICENSE` the published crates have, in the same
+  `cmp` check (`just package`, `quality-gates`), not a link.
+- **Pages and the desktop build take CI's wasm package**: a push to
+  `main` keeps the tested `web/pkg` 14 days (`web-pkg`);
+  `scripts/ci-web-pkg-run.sh` finds the run of the same commit (a push,
+  `wasm` succeeded, artifact not expired), else the workflow builds it
+  as before. Only pushes to `main`: a PR run builds a merge ref, and its
+  code is not main's.

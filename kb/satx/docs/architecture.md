@@ -114,6 +114,7 @@ always and against `FILER_E2E_ADDR` when set; `scripts/satx-lx-e2e.sh`
 for the CLI. The oracle is BSD Filer v0.3 in Docker
 (`tools/filer-oracle/`, port 4853, `just lx-oracle-up`, `just lx-e2e`);
 what it lacks is in its README. CI runs both in the `lx-e2e` job of
-`e2e.yml`, behind the `e2e` label.
+`e2e.yml` (pushes to `main`, PRs with the `e2e` label, nightly;
+[[docs/ci]], "What runs when").
 
 ## Milestones

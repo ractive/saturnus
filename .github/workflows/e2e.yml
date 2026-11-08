@@ -1,8 +1,11 @@
 name: satx e2e
 
-# satx against the saturnng oracle (18-19 minutes) and satx lx against the
-# BSD Filer oracle, so not on every PR push
-# (kb/docs/ci.md, "What runs when"):
+# satx against the saturnng oracle and satx lx against the BSD Filer
+# oracle, so not on every PR push (kb/docs/ci.md, "What runs when").
+# Two sets: the quick one (satx-core's e2e suite per model and lx-e2e,
+# about 5 minutes) and the full one, which adds the CLI script
+# scripts/satx-e2e-cli.sh per model (6-7.5 minutes more each, 14-18 in
+# all). The quick set runs
 # - on a push to main whose changes reach what the job builds: satx and
 #   its protocol crates, the saturnus crates of its `saturnus` feature,
 #   the oracle image, the CLI script, the Cargo files, this workflow
@@ -13,6 +16,11 @@ name: satx e2e
 # - on a pull request carrying the label `e2e` (adding it starts a run;
 #   later pushes to the PR run it again while the label is on);
 # - by hand (`gh workflow run e2e.yml --ref <branch>`).
+# The full set runs
+# - nightly at 03:17 UTC on main (schedule), only in ractive/saturnus and
+#   only when main moved since the last green nightly (the `nightly` job);
+# - by hand with `-f full=true`; before a release on the release commit,
+#   unless the last nightly on it is green (kb/docs/releasing.md).
 # A separate workflow, not a job in ci.yml: a `labeled` trigger there
 # would rerun all of CI for every label (dependabot adds two to each PR).
 
@@ -42,7 +50,14 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/e2e.yml'
+  schedule:
+    - cron: '17 3 * * *'
   workflow_dispatch:
+    inputs:
+      full:
+        description: "The full set: the CLI script per model too (6-7.5 minutes more each)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -51,7 +66,8 @@ permissions:
 # Each push to main has a group of its own (never cancelled, never
 # replaced while pending). Adding a label other than `e2e` starts a run
 # whose job is skipped; it gets a group of its own so that it does not
-# cancel an e2e run in progress.
+# cancel an e2e run in progress. A nightly and a run by hand go by their
+# ref (one running, one pending per branch).
 concurrency:
   group: e2e-${{ (github.event_name == 'push' && github.sha) || (github.event.action == 'labeled' && github.event.label.name != 'e2e' && github.run_id) || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -60,22 +76,56 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # A scheduled run (GitHub runs those on main only) goes on only in the
+  # repository itself, not a fork, and only when main is not still at
+  # the commit of the last green nightly: the same commit would run the
+  # same 20 minutes again. An error asking the API runs it anyway.
+  nightly:
+    if: github.event_name == 'schedule' && github.repository == 'ractive/saturnus'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.last.outputs.run }}
+    steps:
+      - id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          last=$(gh run list --workflow e2e.yml --event schedule --status success --limit 1 --json headSha --jq '.[0].headSha // ""') || last=""
+          if [ "$last" = "$SHA" ]; then
+            echo "main is still at $SHA, the last green nightly's commit: nothing to run"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "main is at $SHA, the last green nightly ran ${last:-nothing}"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   # satx against the saturnng oracle (tools/saturnng-oracle/), the
   # black-box reference kb/docs/clean-room-rule.md allows: the image
   # downloads the ROMs from hpcalc.org at build time and is never cached,
   # pushed or shipped. Ports 4848 and 4850 belong to these containers.
   # One job per model, in parallel, each with its own oracle: the time is
-  # the tests' (about 1.5-2 minutes of core suite and 6-7.5 of CLI script
-  # per model), not the build's.
+  # the tests' (about 1.5-2 minutes of core suite per model, and in the
+  # full set 6-7.5 of CLI script), not the build's.
   satx-e2e:
     # On a pull request only with the label, and of the `labeled` events
     # only the one for `e2e`; a run for another label, or for a push to an
     # unlabelled PR, shows the job as skipped (as `satx-e2e`, a name
-    # distinct from the matrix jobs', so it hides no earlier result).
+    # distinct from the matrix jobs', so it hides no earlier result). A
+    # scheduled run only when `nightly` says so; `!cancelled()` lets the
+    # job run when `nightly` was skipped (every other event).
+    needs: nightly
     if: >-
-      github.event_name != 'pull_request'
-      || (contains(github.event.pull_request.labels.*.name, 'e2e')
-          && (github.event.action != 'labeled' || github.event.label.name == 'e2e'))
+      !cancelled()
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+          || (github.event_name == 'schedule' && needs.nightly.outputs.run == 'true')
+          || (github.event_name == 'pull_request'
+              && contains(github.event.pull_request.labels.*.name, 'e2e')
+              && (github.event.action != 'labeled' || github.event.label.name == 'e2e')))
     strategy:
       fail-fast: false
       matrix:
@@ -87,6 +137,10 @@ jobs:
             port: 4850
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      # The full set (the CLI script too): nightly, or by hand with
+      # `-f full=true`.
+      FULL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -116,9 +170,10 @@ jobs:
         run: cargo test --locked -p satx-core --test e2e -- --nocapture
       # After the satx-core suite the emulated 49G used to be wedged (no
       # answer even after SERVER was retyped; kb/backlog/satx-flaky-xmodem-e2e.md).
-      # A Kermit probe measures that: a calculator that does not answer gets
-      # an "Oracle wedged" warning with the probe output and log. The 49G
-      # is then restarted either way, so its CLI script starts from a fresh
+      # A Kermit probe measures that, in every run: a calculator that does
+      # not answer gets an "Oracle wedged" warning with the probe output
+      # and log. When the CLI script follows (the full set), the 49G is
+      # then restarted either way, so its CLI script starts from a fresh
       # calculator as before (in the branch runs without that restart, 1 of
       # 9 failed in the script's aborted-command resync,
       # kb/backlog/satx-ci-emulator-flakes.md); the 48SX only when silent.
@@ -129,17 +184,19 @@ jobs:
         run: |
           if out=$(timeout 60 python3 tools/saturnng-oracle/kermit-probe.py localhost "$PORT" init 2>&1); then
             echo "the $MODEL answers after the satx-core suite"
-            [ "$MODEL" = 49g ] || exit 0
+            [ "$FULL" = true ] && [ "$MODEL" = 49g ] || exit 0
           else
-            echo "::warning title=Oracle wedged::the $MODEL did not answer after the satx-core suite; restarting it (kb/backlog/satx-flaky-xmodem-e2e.md)"
+            echo "::warning title=Oracle wedged::the $MODEL did not answer after the satx-core suite (kb/backlog/satx-flaky-xmodem-e2e.md)"
             echo "$out"
             docker exec calc calc-screen || true
             docker logs calc 2>&1 | grep -v 'Write into' | tail -n 50
+            [ "$FULL" = true ] || exit 0
           fi
           docker rm -f calc
           docker run -d -p "$PORT:4848" -e MODEL="$MODEL" --name calc hp49g-emu
           tools/saturnng-oracle/wait-ready.sh calc
       - name: CLI end-to-end script
+        if: env.FULL == 'true'
         env:
           SATX_E2E_ADDR: tcp://localhost:${{ matrix.port }}
           SATX_E2E_MODEL: ${{ matrix.model }}
@@ -158,13 +215,18 @@ jobs:
   # satx lx against BSD Filer v0.3 (tools/filer-oracle/), a Unix emulation
   # of the HP 100LX/200LX Filer server, as a black box: the image builds it
   # from the author's archive (checksum checked) and is never cached,
-  # pushed or shipped. Port 4853. A minute or two of tests; the same
-  # gating as satx-e2e.
+  # pushed or shipped. Port 4853. A minute or two of tests, its CLI script
+  # (scripts/satx-lx-e2e.sh) included in every run; the same gating as
+  # satx-e2e.
   lx-e2e:
+    needs: nightly
     if: >-
-      github.event_name != 'pull_request'
-      || (contains(github.event.pull_request.labels.*.name, 'e2e')
-          && (github.event.action != 'labeled' || github.event.label.name == 'e2e'))
+      !cancelled()
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+          || (github.event_name == 'schedule' && needs.nightly.outputs.run == 'true')
+          || (github.event_name == 'pull_request'
+              && contains(github.event.pull_request.labels.*.name, 'e2e')
+              && (github.event.action != 'labeled' || github.event.label.name == 'e2e')))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

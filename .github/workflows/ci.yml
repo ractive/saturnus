@@ -256,6 +256,19 @@ jobs:
       # without SATURNUS_ROM_DIR.
       - name: Web tests
         run: node --test --test-timeout=300000 web/test/*.test.mjs
+      # The tested package of a push to main, for pages.yml and desktop.yml
+      # to take instead of building the same commit again
+      # (scripts/ci-web-pkg-run.sh finds this run by its commit; past the
+      # retention they build it themselves). PR runs keep none: they build
+      # a merge ref, not a commit of main.
+      - name: Keep the web package (push to main)
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-pkg
+          path: web/pkg
+          if-no-files-found: error
+          retention-days: 14
 
   # The Tauri app (crates/saturnus-tauri; its page's wasm is not built
   # here, its build script only warns, and its ROM-gated pseudo-terminal
@@ -418,8 +431,10 @@ jobs:
       # warnings that tests/ is not packaged are expected (`include`).
       # Each published crate carries a copy of the licence (not a link, which
       # a checkout without symlinks would package as a stub); it must match.
-      - name: Published crates carry the licence
-        run: for c in saturnus-core saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto filer-proto satx-core satx-cli; do cmp LICENSE "crates/$c/LICENSE"; done
+      # So does saturnus-web, unpublished: wasm-pack copies the crate's
+      # LICENSE* into web/pkg (and says it found none otherwise).
+      - name: The crates carry the licence
+        run: for c in saturnus-core saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto filer-proto satx-core satx-cli saturnus-web; do cmp LICENSE "crates/$c/LICENSE"; done
       - name: Published crates package and verify (rehearsal)
         run: cargo package --locked -p kermit-proto -p xmodem-proto -p filer-proto -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p satx-core -p satx
       # The published crates' docs as docs.rs builds them (`just doc`).

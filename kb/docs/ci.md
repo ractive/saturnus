@@ -56,7 +56,13 @@ three sets (README, CHANGELOG, `packaging/`, other workflows) run no job.
 | Rust PR | `changes`, `commit-email`, every Rust job, `wasm`, `tauri`, `tauri-windows`, `quality-gates` |
 | push to `main`, only `web/` | `changes`, `wasm`, `tauri`, `tauri-windows`, `quality-gates`; `e2e.yml` does not start |
 
-`e2e.yml` (`satx-e2e`, 30-minute limit per job) runs
+`e2e.yml` (`satx-e2e` and `lx-e2e`) has two sets (owner's decision,
+2026-11-08: the full set took 14-18 minutes on every satx push). The
+**quick set**, about 5 minutes: per model satx-core's e2e suite against
+the saturnng oracle, and `lx-e2e` (satx-core's `lx::` module and
+`scripts/satx-lx-e2e.sh` against BSD Filer). The **full set** adds
+`scripts/satx-e2e-cli.sh` per model (6-7.5 minutes each, after the
+probe and the 49G's fresh container). The quick set runs
 
 - on a push to `main` whose changes reach what it builds (GitHub's own
   `paths` filter against the previous commit): `crates/satx-core`,
@@ -76,6 +82,19 @@ three sets (README, CHANGELOG, `packaging/`, other workflows) run no job.
   e2e run (that event's run skips the job, in a concurrency group of its
   own);
 - by hand: `gh workflow run e2e.yml --ref <branch>`.
+
+The full set runs
+
+- nightly at 03:17 UTC on `main` (`schedule`). Its first job, `nightly`,
+  lets it go on only in `ractive/saturnus` (not a fork) and only when
+  `main` has moved since the last green scheduled run (`gh run list
+  --event schedule --status success`, its `headSha` against this one;
+  any commit counts, not only satx paths: one API call, no second copy
+  of the path list). An API error runs it anyway;
+- by hand: `gh workflow run e2e.yml --ref <branch> -f full=true` (the
+  `full` input, default `false`);
+- before a release: the full set by hand on the release commit, or the
+  last nightly green on it ([[docs/releasing]], "Release checklist").
 
 It is a separate workflow because a `labeled` trigger in `ci.yml` would
 rerun all of CI for every label (dependabot adds two to each PR).
@@ -97,13 +116,14 @@ hand only and keep saving.
 | `tauri` | ubuntu | installs webkit2gtk-4.1, libxdo and OpenSSL headers, then clippy of `saturnus-tauri` in the debug and the release profile (release builds leave out the debug-only self-test hooks, so both must compile) and its tests (the ROM-gated ones skip; the page's wasm is not built here, so its build script warns and its `frontend` test checks the page files only) |
 | `tauri-windows` | Windows | the tests of `saturnus-tauri` (WebView2 comes with the runner): paths differ there, and the 0.3.0 release dry run caught a Windows-only test bug the Linux job missed. No clippy, and its Rust cache is never saved (one more multi-GB entry would crowd main's out of the 10 GB limit); it builds cold in about 3.5 minutes |
 | `msrv` | ubuntu | `cargo check --locked` of the published crates with Rust 1.88.0, the workspace `rust-version` (let-chains need 1.88; checked with that toolchain in iteration 23): the five saturnus crates (saturnus-core, saturnus-objects, saturnus-host, saturnus-drive, saturnus), kermit-proto, xmodem-proto, filer-proto and satx-core. A second step installs Rust 1.95.0 and checks satx (crates/satx-cli), whose own `rust-version` is 1.95 (rustyline 19 uses the standard library's `cfg_select!`, stable since 1.95) |
-| `wasm` | ubuntu | `cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto -p filer-proto --target wasm32-unknown-unknown`, `cargo check` and clippy of `satx-core` without default features for wasm32, `cargo check -p saturnus-tx` and `-p saturnus-web` for wasm32 and the bindings' native tests, `web/build.sh` (wasm-pack), then `node --test` of every `web/test/*.test.mjs` with the runner's Node and Chrome (the one document's Calculator and Files, the hub, Files' protocol stack replaying `crates/saturnus-tx/traces` and its page with the recorded fake link of `web/test/fixtures/tx-page.trace`, the site; the `*e2e*` files skip without the ROMs: `just web-test-full DIR`, `just tx-e2e DIR` are local). One job since iteration 50d, which made the two pages one app |
+| `wasm` | ubuntu | `cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto -p filer-proto --target wasm32-unknown-unknown`, `cargo check` and clippy of `satx-core` without default features for wasm32, `cargo check -p saturnus-tx` and `-p saturnus-web` for wasm32 and the bindings' native tests, `web/build.sh` (wasm-pack; the crate's copy of the root `LICENSE`, checked by `quality-gates`, lands in `web/pkg`), then `node --test` of every `web/test/*.test.mjs` with the runner's Node and Chrome (the one document's Calculator and Files, the hub, Files' protocol stack replaying `crates/saturnus-tx/traces` and its page with the recorded fake link of `web/test/fixtures/tx-page.trace`, the site; the `*e2e*` files skip without the ROMs: `just web-test-full DIR`, `just tx-e2e DIR` are local). One job since iteration 50d, which made the two pages one app. On a push to `main` it keeps the tested `web/pkg` as the `web-pkg` artifact (14 days) for `pages.yml` and `desktop.yml` (below, "The web package from CI") |
 | `commit-email` | pull requests | every commit in `origin/<base>..HEAD` (full history, `fetch-depth: 0`) has the author email james@ractive.ch; only `dependabot[bot]` is exempt. The base ref comes in through the environment, not a `${{ }}` expansion in the script. The rule is in CLAUDE.md |
-| `satx-e2e` (`e2e.yml`) | ubuntu-24.04, a matrix of 48SX and 49G in parallel, 30 minutes each | each job builds the saturnng oracle image from `tools/saturnng-oracle/` (it downloads saturnng and the ROMs from hpcalc.org at build time; the image is never cached or pushed), starts its calculator (48SX on port 4848, 49G on 4850) and waits with `tools/saturnng-oracle/wait-ready.sh` (the container bridges only once its Kermit server answered an I packet, otherwise the emulator is started again, four starts in all; when it gives up, or after 300 s, the step fails with the container's log, [[backlog/satx-ci-emulator-flakes]]), runs satx-core's e2e suite against it (`SATX_E2E_ADDR`), then `scripts/satx-e2e-cli.sh`. The time is the tests' (the CLI script alone takes 6 to 7.5 minutes per model), so the split halves the wall time from about 18 minutes. Between the two, a Kermit probe checks the calculator; one that does not answer gets an "Oracle wedged" warning annotation, and it and the 49G (always, as before) get a fresh container ([[backlog/satx-flaky-xmodem-e2e]]). On failure it prints the calculator's screen and log |
-| `lx-e2e` (`e2e.yml`) | ubuntu-24.04, 20 minutes, the same triggers as `satx-e2e` | builds the BSD Filer image from `tools/filer-oracle/` (the author's archive, checksum checked; never cached or pushed), starts it on port 4853, waits with `tools/filer-oracle/wait-ready.sh`, runs the `lx::` module of satx-core's e2e suite (in process and against the oracle, `FILER_E2E_ADDR`), then `scripts/satx-lx-e2e.sh`. On failure it prints BSD Filer's log |
+| `satx-e2e` (`e2e.yml`) | ubuntu-24.04, a matrix of 48SX and 49G in parallel, 30 minutes each | each job builds the saturnng oracle image from `tools/saturnng-oracle/` (it downloads saturnng and the ROMs from hpcalc.org at build time; the image is never cached or pushed), starts its calculator (48SX on port 4848, 49G on 4850) and waits with `tools/saturnng-oracle/wait-ready.sh` (the container bridges only once its Kermit server answered an I packet, otherwise the emulator is started again, four starts in all; when it gives up, or after 300 s, the step fails with the container's log, [[backlog/satx-ci-emulator-flakes]]), runs satx-core's e2e suite against it (`SATX_E2E_ADDR`), then, in the full set only (nightly, `-f full=true`), `scripts/satx-e2e-cli.sh`. The time is the tests' (the CLI script alone takes 6 to 7.5 minutes per model), so the split halves the wall time from about 18 minutes. After the suite, in every run, a Kermit probe checks the calculator; one that does not answer gets an "Oracle wedged" warning annotation, and in the full set it and the 49G (always, as before) get a fresh container for the CLI script ([[backlog/satx-flaky-xmodem-e2e]]). On failure it prints the calculator's screen and log |
+| `nightly` (`e2e.yml`) | ubuntu-24.04, scheduled runs only | says whether the nightly full set goes on: not on a fork, not when `main` is still at the last green nightly's commit |
+| `lx-e2e` (`e2e.yml`) | ubuntu-24.04, 20 minutes, the same triggers as `satx-e2e`, the same in both sets | builds the BSD Filer image from `tools/filer-oracle/` (the author's archive, checksum checked; never cached or pushed), starts it on port 4853, waits with `tools/filer-oracle/wait-ready.sh`, runs the `lx::` module of satx-core's e2e suite (in process and against the oracle, `FILER_E2E_ADDR`), then `scripts/satx-lx-e2e.sh`. On failure it prints BSD Filer's log |
 | `lint-kb` | pull requests, kb changed | `hyalo lint --strict` on the kb files the PR changes |
 | `lint-kb-full` | pushes to `main`, kb changed | `hyalo lint --strict` on the whole kb |
-| `quality-gates` | Rust or web changed | `cargo deny check` (`deny.toml`), the publish rehearsal (`cargo package --locked` of the nine crates.io crates, satx's four included, each verified against the packages before it; [[docs/releasing]]), the published crates' docs with `-D warnings`, `scripts/about-json.py --check` (the About panel's generated `web/about.json` names no local path or e-mail address), `scripts/flags-json.py --check` (the flags panel's generated `web/flags.json` likewise, and every system flag covered once) |
+| `quality-gates` | Rust or web changed | `cargo deny check` (`deny.toml`), every crate's `LICENSE` the same as the root's (the published ones and saturnus-web, whose copy wasm-pack puts into `web/pkg`), the publish rehearsal (`cargo package --locked` of the nine crates.io crates, satx's four included, each verified against the packages before it; [[docs/releasing]]), the published crates' docs with `-D warnings`, `scripts/about-json.py --check` (the About panel's generated `web/about.json` names no local path or e-mail address), `scripts/flags-json.py --check` (the flags panel's generated `web/flags.json` likewise, and every system flag covered once) |
 
 Locally, `just gates` runs the same checks in one go (`just lint` is the
 fast subset: fmt, cargo-deny, clippy). Keep the justfile and the workflow
@@ -145,8 +165,8 @@ depend on it for nothing).
 
 | Workflow | Trigger | What |
 | --- | --- | --- |
-| `desktop.yml` | `release.yml` succeeded on a published release (`workflow_run`, its tag); manual (`workflow_dispatch`) | for the desktop app (one since iteration 51; a matrix of systems, the page's wasm built first) Tauri's official action builds the installers on macOS (aarch64: `.app`, `.dmg`), Windows (`.msi`, NSIS `.exe`) and Linux (ubuntu-22.04: `.deb`, `.rpm`, `.AppImage`) and uploads them as workflow artifacts (`contents: read`); with a release tag (the release's, or the `release-tag` input) the build checks out that tag and a separate job with `contents: write` attaches the installers to that existing release, never overwriting assets (no `--clobber`). |
-| `pages.yml` | manual | Builds the wasm package, assembles the page with `web/site.sh` (which fails when a module the page imports is missing) and publishes it by FTPS to ractive.ch (no GitHub Pages since 2026-10-08), then sends the new or changed sitemap addresses to IndexNow ([[docs/releasing]]). |
+| `desktop.yml` | `release.yml` succeeded on a published release (`workflow_run`, its tag); manual (`workflow_dispatch`) | for the desktop app (one since iteration 51; a matrix of systems, the page's wasm CI's of that commit or built first) Tauri's official action builds the installers on macOS (aarch64: `.app`, `.dmg`), Windows (`.msi`, NSIS `.exe`) and Linux (ubuntu-22.04: `.deb`, `.rpm`, `.AppImage`) and uploads them as workflow artifacts (`contents: read`); with a release tag (the release's, or the `release-tag` input) the build checks out that tag and a separate job with `contents: write` attaches the installers to that existing release, never overwriting assets (no `--clobber`). |
+| `pages.yml` | manual | Takes CI's wasm package of the commit or builds it, assembles the page with `web/site.sh` (which fails when a module the page imports is missing) and publishes it by FTPS to ractive.ch (no GitHub Pages since 2026-10-08), then sends the new or changed sitemap addresses to IndexNow ([[docs/releasing]]). |
 | `release.yml` | release published, manual dry run | The CLI's release pipeline, see [[docs/releasing]]. |
 | `publish-crates.yml` | manual | The crates.io recovery path: publishes the crates of `release.yml`'s list from a given ref, skipping those already up ([[docs/releasing]]). |
 
@@ -162,6 +182,29 @@ and the shell scripts must run as checked out.
 Not in CI: ROMs (the e2e tests skip without `SATURNUS_ROM_DIR`; run
 `just e2e <dir>` locally) and the saturnng differential script (Docker and
 ROMs).
+
+## The web package from CI
+
+`pages.yml` and `desktop.yml` take CI's `web/pkg` of the commit they
+build instead of running wasm-pack again (2026-11-08).
+`scripts/ci-web-pkg-run.sh SHA` asks the API for a `ci.yml` run of a
+push to `main` at that commit (this repository's, not a PR's: a PR run
+builds a merge ref) whose `wasm` job succeeded, so the package passed
+the web tests, and whose `web-pkg` artifact has not expired; it prints
+that run's id or nothing. `actions/download-artifact` (`run-id`,
+`github-token`, the jobs have `actions: read`) puts it into `web/pkg`,
+`continue-on-error`. Without a run, or when the download failed, the
+workflow builds the package itself as before: a branch, a commit whose
+push did not touch `rust` or `web` (CI skipped `wasm`), a CI run still
+going or failed, an artifact older than 14 days. With CI's package
+`pages.yml` skips the toolchain and wasm-pack; `desktop.yml` finds the run once in
+`verify` (for the tag's commit, or the dispatched ref's) and sets
+`SATURNUS_WEB_PKG_PREBUILT=1` in the build jobs, which makes
+`web/build.sh` (the app's `beforeBuildCommand`) keep the downloaded
+package, and skips installing wasm-pack. Both builds are CI's on
+`ubuntu-latest`, so the wasm still names only the runner's paths, and
+`web/site.sh` hashes the files it assembles either way: the service
+worker's refusal of a mixed build is unchanged.
 
 ## Supply chain
 
