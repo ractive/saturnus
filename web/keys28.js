@@ -174,7 +174,8 @@ export async function settle(backend, store, pace = { first: 40, poll: 40, limit
     }
     await wait(pace.poll);
   }
-  await wait(pace.poll);
+  // Cancelled: the caller drops the keys still queued at once (web/ai-tools.js).
+  if (!pace.signal?.aborted) await wait(pace.poll);
 }
 
 /**

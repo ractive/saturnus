@@ -10,13 +10,17 @@ the desktop app and the web page share one version.
 - **The calculators for your browser's own AI (WebMCP).** In a browser
   with WebMCP (Chrome 149 and Edge 150 try it out on saturnus's site),
   the app offers its AI tools to the browser's AI as well, with no
-  address or code: the tools for the calculator Calculator shows.
-  Storing or purging a variable asks you in the app first, and the calls
-  show in The AI's calls. Connecting an AI app through the dialog works
-  as before, beside it.
-- **A cancelled AI call stops waiting.** When an AI app gives up on a
-  call, the tool stops waiting for the calculator and presses no more
-  keys.
+  address or code: the tools for the calculator Calculator shows and
+  for every calculator the AI has listed. The display comes as text
+  unless the AI asks for a picture. Storing or purging a variable
+  through its store and purge tools asks you in the app first; the AI
+  can still press keys and run commands that store or purge without
+  asking, as through the dialog. The calls show in The AI's calls.
+  Connecting an AI app through the dialog works as before, beside it.
+- **A cancelled AI call stops at once.** When an AI app gives up on a
+  call, the tool stops waiting for the calculator, presses no more keys
+  and drops the keys it had queued that the calculator has not played
+  yet, so the next call starts clean.
 - **Files works with XSERV on the 49G.** Type `XSERV` on the 49G
   instead of `SERVER`, and Files finds it by itself: it lists, copies
   both ways, makes, renames and purges, about twice as fast as with the

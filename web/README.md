@@ -1188,7 +1188,9 @@ through the relay while the tab is open. Nothing is installed.
   `palette.js` `pressFunction`). A tool works on the calculator Calculator
   shows, or another running one by its id (a kept calculator Files runs,
   through a hub connection of its own, `join {who: "ai"}`). One call at a
-  time per calculator. `store_variable` and `purge_variable` ask in the
+  time per calculator; a call cancelled (its `signal`) after it queued
+  keys sends `releaseAll`, so the keys not played yet do not mix with the
+  next call's. `store_variable` and `purge_variable` ask in the
   page first (tab-mcp's confirmation, "Allow" off for its first 750 ms);
   key presses and runs do not (decision log, 2026-10-19).
 - **Pacing**: while an AI app is connected (the relay's session alone
@@ -1207,14 +1209,17 @@ through the relay while the tab is open. Nothing is installed.
   tokens in `index.html`; Chrome's early `navigator.modelContext` as a
   fallback), the same tool objects are registered with the browser for
   its own agent, always, beside tab-mcp: those of the shown calculator's
-  family (`familyOf`), registered again when the model changes it
-  (`main.js` `onModel`), each with an `AbortSignal` that withdraws it,
-  on `pagehide` too. The call path is the desktop app's: the arguments
+  family (`familyOf`, again when the model changes it, `main.js`
+  `onModel`) and of every family the last `list_calculators` call named
+  (registered before the agent reads the list), each tool once with an
+  `AbortSignal` that withdraws it alone when no family wants it, all on
+  `pagehide`; a refused registration is tried again at the next change. The call path is the desktop app's: the arguments
   checked, `store_variable` and `purge_variable` confirmed in tab-mcp's
   dialog (no "Always allow"), `toolcall`/`toolcallend` on the
-  `AiAccess` for the log. A result is the tool's JSON, an image the
-  `image` data URL, a failure `{error}` (Chrome hides a rejection's
-  message). Without a relay (127.0.0.1) `AiAccess` is still made for it,
+  `AiAccess` for the log. A result is the tool's JSON, a failure
+  `{error}` (Chrome hides a rejection's message); the display comes as
+  text unless the call asks for an image (`display`/`format`), then as
+  the `image` data URL. Without a relay (127.0.0.1) `AiAccess` is still made for it,
   `available` false, and the sidebar's entry stays hidden. Tests:
   `test/ai-webmcp.test.mjs` (a fake `document.modelContext`),
   `test/ai-webmcp-page.test.mjs` (Chrome with

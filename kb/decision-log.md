@@ -4938,13 +4938,21 @@ saturnus".
   The desktop app's webview has no WebMCP: nothing changes there. On a
   page served from this computer (no relay) AI access is made for WebMCP
   alone and the sidebar's Connect entry stays hidden.
-- **The shown calculator's tool family only**: `list_calculators` and the
-  family's tools of the model Calculator shows (`familyOf`), only
-  `list_calculators` and `lookup_command` with none shown; registered
-  again when the model changes the family, withdrawn on `pagehide`, back
-  on `pageshow`. An agent in the browser works on what the page shows;
-  tab-mcp keeps offering every tool. The server instructions (WebMCP has
-  none) go into `list_calculators`' description.
+- **The tools of every running calculator's family** (review of
+  PR #263): `list_calculators` and `lookup_command` always, the family's
+  tools of the model Calculator shows (`familyOf`, again when the model
+  changes), and those of every family the last `list_calculators` call
+  named, registered before the agent reads the list. So a calculator the
+  listing names (a 48GX running in another tab) has its tools, where
+  only the shown family's left `run_rpl` unknown for it. Each tool is
+  registered once and withdrawn alone when no family wants it, so a
+  change registers only what is new; a refused registration (a
+  `registerTool` that throws, in early builds) is tried again at the
+  next change. The listing, not a hub query on each model change, adds
+  the hidden calculators' families: it costs no connection while no
+  agent asks. All withdrawn on `pagehide`, back on `pageshow`. The
+  server instructions (WebMCP has none) go into `list_calculators`'
+  description, after a note on these WebMCP rules.
 - **Consequential calls confirmed in the page** (owner): tab-mcp's dialog
   ("Your browser's AI (WebMCP) wants to run …"), every time, no "Always
   allow", since the agent is not identified. "The AI's calls" records
@@ -4952,16 +4960,26 @@ saturnus".
   once one came while tab-mcp is off.
 - **Results**: a tool's JSON fields; a failure resolves to `{error}`
   rather than rejecting, because Chrome turns a rejection into a bare
-  `UnknownError` ([[research/webmcp]]); a display image as a
-  `data:image/png;base64,…` string in `image`. Each tool has a lenient
+  `UnknownError` ([[research/webmcp]]). The display comes as text unless
+  the call asks for an image (`display`/`format` "image" or "both"; then
+  a `data:image/png;base64,…` string in `image`), and the descriptions
+  WebMCP registers say so: a base64 PNG is of no use to a text-only
+  agent and costs its context. tab-mcp keeps the tools' own defaults
+  (its clients get an MCP image block). Each tool has a lenient
   `outputSchema` (no required fields, so `{error}` fits); tab-mcp's
   client and the desktop app's tool list do not pass it on.
 - **Annotations**: `list_calculators` now says `untrustedContentHint`
   (the ROM file names are the user's). MCP-only hints (`destructiveHint`)
   are not passed to WebMCP.
-- **Cancelled calls stop waiting**: the `signal` of `execute` ends the
-  waits for the calculator (`settle`, `pressFunction` presses no more
-  keys) with "Cancelled", for tab-mcp and the desktop app too.
+- **Cancelled calls stop waiting and drop their keys**: the `signal` of
+  `execute` ends the waits for the calculator (`settle`, `pressFunction`
+  presses no more keys) with "Cancelled", for tab-mcp, WebMCP and the
+  desktop app (Turn off aborts its calls). Since `typeKeys` queues every
+  key at once, a call cancelled after it queued keys sends `releaseAll`
+  before it ends (review of PR #263): the keys not played yet are
+  dropped, so the next call's keys and reads do not mix with them. A
+  call cancelled before it pressed anything sends nothing (a key the
+  user holds stays down).
 
 ## 2026-11-08 (Files over XSERV on the 49G, iteration 69)
 

@@ -147,6 +147,12 @@ the web app registers the same tools with the browser
 
 Key presses and runs are not confirmed, as for tab-mcp (decision log,
 2026-10-19): an agent in the browser can already press the page's keys.
+So `run_rpl` and `press_keys` can store and purge variables without a
+question (`STO`, `PURGE`); only `store_variable` and `purge_variable`
+ask. The confirmation in the page guards against a mistaken call, not
+against an agent that drives the page: one that can click in the page
+can press Allow itself (the dialog's delay before Allow works does not
+stop it).
 
 ## Known limits
 

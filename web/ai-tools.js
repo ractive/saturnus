@@ -3,8 +3,9 @@
 // description, inputSchema, outputSchema, annotations, execute}`
 // (`outputSchema` only WebMCP passes on, web/ai-webmcp.js; tab-mcp's
 // client and the desktop app's tool list leave it out). `execute(input,
-// {signal})`: a call whose signal aborts presses nothing more and stops
-// waiting for the calculator ("Cancelled"). Pure over what it is
+// {signal})`: a call whose signal aborts presses nothing more, drops the
+// keys it queued and the calculator has not played yet (`releaseAll`)
+// and stops waiting for the calculator ("Cancelled"). Pure over what it is
 // given (web/ai.js gives the real parts; web/test/ai-tools.test.mjs fakes):
 //
 //   calculators()  the running calculators, `[{id, model, title, rom, shown}]`
@@ -162,7 +163,13 @@ export function aiTools(deps) {
   const pace = deps.pace ?? { first: 40, poll: 40, limit: SETTLE_MS };
   /** One call at a time per calculator: two AI calls would mix their keys. */
   const queues = new Map();
-  /** `presses`: the tool types or reads what has the keyboard, so it waits out a cold boot's question first. */
+  /**
+   * `presses`: the tool types or reads what has the keyboard, so it waits
+   * out a cold boot's question first. A call cancelled after it queued
+   * keys (`typeKeys` queues them all at once) drops those not played yet
+   * (`releaseAll`) before it ends, so the next call's keys and reads do
+   * not mix with them.
+   */
   const onCalculator = async (input, fn, signal = null, { presses = false } = {}) => {
     const t = await targetOf(optionalString(input.calculator));
     const prev = queues.get(t.id) ?? Promise.resolve();
@@ -173,7 +180,14 @@ export function aiTools(deps) {
         await started(t, signal);
         if (signal?.aborted) throw new Error("Cancelled");
       }
-      return fn(t, signal);
+      let queued = false;
+      const keyed = { ...t, backend: notingKeys(t.backend, () => { queued = true; }) };
+      try {
+        return await fn(keyed, signal);
+      } catch (err) {
+        if (queued && signal?.aborted) t.backend.releaseAll();
+        throw err;
+      }
     });
     const tail = run.catch(() => {});
     queues.set(t.id, tail);
@@ -294,6 +308,7 @@ export function aiTools(deps) {
         const names = new Set((await skinKeys(t)).map((k) => k.name));
         const unknown = [...new Set(keys.filter((k) => !names.has(k)))];
         if (unknown.length) throw new Error(`The ${titleOf(t.model)} has no key ${unknown.map((k) => JSON.stringify(k)).join(", ")}. list_keys gives the names.`);
+        cancelled(signal);
         t.backend.typeKeys(keys);
         await wait(t, signal);
         return display(t, String(input.display ?? "both"), { png, look: askedLook(input), extra: { pressed: keys.length, ...(await stillRunning(t)) } });
@@ -541,6 +556,24 @@ export function aiTools(deps) {
 }
 
 // ---------------------------------------------------------------- helpers
+
+/** The protocol's commands that queue key presses (web/protocol.md). */
+const KEY_COMMANDS = new Set(["typeKeys", "keyDown", "keyUp", "keyScript", "typeLetter"]);
+
+/** `backend` that calls `onKeys` whenever a command queues keys. */
+function notingKeys(backend, onKeys) {
+  return new Proxy(backend, {
+    get(target, prop) {
+      const v = Reflect.get(target, prop, target);
+      if (typeof v !== "function") return v;
+      if (!KEY_COMMANDS.has(prop)) return v.bind(target);
+      return (...args) => {
+        onKeys();
+        return v.apply(target, args);
+      };
+    },
+  });
+}
 
 /** Throws "Cancelled" once `signal` (a call's) has aborted. */
 function cancelled(signal) {

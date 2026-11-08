@@ -99,6 +99,8 @@ class HubTarget {
       skin: (m) => r("skin", { model: m }),
       // As the page's backend: no answer awaited (the names were checked).
       typeKeys: (keys) => { r("typeKeys", { keys }).catch(() => {}); },
+      // A cancelled call's keys not played yet (web/ai-tools.js).
+      releaseAll: () => { r("releaseAll").catch(() => {}); },
       stats: () => r("stats"),
       run: (text, { codes = false } = {}) => r("run", { text, ...(codes ? { codes } : {}) }),
       stack: () => r("stack"),

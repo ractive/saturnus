@@ -11,6 +11,8 @@ import assert from "node:assert/strict";
 import { aiTools, INSTRUCTIONS } from "../ai-tools.js";
 import { AiLog } from "../ai-log.js";
 import { modelContextOf, WebMcp, webMcpAnnotations, webMcpResult } from "../ai-webmcp.js";
+import { readFileSync } from "node:fs";
+import { buildIndex } from "../reference.js";
 
 const turn = () => new Promise((r) => setTimeout(r, 0));
 const PACE = { first: 0, poll: 0, limit: 200 };
@@ -301,4 +303,85 @@ test("without WebMCP nothing is registered", async () => {
   await w.start();
   await w.update("48gx");
   assert.equal(w.active, false);
+});
+
+test("a registerTool that throws (early builds) leaves the others, rejects nothing, and is tried again at the next change", async () => {
+  const ai = access();
+  const context = new FakeContext();
+  const take = context.registerTool.bind(context);
+  let refuse = () => true;
+  context.registerTool = (tool, options) => {
+    if (refuse(tool.name)) throw new TypeError(`no ${tool.name}`);
+    return take(tool, options);
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    const { w } = webMcp(ai, { context });
+    // Every registration refused: nothing claimed, no rejection.
+    await w.start();
+    assert.deepEqual(context.names(), []);
+    assert.equal(w.active, false);
+    // One refused: the others are there, and the state says only those.
+    refuse = (name) => name === "run_rpl";
+    await w.update("49g");
+    assert.deepEqual(context.names(), RPL.filter((n) => n !== "run_rpl"));
+    assert.deepEqual([...w.names].sort(), context.names());
+    // The same family again: what was refused is tried again.
+    refuse = () => false;
+    await w.update("48gx");
+    assert.deepEqual(context.names(), RPL);
+  } finally {
+    console.warn = warn;
+  }
+});
+
+test("list_calculators registers the tools of every calculator it names, hidden ones too", async () => {
+  const gx = calculator("48gx");
+  const s42 = calculator("42s");
+  const ai = access(gx);
+  let running = [gx, s42];
+  ai.tools = aiTools({
+    calculators: async () => running.map((c) => ({ id: c.id, model: c.model, title: c.model, rom: "rom", shown: c === gx })),
+    target: async (id) => running.find((c) => c.id === (id ?? "48gx")),
+    existing: async (id) => running.find((c) => c.id === id) ?? null,
+    reference: { index: async (m) => buildIndex(JSON.parse(readFileSync(new URL("../commands.json", import.meta.url), "utf8")), m) },
+    png: async () => "iVBORw0KGgo=",
+    pace: PACE,
+  });
+  const { w, context } = webMcp(ai);
+  await w.start();
+  assert.ok(!context.names().includes("run_function"), "only the shown calculator's family before a listing");
+  const list = await context.run("list_calculators");
+  assert.deepEqual(list.calculators.map((c) => c.id), ["48gx", "42s"]);
+  for (const c of list.calculators) for (const name of c.tools) assert.ok(context.names().includes(name), `${c.id}: ${name}`);
+  // The hidden 42S's own tool is there and reaches it.
+  const r = await context.run("run_function", { calculator: "42s", name: "NOPE" });
+  assert.match(r.error, /The HP 42S reference has no function "NOPE"|The 42s reference has no function "NOPE"/);
+  // Once the 42S has gone, the next listing withdraws its family's tool; the shown calculator's stay.
+  running = [gx];
+  const before = context.registrations;
+  await context.run("list_calculators");
+  assert.deepEqual(context.names(), RPL);
+  assert.equal(context.registrations, before, "nothing registered again");
+  assert.match(context.tools.get("list_calculators").description, /call list_calculators first/);
+});
+
+test("through WebMCP the display comes as text unless the call asks for an image", async () => {
+  const ai = access();
+  const { w, context } = webMcp(ai);
+  await w.start();
+  const read = await context.run("read_display", {});
+  assert.equal(read.image, undefined);
+  assert.ok(Array.isArray(read.stack));
+  const pressed = await context.run("press_keys", { keys: ["1"] });
+  assert.equal(pressed.image, undefined);
+  assert.equal(pressed.pressed, 1);
+  assert.equal((await context.run("press_keys", { keys: ["1"], display: "image" })).image, "data:image/png;base64,iVBORw0KGgo=");
+  for (const [name, key] of [["read_display", "format"], ["press_keys", "display"], ["run_rpl", "display"], ["to_stack", "display"]]) {
+    assert.match(context.tools.get(name).inputSchema.properties[key].description, /Default: text; "image" or "both" adds the display as a PNG/, name);
+    assert.doesNotMatch(context.tools.get(name).inputSchema.properties[key].description, /Default: (both|text)\. Default/, name);
+  }
+  // tab-mcp's tools keep their own defaults.
+  assert.match(ai.tools.find((t) => t.name === "read_display").inputSchema.properties.format.description, /Default: both/);
 });

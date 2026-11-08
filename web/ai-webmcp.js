@@ -10,13 +10,18 @@
 // policy feature `tools` (default allowlist 'self') keeps cross-origin
 // frames out, and no tool names another origin in `exposedTo`.
 //
-// The tools of the calculator Calculator shows: its family's
-// (`familyOf`), `list_calculators` and `lookup_command` with none shown;
-// registered again when its model changes the family (`update`),
-// withdrawn when the page is hidden for good or put in the back/forward
-// cache (`pagehide`), registered again on `pageshow`. A tool is withdrawn
-// by aborting the `AbortSignal` it was registered with (the draft has no
-// `unregisterTool`).
+// The tools offered: `list_calculators` and `lookup_command`, those of
+// the shown calculator's family (`familyOf`; `update` when its model
+// changes) and those of the families the last `list_calculators` call
+// named (a 48GX the app runs but does not show), so a tool the listing
+// names is there when the agent reads it. Each tool is registered once
+// and withdrawn alone when no family wants it any more, so a change
+// registers only what is new. A tool is withdrawn by aborting the
+// `AbortSignal` it was registered with (the draft has no
+// `unregisterTool`); a registration the browser refuses is tried again
+// at the next change. All withdrawn when the page is hidden
+// for good or put in the back/forward cache (`pagehide`), registered
+// again on `pageshow`.
 //
 // Around each call, as tab-mcp's client does for tab-mcp (and
 // web/ai-local.js for the desktop app): the arguments checked against
@@ -27,8 +32,10 @@
 // not say who it is), and the `toolcall`/`toolcallend` events on the AI
 // access that feed "The AI's calls" (web/ai-log.js). WebMCP turns a
 // tool's result into JSON for the agent and a rejected `execute` into an
-// error without its message, so a failure comes back as `{error}`; a
-// display image as the `image` data URL.
+// error without its message, so a failure comes back as `{error}`. The
+// display comes as text unless the call asks for an image (`display` or
+// `format` "image" or "both"; then the `image` data URL): a PNG in base64
+// costs a text-only agent its context.
 
 import { FAMILY_TOOLS, familyOf, INSTRUCTIONS } from "./ai-tools.js";
 import { CONFIRM_MODULE, ConfirmHost, invalidArguments, toCallToolResult } from "./ai-local.js";
@@ -50,6 +57,9 @@ export const WEBMCP_CLIENT = Object.freeze({ grantId: "webmcp", id: "webmcp", na
 
 /** The tools registered with no calculator shown. */
 const NONE = ["list_calculators", "lookup_command"];
+
+/** What `list_calculators` tells the agent of WebMCP's own ways, before the instructions. */
+export const WEBMCP_NOTE = "Here (WebMCP) the tools of a calculator's family are offered while it is shown or once list_calculators has named it: call list_calculators first, and again when the user opens another calculator. The display comes as text unless you ask for an image (display or format \"image\" or \"both\": a PNG as a data: URL).";
 
 /** Tool call ids of WebMCP's calls, apart from tab-mcp's (its own) and the desktop app's. */
 let lastCallId = 0;
@@ -95,73 +105,102 @@ export class WebMcp {
     this.allowDelayMs = allowDelayMs;
     /** No "Always allow", so it never holds a grant; confirmInPage wants a host. */
     this.confirmHost = new ConfirmHost();
-    /** The registrations' controller: aborting it withdraws them. */
-    this.controller = null;
-    /** The tool names registered now (null: none). */
-    this.names = null;
-    /** The family registered, or "none" with no calculator shown; undefined before `start`. */
+    /** The tools registered (or being registered) now, by name, each with the controller that withdraws it. */
+    this.registered = new Map();
+    /** The shown calculator's family, "none" with none shown; undefined before `start`. */
     this.family = undefined;
+    /** The families the last `list_calculators` call named. */
+    this.listed = new Set();
+    /** The registration changes, one after the other. */
+    this.syncing = Promise.resolve();
     /** Whether an agent has called a tool in this page (the sidebar offers "Calls" then). */
     this.called = false;
-    /** While the page is hidden (`pagehide`), and the family to register when it shows again. */
+    /** While the page is hidden (`pagehide`). */
     this.hidden = false;
-    this.later = undefined;
   }
 
-  /** Whether the tools are registered now. */
+  /** Whether tools are registered now. */
   get active() {
-    return this.names !== null;
+    return this.registered.size > 0;
+  }
+
+  /** The names of the tools registered now, in the tools' order. */
+  get names() {
+    return this.ai.tools.map((t) => t.name).filter((n) => this.registered.has(n));
   }
 
   /** Register for the calculator Calculator shows now; withdraw on page hide, again on show. */
   async start() {
     if (!this.context) return;
     this.win?.addEventListener?.("pagehide", () => {
-      this.later = this.family;
       this.hidden = true;
       this.withdraw();
     });
     this.win?.addEventListener?.("pageshow", () => {
       if (!this.hidden) return;
       this.hidden = false;
-      if (this.later !== undefined) this.register(this.later);
+      this.sync();
     });
     const v = await this.ai.view().catch(() => null);
     await this.update(v?.store?.state?.booted ?? null);
   }
 
-  /** The calculator shown is now `model` (null: none): registered again if its tool family differs. */
+  /** The calculator shown is now `model` (null: none): its family's tools registered, those no family wants withdrawn. */
   update(model) {
     if (!this.context) return Promise.resolve();
-    const family = model ? familyOf(model).family : "none";
-    // Hidden: registered on show.
-    if (this.hidden) {
-      this.later = family;
-      return Promise.resolve();
-    }
-    return this.register(family);
+    this.family = model ? familyOf(model).family : "none";
+    return this.sync();
   }
 
-  /** The tools of `family` ("rpl", "rpl-keys", "keys", "none") registered, those before withdrawn. */
-  async register(family) {
-    if (family === this.family) return;
-    this.withdraw();
-    this.family = family;
-    const names = family === "none" ? NONE : ["list_calculators", ...FAMILY_TOOLS[family]];
-    const controller = new AbortController();
-    this.controller = controller;
-    this.names = names;
-    const tools = this.ai.tools.filter((t) => names.includes(t.name));
-    const done = await Promise.allSettled(tools.map((t) => this.registerOne(this.wrap(t), controller.signal)));
+  /** The families of the calculators `list_calculators` named (its result's `family`): their tools registered. */
+  listing(families) {
+    this.listed = new Set(families.filter((f) => Object.hasOwn(FAMILY_TOOLS, f)));
+    return this.sync();
+  }
+
+  /** The tool names wanted now. */
+  wanted() {
+    const names = new Set(NONE);
+    for (const family of [this.family, ...this.listed]) for (const name of FAMILY_TOOLS[family] ?? []) names.add(name);
+    return names;
+  }
+
+  /** The registrations brought in line with `wanted()`, after the changes before; never rejects. */
+  sync() {
+    if (!this.context) return Promise.resolve();
+    const run = this.syncing.then(() => this.syncNow()).catch((err) => console.warn("saturnus: WebMCP registration failed", err));
+    this.syncing = run;
+    return run;
+  }
+
+  async syncNow() {
+    if (this.hidden || this.family === undefined) return;
+    const want = this.wanted();
+    let changed = false;
+    for (const [name, controller] of this.registered) {
+      if (want.has(name)) continue;
+      controller.abort();
+      this.registered.delete(name);
+      changed = true;
+    }
+    const adding = this.ai.tools.filter((t) => want.has(t.name) && !this.registered.has(t.name));
+    const controllers = adding.map((t) => {
+      const controller = new AbortController();
+      this.registered.set(t.name, controller);
+      return controller;
+    });
+    const done = await Promise.allSettled(adding.map((t, i) => this.registerOne(this.wrap(t), controllers[i].signal)));
     for (const [i, r] of done.entries()) {
-      // Withdrawn meanwhile (the abort's reason) is no failure.
-      if (r.status === "rejected" && !controller.signal.aborted) console.warn(`saturnus: WebMCP did not take the tool ${tools[i].name}`, r.reason);
+      if (r.status === "fulfilled") continue;
+      // Refused: not registered, tried again at the next change. Withdrawn meanwhile (the abort's reason) is no failure.
+      if (this.registered.get(adding[i].name) === controllers[i]) this.registered.delete(adding[i].name);
+      if (!controllers[i].signal.aborted) console.warn(`saturnus: WebMCP did not take the tool ${adding[i].name}`, r.reason);
     }
-    this.ai.changed?.();
+    if (changed || adding.length) this.ai.changed?.();
   }
 
-  /** One registration, withdrawn when `signal` aborts. */
-  registerOne(tool, signal) {
+  /** One registration, withdrawn when `signal` aborts; a `registerTool` that throws rejects. */
+  async registerOne(tool, signal) {
     const context = this.context;
     // The early `navigator.modelContext` took no signal: it had `unregisterTool(name)`.
     if (typeof context.unregisterTool === "function") {
@@ -173,22 +212,22 @@ export class WebMcp {
         }
       }, { once: true });
     }
-    return Promise.resolve(context.registerTool(tool, { signal }));
+    await context.registerTool(tool, { signal });
   }
 
   /** Every tool withdrawn (the calls running go on to their end). */
   withdraw() {
-    this.controller?.abort();
-    this.controller = null;
-    this.names = null;
-    this.family = undefined;
+    for (const controller of this.registered.values()) controller.abort();
+    const had = this.registered.size > 0;
+    this.registered.clear();
+    if (had) this.ai.changed?.();
   }
 
   /** `tool` as WebMCP takes it: its own fields, and an `execute` that checks, confirms, runs and logs. */
   wrap(tool) {
-    const out = { name: tool.name, title: tool.title, description: tool.description, inputSchema: tool.inputSchema, annotations: webMcpAnnotations(tool.annotations), execute: (input, options) => this.call(tool, input, options?.signal) };
+    const out = { name: tool.name, title: tool.title, description: tool.description, inputSchema: textByDefaultSchema(tool.inputSchema), annotations: webMcpAnnotations(tool.annotations), execute: (input, options) => this.call(tool, input, options?.signal) };
     // WebMCP has no server instructions: the agent reads them with the first tool it should call.
-    if (tool.name === "list_calculators") out.description = `${tool.description}\n\nHow to use these tools:\n${INSTRUCTIONS}`;
+    if (tool.name === "list_calculators") out.description = `${tool.description}\n\n${WEBMCP_NOTE}\n\nHow to use these tools:\n${INSTRUCTIONS}`;
     if (tool.outputSchema) out.outputSchema = tool.outputSchema;
     return out;
   }
@@ -206,7 +245,10 @@ export class WebMcp {
     const [outcome, result] = await this.decideAndRun(tool, raw, signal);
     this.ai.dispatchEvent(new CustomEvent("toolcallend", { detail: { id: call.id, tool: tool.name, client: { ...WEBMCP_CLIENT }, outcome, result: copy(result), durationMs: this.now() - started } }));
     if (result.isError) return { error: result.content?.find((c) => c?.type === "text")?.text ?? "The tool failed." };
-    return webMcpResult(result);
+    const out = webMcpResult(result);
+    // The tools of every calculator listed, registered before the agent reads the list.
+    if (tool.name === "list_calculators" && Array.isArray(out?.calculators)) await this.listing(out.calculators.map((c) => c?.family));
+    return out;
   }
 
   /** `[outcome, MCP result]` of a call (the log's form; `call` makes WebMCP's of it). */
@@ -226,7 +268,7 @@ export class WebMcp {
     if (signal.aborted) return ["cancelled", failed("Cancelled")];
     let res;
     try {
-      res = toCallToolResult(await tool.execute(raw, { signal, client: { ...WEBMCP_CLIENT } }));
+      res = toCallToolResult(await tool.execute(textByDefault(tool, raw), { signal, client: { ...WEBMCP_CLIENT } }));
     } catch (err) {
       res = failed((err instanceof Error ? err.message : String(err)) || "The tool failed.");
     }
@@ -250,4 +292,29 @@ export function webMcpAnnotations(a = {}) {
   const out = {};
   for (const key of ["readOnlyHint", "untrustedContentHint", "consequentialHint", "debugging"]) if (typeof a?.[key] === "boolean") out[key] = a[key];
   return out;
+}
+
+/** The argument of input schema `schema` that says whether the result carries the display as an image ("display", "format"), or null. */
+function imageArgument(schema) {
+  const props = schema?.properties ?? {};
+  return ["display", "format"].find((k) => props[k]?.enum?.includes("image")) ?? null;
+}
+
+/**
+ * `raw` with the display as text where the call names nothing: a PNG in
+ * base64 is no use to a text-only agent and costs its context (tab-mcp's
+ * clients get an MCP image block and keep the tools' own defaults).
+ */
+export function textByDefault(tool, raw) {
+  const key = imageArgument(tool.inputSchema);
+  return key && raw[key] === undefined ? { ...raw, [key]: "text" } : raw;
+}
+
+/** `schema` as WebMCP registers it: the display argument says its default is text. */
+export function textByDefaultSchema(schema) {
+  const key = imageArgument(schema);
+  if (!key) return schema;
+  const prop = schema.properties[key];
+  const description = `${String(prop.description ?? "").replace(/\s*Default: [^.]*\.$/, "")} Default: text; "image" or "both" adds the display as a PNG (a data: URL).`.trim();
+  return { ...schema, properties: { ...schema.properties, [key]: { ...prop, description } } };
 }
