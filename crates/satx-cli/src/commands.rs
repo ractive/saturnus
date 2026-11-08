@@ -1089,11 +1089,22 @@ impl Ctx {
         for (i, level) in reply.levels.iter().enumerate().rev() {
             let _ = writeln!(text, "{}: {level}", i + 1);
         }
+        let mut results = json!({"command": command, "stack": reply.levels});
+        let mut hints = Vec::new();
+        let cut = satx_core::reply::cut_levels(&reply.levels);
+        if let Some(note) = crate::repl::cut_note(&cut) {
+            let _ = writeln!(text, "note: {note}");
+            results["cut"] = json!(cut);
+            hints.push(Hint::cmd(
+                "Fetch a cut level whole after storing it on the calculator with 'NAME' STO",
+                self.cmd("get NAME --ascii -o -"),
+            ));
+        }
         Ok(Outcome {
-            results: json!({"command": command, "stack": reply.levels}),
+            results,
             total: Some(reply.levels.len() as u64),
             dir: None,
-            hints: Vec::new(),
+            hints,
             text,
         })
     }

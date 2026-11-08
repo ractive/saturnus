@@ -324,6 +324,26 @@ pub fn stack_text(levels: &[String]) -> String {
         .join("\n")
 }
 
+/// What to say about stack levels that look cut at the calculator's display
+/// width ([`satx_core::reply::cut_levels`]), e.g. `level 1 looks cut ...`;
+/// `None` when none does.
+pub fn cut_note(cut: &[usize]) -> Option<String> {
+    let (last, rest) = cut.split_last()?;
+    let levels = match rest {
+        [] => format!("level {last} looks"),
+        _ => {
+            let rest: Vec<String> = rest.iter().map(ToString::to_string).collect();
+            format!("levels {} and {last} look", rest.join(", "))
+        }
+    };
+    Some(format!(
+        "{levels} cut: the 49G sends each stack level only as wide as its display"
+    ))
+}
+
+/// How to see a cut level whole, in the REPL.
+const CUT_HINT: &str = "store it in a variable ('NAME' STO) and fetch it whole with :get NAME";
+
 /// Hint after a calculator error inside the REPL.
 const CALC_ERROR_HINT: &str = "the calculator leaves the arguments of a failed command on its \
                                stack: DROP removes one level, CLEAR all";
@@ -470,7 +490,17 @@ pub enum Shown {
 pub fn shown_json(shown: &Shown) -> serde_json::Value {
     match shown {
         Shown::Blank => serde_json::json!({}),
-        Shown::Stack(levels) => serde_json::json!({ "stack": levels }),
+        Shown::Stack(levels) => {
+            let cut = satx_core::reply::cut_levels(levels);
+            match cut_note(&cut) {
+                Some(note) => serde_json::json!({
+                    "stack": levels,
+                    "cut": cut,
+                    "hint": format!("{note}; {CUT_HINT}"),
+                }),
+                None => serde_json::json!({ "stack": levels }),
+            }
+        }
         Shown::CalculatorError { message, stack } => {
             let failure = calculator_failure(message.clone(), stack.clone());
             serde_json::json!({
@@ -747,7 +777,13 @@ fn flow(shown: &Shown) -> Flow {
 fn show_text(shown: &Shown) -> Result<()> {
     match shown {
         Shown::Blank | Shown::Quit => Ok(()),
-        Shown::Stack(levels) => print_text(&stack_text(levels)),
+        Shown::Stack(levels) => {
+            let mut text = stack_text(levels);
+            if let Some(note) = cut_note(&satx_core::reply::cut_levels(levels)) {
+                text.push_str(&format!("\nnote: {note}; {CUT_HINT}"));
+            }
+            print_text(&text)
+        }
         Shown::CalculatorError { message, stack } => {
             eprintln!(
                 "{}",
@@ -1201,6 +1237,26 @@ mod tests {
         assert_eq!(stack_text(&levels), "3: 42.\n2: 'X'\n1: {9600.,0.,0.}");
         let multi = vec!["\u{ab} 1 +\n\u{bb}".into()];
         assert_eq!(stack_text(&multi), "1: \u{ab} 1 +\n\u{bb}");
+    }
+
+    /// A 36-character string as a real 49G (ROM 1.18) sent it, cut at 20
+    /// characters.
+    #[test]
+    fn cut_levels_are_flagged() {
+        assert_eq!(cut_note(&[]), None);
+        let note = cut_note(&[1]).unwrap();
+        assert!(note.starts_with("level 1 looks cut: the 49G"), "{note}");
+        let note = cut_note(&[1, 3, 4]).unwrap();
+        assert!(note.starts_with("levels 1, 3 and 4 look cut"), "{note}");
+        let levels = vec!["\"ABCDEFGHIJKLMNOPQRS".to_string(), "42.".to_string()];
+        let json = shown_json(&Shown::Stack(levels));
+        assert_eq!(json["cut"], serde_json::json!([1]));
+        assert!(
+            json["hint"].as_str().unwrap().contains(":get NAME"),
+            "{json}"
+        );
+        let whole = shown_json(&Shown::Stack(vec!["\"ABC\"".to_string()]));
+        assert_eq!(whole, serde_json::json!({ "stack": ["\"ABC\""] }));
     }
 
     #[test]
