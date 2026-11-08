@@ -11,8 +11,8 @@
 //! framing follows the wiki's description of HP's own client code (wiki:
 //! protocols/xserv). The framing and parsing here are sans-IO; the client
 //! ([`XservSession`], and the XSERV operations of
-//! [`Machine`](crate::machine::Machine)) talks to the link of
-//! [`crate::link`], as the Kermit and XModem code do.
+//! [`Machine`](crate::machine::Machine)) talks to the crate's internal
+//! link, as the Kermit and XModem code do.
 //!
 //! # Framing
 //!

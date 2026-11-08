@@ -2,7 +2,9 @@
 //! on a fake clock: the whole session and the ops session on each model,
 //! and the failures made from them (no answer, the wrong speed, the wrong
 //! parity, a NAK storm, a cut link, names refused or in use, a purge
-//! without its count, a backup without room, requests after a restore).
+//! without its count, a backup without room, requests after a restore);
+//! and a scripted calculator in XSERV (`tests/xserv.rs` runs the real
+//! one on the emulated 49G).
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -1524,4 +1526,162 @@ fn a_failed_swap_removes_its_copy() {
         "{:?}",
         peer.actions
     );
+}
+
+/// An XSERV packet: length (high byte first), data, sum.
+fn xpacket(data: &[u8]) -> Vec<u8> {
+    let mut out = vec![(data.len() >> 8) as u8, data.len() as u8];
+    out.extend_from_slice(data);
+    out.push(data.iter().fold(0u8, |a, &b| a.wrapping_add(b)));
+    out
+}
+
+/// An `L` record: name, prolog, nibbles, CRC.
+fn record(name: &str, prolog: u16, nibbles: u32) -> Vec<u8> {
+    let mut r = vec![name.len() as u8];
+    r.extend_from_slice(name.as_bytes());
+    r.extend_from_slice(&prolog.to_le_bytes());
+    r.extend_from_slice(&nibbles.to_le_bytes()[..3]);
+    r.extend_from_slice(&[0x34, 0x12]);
+    r
+}
+
+/// A 49G in XSERV with HOME holding IOPAR and directory D (holding X):
+/// answers `M` and `L`, ACKs every command packet, runs the `E` texts
+/// Files sends (HOME, a directory name, `'N' CRDIR`), ignores the Kermit
+/// probes, and ends at `Q`. The E texts it saw, in order.
+#[test]
+fn a_calculator_in_xserv_is_found_listed_and_changed() {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    let executed = Rc::new(RefCell::new(Vec::<String>::new()));
+    let seen = Rc::clone(&executed);
+    let mut cwd: Vec<String> = vec!["HOME".into()];
+    let mut made: Vec<String> = Vec::new();
+    let mut expect_packet = false;
+    let mut ended = false;
+    let mut host = Host::new();
+    let mut peer = then(&Trace::new(), host.clock, move |action| {
+        let Action::Write(w) = action else {
+            return Vec::new();
+        };
+        if ended {
+            return Vec::new();
+        }
+        if expect_packet && w.len() >= 3 {
+            expect_packet = false;
+            let text = String::from_utf8_lossy(&w[2..w.len() - 1]).to_string();
+            for word in text.split(' ') {
+                match word {
+                    "HOME" => cwd = vec!["HOME".into()],
+                    "'N'" | "CRDIR" => {}
+                    name => cwd.push(name.to_string()),
+                }
+            }
+            if text == "'N' CRDIR" {
+                made.push("N".into());
+            }
+            seen.borrow_mut().push(text);
+            return vec![vec![0x06]];
+        }
+        match w.as_slice() {
+            b"M" => vec![xpacket(b"245478.")],
+            b"L" => {
+                let data: Vec<u8> = if cwd == ["HOME"] {
+                    [record("IOPAR", 0x2A74, 40), record("D", 0x2A96, 30)].concat()
+                } else {
+                    let mut d = record("X", 0x2933, 21);
+                    for n in &made {
+                        d.extend(record(n, 0x2A96, 10));
+                    }
+                    d
+                };
+                vec![xpacket(&data)]
+            }
+            b"E" => {
+                expect_packet = true;
+                Vec::new()
+            }
+            b"Q" => {
+                ended = true;
+                Vec::new()
+            }
+            _ => Vec::new(),
+        }
+    });
+    let connected = host.run(&mut peer, Request::Connect(Default::default()));
+    let Ok(Outcome::Connected(c)) = connected else {
+        panic!("{connected:?}");
+    };
+    assert_eq!(c.server, saturnus_tx::Server::Xserv);
+    assert_eq!(c.model, satx_core::Model::Hp49G);
+    // Found by the first M: no Kermit probe went out.
+    assert!(
+        host.elapsed() < Duration::from_secs(1),
+        "{:?}",
+        host.elapsed()
+    );
+    assert!(
+        !peer
+            .actions
+            .iter()
+            .any(|a| *a == Action::Write(probe(Parity::None)))
+    );
+
+    // HOME: the sizes as the Kermit server gives them.
+    let home = host.run(&mut peer, Request::List { dir: vec![] });
+    let Ok(Outcome::Listing(l)) = home else {
+        panic!("{home:?}");
+    };
+    let iopar = &l.entries[0];
+    assert_eq!(
+        (iopar.name.as_str(), iopar.size, iopar.kind.as_str()),
+        ("IOPAR", 29.5, "List")
+    );
+    assert!(l.entries[1].is_directory());
+
+    // Into D (seen as a directory in HOME's listing), a new directory there.
+    let d = vec!["HOME".to_string(), "D".to_string()];
+    let made = host.run(
+        &mut peer,
+        Request::Mkdir {
+            dir: d.clone(),
+            name: "N".into(),
+        },
+    );
+    assert!(matches!(made, Ok(Outcome::Created(_))), "{made:?}");
+    let clash = host.run(
+        &mut peer,
+        Request::Mkdir {
+            dir: d.clone(),
+            name: "X".into(),
+        },
+    );
+    assert!(matches!(clash, Err(TxError::NameClash(_))), "{clash:?}");
+    // A directory nobody listed is not evaluated.
+    let missing = host.run(
+        &mut peer,
+        Request::List {
+            dir: vec!["HOME".into(), "NOPE".into()],
+        },
+    );
+    assert!(matches!(missing, Err(TxError::NotFound(_))), "{missing:?}");
+    assert_eq!(*executed.borrow(), ["HOME", "D", "'N' CRDIR", "HOME"]);
+
+    // No fast transfer; the disconnect ends XSERV.
+    let fast = host.run(
+        &mut peer,
+        Request::XmodemGet {
+            dir: d,
+            name: "X".into(),
+            wait: Duration::from_secs(1),
+        },
+    );
+    assert!(matches!(fast, Err(TxError::NotForXmodem(_))), "{fast:?}");
+    let quit = host.run(&mut peer, Request::Disconnect);
+    assert!(
+        matches!(quit, Ok(Outcome::XservQuit { ended: true })),
+        "{quit:?}"
+    );
+    assert!(host.device.connection().is_none());
 }

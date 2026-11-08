@@ -23,8 +23,7 @@
 //!   lists first and refuses an unknown name.
 //! - **The Kermit server, nested**: `SERVER` run through `E` starts it
 //!   inside XSERV, and its FINISH returns to XSERV (real 49G, ROM 1.18, and
-//!   the emulated one, ROM 2.15). The requests XSERV cannot do run there
-//!   ([`needs_kermit`]): text gets and puts, files stored as strings, PICT,
+//!   the emulated one, ROM 2.15). The requests XSERV cannot do run there: text gets and puts, files stored as strings, PICT,
 //!   backup and restore. Restore warm-starts the calculator, which ends
 //!   both servers.
 //! - **Disconnect**: `Q` ends XSERV (ROM 2.15); a ROM that ignores it is

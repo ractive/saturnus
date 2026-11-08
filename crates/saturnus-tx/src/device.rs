@@ -27,6 +27,13 @@
 //! model, and flag -35 read and set (binary) for the session; disconnect
 //! puts flag -35 back and ends server mode (FINISH).
 //!
+//! # XSERV
+//!
+//! Before the Kermit probes at each speed the search sends XSERV's `M`
+//! and listens [`crate::xserv::PROBE_WAIT`]: an answer makes the session
+//! an XSERV one ([`Connection::server`]), whose requests run on XSERV or
+//! on the Kermit server nested in it (see [`crate::xserv`]).
+//!
 //! # What changes the calculator
 //!
 //! Nothing is replaced or removed unless the request says so: a put to a
