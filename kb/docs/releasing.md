@@ -302,6 +302,14 @@ first release `V=0.1.0`. Every step says what to check before the next.
    ROMs, `saturnus-tauri`'s `tests/runner.rs` included, and the full
    reference regeneration, minutes). All pass; `git status --short` still
    prints nothing.
+   Then satx's end-to-end full set, whose CLI script against the
+   saturnng oracle runs nightly and by hand only ([[docs/ci]], "What
+   runs when"):
+   `gh run list --workflow e2e.yml --event schedule -L 1 --json headSha,conclusion`
+   shows `success` with the `headSha` of `git rev-parse main`; otherwise
+   `gh workflow run e2e.yml --ref main -f full=true` and watch it as in
+   step 5. Both `satx-e2e` jobs and `lx-e2e` pass (a known flake:
+   [[backlog/satx-e2e-xsend-start-flaky]]).
 5. **Pipeline dry run**: `gh workflow run release.yml --ref main`, then
    `gh run watch $(gh run list --workflow release.yml -L 1 --json databaseId -q '.[0].databaseId') --exit-status`.
    Check: `gh run download <id> -n dry-run-bundle-saturnus -D /tmp/saturnus-dry`
@@ -405,8 +413,9 @@ Recovery:
 on `main` publishes, another branch builds the site artifact and stops;
 the upload job runs in the `pages` GitHub Environment, deployments from
 `main` only, which must hold the `FTP_PASSWORD` secret)
-builds the wasm
-package (`web/build.sh`), assembles the site with
+takes the wasm package CI's `wasm` job built and tested for the same
+commit (the `web-pkg` artifact; [[docs/ci]], "The web package from CI")
+or, without one, builds it (`web/build.sh`), assembles the site with
 `web/site.sh` (the landing page `web/landing/` at the top with
 `web/site.htaccess` as `.htaccess`; the
 app under `app/`: the one document `index.html` with the views'
@@ -609,6 +618,9 @@ this one: one app, one identifier (`ch.ractive.saturnus`), one cask. What Files 
   (run from the repository root) builds it with `web/build.sh`, so
   `desktop.yml` installs wasm-pack and the wasm32 target; a production
   build by the Tauri CLI without them fails, any other build warns.
+  When CI kept a package of the commit, `desktop.yml` downloads it
+  instead and `web/build.sh` keeps it (`SATURNUS_WEB_PKG_PREBUILT=1`;
+  [[docs/ci]], "The web package from CI").
 - **Native parts**: serial ports (`serialport`, without libudev: on Linux
   the ports' USB names come from sysfs) and the computer's files for the
   right pane, as Tauri commands (`transfer.rs`); downloads through a save

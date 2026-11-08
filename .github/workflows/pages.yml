@@ -9,7 +9,8 @@ name: Web page
 # that changes web/ or the bindings (kb/docs/releasing.md). After the
 # upload, scripts/indexnow.mjs tells IndexNow the addresses of
 # sitemap.xml that are new or have a new lastmod against the sitemap
-# that was live before.
+# that was live before. The wasm package is CI's of the same commit when
+# there is one (scripts/ci-web-pkg-run.sh), else built here.
 
 on:
   workflow_dispatch:
@@ -28,6 +29,11 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # actions: read finds CI's run of this commit and downloads its
+    # web-pkg artifact.
+    permissions:
+      contents: read
+      actions: read
     steps:
       # The whole history: sitemap.xml's lastmod of each address is the
       # date of the last commit touching its files (web/docs/build.mjs);
@@ -36,15 +42,60 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # CI's wasm package of this commit (the `web-pkg` artifact of the
+      # push to main, kept 14 days, made by the same web/build.sh on the
+      # same runner image after the web tests passed) instead of building
+      # it again. Without one (another branch, CI skipped its wasm job by
+      # the path filter, is still running or failed, the artifact
+      # expired, the download did not succeed, digests included: any
+      # partial web/pkg is removed) the steps after build it here.
+      # Either way web/site.sh hashes the files it assembles into the
+      # service worker, so its refusal of a mixed build holds.
+      - name: CI's web package of this commit
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: echo "run=$(scripts/ci-web-pkg-run.sh "$SHA")" >> "$GITHUB_OUTPUT"
+      - id: web-pkg
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.ci.outputs.run != ''
+        continue-on-error: true
+        with:
+          name: web-pkg
+          path: web/pkg
+          run-id: ${{ steps.ci.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: CI's package or a build here
+        id: pkg
+        env:
+          RUN: ${{ steps.ci.outputs.run }}
+          OUTCOME: ${{ steps.web-pkg.outcome }}
+        run: |
+          head=$(git rev-parse HEAD)
+          if [ -n "$RUN" ] && [ "$OUTCOME" = success ] && [ "$head" = "$GITHUB_SHA" ] \
+            && [ -f web/pkg/saturnus_web.js ] && [ -f web/pkg/saturnus_web_bg.wasm ]; then
+            echo "web/pkg from CI run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN"
+            echo prebuilt=true >> "$GITHUB_OUTPUT"
+          else
+            echo "no usable CI package of $GITHUB_SHA (run '${RUN}', download ${OUTCOME:-skipped}, HEAD $head): building it here"
+            rm -rf web/pkg
+            echo prebuilt=false >> "$GITHUB_OUTPUT"
+          fi
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        if: steps.pkg.outputs.prebuilt != 'true'
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: steps.pkg.outputs.prebuilt != 'true'
       - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
+        if: steps.pkg.outputs.prebuilt != 'true'
         with:
           tool: wasm-pack@0.15.1
           fallback: none
       - name: Web package (wasm-pack)
+        if: steps.pkg.outputs.prebuilt != 'true'
         run: web/build.sh -- --locked
       # The landing page, the app and what it loads, the docs (rendered
       # by web/docs/build.mjs with the runner's Node), the kill
