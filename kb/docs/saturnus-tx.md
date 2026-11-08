@@ -252,16 +252,15 @@ As built (iteration 38, `web/tx/pane.js`, `app.js`): the preview sits
 under each pane's list, not beside it, since two panes side by side
 leave no room for a third column; a narrow pane (a container query, below
 540 px) shows a path line instead of the tree. The pane's head has
-"Change" (the place switcher: on the left a calculator on a cable or an
-emulated one; on the right also a folder on this computer or, where no
-folder can be picked, "Files in this browser"; then "Serve a folder to
-a 38G, 39G or 40G…" and nothing). A pane that shows the emulator's own
+"Change" (the place switcher, with the empty card's labels since
+iteration 70: on the left "Add a calculator…" and "Add an emulated
+calculator…"; on the right also "Open a folder…" or, where no folder
+can be picked, "Use files in this browser"; then nothing). A pane that shows the emulator's own
 calculator also has "Show in Calculator" (iteration 45, below). No menu,
 card or later visit opens a folder in the left pane; a kept folder
 comes back in the right pane. The head also has "⋯" (a calculator: New directory, Fast transfer a
-file to it (the 48GX and the 49G on its Kermit server), Back up,
-Restore from a backup file, Graphics screen, Copy everything to a
-folder, the connection settings, Read everything again, Disconnect; a folder: New folder, Add files, Download
+file to it (the 48GX), Back up, Restore from a backup file, Graphics
+screen, Copy everything to a folder, Read everything again, Disconnect; a folder: New folder, Add files, Download
 everything as `.zip`, Read again, Close). A row's menu: Open, Copy to the
 other pane (F5), Download and Download as text (a variable), the fast
 transfer where the calculator has it (a variable, a folder's `.hp`), Copy as one
@@ -300,13 +299,11 @@ one):
   Android) have no directory picker. The pane is then a "Files" list held
   in the page (OPFS where present, memory otherwise): files come in by
   the file input or a drop, go out as downloads (one file, or a `.zip`
-  for a directory or a selection). Web Serial is missing in exactly these
-  browsers too, so this fallback serves the emulator-only use; a real
-  calculator in them means the desktop app.
-
-Web Serial and the File System Access API ship in the same browsers. So a
-user with a cable in a browser always has a real folder; the fallback is
-for looking at files and the emulator.
+  for a directory or a selection). Safari has no Web Serial either, so
+  there this fallback serves the emulator-only use. Firefox has Web
+  Serial (seen in version 159, 2026-11-08) but no directory picker: a
+  cable with "Files in this browser" (owner check on a real cable
+  pending).
 
 Never overwritten without asking: a name that exists in the target asks
 "Replace X?" first (Cancel focused), on the folder side as on the
@@ -400,13 +397,15 @@ and asks for a new one if the calculator would refuse it (`satx-core`'s
 
 ### Connect (48/49)
 
-1. "Add a calculator": the dialog says what to do on the calculator,
-   per model, with the keys drawn as saturnus draws them (48G/GX:
-   right-shift then →; 48S/SX: type `SERVER`, ENTER; 49G since
-   iteration 69: type `XSERV`, ENTER, or `SERVER` for the Kermit server,
+1. "Add a calculator…", "An HP 48 or 49": one step (iteration 70: no
+   model to pick, Files reads the model and the server) with a row per
+   model and its keys drawn as saturnus draws them (`flows.js`
+   `START_SERVER`; 48G/GX: right-shift then →; 48S/SX: type `SERVER`,
+   ENTER; 49G: type `XSERV`, ENTER, or `SERVER` for the Kermit server,
    as its right-shift → starts either depending on a pause, wiki
    `protocols/xserv`), then "Choose the port" opens the browser's
-   chooser.
+   chooser. The same words, per model, are every "start it again" (a
+   restore, a fast transfer, a calculator not answering).
 2. The page opens the port at 9600 baud, 8 data bits, no parity, one stop
    bit, no flow control, and syncs (`satx-core`'s `Calculator::sync`)
    once the search below has heard the calculator.
@@ -446,12 +445,28 @@ Disconnect sends FINISH (the server ends and writes IOPAR, see
 When FINISH gets no answer, a message says to press ON if the display
 still shows the server, and the pane says only "Disconnected."
 (iteration 70).
+
+**Not answering** (iteration 70): `saturnus-tx`'s device fails an
+operation the calculator answers at once (a listing, a get, a binary
+put, a short host command; XSERV's `L`, `M`, `G`, `P` and `E`) as
+`TxError::NotAnswering` when the calculator sends no byte for 25 s on
+the Kermit server (longer than one resend after the 20 s Kermit
+timeout, so a packet lost on the line is still recovered) or 8 s on
+XSERV (asked again every 1.5 s; within XSERV's 60 s after an `E`, the
+busy calculator's time counts instead). Not watched: host commands that
+may run a while (a purge, a backup, a restore, RPL), a text put, the
+fast transfer, FINISH, the sync and the probes. The session ends;
+every request but a connect is refused; the pane shows "The calculator
+stopped answering" with the model's keys and Reconnect, its status "Not
+answering." (before: the Kermit retries, over two minutes, or XSERV's
+60 s, then a protocol message under a status that still said
+"Connected").
 A cable pulled mid-way is a disconnected pane with the reason, never a
 hang: every operation has the session's timeouts.
 
 ### Transfer settings
 
-The settings dialog (the pane's "⋯", "Connection settings…"): speed
+Design (superseded in iteration 70, see As built): the settings dialog (the pane's "⋯", "Connection settings…"): speed
 (1200, 2400, 4800, 9600), parity (none, odd, even), "Find automatically"
 (default on), and the calculator's own settings as read after connect
 (IOPAR: speed, parity, checksum, translation). "Set the calculator to
@@ -460,11 +475,11 @@ it takes effect at the next `SERVER`. Mark and space parity, which IOPAR
 allows, are not offered: neither Web Serial nor the `serialport` crate
 has them.
 
-As built: only the speed, the parity and "Find the speed and parity
-automatically" (stored for the next connect), and the line "Connected
-now: HP 49G on USB serial port, XSERV at 9600 baud." (the server named
-only when it is XSERV). The calculator's own IOPAR is not shown and not
-set from Files; `satx info` and `satx settings` do that.
+As built (iteration 70): no settings dialog. "Use a fixed speed" with
+a speed and a parity sits under the connect step's "Trouble with the
+cable?" (off: Files searches), stored for the next connect. The
+calculator's own IOPAR is not shown and not set from Files; `satx info`
+and `satx settings` do that.
 
 ### List, get, put
 
@@ -592,14 +607,17 @@ real 49G (ROM 1.18) the commands and the nesting.
   synced and ended with FINISH. So no `L` or `M` goes on for 60 s to a
   Kermit server, and no Kermit packet goes to XSERV, whose bytes could
   read as commands.
-- **What is not offered**: the fast transfer items (every copy is XModem
-  already; a request for one is `notForXmodem`).
+- **What is not offered**: the fast transfer (every copy is XModem
+  already; a request for one is `notForXmodem`); since iteration 70 not
+  on the 49G's Kermit server either.
 - **Disconnect**: `Q` ends XSERV (ROM 2.15: the calculator is back at
   its stack, with what `E` left there); `M` once more tells whether it
   did. The page says "XSERV has ended on the calculator." or, for a ROM
   that ignores `Q`, to press ON.
-- **On the Kermit server of a 49G on a cable**, the status line says
-  that XSERV copies faster: disconnect, type `XSERV`, connect again.
+- **On the Kermit server of a 49G on a cable**, a note under the pane's
+  head says once per connection that XSERV copies about twice as fast
+  (disconnect, type `XSERV`, connect again); its button closes it, and
+  the status stays one line (iteration 70).
 - **One size**: the size Files shows for a variable is the Kermit
   server's, whatever the server: the object and its entry in the
   directory (4.5 bytes and one per name character). XSERV's `L` gives
@@ -624,17 +642,21 @@ flag -35, an HP 48, the refusals before the round trip; the page's words and men
 (`tx-flows`, `tx-xmodem`), the console (`tx-cable`). Not yet on the
 real 49G: the owner's check in the iteration.
 
-### Fast transfer (XModem, 48GX and 49G)
+### Fast transfer (XModem, 48GX)
 
 As built (iteration 39, `saturnus-tx`'s `xmodem` module, `web/tx/
 xmodem.js`): XModem is faster than Kermit on the 49G, but `XRECV` and
 `XSEND` do not run inside the server (wiki `protocols/xmodem-hp`), so
 the user starts them: since iteration 68b with one key, EVAL of a
-program the device leaves on the stack. Offered on the 48GX and 49G only: "Fast transfer
+program the device leaves on the stack. Offered on the 48GX only since
+iteration 70 (the 49G has XSERV, as fast without the steps; `satx`
+keeps `--protocol xmodem` on both): "Fast transfer
 to the other pane (XModem)…" (or "as a download") on a variable's menu,
 "Fast transfer a file to it (XModem)…" in the calculator's "⋯", "Fast
 transfer to the calculator (XModem)…" on a folder's `.hp` file (its
-name asked first). One job of the queue:
+name asked first). The 49G parts below are the device's, which the
+replayed traces still test; Files' dialog has the 48GX's words only.
+One job of the queue:
 
 1. Checks while the server answers: a binary file of the model's family
    (text and the other family go by the normal copy, which converts), a
@@ -657,9 +679,9 @@ name asked first). One job of the queue:
 4. The bytes with progress: 1k blocks and HP's CRC on the 49G, 128-byte
    blocks and checksum on the 48GX (`satx-core`'s `XmodemOptions`).
 5. Done: what came over and where, and how to start the server again
-   (right-shift → on the 48GX, which starts Kermit however slowly it is
-   pressed; `SERVER` on the 49G, whose right-shift → starts XSERV after
-   a pause, wiki `protocols/xserv`), with "Later" and "Reconnect"; the
+   (the connect step's words for the model since iteration 70:
+   right-shift → on the 48GX, which starts Kermit however slowly it is
+   pressed), with "Later" and "Reconnect"; the
    pane says "The calculator left server mode" with Reconnect until
    then. The reconnect keeps the transfer mode the user had, drops the
    program if it is still level 1 (`IF DEPTH 0. > THEN IF DUP « … »
@@ -668,10 +690,11 @@ name asked first). One job of the queue:
 
 Tested: the dialog and its flows with the fake calculator
 (`web/test/tx-xmodem.test.mjs`), the replayed traces of the page against
-the emulated 48GX and 49G (`crates/saturnus-web/tests/xmodem.rs`,
-`just tx-xmodem-traces DIR`), and the round trip byte for byte in `just
-tx-e2e DIR` (`web/test/tx-e2e-xmodem.test.mjs`). Not yet on hardware: the
-owner's 49G checklist.
+the emulated 48GX and 49G (`crates/saturnus-web/tests/xmodem.rs`; `just
+tx-xmodem-traces DIR` records the 48GX's again, the 49G's stays as
+recorded), and the round trip byte for byte on the 48GX in `just tx-e2e
+DIR` (`web/test/tx-e2e-xmodem.test.mjs`). On hardware: the real 49G
+(owner, 2026-11-08, before iteration 70 took it out of Files).
 
 ### Aplets (38G, 39G, 40G)
 
@@ -679,10 +702,12 @@ The calculator is the client: the page serves a folder as the "disk
 drive" it expects (wiki `protocols/aplet-transfer`, which answers
 `questions/hp38g-39g-transfer-protocol`). As built (iteration 39):
 
-- **Where.** "Serve a folder to a 38G, 39G or 40G": "Add a calculator",
-  then "An HP 38G, 39G or 40G" (iteration 68a), an entry of each pane's
-  "Change" menu, and a button in the left pane's empty state only where
-  no serial port can be reached (an emulated one is served there). It opens a screen over the panes
+- **Where.** "Serve a folder to a 38G, 39G or 40G": "Add a calculator…",
+  then "An HP 38G, 39G or 40G" (iteration 68a; the cable chosen already
+  since iteration 70), a kept 38G, 39G or 40G ROM in "Add an emulated
+  calculator…" (chosen already), and a button in the left pane's empty
+  state only where no serial port can be reached. The Change menu's
+  entry went in iteration 70. It opens a screen over the panes
   (`web/tx/serve.js`, `serve.css`), in the spirit of HPGComm's small
   window: choose a folder (the one a pane shows is offered, or open
   one, or the files in this browser) and a calculator (on a cable, or an
@@ -1083,8 +1108,9 @@ source needs a rule:
   emulator. Iteration 37 cannot ship before the non-blocking API and the
   features exist; changing a working CLI's core is also a risk to `satx`,
   so its own tests and e2e suite gate the change.
-- **Web Serial exists in Chromium on the desktop only.** Not in Firefox
-  or Safari, not on iOS; Chrome on Android is not relied on. The page
+- **Web Serial exists in Chromium on the desktop, and in Firefox** (seen
+  in 159; not yet tried on a cable). Not in Safari, not on iOS; Chrome on
+  Android is not relied on. The page
   says so plainly and points to the desktop app; the emulator still works
   everywhere.
 - **Timing in the browser.** The protocol runs in a dedicated Worker so

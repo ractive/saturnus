@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 70: Files coherence pass after Kermit, XSERV and fast-transfer changes"
 date: 2026-11-08
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
@@ -40,10 +40,12 @@ the UI can be simplified." After [[iterations/iteration-69-files-over-xserv]].
   transfer fast, two ways into the serve screen ("Add a calculator" and
   the Change menu), per-model connect texts that could be one, settings
   Files can now handle itself (transfer mode, server choice).
-- [ ] **Owner decision** on the simplifications that change how Files
+- [x] **Owner decision** on the simplifications that change how Files
   works (a short list with screenshots); fix wording and plain
   inconsistencies directly.
-- [ ] Implement what the owner agrees to; tests and docs.
+- [x] Implement what the owner agrees to; tests and docs.
+- [-] Owner: Files in Firefox over Web Serial on a real 48SX/49G, and the
+  49G in XSERV.
 
 ## Acceptance
 
@@ -167,3 +169,53 @@ scratchpad's `iter-70/`.
    Not tried on a cable. Proposed: test Firefox with the owner's cable,
    then say so in the docs, or keep calling it untested. Screenshot
    `00-empty-firefox.png`.
+
+## Owner decision (2026-11-08)
+
+Proposals 1 to 8 as recommended; 9: correct the docs that say Firefox
+has no Web Serial and keep offering "Add a calculator…" there, the owner
+tries it on a real cable later.
+
+## As built
+
+- **1, 8.** `XMODEM_MODELS` is the 48GX alone; the 49G's Kermit server
+  gets a note under the pane's head once per connection (`.pane-hint`,
+  `flows.js` `xservHint`, closed by its button, gone when the connection
+  ends); the status is one line (`connectedText`). The fast-transfer e2e
+  runs on the 48GX only; the 49G's xmodem trace stays for the bindings'
+  replay.
+- **2.** `START_SERVER` holds one entry per model (`step`, `keys`,
+  `note`, `shown`) and `restartWords(model)` the "start it again" words:
+  the restore card, the fast transfer's end and the not-answering card
+  use them (`XSERV` on the 49G).
+- **3.** The Change menu's serve entry is gone; "Add a calculator…" →
+  "An HP 38G, 39G or 40G" opens the serve screen with the cable chosen
+  (`serve.show({calc})`), and a kept 38G, 39G or 40G ROM in "Add an
+  emulated calculator…" opens it with that calculator chosen; the empty
+  state's button stays where no serial port is reached. The serve screen
+  names the page's own files "the files in this browser".
+- **4.** One connect step: a table with each model's keys; the model
+  comes from the calculator (`connectLink` with `model: null`), the
+  stored model key is gone.
+- **5.** The Change menu uses the card's labels ("Add a calculator…",
+  "Add an emulated calculator…", "Open a folder…", "Use files in this
+  browser"); the question is "Which calculator?".
+- **6.** No Settings dialog or "Connection settings…" item: "Use a fixed
+  speed" with speed and parity under "Trouble with the cable?"; the
+  noAnswer message points there.
+- **7.** `saturnus-tx`'s silence watchdog (`DeviceOptions::silence_kermit`
+  25 s, `silence_xserv` 8 s; XSERV's 60 s right after an `E`) fails an
+  operation the calculator answers at once as `TxError::NotAnswering`
+  (kind `notAnswering`), ends the session and refuses every request but
+  a connect. `KermitDevice.notAnswering` and its event; the pane's card
+  "The calculator stopped answering" with the model's keys, Reconnect
+  and Disconnect, status "Not answering.". Measured in Files in Firefox
+  on the emulated 49G after ON: 8.1 s on XSERV, 25.1 s on the Kermit
+  server (before: 60 s and about 150 s).
+- **9.** `files.md`, `web/README.md` and the design doc say Firefox has
+  Web Serial (seen in 159), not yet tried on a cable.
+- Tests: Rust (`traces.rs`: a silent Kermit server and a silent XSERV),
+  the driver (`tx-driver`: notAnswering through the page's protocol
+  stack), the page (`tx-page`: the connect step, the fixed speed, the
+  serve screen asked once, the labels, the not-answering card;
+  `tx-xmodem`: 48GX only, the hint), flows and the queue's menus.

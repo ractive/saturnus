@@ -26,11 +26,28 @@ the desktop app and the web page share one version.
   both ways, makes, renames and purges, about twice as fast as with the
   Kermit server. For what XSERV can't do (text files, files kept as
   strings, the graphics screen, backup and restore) Files starts the
-  Kermit server inside XSERV and comes back to XSERV afterwards. The
-  fast transfer items go away there: every copy is XModem already.
+  Kermit server inside XSERV and comes back to XSERV afterwards.
   Disconnect ends XSERV. Connected to a 49G over the Kermit server,
-  Files says that XSERV is faster. The sizes in the list are the same
-  with either server.
+  Files says once that XSERV is faster. The sizes in the list are the
+  same with either server.
+- **Files is simpler.** "Add a calculator…" shows the keys that start
+  the server for every model at once (Files reads the model and the
+  server from the calculator), with a fixed speed under "Trouble with
+  the cable?" instead of a Settings dialog. The 49G has no fast
+  transfer in Files any more: XSERV copies as fast without the steps;
+  the 48G and 48GX keep it. A restore, a fast transfer and a calculator
+  that stopped answering all say how to start the server again with
+  the same keys as the connect step (`XSERV` on the 49G). A 38G, 39G or
+  40G is asked for once: "Add a calculator…" opens the serve screen
+  with the cable chosen, and a kept 38G, 39G or 40G ROM in "Add an
+  emulated calculator…" opens it with that calculator. The Change menu
+  uses the same labels as the empty pane.
+- **A calculator that stops answering says so.** When the calculator
+  sends nothing while Files waits for it (its server ended, the cable
+  came loose), the pane says "The calculator stopped answering" after
+  about 8 seconds on XSERV or 25 on the Kermit server, instead of two
+  minutes of retries and a protocol message under a status that still
+  said "Connected"; Reconnect connects again.
 - **`satx` knows XSERV.** `satx info` says which server answered, and
   `satx ls`, `get`, `put` and the other Kermit commands say so when the
   calculator runs XSERV, and how to go on. `satx xserv quit` ends
@@ -61,15 +78,14 @@ the desktop app and the web page share one version.
 - **Fast transfer by one key.** Files and `satx --protocol xmodem` no
   longer ask you to type `'PRG' XSEND` on the calculator: they put the
   command on its stack as a program, `« 'PRG' XSEND »`, before server
-  mode ends, and you press EVAL on a 48G or 48GX, or right-shift, then
-  SYMB on the 49G (which has no EVAL key). For an emulated calculator,
+  mode ends, and you press EVAL on a 48G or 48GX, or (with satx)
+  right-shift, then SYMB on the 49G (which has no EVAL key). For an emulated calculator,
   "Press the keys for me" presses them. A transfer you cancel before
   pressing the key leaves the stack as it was: the reconnect takes the
   program off again (with satx, the backspace key drops it).
-- **Starting the server again after a fast transfer.** On a 49G Files
-  and satx now say to type `SERVER`: right-shift, then → can start the
-  49G's XModem server instead. On a 48G or 48GX right-shift, then →
-  stays.
+- **Starting the server again after a fast transfer.** On a 49G satx
+  now says to type `SERVER`: right-shift, then → can start the 49G's
+  XModem server instead. On a 48G or 48GX right-shift, then → stays.
 - **Disconnect lets go of the serial port.** When the calculator did not
   answer the end of server mode (its server had stopped, or another
   server ran), Disconnect held the port for over two minutes of retries.
