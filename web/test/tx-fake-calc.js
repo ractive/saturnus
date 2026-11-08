@@ -15,7 +15,9 @@
 // (`Map` name -> `{kind, data}` or `{kind: "Directory", dir: Map}`);
 // with `holdXmodem` a fast transfer waits after its plan until
 // `release()` (the calculator's user typing the command); with
-// `deafToDisconnect` a disconnect never gets its answer.
+// `deafToDisconnect` a disconnect never gets its answer; `server`
+// "xserv" a 49G in XSERV (its connection says so, its disconnect ends
+// XSERV).
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -24,11 +26,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** A checksum the list can show (not the calculator's CRC). */
 const sum = (bytes) => bytes.reduce((s, b) => (s * 31 + b) & 0xffff, 7);
 
-export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, holdXmodem = false, deafToDisconnect = false } = {}) {
+export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, holdXmodem = false, deafToDisconnect = false, server = "kermit" } = {}) {
   const header = model === "49g" ? "HPHP49-C" : "HPHP48-E";
   const root = new Map();
   const requests = [];
-  const conn = { model, settings: { baud: 9600, parity: "none", dataBits: 8 }, version: null, userMode: "binary" };
+  const conn = { model, server, settings: { baud: 9600, parity: "none", dataBits: 8 }, version: null, userMode: "binary" };
   let connected = false;
   let restarted = false;
   let leftServer = false;
@@ -221,7 +223,7 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
         // A calculator whose server stopped: the request runs until stopped.
         if (deafToDisconnect) await new Promise(() => {});
         connected = false;
-        return { type: "disconnected" };
+        return server === "xserv" ? { type: "disconnected", server, ended: true } : { type: "disconnected" };
       default:
         throw fail("calculator", `no request ${req.type}`);
     }

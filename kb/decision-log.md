@@ -915,7 +915,10 @@ Decisions already made. Do not re-litigate; add a dated entry to change one.
   must move the counter and 500 ms of idling must not. The 49G is first
   put in RPN mode and its server re-entered from RPN: a server entered
   from algebraic mode (the 49G's default) leaves its stack packed in a
-  list after FINISH.
+  list after FINISH. (2026-11-08: not so for the Kermit server started
+  through XSERV's `E`: in algebraic mode, after two nested cycles and
+  FINISH, the stack was as before and flag -95 still set; iteration 69,
+  `crates/saturnus-tx/tests/xserv.rs`.)
 - **Observed, not fixed**: with system flag -40 (clock display) set,
   `start_server` on the 48SX gets no NAK within 15 s; the test sets -2
   instead. Cause not investigated (likely the idle wait in the scripted
@@ -4959,3 +4962,38 @@ saturnus".
 - **Cancelled calls stop waiting**: the `signal` of `execute` ends the
   waits for the calculator (`settle`, `pressFunction` presses no more
   keys) with "Cancelled", for tab-mcp and the desktop app too.
+
+## 2026-11-08 (Files over XSERV on the 49G, iteration 69)
+
+- **XSERV is back** (owner, 2026-11-08: "Files should use XSERV"),
+  reversing "No XSERV for now" of 2026-10-10: on a real 49G a 4 KB
+  string took 8.4 s over XSERV and 16.7 s over Kermit, and XSERV's
+  listing is not cut at the display width. Files finds it by itself:
+  the connect sends `M` at each speed before the Kermit probes (every
+  Kermit server tried ignores a lone `M`, and XSERV ignores the Kermit
+  probes). What XSERV cannot do (text, files kept as strings, PICT,
+  backup, restore) goes through the Kermit server started inside XSERV
+  with `SERVER` through `E`, and FINISH returns to XSERV; one request
+  runs either wholly on XSERV or wholly on the nested server.
+- **One size**: a variable's size in Files and in `satx xserv ls` is the
+  Kermit server's (`G D`): the object and its entry in the directory,
+  4.5 bytes and one per name character. XSERV's `L` gives the object
+  alone; the device adds the entry (checked on seven variables of the
+  emulated 49G).
+- **Changes over XSERV are RPL through `E`, checked in a fresh listing**:
+  `E` answers before its RPL runs and reports no error, and a calculator
+  still running it drops the bytes it gets, so the client sends `M` and
+  `L` again while nothing answers and asks `M` before a command packet
+  that follows an `E`.
+- **Review of PR 262** (2026-11-08): which server answers on an XSERV
+  session is Xserv, Kermit or Unknown; Unknown (from `SERVER` to the
+  sync, from FINISH to its answer, after a stop in a nested request) is
+  settled before the next request by `M` asked three times, else a
+  Kermit sync and FINISH, rather than trusting a flag that an error or a
+  stop left wrong. A failed change left its `E` text on the stack, so
+  changes run as a string in a depth-guarded `IFERR … STR→`. The
+  connect tells the 49G from an HP 48 running XSrvr48 (`1. R→I` stored
+  and listed) and refuses the 48, about 2.5 s per connect: simpler than
+  reading VERSION through the nested Kermit server, and it keeps `-95.
+  SF` and the 49G's XModem settings away from a 48. The probe waits
+  0.5 s, as satx's.

@@ -29,6 +29,8 @@ saturnus-drive.workspace = true
 # The aplet recorder (`just tx-aplet-traces DIR`) presses the 38G's and
 # 39G's keys itself, serving the link between presses.
 saturnus-core.workspace = true
+# The XSERV e2e reads the emulated 49G's stack and flags from its RAM.
+saturnus-objects.workspace = true
 
 [[example]]
 name = "record-traces"

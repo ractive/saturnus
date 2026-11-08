@@ -15,6 +15,10 @@
 // XModem as xmodem-proto: SOH (128) or STX (1024) blocks, n, 255 - n,
 // data, one checksum byte or two CRC bytes (after the receiver's "C",
 // or "D" for HP's CRC; xmodem-proto's codec.rs).
+// XSERV as satx-core's xserv.rs: a command byte from the computer (M, L,
+// E, G, P, Q) written alone, then for E, G and P a packet (two length
+// bytes, high first, the data, a checksum: the sum of the data) and for M
+// and L a reply packet the same way.
 // Pure apart from the clock: web/test/tx-cable.test.mjs.
 
 import { Link } from "./links.js";
@@ -147,6 +151,16 @@ const GENERIC = {
 };
 
 /** What each Kermit packet type is, in plain words. */
+/** XSERV's command bytes: what each asks, and which side's packet follows. */
+const XSERV = {
+  M: { desc: "XSERV: how much memory is free?", next: "in" },
+  L: { desc: "XSERV: list the directory", next: "in" },
+  E: { desc: "XSERV: run a command", next: "out" },
+  G: { desc: "XSERV: send a variable", next: "out" },
+  P: { desc: "XSERV: store a variable", next: "out" },
+  Q: { desc: "XSERV: end", next: null },
+};
+
 const KERMIT = {
   S: "send-init", I: "init", Y: "ack", N: "nak", F: "file name", X: "text to show", A: "file attributes",
   D: "data", Z: "end of file", B: "end of transfer", E: "error", G: "server command", R: "receive request",
@@ -174,6 +188,8 @@ export class CableDecoder {
     this.quoting = { qbin: null, rept: null };
     /** The check type both sides agreed on in the last init exchange (null: none seen; kermit-proto's `negotiate`). */
     this.check = null;
+    /** The XSERV packet expected next: `{dir, cmd}` after a command byte, else null. */
+    this.xserv = null;
     /** Bytes of data in the current file, and whether XModem's CRC was asked for. */
     this.fileBytes = 0;
     this.crc = false;
@@ -209,6 +225,8 @@ export class CableDecoder {
     // Half duplex: when one side speaks, what the other left unfinished is all it will send.
     const otherDir = dir === "out" ? "in" : "out";
     const other = this.dirs[otherDir];
+    // The computer speaks again: an XSERV reply that did not come is not coming (a Kermit server ignores M).
+    if (this.xserv && this.xserv.dir !== dir && dir === "out") this.xserv = null;
     if (other.buf.length && !this.streaming(other)) this.cut(otherDir);
     else this.flushJunk(otherDir);
     const joined = new Uint8Array(st.buf.length + bytes.length);
@@ -254,6 +272,26 @@ export class CableDecoder {
     let at = 0;
     while (at < b.length) {
       const c = b[at] & this.mask;
+      if (this.xserv?.dir === dir) {
+        // The answer to M is a few digits: a first byte other than 0 is no XSERV packet (a Kermit server's NAK).
+        if (this.xserv.cmd === "M" && b[at] !== 0) this.xserv = null;
+        else {
+          if (b.length - at < 2) break;
+          const n = (b[at] << 8) | b[at + 1];
+          if (b.length - at < n + 3) break;
+          this.flushJunk(dir);
+          this.xservPacket(dir, b.subarray(at, at + n + 3));
+          at += n + 3;
+          continue;
+        }
+      }
+      const cmd = String.fromCharCode(c);
+      if (dir === "out" && st.junk.length === 0 && at === b.length - 1 && XSERV[cmd]) {
+        this.emit({ dir, proto: "xserv", type: cmd, len: 1, desc: XSERV[cmd].desc, hex: c.toString(16).padStart(2, "0") });
+        this.xserv = XSERV[cmd].next ? { dir: XSERV[cmd].next, cmd } : null;
+        at++;
+        continue;
+      }
       if (c === SOH || c === STX) {
         if (b.length - at < 3) break;
         const n = b[at + 1];
@@ -310,6 +348,25 @@ export class CableDecoder {
     st.buf = at ? b.slice(at) : b;
     // What is outside any packet comes out once a packet or the other side follows, or when it is long.
     if (st.junk.length >= 64) this.flushJunk(dir);
+  }
+
+  // ------------------------------------------------------------ XSERV
+
+  /** One XSERV packet: a command's text or name, or the answer to M or L. */
+  xservPacket(dir, frame) {
+    const { cmd } = this.xserv;
+    this.xserv = null;
+    const data = frame.subarray(2, frame.length - 1);
+    let sum = 0;
+    for (const x of data) sum = (sum + x) & 0xff;
+    const bad = sum !== frame[frame.length - 1];
+    let desc;
+    if (cmd === "M") desc = `XSERV: ${bytesText(data)} bytes free`;
+    else if (cmd === "L") desc = `XSERV: the listing, ${grouped(data.length)} bytes`;
+    else if (cmd === "E") desc = `XSERV command: ${bytesText(data, 80)}`;
+    else desc = `XSERV: variable ${bytesText(data)}`;
+    if (bad) desc += " (bad check)";
+    this.emit({ dir, proto: "xserv", type: "packet", len: frame.length, desc, text: bytesText(data), hex: bytesHex(data), bad });
   }
 
   // ------------------------------------------------------------ Kermit

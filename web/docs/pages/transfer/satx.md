@@ -128,6 +128,21 @@ satx get PRG --protocol xmodem
 
 The calculator's Kermit server cannot start XModem, so satx puts the command (`« 'PRG' XRECV »` or `« 'PRG' XSEND »`) on the calculator's stack, ends server mode and tells you which key runs it: EVAL on a 48G, right-shift then SYMB on the 49G. It waits 60 seconds for it, or as long as `--start-timeout` says. If you do not go on, the backspace key drops the command. Afterwards, start the server again: right-shift, then → on a 48G; on the 49G type `SERVER`. On the 49G, XModem moves 1 KB blocks. Kermit stays the default because it needs no key press on the calculator.
 
+### XSERV on the 49G
+
+With XSERV running on the 49G (type `XSERV` and press ENTER instead of `SERVER`), the `xserv` commands talk to it:
+
+```sh
+satx xserv ls                             # the current directory, sizes as satx ls gives them
+satx xserv get PRG -o prg.hp
+satx xserv put prg.hp --as PRG2
+satx xserv eval 'HOME GAMES'              # run RPL; results stay on the stack
+satx xserv mem                            # free memory
+satx xserv quit                           # end XSERV
+```
+
+`satx info` says which server answers. The other commands need the Kermit server; against XSERV they stop at once and say so.
+
 ## Files on the computer
 
 Some commands need no calculator:

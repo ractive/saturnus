@@ -241,6 +241,17 @@ test("Cancel while waiting stops the transfer; the 48SX and a text file are not 
   assert.doesNotMatch(await ev(`document.querySelector(".menu").textContent`), /XModem/);
   await ev(`document.querySelector(".menu").remove(); true`);
   assert.equal(await ev(`tx.panes[0].xmodem`), false);
+  // A 49G in XSERV: every copy is XModem already, no fast transfer either; the status names XSERV.
+  await ev(`__calc(0, "49g", { server: "xserv" })`);
+  await p.idle(10_000);
+  assert.equal(await ev(`tx.panes[0].xmodem`), false);
+  assert.equal(await ev(`tx.panes[0].ui.status.textContent`), "Connected to XSERV at 9600 baud.");
+  await ev(`document.querySelector('.pane[data-pane=left] .pane-more').click(); true`);
+  await p.until(`!!document.querySelector(".menu")`, 5_000, "the pane's menu");
+  assert.doesNotMatch(await ev(`document.querySelector(".menu").textContent`), /XModem/);
+  await ev(`document.querySelector(".menu").remove(); true`);
+  await ev(`tx.panes[0].close().then(() => true)`);
+  assert.equal(await ev(`tx.panes[0].note`), "XSERV has ended on the calculator.");
   assert.deepEqual(c.errors, []);
 });
 

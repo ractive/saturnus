@@ -33,6 +33,26 @@ impl std::fmt::Display for Hinted {
 
 impl std::error::Error for Hinted {}
 
+/// XSERV answered where the Kermit server was expected (the `M` probe of
+/// the opening drain).
+#[derive(Debug, Clone, Copy)]
+pub struct XservRunning {
+    /// The free memory XSERV reported.
+    pub free: f64,
+}
+
+/// What to do when XSERV answers a Kermit command.
+pub const XSERV_RUNNING_HINT: &str = "use `satx xserv ls` (get, put, eval, mem), or press ON on \
+the calculator and type SERVER for the Kermit server";
+
+impl std::fmt::Display for XservRunning {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("the calculator runs XSERV, the XModem server, not the Kermit server")
+    }
+}
+
+impl std::error::Error for XservRunning {}
+
 /// The link settings, for messages.
 #[derive(Debug, Clone, Default)]
 pub struct LinkInfo {
@@ -56,6 +76,13 @@ pub fn describe(err: &anyhow::Error, link: &LinkInfo) -> Failure {
         return Failure {
             error: message,
             hint: Some(h.hint.clone()),
+            stack: None,
+        };
+    }
+    if err.downcast_ref::<XservRunning>().is_some() {
+        return Failure {
+            error: message,
+            hint: Some(XSERV_RUNNING_HINT.to_string()),
             stack: None,
         };
     }

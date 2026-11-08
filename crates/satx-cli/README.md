@@ -150,11 +150,16 @@ Kermit stays the default because it needs no key press on the calculator; XModem
 Kermit server is not wanted, and on the 49G it moves 1k blocks. `--dry-run`
 shows the plan without ending the server.
 
-`satx xserv ls|get|put|eval|mem` talks to the XSERV command server of the
-49G, 49g+ and 50g. It was tested on a real 49G (ROM 1.18) on 2026-11-08:
-`mem`, `ls`, `get`, `put` and `eval` worked, and 4 KB took 8.4 s
-against Kermit's 16.7 s. It is not yet tried on a 49g+ or 50g, and the
-emulated 49G has no XSERV.
+`satx xserv ls|get|put|eval|mem|quit` talks to the XSERV command server
+of the 49G, 49g+ and 50g: type `XSERV` and press ENTER on the
+calculator instead of `SERVER`. It was tested on a real 49G (ROM 1.18) on
+2026-11-08, where 4 KB took 8.4 s against Kermit's 16.7 s, and on the
+emulated 49G (ROM 2.15); it is not yet tried on a 49g+ or 50g. `xserv
+ls` gives the sizes `satx ls` gives (the variable with its name, not
+only the object). `satx info` says which server answered, and the
+Kermit commands stop at once with a hint when the calculator runs XSERV
+(satx sends XSERV's `M` while it waits for the line to go quiet; a
+Kermit server ignores it).
 
 Developing satx itself:
 

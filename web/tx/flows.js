@@ -38,14 +38,38 @@ export const START_SERVER = {
   },
   "49g": {
     title: "HP 49G",
-    steps: ["Press right-shift and then → (the right arrow) quickly, without a pause."],
-    keys: ["↱", "→"],
-    keysNote: "With a pause between them the 49G starts a different server. Or type SERVER and press ENTER.",
+    steps: ["Type XSERV and press ENTER."],
+    keys: ["X", "S", "E", "R", "V", "ENTER"],
+    keysNote: "Alpha mode for the letters (α twice, then the letter keys). XSERV copies about twice as fast. ROM 1.10 and earlier have no XSERV: type SERVER instead. Files works with either.",
+    shown: "The display says “Xmodem server” (or “Awaiting Server Cmd.” after SERVER).",
   },
 };
 
-/** What every model shows once its server runs. */
+/** What every model shows once its server runs (a model's own `shown` first). */
 export const SERVER_SHOWN = "The display says “Awaiting Server Cmd.”";
+
+/**
+ * Whether a 49G whose VERSION reads `version` ("…Revision #1.18") has
+ * XSERV: ROM 1.11 and later (wiki: protocols/xserv); `true` when the
+ * revision cannot be read.
+ */
+export function hasXserv(version) {
+  const m = /Revision #(\d+)\.(\d+)/.exec(String(version ?? ""));
+  if (!m) return true;
+  return Number(m[1]) > 1 || Number(m[2]) >= 11;
+}
+
+/**
+ * The status of a connected calculator: the speed, the server when it is
+ * XSERV, and on a 49G with XSERV on a cable in the Kermit server the hint
+ * that XSERV is faster.
+ */
+export function connectedText(connection, { emulated = false } = {}) {
+  const at = settingsText(connection.settings);
+  if (connection.server === "xserv") return `Connected to XSERV at ${at}.`;
+  if (connection.model === "49g" && !emulated && hasXserv(connection.version)) return `Connected at ${at}. XSERV copies faster: disconnect, type XSERV on the 49G and connect again.`;
+  return `Connected at ${at}.`;
+}
 
 /** The connection settings stored as `text` (JSON): `{find, baud, parity}`, the defaults for anything else. */
 export function linkSettings(text) {
@@ -194,9 +218,13 @@ export function failureText(err) {
 /**
  * What the page says after FINISH: the server has ended. A 49G whose
  * server was started from algebraic mode leaves the stack packed in one
- * list (kb/docs/saturnus-tx.md, Connect, step 4).
+ * list (kb/docs/saturnus-tx.md, Connect, step 4). `result` the
+ * disconnect's: from XSERV, `ended` says whether XSERV ended.
  */
-export function disconnectNote(model) {
+export function disconnectNote(model, result = null) {
+  if (result?.server === "xserv") {
+    return result.ended ? "XSERV has ended on the calculator." : "The calculator still runs XSERV: press ON on it to end it.";
+  }
   const base = "The calculator has left server mode.";
   if (model === "49g") return `${base} If its server was started in algebraic mode, the 49G has now put what was on its stack into one list.`;
   return base;

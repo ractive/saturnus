@@ -2,7 +2,7 @@
 
 The device layer of Files, the app's view for moving files, in the browser
 and in the desktop app (`kb/docs/saturnus-tx.md`): what a user does with an HP 48S/SX, 48G/GX or
-49G in Kermit server mode, as whole requests over `satx-core`'s sans-I/O
+49G in Kermit server mode (or a 49G in XSERV), as whole requests over `satx-core`'s sans-I/O
 `Machine`. No I/O, no threads, no clock of its own; it builds for
 `wasm32-unknown-unknown` (a CI step). Not published (`publish = false`).
 
@@ -21,6 +21,15 @@ and in the desktop app (`kb/docs/saturnus-tx.md`): what a user does with an HP 4
 | `next_timeout()` | When to call `handle_timeout` at the latest. |
 | `abort(now)`, `connection()`, `restarted()` | Drop the running request; the connected calculator; whether a restore restarted it. |
 
+- **XSERV** (the 49G's XModem server, `xserv` module): the connect
+  sends XSERV's `M` at each speed first and listens 0.5 s; an answer
+  makes an XSERV session (`Connection::server`); an HP 48 running the
+  XSrvr48 library is told apart and refused. Listings, binary gets
+  and puts, the memory, changes (RPL through `E`, each checked in a
+  fresh listing) run on XSERV; text, files kept as strings, PICT, backup
+  and restore on the Kermit server started inside it (`SERVER` through
+  `E`, FINISH back). Disconnect sends `Q` (`Outcome::XservQuit`). Sizes
+  are the Kermit server's.
 - **Connect**: opens at 9600 baud, 8 data bits, no parity, and sends a
   Kermit I packet (the server only ACKs it) framed for no, odd and even
   parity 500 ms apart (bit 7 as the parity bit: a calculator with parity

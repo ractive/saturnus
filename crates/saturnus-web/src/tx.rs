@@ -353,11 +353,13 @@ fn settings_json(s: LinkSettings) -> Value {
     json!({"baud": s.baud, "parity": s.parity.name(), "dataBits": s.data_bits()})
 }
 
-/// A connection as JSON: `{settings, model, version, userMode}`.
+/// A connection as JSON: `{settings, model, version, userMode, server}`;
+/// `server` is `kermit` or `xserv`.
 pub fn connection_json(c: &Connection) -> Value {
     json!({
         "settings": settings_json(c.settings),
         "model": model_name(c.model),
+        "server": c.server.name(),
         "version": c.version,
         "userMode": match c.user_mode {
             satx_core::TransferMode::Binary => "binary",
@@ -381,7 +383,8 @@ pub enum Attached {
 ///
 /// - `connected` (`connection`), `listing` (`path`, `free`, `entries`),
 ///   `file` (`name`, `fileName`, `format`; data), `stored` (`name`),
-///   `disconnected`
+///   `disconnected` (from XSERV with `server: "xserv"` and `ended`: whether
+///   XSERV ended, else it still runs on the calculator)
 /// - `created` (`name`), `renamed` (`from`, `to`), `purged` (`name`,
 ///   `count`)
 /// - `tree` (`dir`, `items`: `{path, fsPath, directory}`, each file's
@@ -416,6 +419,10 @@ pub fn outcome_json(o: Outcome) -> (Value, Attached) {
         ),
         Outcome::Stored(name) => (json!({"type": "stored", "name": name}), Attached::None),
         Outcome::Disconnected => (json!({"type": "disconnected"}), Attached::None),
+        Outcome::XservQuit { ended } => (
+            json!({"type": "disconnected", "server": "xserv", "ended": ended}),
+            Attached::None,
+        ),
         Outcome::Synced => (json!({"type": "synced"}), Attached::None),
         Outcome::Created(name) => (json!({"type": "created", "name": name}), Attached::None),
         Outcome::Renamed { from, to } => (

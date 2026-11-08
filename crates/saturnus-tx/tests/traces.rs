@@ -2,7 +2,9 @@
 //! on a fake clock: the whole session and the ops session on each model,
 //! and the failures made from them (no answer, the wrong speed, the wrong
 //! parity, a NAK storm, a cut link, names refused or in use, a purge
-//! without its count, a backup without room, requests after a restore).
+//! without its count, a backup without room, requests after a restore);
+//! and a scripted calculator in XSERV (`tests/xserv.rs` runs the real
+//! one on the emulated 49G).
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -254,8 +256,8 @@ fn flag_35_is_set_for_the_session_and_put_back() {
     }
 }
 
-/// Nothing answers at any speed: four settings tried, 6 s each, no
-/// connection.
+/// Nothing answers at any speed: four settings tried, 0.5 s for XSERV's
+/// answer to `M` and 6 s for the Kermit server's each, no connection.
 #[test]
 fn no_answer_tries_every_speed() {
     let mut host = Host::new();
@@ -266,10 +268,12 @@ fn no_answer_tries_every_speed() {
     };
     let speeds: Vec<u32> = tried.iter().map(|s| s.baud).collect();
     assert_eq!(speeds, [9600, 4800, 2400, 1200]);
-    assert_eq!(host.elapsed(), Duration::from_secs(24));
-    // Each speed: open, the probe in three framings, again halfway.
-    assert_eq!(peer.actions.len(), 28);
-    let probes: Vec<&Action> = peer.actions[1..7].iter().collect();
+    assert_eq!(host.elapsed(), Duration::from_secs(26));
+    // Each speed: open, XSERV's M, the probe in three framings, again
+    // halfway.
+    assert_eq!(peer.actions.len(), 32);
+    assert_eq!(peer.actions[1], Action::Write(b"M".to_vec()));
+    let probes: Vec<&Action> = peer.actions[2..8].iter().collect();
     let framed: Vec<Action> = [Parity::None, Parity::Odd, Parity::Even]
         .into_iter()
         .map(|p| Action::Write(probe(p)))
@@ -364,9 +368,10 @@ fn the_wrong_speed_is_searched_past() {
             Event::Found(at(2400)),
         ]
     );
-    // 6 s at 9600 and at 4800, then the connection at 2400.
+    // 6.5 s at 9600 and at 4800, 0.5 s for XSERV at 2400, then the
+    // connection.
     assert!(
-        (12..14).contains(&host.elapsed().as_secs()),
+        (14..17).contains(&host.elapsed().as_secs()),
         "{:?}",
         host.elapsed()
     );
@@ -402,7 +407,8 @@ fn the_parity_is_found() {
         .before_note("request list")
         .steps
         .iter()
-        .skip_while(|(_, s)| !matches!(s, Step::Out(_)))
+        // The Kermit probe, after XSERV's M.
+        .skip_while(|(_, s)| !matches!(s, Step::Out(b) if b.first() == Some(&0x01)))
         .skip(1)
         .take_while(|(_, s)| matches!(s, Step::In(_)))
         .flat_map(|(_, s)| match s {
@@ -472,7 +478,8 @@ fn the_parity_is_found() {
             expected_opens.iter().collect::<Vec<_>>(),
             "{parity:?}"
         );
-        assert!(host.elapsed() < Duration::from_secs(2), "{parity:?}");
+        // XSERV's 0.5 s, then the probes 0.5 s apart.
+        assert!(host.elapsed() < Duration::from_millis(2500), "{parity:?}");
         if parity == Parity::None {
             continue;
         }
@@ -1519,4 +1526,502 @@ fn a_failed_swap_removes_its_copy() {
         "{:?}",
         peer.actions
     );
+}
+
+/// An XSERV packet: length (high byte first), data, sum.
+fn xpacket(data: &[u8]) -> Vec<u8> {
+    let mut out = vec![(data.len() >> 8) as u8, data.len() as u8];
+    out.extend_from_slice(data);
+    out.push(data.iter().fold(0u8, |a, &b| a.wrapping_add(b)));
+    out
+}
+
+/// An `L` record: name, prolog, nibbles, CRC.
+fn record(name: &str, prolog: u16, nibbles: u32) -> Vec<u8> {
+    let mut r = vec![name.len() as u8];
+    r.extend_from_slice(name.as_bytes());
+    r.extend_from_slice(&prolog.to_le_bytes());
+    r.extend_from_slice(&nibbles.to_le_bytes()[..3]);
+    r.extend_from_slice(&[0x34, 0x12]);
+    r
+}
+
+/// Which server the scripted 49G runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Serving {
+    Xserv,
+    Kermit,
+    /// After `Q`, or the warm start of a restore.
+    Nothing,
+}
+
+/// A 49G in XSERV, scripted: HOME holds IOPAR and directory D (holding
+/// X). XSERV answers `M` and `L`, ACKs every command packet and runs the
+/// `E` texts Files sends (HOME, a directory name, the guarded changes,
+/// the identification, `SERVER`), ignores what is no command byte, and
+/// ends at `Q`. `SERVER` starts the Kermit server, which answers host
+/// commands (the sync marker echoed, `-35 FS?` clear, else an empty
+/// stack) and `G D` (IOPAR), sends any file asked for as `hello`, takes any file sent,
+/// warm-starts at `RESTORE` and goes back to XSERV at FINISH. It counts
+/// what reaches the wrong server.
+struct XservCalc {
+    serving: Serving,
+    /// The prolog `1. R→I` stores: an integer on the 49G, a name on a 48.
+    id_prolog: u16,
+    id_stored: bool,
+    cwd: Vec<String>,
+    made: Vec<String>,
+    expect_packet: bool,
+    /// The `E` texts and the Kermit host commands, in order.
+    executed: Vec<String>,
+    /// FINISH gets no ACK (the calculator goes back to XSERV anyway).
+    lose_finish_ack: bool,
+    /// When FINISH came: XSERV drops an `M` within the second after it.
+    finished_at: Option<Instant>,
+    deframer: Deframer,
+    queue: Vec<Vec<u8>>,
+    due: VecDeque<(Instant, Vec<u8>)>,
+    actions: Vec<Action>,
+    /// HOME also holds an integer (49G-only): identification stores nothing.
+    home_integer: bool,
+    /// Kermit packets that reached XSERV.
+    kermit_in_xserv: usize,
+    /// XSERV command bytes other than `M` that reached the Kermit server.
+    xserv_in_kermit: usize,
+}
+
+impl XservCalc {
+    fn new() -> Self {
+        XservCalc {
+            serving: Serving::Xserv,
+            id_prolog: 0x2614,
+            id_stored: false,
+            cwd: vec!["HOME".into()],
+            made: Vec::new(),
+            expect_packet: false,
+            executed: Vec::new(),
+            lose_finish_ack: false,
+            finished_at: None,
+            deframer: Deframer::new(),
+            queue: Vec::new(),
+            due: VecDeque::new(),
+            actions: Vec::new(),
+            home_integer: false,
+            kermit_in_xserv: 0,
+            xserv_in_kermit: 0,
+        }
+    }
+
+    fn xserv(&mut self, now: Instant, w: &[u8]) -> Vec<Vec<u8>> {
+        if self.expect_packet && w.len() >= 3 {
+            self.expect_packet = false;
+            let text = String::from_utf8_lossy(&w[2..w.len() - 1]).to_string();
+            if text == "SERVER" {
+                self.serving = Serving::Kermit;
+            } else if text.contains("SATXID") {
+                self.id_stored = text.contains(" STO ");
+                self.cwd = vec!["HOME".into()];
+            } else if text.contains("'N' CRDIR") {
+                self.made.push("N".into());
+            } else if !text.contains("IFERR") {
+                for word in text.split(' ') {
+                    match word {
+                        "HOME" => self.cwd = vec!["HOME".into()],
+                        name => self.cwd.push(name.to_string()),
+                    }
+                }
+            }
+            self.executed.push(text);
+            return vec![vec![0x06]];
+        }
+        match w {
+            b"M" if self
+                .finished_at
+                .is_some_and(|at| now < at + Duration::from_secs(1)) =>
+            {
+                Vec::new()
+            }
+            b"M" => vec![xpacket(b"245478.")],
+            b"L" => {
+                let data: Vec<u8> = if self.cwd == ["HOME"] {
+                    let mut d = [record("IOPAR", 0x2A74, 40), record("D", 0x2A96, 30)].concat();
+                    if self.home_integer {
+                        d.extend(record("MODULO", 0x2614, 6));
+                    }
+                    if self.id_stored {
+                        d.extend(record("SATXID", self.id_prolog, 10));
+                    }
+                    d
+                } else {
+                    let mut d = record("X", 0x2933, 21);
+                    for n in &self.made {
+                        d.extend(record(n, 0x2A96, 10));
+                    }
+                    d
+                };
+                vec![xpacket(&data)]
+            }
+            b"E" => {
+                self.expect_packet = true;
+                Vec::new()
+            }
+            b"Q" => {
+                self.serving = Serving::Nothing;
+                Vec::new()
+            }
+            [0x01, _, ..] => {
+                self.kermit_in_xserv += 1;
+                Vec::new()
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    fn kermit(&mut self, now: Instant, w: &[u8]) -> Vec<Vec<u8>> {
+        if let [b'G' | b'P' | b'E' | b'L' | b'Q'] = w {
+            self.xserv_in_kermit += 1;
+        }
+        self.deframer.push(w);
+        let mut out = Vec::new();
+        while let Some(frame) = self.deframer.next_frame() {
+            let Ok(p) = parse_frame(&frame, BlockCheck::Type1) else {
+                continue;
+            };
+            let data = prefix::decode(&p.data, &Quoting::default()).unwrap_or_default();
+            match (p.kind, data.as_slice()) {
+                (b'I' | b'S', _) => out.push(wire(p.seq, b'Y', b"~* @-#Y1")),
+                (b'C', command) => {
+                    let command = String::from_utf8_lossy(command).to_string();
+                    self.executed.push(command.clone());
+                    if command.contains("RESTORE") {
+                        self.serving = Serving::Nothing;
+                        return out;
+                    }
+                    let text = if command.starts_with('"') {
+                        format!("1: {command}\r\n")
+                    } else if command.contains("FS?") {
+                        "1: 0.\r\n".to_string()
+                    } else {
+                        "Empty Stack\r\n".to_string()
+                    };
+                    self.queue = text_reply(text.as_bytes());
+                    out.push(wire(0, b'S', b"~* @-#Y1"));
+                }
+                (b'R', _) => {
+                    let mut q = text_reply(b"hello");
+                    q[0] = wire(1, b'F', b"X");
+                    self.queue = q;
+                    out.push(wire(0, b'S', b"~* @-#Y1"));
+                }
+                (b'G', b"D") => {
+                    self.queue = text_reply(b"IOPAR 29.5 List 1.\r\n");
+                    out.push(wire(0, b'S', b"~* @-#Y1"));
+                }
+                (b'G', b"F") => {
+                    self.serving = Serving::Xserv;
+                    self.finished_at = Some(now);
+                    if self.lose_finish_ack {
+                        self.lose_finish_ack = false;
+                    } else {
+                        out.push(wire(p.seq, b'Y', b""));
+                    }
+                    return out;
+                }
+                (b'Y', _) => out.extend(self.queue.get(usize::from(p.seq)).cloned()),
+                (b'F' | b'D' | b'Z' | b'B' | b'A', _) => out.push(wire(p.seq, b'Y', b"")),
+                _ => out.push(wire(p.seq, b'N', b"")),
+            }
+        }
+        out
+    }
+}
+
+impl Peer for XservCalc {
+    fn action(&mut self, now: Instant, action: &Action) {
+        self.actions.push(action.clone());
+        let Action::Write(w) = action else {
+            return;
+        };
+        let replies = match self.serving {
+            Serving::Xserv => self.xserv(now, w),
+            Serving::Kermit => self.kermit(now, w),
+            Serving::Nothing => Vec::new(),
+        };
+        let mut at = now;
+        for bytes in replies {
+            at += Duration::from_millis(5);
+            self.due.push_back((at, bytes));
+        }
+    }
+    fn next_input(&self) -> Option<Instant> {
+        self.due.front().map(|(at, _)| *at)
+    }
+    fn take_input(&mut self, now: Instant) -> Option<Vec<u8>> {
+        if self.due.front().is_some_and(|(at, _)| *at <= now) {
+            return self.due.pop_front().map(|(_, bytes)| bytes);
+        }
+        None
+    }
+}
+
+/// Connected to the scripted 49G in XSERV.
+fn xserv_connected(peer: &mut XservCalc) -> Host {
+    let mut host = Host::new();
+    let connected = host.run(peer, Request::Connect(Default::default()));
+    let Ok(Outcome::Connected(c)) = connected else {
+        panic!("{connected:?}");
+    };
+    assert_eq!(c.server, saturnus_tx::Server::Xserv);
+    host
+}
+
+fn text_get(name: &str) -> Request {
+    Request::Get {
+        dir: vec![],
+        name: name.into(),
+        format: saturnus_tx::Format::Text,
+    }
+}
+
+/// A 49G whose HOME already holds an integer is told from a 48 without
+/// storing anything in it.
+#[test]
+fn an_xserv_49g_with_an_integer_in_home_is_identified_without_a_write() {
+    let mut peer = XservCalc::new();
+    peer.home_integer = true;
+    let host = xserv_connected(&mut peer);
+    assert_eq!(
+        host.device.connection().unwrap().model,
+        satx_core::Model::Hp49G
+    );
+    assert_eq!(peer.executed, ["HOME"], "no store, no purge");
+    assert!(!peer.id_stored);
+}
+
+/// The scripted 49G in XSERV: found, told from a 48, listed and changed.
+#[test]
+fn a_calculator_in_xserv_is_found_listed_and_changed() {
+    let mut peer = XservCalc::new();
+    let mut host = xserv_connected(&mut peer);
+    assert_eq!(
+        host.device.connection().unwrap().model,
+        satx_core::Model::Hp49G
+    );
+    // Found by the first M: no Kermit probe went out; HOME holds no 49G-only
+    // object, so the identification stored its variable and purged it again.
+    assert!(
+        host.elapsed() < Duration::from_secs(2),
+        "{:?}",
+        host.elapsed()
+    );
+    assert!(
+        !peer
+            .actions
+            .iter()
+            .any(|a| *a == Action::Write(probe(Parity::None)))
+    );
+    assert!(!peer.id_stored);
+    assert_eq!(peer.executed.len(), 3, "{:?}", peer.executed);
+    assert_eq!(peer.executed[0], "HOME");
+    assert!(
+        peer.executed[1].starts_with("HOME DEPTH "),
+        "{:?}",
+        peer.executed
+    );
+    peer.executed.clear();
+
+    // HOME: the sizes as the Kermit server gives them.
+    let home = host.run(&mut peer, Request::List { dir: vec![] });
+    let Ok(Outcome::Listing(l)) = home else {
+        panic!("{home:?}");
+    };
+    let iopar = &l.entries[0];
+    assert_eq!(
+        (iopar.name.as_str(), iopar.size, iopar.kind.as_str()),
+        ("IOPAR", 29.5, "List")
+    );
+    assert!(l.entries[1].is_directory());
+
+    // Into D (seen as a directory in HOME's listing), a new directory there.
+    let d = vec!["HOME".to_string(), "D".to_string()];
+    let made = host.run(
+        &mut peer,
+        Request::Mkdir {
+            dir: d.clone(),
+            name: "N".into(),
+        },
+    );
+    assert!(matches!(made, Ok(Outcome::Created(_))), "{made:?}");
+    let clash = host.run(
+        &mut peer,
+        Request::Mkdir {
+            dir: d.clone(),
+            name: "X".into(),
+        },
+    );
+    assert!(matches!(clash, Err(TxError::NameClash(_))), "{clash:?}");
+    // A directory nobody listed is not evaluated.
+    let missing = host.run(
+        &mut peer,
+        Request::List {
+            dir: vec!["HOME".into(), "NOPE".into()],
+        },
+    );
+    assert!(matches!(missing, Err(TxError::NotFound(_))), "{missing:?}");
+    let executed = &peer.executed;
+    assert_eq!(executed.len(), 3, "{executed:?}");
+    assert_eq!(executed[0], "D");
+    assert!(
+        executed[1].starts_with("DEPTH ")
+            && executed[1].contains(" IFERR \"'N' CRDIR\" STR")
+            && executed[1].contains(" THEN DEPTH satxd - DROPN END "),
+        "{executed:?}"
+    );
+    assert_eq!(executed[2], "HOME");
+
+    // Refused before the round trip to the Kermit server: a file that is
+    // no object, a tree with a bad name.
+    peer.executed.clear();
+    let note = host.run(
+        &mut peer,
+        Request::Put {
+            dir: vec![],
+            name: "N".into(),
+            data: b"hello".to_vec(),
+            replace: false,
+            as_string: false,
+        },
+    );
+    assert!(matches!(note, Err(TxError::NotAnObject)), "{note:?}");
+    let tree = host.run(
+        &mut peer,
+        Request::PutTree {
+            dir: vec![],
+            name: None,
+            items: vec![saturnus_tx::TreeItem {
+                path: vec!["1X".into()],
+                data: Some(b"hello".to_vec()),
+            }],
+            replace: false,
+            as_string: true,
+        },
+    );
+    assert!(matches!(tree, Err(TxError::BadName(_))), "{tree:?}");
+    assert!(peer.executed.is_empty(), "{:?}", peer.executed);
+
+    // No fast transfer; the disconnect ends XSERV.
+    let fast = host.run(
+        &mut peer,
+        Request::XmodemGet {
+            dir: d,
+            name: "X".into(),
+            wait: Duration::from_secs(1),
+        },
+    );
+    assert!(matches!(fast, Err(TxError::NotForXmodem(_))), "{fast:?}");
+    let quit = host.run(&mut peer, Request::Disconnect);
+    assert!(
+        matches!(quit, Ok(Outcome::XservQuit { ended: true })),
+        "{quit:?}"
+    );
+    assert!(host.device.connection().is_none());
+}
+
+/// An HP 48 running XSrvr48 answers `M` as the 49G does; its `1. R→I`
+/// stores a name, and the connect is refused (no `-95. SF` goes to it).
+#[test]
+fn a_48_in_xserv_is_refused() {
+    let mut peer = XservCalc::new();
+    peer.id_prolog = 0x2E48;
+    let mut host = Host::new();
+    let connected = host.run(&mut peer, Request::Connect(Default::default()));
+    assert!(matches!(connected, Err(TxError::Xsrvr48)), "{connected:?}");
+    assert!(host.device.connection().is_none());
+    assert!(!peer.id_stored, "the variable is purged");
+}
+
+/// A text get through the nested Kermit server and back; the Kermit
+/// server found flag -35 clear, and FINISH comes after `-35 CF`.
+#[test]
+fn a_text_get_goes_through_the_nested_kermit_server() {
+    let mut peer = XservCalc::new();
+    let mut host = xserv_connected(&mut peer);
+    let got = host.run(&mut peer, text_get("X"));
+    assert!(
+        matches!(&got, Ok(Outcome::File(f)) if f.data == b"hello"),
+        "{got:?}"
+    );
+    assert_eq!(peer.serving, Serving::Xserv);
+    assert_eq!((peer.kermit_in_xserv, peer.xserv_in_kermit), (0, 0));
+    assert!(
+        peer.executed.iter().any(|c| c == "-35 CF"),
+        "{:?}",
+        peer.executed
+    );
+    let list = host.run(&mut peer, Request::List { dir: vec![] });
+    assert!(matches!(list, Ok(Outcome::Listing(_))), "{list:?}");
+}
+
+/// Stopped just as the nested Kermit server is synced: the next request
+/// finds the Kermit server (XSERV's `M` gets no answer), syncs it, ends it
+/// with FINISH and lists on XSERV. Nothing reaches the wrong server.
+#[test]
+fn a_stop_while_entering_the_kermit_server_is_sorted_out() {
+    let mut peer = XservCalc::new();
+    let mut host = xserv_connected(&mut peer);
+    host.device.start(host.clock, text_get("X")).unwrap();
+    let stopped = host.drive(&mut peer, |w| w.iter().any(|b| b.first() == Some(&0x01)));
+    assert!(stopped.is_none(), "{stopped:?}");
+    assert_eq!(peer.serving, Serving::Kermit);
+    host.device.abort(host.clock);
+    let list = host.run(&mut peer, Request::List { dir: vec![] });
+    assert!(matches!(list, Ok(Outcome::Listing(_))), "{list:?}");
+    assert_eq!(peer.serving, Serving::Xserv);
+    assert_eq!((peer.kermit_in_xserv, peer.xserv_in_kermit), (0, 0));
+    // The flag was never read, so it was not set back either.
+    assert!(
+        !peer.executed.iter().any(|c| c.contains("-35")),
+        "{:?}",
+        peer.executed
+    );
+}
+
+/// FINISH's ACK is lost: the request fails, but the calculator is in XSERV
+/// again; the next request asks `M` (XSERV answers once its second after
+/// FINISH is over) and goes on, no Kermit packet sent to XSERV.
+#[test]
+fn a_lost_finish_ack_is_sorted_out() {
+    let mut peer = XservCalc::new();
+    let mut host = xserv_connected(&mut peer);
+    peer.lose_finish_ack = true;
+    let got = host.run(&mut peer, text_get("X"));
+    assert!(got.is_err(), "{got:?}");
+    assert_eq!(peer.serving, Serving::Xserv);
+    let resent = peer.kermit_in_xserv;
+    let list = host.run(&mut peer, Request::List { dir: vec![] });
+    assert!(matches!(list, Ok(Outcome::Listing(_))), "{list:?}");
+    assert_eq!(
+        peer.kermit_in_xserv, resent,
+        "no Kermit packet after the failure"
+    );
+    assert_eq!(peer.xserv_in_kermit, 0);
+}
+
+/// A restore over XSERV leaves flag -35 as the nested Kermit server found
+/// it (clear), not the binary of the XSERV connection.
+#[test]
+fn a_restore_over_xserv_puts_the_users_transfer_mode_back() {
+    let mut peer = XservCalc::new();
+    let mut host = xserv_connected(&mut peer);
+    // An empty directory as the 49G's backup file.
+    let backup = [&b"HPHP49-C"[..], &[0x96, 0x2A, 0, 0, 0, 0, 0]].concat();
+    let restored = host.run(&mut peer, Request::Restore { data: backup });
+    assert!(matches!(restored, Ok(Outcome::Restored)), "{restored:?}");
+    let restore = peer
+        .executed
+        .iter()
+        .position(|c| c.contains("RESTORE"))
+        .expect("RESTORE");
+    let cf = peer.executed.iter().rposition(|c| c == "-35 CF");
+    assert!(cf.is_some_and(|cf| cf < restore), "{:?}", peer.executed);
 }
