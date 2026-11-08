@@ -75,12 +75,12 @@ class NotStarted extends Error {}
  * `node --test`, alive for good. `describe` says how Chrome is doing,
  * for an error.
  */
-async function launch(binary) {
+async function launch(binary, extra = []) {
   const dir = mkdtempSync(join(tmpdir(), "saturnus-chrome-"));
   const group = process.platform !== "win32";
   const proc = spawn(binary, [
     "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${dir}`, "--no-first-run", "--hide-scrollbars",
-    "--window-size=1280,900", ...(process.env.CI ? ["--no-sandbox"] : []), "about:blank",
+    "--window-size=1280,900", ...(process.env.CI ? ["--no-sandbox"] : []), ...extra, "about:blank",
   ], { stdio: ["ignore", "ignore", "pipe"], detached: group });
   let exited = null;
   let stderr = "";
@@ -286,10 +286,11 @@ export function chrome(binary, log = console.error) {
  * is started again for the next session.
  */
 const IDLE_MS = 1_000;
-let shared = null;
+/** The shared Chromes, by their extra switches (`session`'s `args`: "" for none). */
+const shared = new Map();
 
-async function browser(binary, onGone) {
-  const b = await launch(binary);
+async function browser(binary, onGone, extra = []) {
+  const b = await launch(binary, extra);
   try {
     const { webSocketDebuggerUrl } = await devtools(b.dport, "/json/version");
     const conn = await connect(webSocketDebuggerUrl, b.describe, onGone);
@@ -300,20 +301,21 @@ async function browser(binary, onGone) {
   }
 }
 
-/** The shared Chrome, started when there is none (or it died); `release` when done with it. */
-function acquire(binary, log) {
-  if (shared?.dead) {
-    const old = shared;
-    shared = null;
+/** The shared Chrome with switches `extra`, started when there is none (or it died); `release` when done with it. */
+function acquire(binary, log, extra = []) {
+  const key = extra.join(" ");
+  const old = shared.get(key);
+  if (old?.dead) {
+    shared.delete(key);
     old.browser.then((b) => b.close(), () => {});
   }
-  if (!shared) {
-    const s = { users: 0, timer: null, dead: false };
-    s.browser = retried(() => browser(binary, () => { s.dead = true; }), log);
+  if (!shared.has(key)) {
+    const s = { key, users: 0, timer: null, dead: false };
+    s.browser = retried(() => browser(binary, () => { s.dead = true; }, extra), log);
     s.browser.catch(() => { s.dead = true; });
-    shared = s;
+    shared.set(key, s);
   }
-  const s = shared;
+  const s = shared.get(key);
   s.users++;
   clearTimeout(s.timer);
   s.timer = null;
@@ -324,7 +326,7 @@ function release(s) {
   s.users--;
   if (s.users > 0) return;
   s.timer = setTimeout(() => {
-    if (shared === s) shared = null;
+    if (shared.get(s.key) === s) shared.delete(s.key);
     s.browser.then((b) => b.close(), () => {});
   }, s.dead ? 0 : IDLE_MS);
 }
@@ -380,9 +382,11 @@ async function page(b) {
  * makes the skip a failure). The page is a fresh browser context of the
  * file's shared Chrome. Both are closed when the test ends, passed,
  * failed or timed out (the test's signal), so neither outlives it;
- * `close` may be called earlier too. `files` and `dirs` as for `serve`.
+ * `close` may be called earlier too. `files` and `dirs` as for `serve`;
+ * `args`, more Chrome switches (`--enable-features=WebMCPTesting`): a
+ * shared Chrome of their own.
  */
-export async function session(t, { files = {}, dirs = {}, audit = false } = {}) {
+export async function session(t, { files = {}, dirs = {}, audit = false, args = [] } = {}) {
   const binary = findChrome();
   const built = existsSync(join(WEB, "pkg", "saturnus_web_bg.wasm"));
   if (!binary || !built) {
@@ -396,7 +400,7 @@ export async function session(t, { files = {}, dirs = {}, audit = false } = {}) 
     server.closeAllConnections();
     server.close();
   };
-  const s = acquire(binary, (m) => t.diagnostic(m));
+  const s = acquire(binary, (m) => t.diagnostic(m), args);
   let c;
   try {
     c = await page(await s.browser);

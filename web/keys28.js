@@ -164,7 +164,8 @@ export async function settle(backend, store, pace = { first: 40, poll: 40, limit
   const until = Date.now() + pace.limit;
   let calm = 0;
   await wait(pace.first);
-  while (Date.now() < until) {
+  // A cancelled call (`pace.signal`, web/ai-tools.js) stops waiting.
+  while (Date.now() < until && !pace.signal?.aborted) {
     const s = await backend.stats();
     if (s.loop === "sleep" && !store.state.keysDown?.length) {
       if (++calm >= 2) break;

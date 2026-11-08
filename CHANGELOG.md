@@ -7,6 +7,16 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The calculators for your browser's own AI (WebMCP).** In a browser
+  with WebMCP (Chrome 149 and Edge 150 try it out on saturnus's site),
+  the app offers its AI tools to the browser's AI as well, with no
+  address or code: the tools for the calculator Calculator shows.
+  Storing or purging a variable asks you in the app first, and the calls
+  show in The AI's calls. Connecting an AI app through the dialog works
+  as before, beside it.
+- **A cancelled AI call stops waiting.** When an AI app gives up on a
+  call, the tool stops waiting for the calculator and presses no more
+  keys.
 - **`satx` reads a 49G whole.** The 49G sends each stack level only as
   wide as its display (20 characters on ROM 1.18), without saying so, so
   `satx info` and `satx settings` failed on IOPAR on a real 49G, and the

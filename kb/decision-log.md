@@ -4924,3 +4924,38 @@ saturnus".
   counts a non-zero exit as `Validation-Executable-Error` (winget-pkgs
   PRs #462444 and #462445). Unknown commands, bad options and global
   options without a command (`satx --json`) still exit 2.
+
+## 2026-11-08 (iteration 71: the tools through WebMCP)
+
+- **Registered whenever the browser has WebMCP, no setting** (owner,
+  2026-11-08). `web/ai-webmcp.js` registers the AI access tools
+  (`web/ai-tools.js`, the same objects tab-mcp gets, so their calls queue
+  per calculator together) with `document.modelContext`, falling back to
+  Chrome's early `navigator.modelContext`. Side by side with tab-mcp.
+  The desktop app's webview has no WebMCP: nothing changes there. On a
+  page served from this computer (no relay) AI access is made for WebMCP
+  alone and the sidebar's Connect entry stays hidden.
+- **The shown calculator's tool family only**: `list_calculators` and the
+  family's tools of the model Calculator shows (`familyOf`), only
+  `list_calculators` and `lookup_command` with none shown; registered
+  again when the model changes the family, withdrawn on `pagehide`, back
+  on `pageshow`. An agent in the browser works on what the page shows;
+  tab-mcp keeps offering every tool. The server instructions (WebMCP has
+  none) go into `list_calculators`' description.
+- **Consequential calls confirmed in the page** (owner): tab-mcp's dialog
+  ("Your browser's AI (WebMCP) wants to run …"), every time, no "Always
+  allow", since the agent is not identified. "The AI's calls" records
+  WebMCP's calls under "Your browser's AI"; the sidebar offers "Calls"
+  once one came while tab-mcp is off.
+- **Results**: a tool's JSON fields; a failure resolves to `{error}`
+  rather than rejecting, because Chrome turns a rejection into a bare
+  `UnknownError` ([[research/webmcp]]); a display image as a
+  `data:image/png;base64,…` string in `image`. Each tool has a lenient
+  `outputSchema` (no required fields, so `{error}` fits); tab-mcp's
+  client and the desktop app's tool list do not pass it on.
+- **Annotations**: `list_calculators` now says `untrustedContentHint`
+  (the ROM file names are the user's). MCP-only hints (`destructiveHint`)
+  are not passed to WebMCP.
+- **Cancelled calls stop waiting**: the `signal` of `execute` ends the
+  waits for the calculator (`settle`, `pressFunction` presses no more
+  keys) with "Cancelled", for tab-mcp and the desktop app too.

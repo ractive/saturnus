@@ -23,6 +23,12 @@
 // page only shows it: the panel's "lost", the log's notes. The calls and
 // the connection's events go to `log` (web/ai-log.js, "The AI's calls");
 // never the address, a token or a pairing code.
+//
+// Where the browser has WebMCP, the same tools go to the browser's own AI
+// agent as well (web/ai-webmcp.js, iteration 71), side by side with
+// tab-mcp: `tools` makes them once for both, and WebMCP's calls go to the
+// same log. Then `AiAccess` is made even without a relay (a page served
+// from this computer), `available` false.
 
 import { aiTools, INSTRUCTIONS, titleOf } from "./ai-tools.js";
 import { AiLog, appLabel } from "./ai-log.js";
@@ -159,8 +165,11 @@ export class AiAccess extends EventTarget {
     this.attached = new Map();
     this.lobby = null;
     this.error = null;
-    /** "The AI's calls" (web/ai-log.js): from now on, in memory only. */
+    /** "The AI's calls" (web/ai-log.js): from now on, in memory only; tab-mcp's calls and WebMCP's. */
     this.log = new AiLog(this, { now: () => this.now() });
+    /** The tools through WebMCP (web/ai-webmcp.js `WebMcp`), where the browser has it; set by web/main.js. */
+    this.webmcp = null;
+    this.toolList = null;
   }
 
   /** The relay's host name, for the log. */
@@ -218,6 +227,19 @@ export class AiAccess extends EventTarget {
     this.dispatchEvent(new Event("change"));
   }
 
+  /**
+   * The tools (web/ai-tools.js), made once: tab-mcp and WebMCP
+   * (web/ai-webmcp.js) register the same ones, so their calls queue per
+   * calculator together.
+   */
+  get tools() {
+    if (!this.toolList) {
+      this.toolList = aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), existing: (id) => this.existing(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, png: (frame, model, look) => this.png(frame, model, look) });
+      for (const tool of this.toolList) if (tool.annotations?.consequentialHint) this.consequential.add(tool.name);
+    }
+    return this.toolList;
+  }
+
   /** The client loaded and the tools registered (once). */
   load() {
     this.loading ??= (async () => {
@@ -229,10 +251,7 @@ export class AiAccess extends EventTarget {
         server: { name: "saturnus", title: "saturnus calculators", version: VERSION, instructions: INSTRUCTIONS },
         storageKey: aiSecretKey(origin),
       });
-      for (const tool of aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), existing: (id) => this.existing(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, png: (frame, model, look) => this.png(frame, model, look) })) {
-        await mcp.registerTool(tool);
-        if (tool.annotations?.consequentialHint) this.consequential.add(tool.name);
-      }
+      for (const tool of this.tools) await mcp.registerTool(tool);
       mcp.addEventListener("statechange", (e) => {
         // An attempt of the client's reconnecting starts (its timer, the tab back in front, Connect).
         if (e.detail?.state === "connecting" && mcp.reconnecting) this.note("retrying", { attempt: mcp.reconnecting.attempt });

@@ -127,6 +127,27 @@ model's mistakes, not a hostile local app; a name only guessed from the
 "Always allow" (`mcp::tests::which_client_names_are_stable`, web
 `ai-local.test.mjs`, `ai-local-page.test.mjs`).
 
+## WebMCP in the browser
+
+Iteration 71 ([[iterations/iteration-71-webmcp]]): where the browser has
+WebMCP (`document.modelContext`; Chrome 149 and Edge 150 origin trials),
+the web app registers the same tools with the browser
+(`web/ai-webmcp.js`), whenever the browser has it, with no setting
+(owner, 2026-11-08). Facts about Chrome's behaviour:
+[[research/webmcp]].
+
+| Rule | Why | Test |
+| --- | --- | --- |
+| No tool names another origin in `exposedTo`; the permissions policy feature `tools` (default `'self'`) is left as it is | Only the browser's agent and the page's own origin reach the tools; a cross-origin frame or opener gets none | (by construction; spec "Permissions policy integration") |
+| The arguments are checked against the tool's input schema before anything runs (`invalidArguments`, as for the desktop app) | Chrome passes the agent's input through unchecked | web `ai-webmcp.test.mjs` |
+| `store_variable` and `purge_variable` (`consequentialHint`) ask the user in the page every time, in tab-mcp's dialog; no "Always allow" (the agent does not say who it is); a call the agent cancels closes the question | The same consequences need the same consent; Chrome documents no confirmation of its own | web `ai-webmcp.test.mjs`, `ai-webmcp-page.test.mjs` |
+| Results that carry the calculator's or the user's text (`list_calculators`' ROM names, the display, the stack, variables) say `untrustedContentHint` | Text from the calculator is data, not instructions for the agent | web `ai-webmcp.test.mjs`, `ai-tools.test.mjs` |
+| Every WebMCP call goes to "The AI's calls" as "Your browser's AI" | The user sees what the agent did | web `ai-webmcp.test.mjs`, `ai-webmcp-page.test.mjs` |
+| The tools are withdrawn on `pagehide` and registered again on `pageshow` | A page in the back/forward cache offers nothing | web `ai-webmcp.test.mjs` |
+
+Key presses and runs are not confirmed, as for tab-mcp (decision log,
+2026-10-19): an agent in the browser can already press the page's keys.
+
 ## Known limits
 
 - The token is per user, not per instance: every `run` of the user shares

@@ -1202,6 +1202,24 @@ through the relay while the tab is open. Nothing is installed.
   shows, so the click's user activation still holds when `connect()`
   runs; a connect refused for lack of one says "Press Connect to turn on
   AI access."
+- **WebMCP** (iteration 71, `ai-webmcp.js`): where the browser has
+  `document.modelContext` (Chrome 149 and Edge 150 origin trials, the
+  tokens in `index.html`; Chrome's early `navigator.modelContext` as a
+  fallback), the same tool objects are registered with the browser for
+  its own agent, always, beside tab-mcp: those of the shown calculator's
+  family (`familyOf`), registered again when the model changes it
+  (`main.js` `onModel`), each with an `AbortSignal` that withdraws it,
+  on `pagehide` too. The call path is the desktop app's: the arguments
+  checked, `store_variable` and `purge_variable` confirmed in tab-mcp's
+  dialog (no "Always allow"), `toolcall`/`toolcallend` on the
+  `AiAccess` for the log. A result is the tool's JSON, an image the
+  `image` data URL, a failure `{error}` (Chrome hides a rejection's
+  message). Without a relay (127.0.0.1) `AiAccess` is still made for it,
+  `available` false, and the sidebar's entry stays hidden. Tests:
+  `test/ai-webmcp.test.mjs` (a fake `document.modelContext`),
+  `test/ai-webmcp-page.test.mjs` (Chrome with
+  `--enable-features=WebMCPTesting`, `executeTool`; the 48GX with
+  `SATURNUS_ROM_DIR`). Facts: `kb/research/webmcp.md`.
 - Tests: `test/ai.test.mjs` (the session on a fake hub: one attach per
   calculator, every connection closed again, when the calculators keep
   running; the reconnecting on a fake client that models the library's

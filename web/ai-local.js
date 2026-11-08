@@ -44,7 +44,7 @@ export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-406jbpym.min.js";
  * apps asked while AI access is on, as grants by name. `forget()` empties
  * them and says so (`grantschange`), which drops every "Always allow".
  */
-class ConfirmHost extends EventTarget {
+export class ConfirmHost extends EventTarget {
   constructor() {
     super();
     this.grants = [];
