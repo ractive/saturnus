@@ -254,15 +254,17 @@ leave no room for a third column; a narrow pane (a container query, below
 540 px) shows a path line instead of the tree. The pane's head has
 "Change" (the place switcher: on the left a calculator on a cable or an
 emulated one; on the right also a folder on this computer or, where no
-folder can be picked, "Files in this browser"; then nothing). A pane
-that shows the emulator's own calculator also has "Open in the
-emulator" (iteration 45, below). No menu,
+folder can be picked, "Files in this browser"; then "Serve a folder to
+a 38G, 39G or 40G…" and nothing). A pane that shows the emulator's own
+calculator also has "Show in Calculator" (iteration 45, below). No menu,
 card or later visit opens a folder in the left pane; a kept folder
-comes back in the right pane. The head also has "⋯" (a calculator: New directory, Back up, Restore from a backup file, Graphics
-screen, Copy everything to a folder, the connection settings, Read
-everything again, Disconnect; a folder: New folder, Add files, Download
+comes back in the right pane. The head also has "⋯" (a calculator: New directory, Fast transfer a
+file to it (the 48GX and the 49G on its Kermit server), Back up,
+Restore from a backup file, Graphics screen, Copy everything to a
+folder, the connection settings, Read everything again, Disconnect; a folder: New folder, Add files, Download
 everything as `.zip`, Read again, Close). A row's menu: Open, Copy to the
-other pane (F5), Download and Download as text (a variable), Copy as one
+other pane (F5), Download and Download as text (a variable), the fast
+transfer where the calculator has it (a variable, a folder's `.hp`), Copy as one
 file (a directory), Download or Download as `.zip` (a folder's), Restore
 the calculator from this file (a folder's `.hp`, with a calculator in the
 other pane), Rename (F2), Purge or Delete (Delete). Ctrl or Cmd and
@@ -441,6 +443,9 @@ and asks for a new one if the calculator would refuse it (`satx-core`'s
 
 Disconnect sends FINISH (the server ends and writes IOPAR, see
 `protocols/iopar`) and says "The calculator has left server mode."
+When FINISH gets no answer, a message says to press ON if the display
+still shows the server, and the pane says only "Disconnected."
+(iteration 70).
 A cable pulled mid-way is a disconnected pane with the reason, never a
 hang: every operation has the session's timeouts.
 
@@ -454,6 +459,12 @@ The settings dialog (the pane's "⋯", "Connection settings…"): speed
 it takes effect at the next `SERVER`. Mark and space parity, which IOPAR
 allows, are not offered: neither Web Serial nor the `serialport` crate
 has them.
+
+As built: only the speed, the parity and "Find the speed and parity
+automatically" (stored for the next connect), and the line "Connected
+now: HP 49G on USB serial port, XSERV at 9600 baud." (the server named
+only when it is XSERV). The calculator's own IOPAR is not shown and not
+set from Files; `satx info` and `satx settings` do that.
 
 ### List, get, put
 
@@ -668,9 +679,10 @@ The calculator is the client: the page serves a folder as the "disk
 drive" it expects (wiki `protocols/aplet-transfer`, which answers
 `questions/hp38g-39g-transfer-protocol`). As built (iteration 39):
 
-- **Where.** "Serve a folder to a 38G, 39G or 40G": a link in the left
-  pane's empty state, an entry of each pane's "Change" menu and a line
-  in the "Add a calculator" dialog. It opens a screen over the panes
+- **Where.** "Serve a folder to a 38G, 39G or 40G": "Add a calculator",
+  then "An HP 38G, 39G or 40G" (iteration 68a), an entry of each pane's
+  "Change" menu, and a button in the left pane's empty state only where
+  no serial port can be reached (an emulated one is served there). It opens a screen over the panes
   (`web/tx/serve.js`, `serve.css`), in the spirit of HPGComm's small
   window: choose a folder (the one a pane shows is offered, or open
   one, or the files in this browser) and a calculator (on a cable, or an

@@ -1303,8 +1303,9 @@ and checks that the code uses only these.
 `web/tx/` is Files, the app's view at `#/files` (`kb/docs/saturnus-tx.md`;
 `mountFiles(root, {shown})` in `tx/app.js`, its markup `#files-view` in
 `index.html`, its styles under `:where(#files-view)`): files between HP 48S/SX, 48G/GX and 49G
-calculators in Kermit server mode (on a serial cable through Web Serial
-in Chrome and Edge on a computer, or emulated in the page) and folders
+calculators in server mode (the Kermit server, or XSERV on the 49G; on a
+serial cable through Web Serial in Chrome and Edge on a computer, or
+emulated in the page) and folders
 on the computer. Two panes, each showing a place: the left one a
 calculator, the right one a folder or a second calculator, each with
 its directory tree (`<device-tree>`), the list of the shown directory
@@ -1444,12 +1445,30 @@ with a switch above them.
   (`just tx-e2e`, the emulated 38G and 39G).
 - **Connect**: "Add a calculator" asks first which kind: "An HP 48 or
   49" goes on, "An HP 38G, 39G or 40G" opens the serve screen. It names
-  the model's keys for SERVER
-  (the 49G's right-shift and → quickly, no pause), then Chrome's port
-  chooser (a port given before connects in one click). The search finds
-  speed and parity unless the settings fix them; the model comes from
-  `VERSION`. Disconnect ends server mode; on a 49G the page says that a
-  server started in algebraic mode leaves the stack packed in one list.
+  the model's keys (`flows.js`'s `START_SERVER`: `SERVER` on the
+  48S/SX, right-shift then → on the 48G series, `XSERV` on the 49G, or
+  `SERVER` for its Kermit server), then Chrome's port chooser (a port
+  given before connects in one click). The search sends XSERV's `M`
+  first at each speed, then finds speed and parity unless the settings
+  fix them; the model comes from `VERSION` (from XSERV: the 49G, told
+  from an HP 48 running XSrvr48, which is refused). Disconnect ends
+  server mode (FINISH, or XSERV's `Q`); on a 49G the page says that a
+  Kermit server started in algebraic mode leaves the stack packed in
+  one list.
+- **XSERV** (49G): list, get, put and free memory over XSERV itself;
+  changes and directory walks as RPL through its `E`, each checked by a
+  listing; a text get or put, PICT, backup and restore on the Kermit
+  server started inside XSERV and ended again. The status says
+  "Connected to XSERV"; on a 49G's Kermit server on a cable it says that
+  XSERV copies faster (`connectedText`).
+- **Fast transfer** (`xmodem.js`; the 48GX, and the 49G on its Kermit
+  server; not under XSERV, where every copy is XModem): "Fast transfer
+  …(XModem)…" on a variable, in the calculator's "⋯" and on a folder's
+  `.hp`; the device leaves `« 'NAME' XSEND »` (or `XRECV`) on the
+  stack and ends the server, the dialog names the key that runs it (EVAL
+  on the 48GX, right-shift then SYMB on the 49G; "Press the keys for me"
+  on an emulated one) and how to start the server again, then offers
+  "Reconnect".
 - **Copies**: rows dragged to the other pane, F5, or "Copy to the other
   pane" in a row's menu; files dragged from the file manager onto a pane
   (and folders, where the browser gives them: `webkitGetAsEntry`), into
