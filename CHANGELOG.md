@@ -41,6 +41,10 @@ the desktop app and the web page share one version.
   and satx now say to type `SERVER`: right-shift, then → can start the
   49G's XModem server instead. On a 48G or 48GX right-shift, then →
   stays.
+- **Disconnect lets go of the serial port.** When the calculator did not
+  answer the end of server mode (its server had stopped, or another
+  server ran), Disconnect held the port for over two minutes of retries.
+  It now waits 10 seconds, then lets go of it.
 
 ## 0.10.3 (2026-11-05)
 

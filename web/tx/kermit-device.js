@@ -20,6 +20,15 @@
 import { HOME, pathKey } from "../shared/device.js";
 import { TxFailure } from "./protocol.js";
 
+/**
+ * How long Disconnect waits for the calculator to end server mode before
+ * it lets go of the port anyway. A calculator that answers ends it in a
+ * second or two; one that does not (its server stopped meanwhile, or
+ * another server started instead) would hold the port for the retries of
+ * two exchanges, over two minutes (emulated 49G, 2026-11-08).
+ */
+export const DISCONNECT_WAIT_MS = 10_000;
+
 export class KermitDevice extends EventTarget {
   /**
    * `client` a ProtocolClient; `title` the place's name ("HP 48GX on USB
@@ -38,6 +47,8 @@ export class KermitDevice extends EventTarget {
     this.restarted = false;
     /** A fast transfer ended server mode: not connected until `connect` again. */
     this.leftServer = false;
+    /** How long `disconnect` waits for the calculator (tests make it short). */
+    this.disconnectWaitMs = DISCONNECT_WAIT_MS;
     this.forward = (type) => (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail }));
     client.addEventListener("search", this.forward("search"));
     client.addEventListener("connection", this.forward("connection"));
@@ -301,10 +312,25 @@ export class KermitDevice extends EventTarget {
     return this.run("Getting the graphics screen…", () => this.client.request({ type: "pict" }));
   }
 
-  /** Put flag -35 back and end server mode (FINISH). */
+  /**
+   * Put flag -35 back and end server mode (FINISH). No answer within
+   * `disconnectWaitMs`: the request is stopped and this rejects as
+   * `noAnswer`, so the port can be let go of at once.
+   */
   disconnect() {
     this.cancelQueued();
-    return this.run("Ending server mode…", () => this.client.request({ type: "disconnect" }));
+    return this.run("Ending server mode…", () => {
+      const request = this.client.request({ type: "disconnect" });
+      let timer = null;
+      const late = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          request.catch(() => {});
+          this.client.abort();
+          reject(new TxFailure({ kind: "noAnswer", message: "the calculator did not answer the end of server mode" }));
+        }, this.disconnectWaitMs);
+      });
+      return Promise.race([request, late]).finally(() => clearTimeout(timer));
+    });
   }
 
   /** Close the link and the Worker. */

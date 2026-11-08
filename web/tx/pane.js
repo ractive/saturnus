@@ -308,7 +308,7 @@ export class Pane {
           try {
             await p.device.disconnect();
           } catch (err) {
-            this.say(`The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
+            this.say(err?.kind === "noAnswer" ? "The calculator did not answer the end of server mode. If it still shows “Awaiting Server Cmd.”, press ON on it." : `The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
           }
         }
         if (this.place === p) this.render();
