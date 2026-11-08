@@ -54,14 +54,17 @@ with `consequentialHint` on the tools that change the calculator.
   where a tool returns structured data; check annotations map
   (`readOnlyHint` for read tools, `consequentialHint` as today,
   `untrustedContentHint` for results that carry user content).
-- [ ] **Consent and control:** WebMCP has no pairing code: any agent the
-  browser lets in can call the tools. Decide with the owner how the user
-  turns it on (the AI access dialog gets a "Browser agents (WebMCP)"
-  switch, off by default?), how a consequential call is confirmed (the
-  page's own confirmation as for tab-mcp, `web/shared/components/confirm.js`),
-  and that the AI log records WebMCP calls too. tab-mcp and WebMCP can be
-  on at the same time.
-- [ ] **Origin trial:** the owner registers ractive.ch for the Chrome 149
+- [ ] **Always registered; the page confirms changes:** only the browser
+  agent (built into the browser, or hosted by it through an extension or
+  plug-in) can call a page's tools, and the permissions-policy feature
+  `tools` (default allowlist `'self'`) keeps cross-origin frames out
+  (spec, "Permissions policy integration"). Owner 2026-11-08: the tools are
+  registered whenever the browser has WebMCP, no switch. A consequential
+  call is confirmed in the page as for tab-mcp
+  (`web/shared/components/confirm.js`), and the AI log records WebMCP calls
+  too. tab-mcp and WebMCP run side by side.
+- [ ] **Origin trial:** the owner registers `https://ractive.ch` (a token
+  is bound to the origin, not a path) for the Chrome 149
   and Edge 150 trials; the tokens go into the page's `<meta
   http-equiv="origin-trial">` (one per browser), with a note of their
   expiry in kb. Not in the desktop app (its webview has no WebMCP).
