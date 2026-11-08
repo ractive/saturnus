@@ -20,7 +20,7 @@ use crate::link::{self, Link};
 use crate::object::{HEADER_LEN, KERMIT_PADDING_ALLOWANCE, ObjectType, inspect};
 use crate::object::{object_size, strip_padding, unpack};
 use crate::reply::{Iopar, Listing, StackReply, parse_list, parse_listing, parse_real};
-use crate::reply::{parse_name, parse_stack, parse_string};
+use crate::reply::{parse_name, parse_stack, parse_string, parse_whole_string};
 use crate::session::KermitCore;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::session::Session;
@@ -30,6 +30,24 @@ use crate::transport::Transport;
 use crate::xmodem::{XmodemDirection, XmodemPlan};
 use crate::{Error, Result};
 
+/// [`Calculator::iopar`]'s command: IOPAR's items on the stack, each a
+/// short real, with their count on level 1. The list itself can be wider
+/// than the 49G's display, which cuts each level at 20 characters (ROM
+/// 1.18: `{ 9600. 0. 0. 0. 3. `) or 22 (2.x: `{9600.,0.,0.,0.,3.,1.}` just
+/// fits, but not in FIX 4). `LIST→` fails on anything but a list and leaves
+/// it on the stack. Every model has it.
+const IOPAR_ITEMS: &str = "IOPAR LIST\u{2192}";
+/// What [`VERSION_CHUNKS`] cuts into: 10 characters, 12 displayed with the
+/// quotes, far below every model's display width.
+const CHUNK: usize = 10;
+/// With `VERSION`'s two strings on the stack (version on level 2,
+/// copyright on level 1): the version's length, the two joined cut into
+/// [`CHUNK`]-character strings (first chunk deepest), and the joined
+/// length on level 1. For the 49G, which cuts the two-line version string
+/// at its display width (`"Version HP49-C\nRevi` on ROM 1.18, of the 29
+/// characters `Version HP49-C\nRevision #1.18`). 71 bytes, one packet.
+const VERSION_CHUNKS: &str =
+    "OVER SIZE ROT ROT + 1 OVER SIZE FOR k DUP k k 9 + SUB SWAP 10 STEP SIZE";
 /// Temporary variable for [`Calculator::pict`].
 const PICT_VAR: &str = "SATXTMP";
 /// Temporary variable and port-0 object for [`Calculator::backup`].
@@ -81,9 +99,9 @@ pub enum Model {
 impl Model {
     /// The model from the `VERSION` text ([`Calculator::version`]): `None`
     /// is the 48S/SX, which lacks the command; the 48G/GX says
-    /// `HP48-R, Copyright HP 1993`; the 49G also says `HP48-C Revision ...`
-    /// (cut by its display width) and is told apart by its copyright year
-    /// (1999 or later) or an `HP49`.
+    /// `HP48-R, Copyright HP 1993`; the 49G says `HP49-C Revision #1.18`
+    /// (ROM 1.x) or `HP48-C Revision #2.15` (2.x) and is told apart by its
+    /// copyright year (1999 or later) or an `HP49`.
     pub fn from_version(version: Option<&str>) -> Model {
         let Some(v) = version else {
             return Model::Hp48Sx;
@@ -232,12 +250,7 @@ impl CalcOps<'_> {
                 .take_while(|level| parse_string(level).as_deref() == Some(marker))
                 .count();
             if reply.error.is_none() && ours > 0 {
-                let mut left = ours;
-                while left > 0 {
-                    let n = left.min(2);
-                    self.drop_levels(n).await?;
-                    left -= n;
-                }
+                self.drop_levels(ours).await?;
                 return Ok(());
             }
         }
@@ -328,7 +341,9 @@ impl CalcOps<'_> {
     }
 
     /// Run `command`, read `levels` stack levels (level 1 first) and drop
-    /// them again.
+    /// them again. Only for short values (a real, a flag, the 48S/SX's
+    /// path): the 49G cuts each level at its display width, 20 characters
+    /// on ROM 1.18, without a marker.
     async fn query(&mut self, command: &str, levels: usize) -> Result<Vec<String>> {
         let reply = checked(self.host(command).await?)?;
         if reply.levels.len() < levels {
@@ -342,10 +357,16 @@ impl CalcOps<'_> {
         Ok(values)
     }
 
-    /// Drop `n` levels (1 or 2) pushed by an internal query.
+    /// Drop `n` levels pushed by an internal query: `DROP`, `DROP2`, or
+    /// `n. DROPN` (a real: a 49G in exact mode reads `7` as an integer).
     async fn drop_levels(&mut self, n: usize) -> Result<()> {
-        let command = if n >= 2 { "DROP2" } else { "DROP" };
-        checked(self.host(command).await?).map(|_| ())
+        let command = match n {
+            0 => return Ok(()),
+            1 => "DROP".to_string(),
+            2 => "DROP2".to_string(),
+            n => format!("{n}. DROPN"),
+        };
+        checked(self.host(&command).await?).map(|_| ())
     }
 
     /// [`Calculator::list`].
@@ -465,18 +486,83 @@ impl CalcOps<'_> {
             )));
         };
         let bad = |s: &str| Error::Reply(format!("VERSION: not a string: {s:?}"));
-        let version = parse_string(l2).ok_or_else(|| bad(l2))?;
-        let copyright = parse_string(l1).ok_or_else(|| bad(l1))?;
+        parse_string(l2).ok_or_else(|| bad(l2))?;
+        parse_string(l1).ok_or_else(|| bad(l1))?;
+        let (version, copyright) = match (parse_whole_string(l2), parse_whole_string(l1)) {
+            (Some(version), Some(copyright)) => {
+                self.drop_levels(2).await?;
+                (version, copyright)
+            }
+            // The 49G cut one at its display width.
+            _ => self.whole_version().await?,
+        };
         let version = version.split_whitespace().collect::<Vec<_>>().join(" ");
-        self.drop_levels(2).await?;
         Ok(Some(format!("{version}, {copyright}")))
     }
 
-    /// [`Calculator::iopar`].
+    /// `VERSION`'s two strings, still on the stack, whole: fetched in
+    /// chunks by [`VERSION_CHUNKS`], then dropped with the chunks.
+    async fn whole_version(&mut self) -> Result<(String, String)> {
+        let reply = checked(self.host(VERSION_CHUNKS).await?)?;
+        let bad =
+            |reply: &StackReply| Error::Reply(format!("VERSION: bad chunks: {:?}", reply.levels));
+        // Both strings are there, so the total is never 0 (a loop from 1
+        // to 0 still runs once on the 48).
+        let Some(total) = reply.level(1).and_then(parse_count).filter(|&t| t > 0) else {
+            return Err(bad(&reply));
+        };
+        let chunks = total.div_ceil(CHUNK);
+        let pushed = chunks + 2;
+        if reply.levels.len() < pushed {
+            return Err(bad(&reply));
+        }
+        let split = reply.level(pushed).and_then(parse_count);
+        let text = (2..=chunks + 1)
+            .rev()
+            .map(|n| reply.level(n).and_then(parse_whole_string))
+            .collect::<Option<String>>();
+        self.drop_levels(pushed).await?;
+        let chars: Vec<char> = text.unwrap_or_default().chars().collect();
+        match split {
+            Some(split) if chars.len() == total && split <= total => Ok((
+                chars[..split].iter().collect(),
+                chars[split..].iter().collect(),
+            )),
+            _ => Err(bad(&reply)),
+        }
+    }
+
+    /// [`Calculator::iopar`]: read item by item ([`IOPAR_ITEMS`]).
     pub(crate) async fn iopar(&mut self) -> Result<Iopar> {
-        let values = self.query("IOPAR", 1).await?;
-        let value = values.first().map(String::as_str).unwrap_or_default();
-        Iopar::parse(value).ok_or_else(|| Error::Reply(format!("IOPAR: bad list: {value:?}")))
+        let reply = match checked(self.host(IOPAR_ITEMS).await?) {
+            Err(e @ Error::Calculator { .. }) => {
+                // IOPAR is no list: LIST→ left it (or the undefined name)
+                // on the stack.
+                self.drop_levels(1).await?;
+                return Err(e);
+            }
+            reply => reply?,
+        };
+        let Some(n) = reply.level(1).and_then(parse_count) else {
+            return Err(Error::Reply(format!(
+                "IOPAR: no item count: {:?}",
+                reply.levels
+            )));
+        };
+        if reply.levels.len() <= n {
+            return Err(Error::Reply(format!(
+                "IOPAR: expected {n} items, got {:?}",
+                reply.levels
+            )));
+        }
+        // Level n + 1 is the first item.
+        let items: Vec<&str> = (2..=n + 1)
+            .rev()
+            .map(|level| reply.level(level).unwrap_or_default())
+            .collect();
+        self.drop_levels(n + 1).await?;
+        Iopar::from_items(&items)
+            .ok_or_else(|| Error::Reply(format!("IOPAR: bad list: {{ {} }}", items.join(" "))))
     }
 
     /// [`Calculator::set_iopar`].
@@ -1138,6 +1224,13 @@ fn check_backup(data: &[u8]) -> Result<()> {
     let nibbles = unpack(data.get(HEADER_LEN..).unwrap_or_default());
     object_size(&nibbles, 0).map_err(|e| Error::Object(format!("not a backup: {e}")))?;
     Ok(())
+}
+
+/// A displayed count or length (`7`, `7.`, `7.0000`), if it is a whole
+/// number of a sane size.
+fn parse_count(level: &str) -> Option<usize> {
+    let x = parse_real(level)?;
+    (x.fract() == 0.0 && (0.0..1.0e6).contains(&x)).then_some(x as usize)
 }
 
 /// Turn a reply with an error into [`Error::Calculator`].
@@ -1919,11 +2012,12 @@ pub(crate) mod tests {
         assert_eq!(sent(&log), ["VERSION", "DROP2"]);
     }
 
+    /// A two-line version string that arrived whole.
     #[test]
     fn version_49g_two_line_string() {
         let (mut c, _) = calc(|cmd| match cmd {
             "VERSION" => {
-                "2: \"Version HP49-C\r\nRevision #1.19-6\r\n1:  \"Copyright HP 2009\"\r\n".into()
+                "2: \"Version HP49-C\r\nRevision #1.19-6\"\r\n1:  \"Copyright HP 2009\"\r\n".into()
             }
             _ => EMPTY.into(),
         });
@@ -1931,6 +2025,143 @@ pub(crate) mod tests {
             c.version().unwrap().as_deref(),
             Some("Version HP49-C Revision #1.19-6, Copyright HP 2009")
         );
+    }
+
+    /// The stack reply to [`VERSION_CHUNKS`] with `version` and
+    /// `copyright` on the stack above `below` (deepest first): the version's
+    /// length, the chunks, the total.
+    fn chunk_reply(version: &str, copyright: &str, below: &[&str]) -> String {
+        let joined: Vec<char> = format!("{version}{copyright}").chars().collect();
+        let mut levels: Vec<String> = below.iter().map(|l| (*l).to_string()).collect();
+        levels.push(format!("{}.", version.chars().count()));
+        for chunk in joined.chunks(CHUNK) {
+            let chunk: String = chunk.iter().collect();
+            levels.push(format!("\"{}\"", chunk.replace('\n', "\r\n")));
+        }
+        levels.push(format!("{}.", joined.len()));
+        let depth = levels.len();
+        levels
+            .iter()
+            .enumerate()
+            .map(|(i, level)| format!("{}: {level}\r\n", depth - i))
+            .collect()
+    }
+
+    /// ROM 1.18 on a real 49G (2026-11-08): `VERSION`'s level 2 cut at 20
+    /// characters. The whole text comes in chunks; the user's 4711 stays.
+    #[test]
+    fn version_49g_1_18_cut_at_the_display_width() {
+        let (mut c, log) = calc(|cmd| match cmd {
+            "VERSION" => {
+                "3: 4711.\r\n2: \"Version HP49-C\r\nRevi\r\n1: \"Copyright HP 2000\"\r\n".into()
+            }
+            VERSION_CHUNKS => chunk_reply(
+                "Version HP49-C\nRevision #1.18",
+                "Copyright HP 2000",
+                &["4711."],
+            ),
+            _ => EMPTY.into(),
+        });
+        let version = c.version().unwrap();
+        assert_eq!(
+            version.as_deref(),
+            Some("Version HP49-C Revision #1.18, Copyright HP 2000")
+        );
+        assert_eq!(Model::from_version(version.as_deref()), Model::Hp49G);
+        // 46 characters: five chunks, the two lengths.
+        assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, "7. DROPN"]);
+    }
+
+    /// ROM 2.15 on the emulated 49G: level 2 cut at 22 characters; the
+    /// chunks as it sent them.
+    #[test]
+    fn version_49g_2_15_cut_at_the_display_width() {
+        let (mut c, log) = calc(|cmd| match cmd {
+            "VERSION" => "2: \"Version HP48-C\r\nRevisi\r\n1: \"Copyright HP 2009\"\r\n".into(),
+            VERSION_CHUNKS => "7: 29.\r\n6: \"Version HP\"\r\n5: \"48-C\r\nRevis\"\r\n\
+                               4: \"ion #2.15C\"\r\n3: \"opyright H\"\r\n2: \"P 2009\"\r\n\
+                               1: 46.\r\n"
+                .into(),
+            _ => EMPTY.into(),
+        });
+        assert_eq!(
+            c.version().unwrap().as_deref(),
+            Some("Version HP48-C Revision #2.15, Copyright HP 2009")
+        );
+        assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, "7. DROPN"]);
+    }
+
+    /// Chunks that do not add up are an error, and what the command pushed
+    /// is dropped all the same.
+    #[test]
+    fn version_chunks_that_do_not_add_up() {
+        let (mut c, log) = calc(|cmd| match cmd {
+            "VERSION" => "2: \"Version HP49-C\r\nRevi\r\n1: \"Copyright HP 2000\"\r\n".into(),
+            VERSION_CHUNKS => "4: 5.\r\n3: \"Version\"\r\n2: \"Copyright\"\r\n1: 20.\r\n".into(),
+            _ => EMPTY.into(),
+        });
+        let err = c.version().unwrap_err();
+        assert!(
+            matches!(&err, Error::Reply(m) if m.contains("bad chunks")),
+            "{err:?}"
+        );
+        assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, "4. DROPN"]);
+    }
+
+    /// ROM 1.18 on a real 49G cuts IOPAR's list (`{ 9600. 0. 0. 0. 3. `);
+    /// satx never reads the list, only its items.
+    #[test]
+    fn iopar_item_by_item() {
+        let items_49g = "7: 9600.\r\n6: 0.\r\n5: 0.\r\n4: 0.\r\n3: 3.\r\n2: 1.\r\n1: 6.\r\n";
+        let items_48 = "8: 4711\r\n7: 9600\r\n6: 0\r\n5: 0\r\n4: 0\r\n3: 3\r\n2: 1\r\n1: 6\r\n";
+        let items_fix = "7: 2400.0000\r\n6: -2.0000\r\n5: 1.0000\r\n4: 0.0000\r\n\
+                         3: 1.0000\r\n2: 3.0000\r\n1: 6.0000\r\n";
+        let other = Iopar {
+            baud: 2400,
+            parity: -2,
+            receive_pacing: true,
+            transmit_pacing: false,
+            checksum: 1,
+            translate: 3,
+        };
+        for (items, expected) in [
+            (items_49g, Iopar::default()),
+            (items_48, Iopar::default()),
+            (items_fix, other),
+        ] {
+            let (mut c, log) = calc(move |cmd| match cmd {
+                "IOPAR" => "1: { 9600. 0. 0. 0. 3. \r\n".into(),
+                IOPAR_ITEMS => items.into(),
+                _ => EMPTY.into(),
+            });
+            assert_eq!(c.iopar().unwrap(), expected);
+            assert_eq!(sent(&log), [IOPAR_ITEMS, "7. DROPN"]);
+        }
+    }
+
+    /// IOPAR that is not a six-item list: LIST→ refuses anything but a list
+    /// and leaves it, which is dropped; a list of another length is dropped
+    /// with its items.
+    #[test]
+    fn iopar_that_is_not_a_six_item_list() {
+        let (mut c, log) = calc(|cmd| match cmd {
+            IOPAR_ITEMS => "Error: Bad Argument Type\r\n1: 'IOPAR'\r\n".into(),
+            _ => EMPTY.into(),
+        });
+        let err = c.iopar().unwrap_err();
+        assert!(matches!(&err, Error::Calculator { .. }), "{err:?}");
+        assert_eq!(sent(&log), [IOPAR_ITEMS, "DROP"]);
+
+        let (mut c, log) = calc(|cmd| match cmd {
+            IOPAR_ITEMS => "3: 9600\r\n2: 0\r\n1: 2\r\n".into(),
+            _ => EMPTY.into(),
+        });
+        let err = c.iopar().unwrap_err();
+        assert!(
+            matches!(&err, Error::Reply(m) if m.contains("bad list")),
+            "{err:?}"
+        );
+        assert_eq!(sent(&log), [IOPAR_ITEMS, "3. DROPN"]);
     }
 
     #[test]
@@ -1954,14 +2185,16 @@ pub(crate) mod tests {
         assert!(!Hp48Sx.has_xmodem() && Hp48Gx.has_xmodem() && Hp49G.has_xmodem());
     }
 
-    const G49_VERSION: &str =
-        "2: \"Version HP48-C\r\nRevision #2.15\r\n1:  \"Copyright HP 2009\"\r\n";
+    const G49_VERSION: &str = "2: \"Version HP48-C\r\nRevisi\r\n1:  \"Copyright HP 2009\"\r\n";
     const GX_VERSION: &str = "2:     \"Version HP48-R\"\r\n1:  \"Copyright HP 1993\"\r\n";
 
     #[test]
     fn prepare_xrecv_on_49g_in_alg_mode() {
         let (mut c, log) = calc(|cmd| match cmd {
             "VERSION" => G49_VERSION.into(),
+            VERSION_CHUNKS => {
+                chunk_reply("Version HP48-C\nRevision #2.15", "Copyright HP 2009", &[])
+            }
             "G D" => "{ HOME } 2000.\r\nSATXX 10.5 String 1234.\r\n".into(),
             "-95. FS?" => "1:                     1.\r\n".into(),
             _ => EMPTY.into(),
@@ -1972,7 +2205,14 @@ pub(crate) mod tests {
         assert_eq!(
             sent(&log),
             [
-                "VERSION", "DROP2", "G D", "-95. FS?", "DROP", "-95. CF", "G F"
+                "VERSION",
+                VERSION_CHUNKS,
+                "7. DROPN",
+                "G D",
+                "-95. FS?",
+                "DROP",
+                "-95. CF",
+                "G F"
             ]
         );
         assert_eq!(plan.model, Model::Hp49G);

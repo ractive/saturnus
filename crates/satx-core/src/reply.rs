@@ -114,19 +114,37 @@ fn integer(x: f64) -> Option<i64> {
     (x.fract() == 0.0 && x.abs() < 9.0e15).then_some(x as i64)
 }
 
-/// Parse a displayed real such as `127828.`, `1.5`, `-3` or `1.E-3`.
-/// Leading and trailing whitespace is ignored.
+/// Parse a displayed real such as `127828.`, `1.5`, `-3` or `1.E-3`, in
+/// any display mode: FIX, SCI and ENG (`9600.0000`, `9.60E3`), digit
+/// groups (the 48 in FIX shows `9,600.0000`) and the fraction mark `,`
+/// (flag -51 set: `9.600,0000`, `1,5`, `1,23E4`). A lone `,` is the
+/// fraction mark; with both, the last one is. Leading and trailing
+/// whitespace is ignored.
 pub fn parse_real(s: &str) -> Option<f64> {
     let s = s.trim();
     // Rust also accepts `inf` and `NaN`; the calculator never prints those.
     if s.is_empty()
         || !s
             .chars()
-            .all(|c| c.is_ascii_digit() || matches!(c, '.' | 'E' | 'e' | '+' | '-'))
+            .all(|c| c.is_ascii_digit() || matches!(c, '.' | ',' | 'E' | 'e' | '+' | '-'))
     {
         return None;
     }
-    s.parse().ok()
+    let mark = match (s.rfind('.'), s.rfind(',')) {
+        (Some(point), Some(comma)) if comma > point => ',',
+        (None, Some(_)) if s.matches(',').count() == 1 => ',',
+        (Some(_), None) if s.matches('.').count() > 1 => ',',
+        _ => '.',
+    };
+    let plain: String = s
+        .chars()
+        .filter_map(|c| match c {
+            '.' | ',' if c == mark => Some('.'),
+            '.' | ',' => None,
+            c => Some(c),
+        })
+        .collect();
+    plain.parse().ok()
 }
 
 /// Parse a displayed flat list into its items as text: `{ 9600 0 0 0 3 1 }`,
@@ -157,6 +175,65 @@ pub fn parse_string(s: &str) -> Option<String> {
     let s = s.trim();
     let body = s.strip_prefix('"')?;
     Some(body.strip_suffix('"').unwrap_or(body).to_string())
+}
+
+/// Parse a displayed string that arrived whole: as [`parse_string`], but
+/// `None` without the closing quote (a string the 49G cut at its display
+/// width).
+pub fn parse_whole_string(s: &str) -> Option<String> {
+    let s = s.trim();
+    let body = s.strip_prefix('"')?.strip_suffix('"')?;
+    Some(body.to_string())
+}
+
+/// Whether a displayed stack level ends inside an object: a string without
+/// its closing quote, an algebraic without its closing `'`, or a list,
+/// vector, program or complex number whose `{ } [ ] « » ( )` do not close.
+///
+/// The 49G sends each level only as wide as its display (20 characters on
+/// ROM 1.18, 22 on 2.x, delimiters included), with no marker, so a longer
+/// object arrives cut; the 48S/SX and 48G/GX send it whole. A 48 string
+/// that holds a `"` itself can look cut too.
+pub fn looks_cut(level: &str) -> bool {
+    let mut open: Vec<char> = Vec::new();
+    let mut in_string = false;
+    let mut in_algebraic = false;
+    for c in level.chars() {
+        if in_string {
+            in_string = c != '"';
+            continue;
+        }
+        match c {
+            '"' => in_string = true,
+            '\'' => in_algebraic = !in_algebraic,
+            '{' | '[' | '«' | '(' => open.push(c),
+            '}' | ']' | '»' | ')' => {
+                let opener = match c {
+                    '}' => '{',
+                    ']' => '[',
+                    '»' => '«',
+                    _ => '(',
+                };
+                if open.pop() != Some(opener) {
+                    // Not a cut: something this check does not know.
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    in_string || in_algebraic || !open.is_empty()
+}
+
+/// The levels of `levels` (level 1 first, as in [`StackReply`]) that
+/// [`looks_cut`], as level numbers counted from 1.
+pub fn cut_levels(levels: &[String]) -> Vec<usize> {
+    levels
+        .iter()
+        .enumerate()
+        .filter(|(_, level)| looks_cut(level))
+        .map(|(i, _)| i + 1)
+        .collect()
 }
 
 /// Parse a quoted global name: `'NOSUCH'` gives `NOSUCH`.
@@ -236,10 +313,16 @@ impl Iopar {
     /// (`{9600.,0.,0.,0.,3.,1.}`) form. `None` unless it has exactly six
     /// integer items in range. Nonzero pacing values mean on.
     pub fn parse(s: &str) -> Option<Self> {
-        let items = parse_list(s)?;
+        Self::from_items(&parse_list(s)?)
+    }
+
+    /// The settings from the list's six items as displayed, e.g. `9600.`,
+    /// `0`, `3.0000`, in list order. `None` unless there are exactly six
+    /// integers in range.
+    pub fn from_items(items: &[impl AsRef<str>]) -> Option<Self> {
         let values = items
             .iter()
-            .map(|item| parse_real(item).and_then(integer))
+            .map(|item| parse_real(item.as_ref()).and_then(integer))
             .collect::<Option<Vec<i64>>>()?;
         let [baud, parity, rx, tx, checksum, translate] = values.as_slice() else {
             return None;
@@ -444,6 +527,54 @@ mod tests {
         );
     }
 
+    /// Levels the 49G cut at its display width (ROM 1.18 on a real 49G
+    /// and 2.15 on the emulated one, 2026-11-08) and whole ones.
+    #[test]
+    fn cut_levels_are_told() {
+        for cut in [
+            "{ 9600. 0. 0. 0. 3. ",
+            "{9600.0000,0.0000,0.00",
+            "\"Version HP49-C\nRevi",
+            "\"ABCDEFGHIJKLMNOPQRS",
+            "« 1 2 + DUP DUP DUP D",
+            "[[1.,2.],[3.,4.],[5.",
+            "'X+Y+Z+SIN(X+Y+Z+X+Y",
+            "{ \"a}\" 'X' { 1 2 } 3",
+            "(1.,2.",
+        ] {
+            assert!(looks_cut(cut), "{cut:?}");
+        }
+        for whole in [
+            "42.",
+            "\"Copyright HP 2009\"",
+            "{9600.,0.,0.,0.,3.,1.}",
+            "{ 9600 0 0 0 3 1 }",
+            "« 1 2 + »",
+            "[[ 1 2 ][ 3 4 ]]",
+            "'SIN(X)'",
+            "{ \"a{\" 'X' }",
+            "(1.,2.)",
+            ":TAG: 5",
+            "# 10d",
+            "Graphic 131 × 64",
+            "",
+        ] {
+            assert!(!looks_cut(whole), "{whole:?}");
+        }
+        let levels = vec!["\"AB".to_string(), "1.".to_string(), "{ 1".to_string()];
+        assert_eq!(cut_levels(&levels), [1, 3]);
+        assert_eq!(parse_whole_string("\"AB\""), Some("AB".to_string()));
+        assert_eq!(parse_whole_string("\"AB"), None);
+        assert_eq!(parse_whole_string("\""), None);
+        assert_eq!(parse_whole_string("AB"), None);
+        // IOPAR's items as `LIST→` leaves them, in list order.
+        assert_eq!(
+            Iopar::from_items(&["9600.", "0.", "0.", "0.", "3.", "1."]),
+            Some(Iopar::default())
+        );
+        assert_eq!(Iopar::from_items(&["9600", "0", "0", "0", "3"]), None);
+    }
+
     #[test]
     fn iopar() {
         for (model, text) in all_models!("iopar") {
@@ -644,10 +775,20 @@ mod tests {
             (" 245966.5 ", 245966.5),
             ("1.E-3", 0.001),
             ("-1.5E12", -1.5e12),
+            // FIX 4 on the 48 and the 49G, then with flag -51 (fraction
+            // mark ,), SCI 2 with it (emulated 48SX and 49G, 2026-11-08).
+            ("9,600.0000", 9600.0),
+            ("9600.0000", 9600.0),
+            ("30.129,5000", 30129.5),
+            ("245951,5000", 245951.5),
+            ("-95,0000", -95.0),
+            ("1,5", 1.5),
+            ("1,23E4", 12300.0),
+            ("1,000,000.", 1.0e6),
         ] {
             assert_eq!(parse_real(s), Some(v), "{s}");
         }
-        for s in ["", "inf", "NaN", "1,5", "abc", "."] {
+        for s in ["", "inf", "NaN", "abc", ".", ",", "1.5.3,2,1"] {
             assert_eq!(parse_real(s), None, "{s}");
         }
 

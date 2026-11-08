@@ -67,6 +67,16 @@ Each item must be covered by a test. Source: the calculator-knowledgebase wiki (
   is unusable on the 49G. Errors come as an `Error: X` first line, not an E
   packet, and leave the arguments on the stack. Covered: `reply` fixture
   tests, `calc` tests.
+- The 49G cuts each level at its display width without a marker: 20
+  characters on ROM 1.18 (a real 49G, 2026-11-08: IOPAR `{ 9600. 0. 0. 0.
+  3. `, VERSION `"Version HP49-C\nRevi`), 22 on 2.10 and 2.15, delimiters
+  and newlines included; the 48S/SX and 48G/GX send levels whole. So no
+  query reads a value that can be wider: IOPAR comes as its items (`IOPAR
+  LIST→`), VERSION in 10-character chunks when it arrives cut, and `run`
+  marks levels with unclosed delimiters as cut. Values follow the display
+  mode: FIX 4 shows `9600.0000` (the 48: `9,600.0000`), flag -51 `9.600,0000`;
+  `parse_real` reads all of these. Covered: `calc` and `reply` tests, e2e
+  `queries_wider_than_the_display` (FIX 4 and -51 cut IOPAR on 2.15 too).
 - Evaluating an undefined name pushes it; evaluating a variable runs it.
   The 48SX has no VERSION (returns `'VERSION'`); `1 0 /` gives `∞` on the
   49G, `Infinite Result` on the 48s. Covered: `reply` and `calc` tests.

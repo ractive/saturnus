@@ -3,6 +3,10 @@
 # Serial bytes only; times in ms since the link was made; seed 2119630905.
 # Edited: XSEND's padding of its last block (memory garbage, which held a run
 # of the ROM) is zeros, and the block's CRC recomputed for them.
+# Edited: the three connects' VERSION chunks and DROPN (satx asks for the
+# whole version text since the 49G cuts it) spliced in from
+# 49g-session.trace, with the levels above where the stack held some; the
+# recording test fails since 0.10.2 (kb/backlog/fast-transfer-e2e-fails.md).
 # request {"type":"connect","find":true,"baud":9600,"parity":"none"}
       13 = 9600 none
       14 > \x01, I~* @-#Y1 9\r
@@ -51,20 +55,32 @@
     2656 > \x01%#Y/R9\r
     2715 < \x01%$B!_#\r
     2715 > \x01%$Y+&1\r
-    2925 > \x01( CDROP2U\r
-    3152 < \x01+ S~* @-#
-    3173 < Y3$\r
-    3173 > \x01, Y~4 @-#Y3~1\r
-    3300 < \x01%!X-Z@
-    3301 > \x01%!Y,\\I\r
-    3317 < \r
-    3412 < \x010"DEmpty\x20
-    3432 < Stack'D;\r
-    3432 > \x01%"Y.5!\r
-    3509 < \x01%#Z,X"\r
-    3511 > \x01%#Y/R9\r
-    3568 < \x01%$B!_#\r
-    3568 > \x01%$Y+&1\r
+    2925 > \x01j COVER SIZE ROT ROT + 1 OVER SIZE FOR k DUP k k 9 + SUB SWAP 10 STEP SIZE6\r
+    2943 < \x01+ S~* @-#Y3$\r
+    2943 > \x01, Y~4 @-#Y3~1\r
+    2945 < \x01%!X-Z@\r
+    2945 > \x01%!Y,\\I\r
+    2948 < \x01~"D7:                   29.#M#J6:          "Version HP"#M#J5:          "48-C#M#JRevis"#M#J4:%XZ\r
+    2948 > \x01%"Y.5!\r
+    2950 < \x01~#D          "ion ##2.15C"#M#J3:          "opyright H"#M#J2:              "P 2009"#M#J1:    "1F\r
+    2950 > \x01%#Y/R9\r
+    2952 < \x01;$D               46.#M#J&]Q\r
+    2952 > \x01%$Y+&1\r
+    2953 < \x01%%Z)K2\r
+    2953 > \x01%%Y*A)\r
+    2953 < \x01%&B"QS\r
+    2953 > \x01%&Y((A\r
+    3156 > \x01+ C7. DROPN8\r
+    3159 < \x01+ S~* @-#Y3$\r
+    3159 > \x01, Y~4 @-#Y3~1\r
+    3161 < \x01%!X-Z@\r
+    3161 > \x01%!Y,\\I\r
+    3162 < \x010"DEmpty Stack'D;\r
+    3162 > \x01%"Y.5!\r
+    3163 < \x01%#Z,X"\r
+    3163 > \x01%#Y/R9\r
+    3163 < \x01%$B!_#\r
+    3163 > \x01%$Y+&1\r
     3770 > \x01* C-35 FS?:\r
     4054 < \x01+ S~
     4074 < * @-#Y3$\r
@@ -365,21 +381,36 @@
    25180 > \x01%$Y+&1\r
    25236 < \x01%%B 8;\r
    25237 > \x01%%Y*A)\r
-   25447 > \x01( CDROP2U\r
-   25784 < \x01
-   25803 < + S~* @-#Y3$\r
-   25803 > \x01, Y~4 @-#Y3~1\r
-   25937 < \x01%!X-Z@\r
-   25937 > \x01%!Y,\\I\r
-   26057 < \x01Y"D2:     \x20
-   26077 <     : `SERVER`#M#
-   26097 < J1:             \x20
-   26116 <  NOVAL#M#J'A9\r
-   26116 > \x01%"Y.5!\r
-   26191 < \x01%#Z,X"\r
-   26191 > \x01%#Y/R9\r
-   26247 < \x01%$B!_#\r
-   26248 > \x01%$Y+&1\r
+   25447 > \x01j COVER SIZE ROT ROT + 1 OVER SIZE FOR k DUP k k 9 + SUB SWAP 10 STEP SIZE6\r
+   25449 < \x01+ S~* @-#Y3$\r
+   25451 > \x01, Y~4 @-#Y3~1\r
+   25453 < \x01%!X-Z@\r
+   25455 > \x01%!Y,\\I\r
+   25457 < \x01~"D9:          : `SERVER`#M#J8:               NOVAL#M#J7:                   29.#M#J6:       ))P\r
+   25459 > \x01%"Y.5!\r
+   25461 < \x01~#D   "Version HP"#M#J5:          "48-C#M#JRevis"#M#J4:          "ion ##2.15C"#M#J3:         =^\r
+   25463 > \x01%#Y/R9\r
+   25465 < \x01o$D  "opyright H"#M#J2:              "P 2009"#M#J1:                   46.#M#J!$_\r
+   25467 > \x01%$Y+&1\r
+   25469 < \x01%%Z)K2\r
+   25471 > \x01%%Y*A)\r
+   25473 < \x01%&B"QS\r
+   25475 > \x01%&Y((A\r
+   25485 > \x01+ C7. DROPN8\r
+   25822 < \x01
+   25841 < + S~* @-#Y3$\r
+   25841 > \x01, Y~4 @-#Y3~1\r
+   25975 < \x01%!X-Z@\r
+   25975 > \x01%!Y,\\I\r
+   26095 < \x01Y"D2:     \x20
+   26115 <     : `SERVER`#M#
+   26135 < J1:             \x20
+   26154 <  NOVAL#M#J'A9\r
+   26154 > \x01%"Y.5!\r
+   26229 < \x01%#Z,X"\r
+   26229 > \x01%#Y/R9\r
+   26285 < \x01%$B!_#\r
+   26286 > \x01%$Y+&1\r
    26457 > \x01* C-35 FS?:\r
    26878 < \x01+ S~* @-#Y3$\r
    26878 > \x01, Y~4 @-#Y3~1\r
@@ -591,21 +622,36 @@
    39635 > \x01%$Y+&1\r
    39692 < \x01%%B 8;\r
    39692 > \x01%%Y*A)\r
-   39898 > \x01( CDROP2U\r
-   40229 < \x01+ S~
-   40246 < * @-#Y3$\r
-   40246 > \x01, Y~4 @-#Y3~1\r
-   40377 < \x01%!X-Z@\r
-   40377 > \x01%!Y,\\I\r
-   40499 < \x01Y"D2:       \x20
-   40519 <   : `SERVER`#M#J1
-   40540 < :               NO
-   40560 < VAL#M#J'A9\r
-   40561 > \x01%"Y.5!\r
-   40641 < \x01%#Z,X"\r
-   40641 > \x01%#Y/R9\r
-   40697 < \x01%$B!_#\r
-   40697 > \x01%$Y+&1\r
+   39898 > \x01j COVER SIZE ROT ROT + 1 OVER SIZE FOR k DUP k k 9 + SUB SWAP 10 STEP SIZE6\r
+   39900 < \x01+ S~* @-#Y3$\r
+   39902 > \x01, Y~4 @-#Y3~1\r
+   39904 < \x01%!X-Z@\r
+   39906 > \x01%!Y,\\I\r
+   39908 < \x01~"D9:          : `SERVER`#M#J8:               NOVAL#M#J7:                   29.#M#J6:       ))P\r
+   39910 > \x01%"Y.5!\r
+   39912 < \x01~#D   "Version HP"#M#J5:          "48-C#M#JRevis"#M#J4:          "ion ##2.15C"#M#J3:         =^\r
+   39914 > \x01%#Y/R9\r
+   39916 < \x01o$D  "opyright H"#M#J2:              "P 2009"#M#J1:                   46.#M#J!$_\r
+   39918 > \x01%$Y+&1\r
+   39920 < \x01%%Z)K2\r
+   39922 > \x01%%Y*A)\r
+   39924 < \x01%&B"QS\r
+   39926 > \x01%&Y((A\r
+   39936 > \x01+ C7. DROPN8\r
+   40267 < \x01+ S~
+   40284 < * @-#Y3$\r
+   40284 > \x01, Y~4 @-#Y3~1\r
+   40415 < \x01%!X-Z@\r
+   40415 > \x01%!Y,\\I\r
+   40537 < \x01Y"D2:       \x20
+   40557 <   : `SERVER`#M#J1
+   40578 < :               NO
+   40598 < VAL#M#J'A9\r
+   40599 > \x01%"Y.5!\r
+   40679 < \x01%#Z,X"\r
+   40679 > \x01%#Y/R9\r
+   40735 < \x01%$B!_#\r
+   40735 > \x01%$Y+&1\r
    40906 > \x01* C-35 FS?:\r
    41318 < \x01+ S~* @-
    41338 < #Y3$\r

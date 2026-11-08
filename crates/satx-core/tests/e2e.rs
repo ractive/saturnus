@@ -17,7 +17,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use satx_core::object::{self, Family, HEADER_LEN, ObjectType};
-use satx_core::reply::{Iopar, parse_real};
+use satx_core::reply::{Iopar, looks_cut, parse_real};
 use satx_core::xmodem::XmodemDirection;
 use satx_core::xmodem_proto::{Check, Event};
 use satx_core::{
@@ -183,6 +183,51 @@ fn run() -> TestResult {
     })
 }
 
+/// The 49G sends each stack level only as wide as its display (20
+/// characters on ROM 1.18, 22 on 2.x) and cuts its two-line VERSION
+/// string; in FIX 4, IOPAR's list is far wider too. With the fraction
+/// mark `,` (flag -51), the 48 shows 9600 as `9.600,0000`. The queries read
+/// whole values all the same and leave the stack as it was (here the
+/// flags saved by RCLF, put back at the end).
+#[test]
+fn queries_wider_than_the_display() -> TestResult {
+    scenario(|calc| {
+        let saved = calc.run("RCLF 4 FIX -51 SF")?;
+        assert_eq!(saved.error, None);
+        let flags = saved.level(1).unwrap_or_default().to_string();
+        let depth = saved.levels.len();
+        let mut queries = || -> TestResult {
+            let model = calc.model()?;
+            let wide = calc.run("IOPAR")?;
+            calc.run("DROP")?;
+            if model == Model::Hp49G {
+                let list = wide.level(1).unwrap_or_default();
+                assert!(looks_cut(list), "IOPAR in FIX 4 is not cut: {list:?}");
+            }
+            assert_eq!(calc.iopar()?, Iopar::default());
+            if let Some(version) = calc.version()? {
+                eprintln!("version: {version}");
+                if model == Model::Hp49G {
+                    assert!(version.contains("Revision #"), "{version}");
+                }
+            }
+            assert_eq!(Model::from_version(calc.version()?.as_deref()), model);
+            assert!(calc.mem()? > 0.0);
+            calc.transfer_mode()?;
+            let after = calc.run("DEPTH")?;
+            calc.run("DROP")?;
+            assert_eq!(after.levels.len(), depth + 1, "{after:?}");
+            assert_eq!(after.level(2), Some(flags.as_str()), "{after:?}");
+            Ok(())
+        };
+        let result = queries();
+        let restored = calc.run("STOF")?;
+        result?;
+        assert_eq!(restored.error, None);
+        Ok(())
+    })
+}
+
 #[test]
 fn pict() -> TestResult {
     scenario(|calc| {
@@ -198,7 +243,8 @@ fn pict() -> TestResult {
             .count();
         assert_eq!(lit, 1);
         assert!(!names(calc)?.iter().any(|n| n == "SATXTMP"));
-        calc.run("ERASE")?;
+        // Back to 0x0: ERASE would keep an empty 131x64 PICT (1.1 KB).
+        calc.run("PICT PURGE")?;
         Ok(())
     })
 }
