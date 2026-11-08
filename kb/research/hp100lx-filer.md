@@ -441,6 +441,9 @@ contradict that decision. The only cost inside Files is wording
 
 **Risks and unknowns that need the real device:**
 
+Answered on 2026-11-08 from HP's Connectivity Pack code, as far as PC
+code can: [[research/hp100lx-filer-hp-client]].
+
 - Error replies: their codes and where they sit; behaviour on a missing
   file, an existing name with 03, a full disk, a non-empty directory, a
   write to D:.
