@@ -166,11 +166,13 @@ written %XX, one per UTF-8 byte, and put reads them back. Existing files are
 kept unless --force.
 
 --protocol xmodem (48G/GX and 49G; the 48S/SX has no XModem): the Kermit
-server cannot start XSEND, so satx ends server mode and prints what to type
-on the calculator, 'NAME' XSEND then ENTER, and waits --start-timeout
-seconds for it. satx removes the padding of the last block by reading the
-object's length; a file whose length it cannot read keeps every byte received. Afterwards type
-SERVER on the calculator again. A 49G in algebraic mode is switched to RPN
+server cannot start XSEND, so satx puts the program « 'NAME' XSEND » on
+the calculator's stack, ends server mode, says which key runs it (EVAL;
+right-shift, then SYMB on the 49G) and waits --start-timeout seconds for
+it. satx removes the padding of the last block by reading the
+object's length; a file whose length it cannot read keeps every byte received. Afterwards start
+SERVER on the calculator again (on the 49G type it: right-shift then the
+right arrow can start its XModem server instead). A 49G in algebraic mode is switched to RPN
 first (-95 SF switches back). --dry-run shows the plan and keeps the server.
 
 Examples:
@@ -192,12 +194,13 @@ old variable (a failed transfer leaves it alone); --dry-run shows what would
 happen.
 
 --protocol xmodem (48G/GX and 49G; the 48S/SX has no XModem): the Kermit
-server cannot start XRECV, so satx ends server mode and prints what to type
-on the calculator, 'NAME' XRECV then ENTER, and waits --start-timeout
-seconds for it. The file goes byte for byte (no --ascii, --binary). XRECV
+server cannot start XRECV, so satx puts the program « 'NAME' XRECV » on
+the calculator's stack, ends server mode, says which key runs it (EVAL;
+right-shift, then SYMB on the 49G) and waits --start-timeout seconds for
+it. The file goes byte for byte (no --ascii, --binary). XRECV
 never replaces a variable: the 49G stores the object as NAME.1 and the
 48G/GX refuses, so satx refuses an existing NAME (no --overwrite). A failed
-transfer on a 48G/GX can leave NAME holding an empty string. Afterwards type
+transfer on a 48G/GX can leave NAME holding an empty string. Afterwards start
 SERVER on the calculator again. A 49G in algebraic mode is switched to RPN
 first (-95 SF switches back). --dry-run shows the plan and keeps the server.
 

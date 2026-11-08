@@ -48,7 +48,7 @@ What the calculator's "⋯" menu offers:
 - **Copy everything to a folder**: the whole HOME tree as folders and `.hp` files, one variable at a time. Slower, but it needs no free memory.
 - **Restore from a backup file…**: puts a backup back. It replaces everything in HOME, and the calculator warm-starts; Files offers to reconnect once `SERVER` runs again.
 - **Graphics screen**: PICT, the plots and drawings, as a picture.
-- **Fast transfer (XModem)**, on the 48G series and the 49G: Files ends the server and tells you what to type on the calculator, `XSEND` or `XRECV` with the name.
+- **Fast transfer (XModem)**, on the 48G series and the 49G: Files puts the command (`« 'PRG' XSEND »`) on the calculator's stack and ends the server; you press EVAL on a 48G, right-shift then SYMB on the 49G. Afterwards start the server again: right-shift, then → on a 48G; on the 49G type `SERVER`, since right-shift → can start its XModem server instead.
 
 A variable's own menu has Download and Download as text, for a file in your downloads instead of the other pane.
 

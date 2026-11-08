@@ -523,6 +523,35 @@ mod tests {
         ports.close(id);
     }
 
+    /// How many of this process's descriptors are open on the device
+    /// `rdev` (`/dev/fd` lists them on macOS and Linux).
+    #[cfg(unix)]
+    fn descriptors_on(rdev: u64) -> usize {
+        use std::os::unix::fs::MetadataExt;
+        std::fs::read_dir("/dev/fd")
+            .unwrap()
+            .filter_map(|e| std::fs::metadata(e.ok()?.path()).ok())
+            .filter(|m| m.rdev() == rdev)
+            .count()
+    }
+
+    /// Close lets go of the port at once: the handle and the reader's
+    /// clone, two descriptors while open, none after.
+    #[cfg(unix)]
+    #[test]
+    fn close_lets_go_of_both_descriptors() {
+        use serialport::SerialPort;
+        use std::os::unix::fs::MetadataExt;
+        let (_master, slave) = serialport::TTYPort::pair().unwrap();
+        let name = slave.name().unwrap();
+        let rdev = std::fs::metadata(&name).unwrap().rdev();
+        let ports = Ports::default();
+        let id = ports.adopt("pty", Box::new(slave), |_| {}).unwrap();
+        assert_eq!(descriptors_on(rdev), 2, "{name}: the port and its reader");
+        ports.close(id);
+        assert_eq!(descriptors_on(rdev), 0, "{name}: closed");
+    }
+
     /// An open that finishes after the page reloaded is refused, and the
     /// port is not kept.
     #[cfg(unix)]

@@ -29,6 +29,23 @@ the desktop app and the web page share one version.
   seconds on a 48SX, not hours. A PICT that was empty is left empty
   (`PICT PURGE`), not as a blank 131x64 picture.
 
+- **Fast transfer by one key.** Files and `satx --protocol xmodem` no
+  longer ask you to type `'PRG' XSEND` on the calculator: they put the
+  command on its stack as a program, `« 'PRG' XSEND »`, before server
+  mode ends, and you press EVAL on a 48G or 48GX, or right-shift, then
+  SYMB on the 49G (which has no EVAL key). For an emulated calculator,
+  "Press the keys for me" presses them. A transfer you cancel before
+  pressing the key leaves the stack as it was: the reconnect takes the
+  program off again (with satx, the backspace key drops it).
+- **Starting the server again after a fast transfer.** On a 49G Files
+  and satx now say to type `SERVER`: right-shift, then → can start the
+  49G's XModem server instead. On a 48G or 48GX right-shift, then →
+  stays.
+- **Disconnect lets go of the serial port.** When the calculator did not
+  answer the end of server mode (its server had stopped, or another
+  server ran), Disconnect held the port for over two minutes of retries.
+  It now waits 10 seconds, then lets go of it.
+
 ## 0.10.3 (2026-11-05)
 
 - tab-mcp client 0.10.0: its dialogs set `margin: auto`, so they stay

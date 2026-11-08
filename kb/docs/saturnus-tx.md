@@ -520,7 +520,8 @@ a replace. A folder's rename, delete and new folder work the same way
 As built (iteration 39, `saturnus-tx`'s `xmodem` module, `web/tx/
 xmodem.js`): XModem is faster than Kermit on the 49G, but `XRECV` and
 `XSEND` do not run inside the server (wiki `protocols/xmodem-hp`), so
-the user types them. Offered on the 48GX and 49G only: "Fast transfer
+the user starts them: since iteration 68b with one key, EVAL of a
+program the device leaves on the stack. Offered on the 48GX and 49G only: "Fast transfer
 to the other pane (XModem)…" (or "as a download") on a variable's menu,
 "Fast transfer a file to it (XModem)…" in the calculator's "⋯", "Fast
 transfer to the calculator (XModem)…" on a folder's `.hp` file (its
@@ -530,21 +531,31 @@ name asked first). One job of the queue:
    (text and the other family go by the normal copy, which converts), a
    name not in use (refused, never replaced: the 48GX says "Name
    Conflict", the 49G stores `NAME.1`), the variable there for a get.
-2. A 49G in algebraic mode is switched to RPN, the server ends (FINISH;
-   from then on the device counts as out of server mode, even if the
-   answer to FINISH is lost). A directory is refused for a fast get.
-3. The dialog: "Server mode has ended. On the HP 49G, type this and press
-   ENTER:" with `'NAME' XRECV` (or `XSEND`), notes (the RPN switch; on
-   the 48GX a failed XRECV can leave an empty string; ON stops it), and
-   "Waiting for the calculator (up to 3 minutes)…" with Cancel. An
-   emulated calculator offers "Type it for me".
+2. A 49G in algebraic mode is switched to RPN, the program
+   `« 'NAME' XRECV »` (or `XSEND`) goes on the stack (a host command
+   holding only a program pushes it unevaluated; FINISH leaves the stack
+   alone: real 49G ROM 1.18, emulated 48GX and 49G), the server ends
+   (FINISH; from then on the device counts as out of server mode, even
+   if the answer to FINISH is lost). A directory is refused for a fast
+   get.
+3. The dialog: "Server mode has ended, and this command is on the stack
+   of the HP 49G. To run it, press right-shift, then SYMB (EVAL):" (EVAL
+   on the 48GX: the 49G has no EVAL key) with the program and the keys,
+   notes (the RPN switch; on the 48GX a failed XRECV can leave an empty
+   string; a cancel before the key leaves the stack as it was; ON stops
+   it), and "Waiting for the calculator (up to 3 minutes)…" with Cancel.
+   An emulated calculator offers "Press the keys for me" (`typeKeys`).
 4. The bytes with progress: 1k blocks and HP's CRC on the 49G, 128-byte
    blocks and checksum on the 48GX (`satx-core`'s `XmodemOptions`).
 5. Done: what came over and where, and how to start the server again
-   (the model's keys), with "Later" and "Reconnect"; the pane says "The
-   calculator left server mode" with Reconnect until then. The reconnect
-   keeps the transfer mode the user had and puts a 49G back in
-   algebraic mode (`-95 SF`).
+   (right-shift → on the 48GX, which starts Kermit however slowly it is
+   pressed; `SERVER` on the 49G, whose right-shift → starts XSERV after
+   a pause, wiki `protocols/xserv`), with "Later" and "Reconnect"; the
+   pane says "The calculator left server mode" with Reconnect until
+   then. The reconnect keeps the transfer mode the user had, drops the
+   program if it is still level 1 (`IF DEPTH 0. > THEN IF DUP « … »
+   SAME THEN DROP END END`: a transfer cancelled before EVAL), and puts
+   a 49G back in algebraic mode (`-95 SF`).
 
 Tested: the dialog and its flows with the fake calculator
 (`web/test/tx-xmodem.test.mjs`), the replayed traces of the page against

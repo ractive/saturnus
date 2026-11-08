@@ -27,7 +27,9 @@ use crate::session::Session;
 use crate::transport::BAUD;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::transport::Transport;
-use crate::xmodem::{XmodemDirection, XmodemPlan};
+use crate::xmodem::{
+    XmodemDirection, XmodemPlan, eval_keys, program_text, server_again, stacked_program,
+};
 use crate::{Error, Result};
 
 /// [`Calculator::iopar`]'s command: the user's flags saved and STD set
@@ -898,7 +900,7 @@ impl CalcOps<'_> {
         direction: XmodemDirection,
         name: &str,
     ) -> Result<XmodemPlan> {
-        let quoted = quote(name)?;
+        validate_name(name)?;
         let model = self.model().await?;
         if !model.has_xmodem() {
             return Err(Error::Unsupported(format!(
@@ -925,10 +927,18 @@ impl CalcOps<'_> {
                 switched_to_rpn = true;
             }
         }
+        // The program the user runs with EVAL once the server has ended
+        // (XRECV and XSEND do not run inside it): on the stack, not run.
+        if let Err(e) = self.exec(&[stacked_program(direction, name)]).await {
+            // Nothing happened for the user: algebraic mode back, as it was.
+            if switched_to_rpn {
+                let _ = self.exec(&["-95. SF".to_string()]).await;
+            }
+            return Err(e);
+        }
         self.finish().await?;
         self.st.mode = None;
 
-        let command = direction.calculator_command();
         let mut notes = Vec::new();
         if direction == XmodemDirection::ToCalculator && exists {
             notes.push(match model {
@@ -954,14 +964,20 @@ impl CalcOps<'_> {
             );
         }
         notes.push(
-            "The calculator has left server mode; type SERVER on it after the transfer."
+            "If you do not go on, press \u{2190} (backspace) instead: it drops the program, \
+             and the stack is as it was."
                 .to_string(),
         );
+        notes.push(format!(
+            "The calculator has left server mode; {} after the transfer.",
+            server_again(model)
+        ));
         Ok(XmodemPlan {
             model,
             direction,
             name: name.to_string(),
-            keys: format!("{quoted} {command}"),
+            program: program_text(direction, name),
+            keys: eval_keys(model).iter().map(|k| k.to_string()).collect(),
             switched_to_rpn,
             exists,
             notes,
@@ -1237,20 +1253,23 @@ impl Calculator {
     }
 
     /// Get the calculator ready for an XModem transfer of variable `name`
-    /// in the current directory and say what the user must type.
+    /// in the current directory and say what the user must press.
     ///
     /// `XRECV` and `XSEND` cannot be started through the Kermit server (they
     /// fail with "Port Not Available" on the 49G and 48GX), so this checks
     /// the name (it must exist for `XSEND`), switches a 49G in algebraic
-    /// mode to RPN (flag -95; typed `'NAME' XRECV` needs RPN), and ends
+    /// mode to RPN (flag -95; EVAL of the program needs RPN), puts the
+    /// program `« 'NAME' XRECV »` (or `XSEND`) on the stack
+    /// ([`stacked_program`]) and ends
     /// server mode with Kermit FINISH. An existing `NAME` is refused for
     /// `XRECV` on the 48G/GX ("XRECV Error: Name Conflict"); the 49G stores
-    /// the object as `NAME.1` instead, which the plan's notes say. The user then types
-    /// [`XmodemPlan::keys`] on the calculator while an
+    /// the object as `NAME.1` instead, which the plan's notes say. The user then presses
+    /// [`XmodemPlan::keys`] (EVAL) on the calculator while an
     /// [`XmodemSession`](crate::XmodemSession) on
     /// [`Calculator::into_transport`] waits. Afterwards the calculator is
-    /// out of server mode with an empty stack: `SERVER` must be typed again.
-    /// Errors for the 48S/SX, which has no XModem.
+    /// out of server mode with the stack as before: `SERVER` must be
+    /// started again. A user who does not go on drops the program with the
+    /// backspace key. Errors for the 48S/SX, which has no XModem.
     pub fn prepare_for_xmodem(
         &mut self,
         direction: XmodemDirection,
@@ -2479,22 +2498,53 @@ pub(crate) mod tests {
                 "-95. FS?",
                 "DROP",
                 "-95. CF",
+                "\u{ab} 'SATXX' XRECV \u{bb}",
                 "G F"
             ]
         );
         assert_eq!(plan.model, Model::Hp49G);
-        assert_eq!(plan.keys, "'SATXX' XRECV");
+        assert_eq!(plan.program, "\u{ab} 'SATXX' XRECV \u{bb}");
+        assert_eq!(plan.keys, ["right-shift", "SYMB"]);
         assert!(plan.exists && plan.switched_to_rpn);
         let text = plan.instructions();
         assert!(
-            text.starts_with("On the calculator, type 'SATXX' XRECV"),
+            text.starts_with(
+                "\u{ab} 'SATXX' XRECV \u{bb} is on the calculator's stack. On the calculator, \
+                 press right-shift, then SYMB (EVAL) to run it."
+            ),
             "{text}"
         );
         assert!(text.contains("SATXX.1"), "{text}");
         assert!(text.contains("-95 SF"), "{text}");
+        assert!(text.contains("drops the program"), "{text}");
         assert!(
-            text.ends_with("type SERVER on it after the transfer."),
+            text.ends_with("type SERVER and press ENTER after the transfer."),
             "{text}"
+        );
+    }
+
+    /// Review of PR #261: the program could not be put on the stack, so
+    /// the 49G goes back to algebraic mode and the error is the push's.
+    #[test]
+    fn prepare_xrecv_failed_push_restores_alg_mode() {
+        let (mut c, log) = calc(|cmd| match cmd {
+            "VERSION" => G49_VERSION.into(),
+            VERSION_CHUNKS => {
+                chunk_reply("Version HP48-C\nRevision #2.15", "Copyright HP 2009", &[])
+            }
+            "G D" => "{ HOME } 2000.\r\n".into(),
+            "-95. FS?" => "1:                     1.\r\n".into(),
+            "\u{ab} 'SATXX' XRECV \u{bb}" => "Error: Insufficient Memory\r\n".into(),
+            _ => EMPTY.into(),
+        });
+        let err = c
+            .prepare_for_xmodem(XmodemDirection::ToCalculator, "SATXX")
+            .unwrap_err();
+        assert!(matches!(err, Error::Calculator { .. }), "{err:?}");
+        let sent = sent(&log);
+        assert_eq!(
+            &sent[sent.len() - 3..],
+            ["-95. CF", "\u{ab} 'SATXX' XRECV \u{bb}", "-95. SF"]
         );
     }
 
@@ -2508,10 +2558,22 @@ pub(crate) mod tests {
         let plan = c
             .prepare_for_xmodem(XmodemDirection::FromCalculator, "SATXX")
             .unwrap();
-        assert_eq!(sent(&log), ["VERSION", "DROP2", "G D", "G F"]);
-        assert_eq!(plan.keys, "'SATXX' XSEND");
+        assert_eq!(
+            sent(&log),
+            [
+                "VERSION",
+                "DROP2",
+                "G D",
+                "\u{ab} 'SATXX' XSEND \u{bb}",
+                "G F"
+            ]
+        );
+        assert_eq!(plan.keys, ["EVAL"]);
         assert!(!plan.switched_to_rpn);
-        assert_eq!(plan.notes.len(), 1);
+        assert_eq!(plan.notes.len(), 2);
+        let text = plan.instructions();
+        assert!(text.contains("press EVAL to run it."), "{text}");
+        assert!(text.ends_with("press right-shift, then \u{2192} (or type SERVER and press ENTER) after the transfer."), "{text}");
     }
 
     #[test]

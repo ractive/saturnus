@@ -7,17 +7,20 @@
 //! in `xmodem-proto`). The flow is therefore:
 //!
 //! 1. [`Calculator::prepare_for_xmodem`](crate::Calculator::prepare_for_xmodem)
-//!    checks the name, sets RPN mode on a 49G, ends the server (Kermit
-//!    FINISH) and returns an [`XmodemPlan`] with what the user must type
-//!    (`'NAME' XRECV` or `'NAME' XSEND`).
+//!    checks the name, sets RPN mode on a 49G, puts the program
+//!    `« 'NAME' XRECV »` (or `XSEND`) on the stack, ends the server (Kermit
+//!    FINISH) and returns an [`XmodemPlan`] with the keys that run it
+//!    (EVAL; right-shift SYMB on the 49G).
 //! 2. [`Calculator::into_transport`](crate::Calculator::into_transport) hands
 //!    over the open link; [`XmodemSession::new`] wraps it.
 //! 3. [`XmodemSession::send`] or [`XmodemSession::receive`] waits up to
-//!    [`XmodemOptions::start_timeout`] for the user to start the command,
+//!    [`XmodemOptions::start_timeout`] for the user to run the program,
 //!    then runs the transfer.
-//! 4. The calculator is out of server mode with an empty stack: the user
-//!    types `SERVER` again, and [`XmodemSession::into_transport`] gives the
-//!    link back for a new [`Session`](crate::Session).
+//! 4. The calculator is out of server mode, its stack as before (EVAL
+//!    took the program, the command its name; a user who does not go on
+//!    drops the program with the backspace key): the user starts `SERVER`
+//!    again ([`server_again`]), and [`XmodemSession::into_transport`]
+//!    gives the link back for a new [`Session`](crate::Session).
 //!
 //! The loop has the same discipline as [`Session`](crate::Session): each
 //! block or control byte goes out in one write, reads wait at most until the
@@ -452,6 +455,54 @@ impl XmodemDirection {
     }
 }
 
+/// The program a fast transfer leaves on the calculator's stack for the
+/// user to run: `\<< 'NAME' XSEND \>>` (or `XRECV`), in the calculator's
+/// ASCII spelling, as a host command sends it. A host command holding only
+/// a program puts the program on the stack without running it, and FINISH
+/// leaves the stack alone (real 49G, ROM 1.18, 2026-11-08; emulated 48GX
+/// and 49G). `name` must be a valid name
+/// ([`validate_name`](crate::calc::validate_name)): a plain name needs no
+/// escaping inside the quotes.
+pub fn stacked_program(direction: XmodemDirection, name: &str) -> String {
+    format!("\\<< '{name}' {} \\>>", direction.calculator_command())
+}
+
+/// [`stacked_program`] as the calculator shows it: `« 'NAME' XSEND »`.
+pub fn program_text(direction: XmodemDirection, name: &str) -> String {
+    format!("\u{ab} '{name}' {} \u{bb}", direction.calculator_command())
+}
+
+/// The keys that run the program on level 1 (EVAL), as the keyboard
+/// labels them: `EVAL` on the 48G/GX, right-shift then `SYMB` on the 49G,
+/// which has no EVAL key of its own (EVAL is right-shift SYMB there).
+pub fn eval_keys(model: Model) -> &'static [&'static str] {
+    match model {
+        Model::Hp49G => &["right-shift", "SYMB"],
+        _ => &["EVAL"],
+    }
+}
+
+/// [`eval_keys`] as words: `EVAL`, or `right-shift, then SYMB (EVAL)`.
+pub fn eval_keys_text(model: Model) -> String {
+    match eval_keys(model) {
+        [one] => (*one).to_string(),
+        keys => format!("{} (EVAL)", keys.join(", then ")),
+    }
+}
+
+/// How the user starts the Kermit server again after a fast transfer, as
+/// the verb part of a sentence (`type SERVER and press ENTER`). The 49G's shortcut
+/// (right-shift →) starts the XModem server instead when the keys are
+/// pressed with a pause between them (wiki: protocols/xserv), so only
+/// `SERVER` is named there; the 48G/GX's right-shift → starts the Kermit
+/// server however slowly it is pressed (emulated 48GX, ROM R, 2026-11-08).
+pub fn server_again(model: Model) -> &'static str {
+    match model {
+        Model::Hp48Gx => "press right-shift, then \u{2192} (or type SERVER and press ENTER)",
+        _ => "type SERVER and press ENTER",
+    }
+}
+
 /// What [`Calculator::prepare_for_xmodem`](crate::Calculator::prepare_for_xmodem)
 /// did and what the user must do next.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -462,23 +513,37 @@ pub struct XmodemPlan {
     pub direction: XmodemDirection,
     /// The variable name.
     pub name: String,
-    /// What to type on the calculator, e.g. `'NAME' XRECV`, then ENTER.
-    pub keys: String,
+    /// The program left on level 1 of the stack, as the calculator shows
+    /// it ([`program_text`]: `« 'NAME' XSEND »`).
+    pub program: String,
+    /// The keys that run it, as the keyboard labels them ([`eval_keys`]).
+    pub keys: Vec<String>,
     /// The calculator was in algebraic mode (49G flag -95 set) and was
-    /// switched to RPN so that `keys` work; `-95 SF` switches back.
+    /// switched to RPN so that EVAL runs the program; `-95 SF` switches
+    /// back.
     pub switched_to_rpn: bool,
     /// The variable already exists (relevant for `XRECV`, see
     /// [`XmodemPlan::notes`]).
     pub exists: bool,
     /// Further instructions for the user, one sentence each: the `.1`
-    /// suffix for an existing name, the RPN switch, `SERVER` afterwards.
+    /// suffix for an existing name, the RPN switch, dropping the program
+    /// instead, `SERVER` afterwards.
     pub notes: Vec<String>,
 }
 
 impl XmodemPlan {
+    /// The keys as words ([`eval_keys_text`]).
+    pub fn keys_text(&self) -> String {
+        eval_keys_text(self.model)
+    }
+
     /// The full instruction text: the keys first, then the notes.
     pub fn instructions(&self) -> String {
-        let mut text = format!("On the calculator, type {} and press ENTER.", self.keys);
+        let mut text = format!(
+            "{} is on the calculator's stack. On the calculator, press {} to run it.",
+            self.program,
+            self.keys_text()
+        );
         for note in &self.notes {
             text.push(' ');
             text.push_str(note);

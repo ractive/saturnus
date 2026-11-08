@@ -2,7 +2,7 @@
 // pane.js): the words of its dialog and the menus that offer it, without
 // a browser; then the page in headless Chrome with the fake calculator
 // (web/test/tx-fake-calc.js) and a folder in memory: a get into the
-// folder and a put from it, the dialog's steps (what to type, waiting,
+// folder and a put from it, the dialog's steps (the keys to press, waiting,
 // done, the reconnect), a name in use refused before the server ends,
 // the card of a calculator out of server mode, and the dialog inside the
 // window at five widths in both themes. The real XRECV and XSEND run in
@@ -22,30 +22,38 @@ test("the dialog's words: before the plan, with it, and after", () => {
   const before = fastWords({ direction: "put", name: "PRG", model: "48gx" });
   assert.equal(before.title, "Fast transfer of PRG to the calculator");
   assert.equal(before.keys, null);
+  assert.equal(before.program, null);
   assert.match(before.lead, /ends server mode on the HP 48G\/GX/);
-  const plan = { keys: "'PRG' XRECV", switchedToRpn: false };
+  const plan = { program: "« 'PRG' XRECV »", switchedToRpn: false };
   const gx = fastWords({ direction: "put", name: "PRG", model: "48gx", plan });
-  assert.equal(gx.keys, "'PRG' XRECV");
-  assert.match(gx.lead, /type this and press ENTER/);
+  assert.equal(gx.program, "« 'PRG' XRECV »");
+  assert.deepEqual(gx.keys, ["EVAL"]);
+  assert.equal(gx.lead, "Server mode has ended, and this command is on the stack of the HP 48G/GX. To run it, press EVAL:");
+  assert.ok(gx.notes.some((n) => /takes the command off the stack/.test(n)), "how the stack comes back");
   assert.ok(gx.notes.some((n) => /empty string/.test(n)), "the 48GX's empty string after a failed XRECV");
   assert.match(gx.status, /up to 3 minutes/);
-  const g49 = fastWords({ direction: "get", name: "PRG", model: "49g", plan: { keys: "'PRG' XSEND", switchedToRpn: true }, emulated: true });
+  const g49 = fastWords({ direction: "get", name: "PRG", model: "49g", plan: { program: "« 'PRG' XSEND »", switchedToRpn: true }, emulated: true });
   assert.equal(g49.title, "Fast transfer of PRG from the calculator");
-  assert.match(g49.lead, /On the emulated calculator/);
+  assert.equal(g49.lead, "Server mode has ended, and this command is on the stack of the emulated calculator. To run it, press right-shift, then SYMB (EVAL):");
+  assert.deepEqual(g49.keys, ["↱", "SYMB"]);
   assert.ok(g49.notes.some((n) => /algebraic mode/.test(n)));
   assert.ok(!g49.notes.some((n) => /empty string/.test(n)));
 
   const done = fastDone({ direction: "get", name: "PRG", model: "49g", where: "PRG.hp in hp-files" });
   assert.equal(done.lead, "PRG came over: PRG.hp in hp-files.");
   assert.ok(done.ok);
-  assert.match(done.restart, /right-shift and then → .* then reconnect/);
-  assert.deepEqual(done.keys, ["↱", "→"]);
+  assert.equal(done.restart, "The calculator is out of server mode. Type SERVER and press ENTER. That starts its server again; then reconnect.");
+  assert.deepEqual(done.keys, ["S", "E", "R", "V", "E", "R", "ENTER"]);
+  const gxDone = fastDone({ direction: "get", name: "PRG", model: "48gx", where: "PRG.hp in hp-files" });
+  assert.match(gxDone.restart, /Press right-shift, then → .* then reconnect/);
+  assert.deepEqual(gxDone.keys, ["↱", "→"]);
   const emu = fastDone({ direction: "put", name: "PRG", model: "48gx", emulated: true });
   assert.equal(emu.lead, "PRG is on the calculator.");
   assert.match(emu.restart, /Reconnect starts its server again/);
   assert.equal(emu.keys, null);
   const late = fastDone({ direction: "put", name: "PRG", model: "48gx", error: { kind: "xmodemTimeout", message: "x" } });
-  assert.match(late.lead, /Was XRECV typed/);
+  assert.match(late.lead, /Was EVAL pressed\?/);
+  assert.match(fastDone({ direction: "get", name: "PRG", model: "49g", error: { kind: "xmodemTimeout", message: "x" } }).lead, /Was right-shift, then SYMB \(EVAL\) pressed\?/);
   assert.ok(!late.ok);
   const before2 = fastDone({ direction: "put", name: "PRG", model: "48gx", error: { kind: "nameClash", varName: "PRG", message: "PRG already exists" }, left: false });
   assert.equal(before2.restart, null, "the server never ended: nothing to restart");
@@ -114,7 +122,7 @@ const shown = (act) => `(() => { const b = document.querySelector('#xmodem-dialo
 const press = (act) => `(() => { document.querySelector('#xmodem-dialog [data-act="${act}"]').click(); return true; })()`;
 const binary = (body) => `new TextEncoder().encode("HPHP48-E" + ${JSON.stringify(body)})`;
 
-test("a fast get into the folder and a fast put from it: what to type, the wait, the reconnect", { timeout: 120_000 }, async (t) => {
+test("a fast get into the folder and a fast put from it: the keys to press, the wait, the reconnect", { timeout: 120_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;
   const { c, p } = f;
@@ -131,17 +139,18 @@ test("a fast get into the folder and a fast put from it: what to type, the wait,
   assert.match(await ev(`document.querySelector(".menu").textContent`), /Fast transfer to the other pane \(XModem\)…/);
   await ev(`document.querySelector(".menu").remove(); true`);
 
-  // Get: the dialog first says what happens, then what to type.
+  // Get: the dialog first says what happens, then what is on the stack and the key that runs it.
   await ev(`window.__get = tx.panes[0].act("xmodemGet", [tx.entry("PRG")]); true`);
   await p.until(`document.getElementById("xmodem-dialog")?.open`, 5_000, "the dialog");
   assert.equal(await ev(dialogText("xmodem-title")), "Fast transfer of PRG from the calculator");
-  await p.until(`${dialogText("xmodem-command")} === "'PRG' XSEND"`, 5_000, "what to type");
-  assert.match(await ev(dialogText("xmodem-lead")), /^Server mode has ended\. On the HP 48G\/GX, type this and press ENTER:/);
+  await p.until(`${dialogText("xmodem-command")} === "« 'PRG' XSEND »"`, 5_000, "what is on the stack");
+  assert.match(await ev(dialogText("xmodem-lead")), /^Server mode has ended, and this command is on the stack of the HP 48G\/GX\. To run it, press EVAL:/);
+  assert.deepEqual(await ev(`[...document.querySelectorAll("#xmodem-dialog .xmodem-keys kbd")].map((k) => k.textContent)`), ["EVAL"]);
   assert.match(await ev(dialogText("xmodem-status")), /Waiting for the calculator/);
   assert.equal(await ev(shown("cancel")), true);
-  assert.equal(await ev(shown("type")), false, "no typing for a calculator on a cable");
+  assert.equal(await ev(shown("type")), false, "no key presses for a calculator on a cable");
   assert.match(await ev(`document.querySelector("#queue-list").textContent`), /Fast transfer of PRG from/);
-  // The user typed XSEND: it comes over, into the folder.
+  // The user pressed EVAL: it comes over, into the folder.
   await ev(`__calcs[0].release(); true`);
   await p.until(shown("reconnect"), 5_000, "done, with the reconnect");
   assert.equal(await ev(dialogText("xmodem-lead")), "PRG came over: PRG.hp in hp-files.");
@@ -164,7 +173,7 @@ test("a fast get into the folder and a fast put from it: what to type, the wait,
   await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name");
   assert.equal(await ev(`document.getElementById("name-input").value`), "Q");
   await ev(`document.getElementById("name-ok").click(); true`);
-  await p.until(`${dialogText("xmodem-command")} === "'Q' XRECV"`, 5_000, "what to type");
+  await p.until(`${dialogText("xmodem-command")} === "« 'Q' XRECV »"`, 5_000, "what is on the stack");
   assert.match(await ev(`[...document.querySelectorAll("#xmodem-dialog .xmodem-notes li")].map((l) => l.textContent).join(" ")`), /Q may be left on the calculator as an empty string/);
   await ev(`__calcs[0].release(); true`);
   await p.until(shown("reconnect"), 5_000, "done");
@@ -215,7 +224,8 @@ test("Cancel while waiting stops the transfer; the 48SX and a text file are not 
   assert.equal(await ev(`tx.panes[0].place.device.leftServer`), false);
   // Running: Cancel stops the device's wait (the fake answers the abort as the driver does), the dialog says so.
   await ev(`window.__get = tx.panes[0].act("xmodemGet", [tx.entry("A")]); true`);
-  await p.until(`${dialogText("xmodem-command")} === "'A' XSEND"`, 5_000, "what to type");
+  await p.until(`${dialogText("xmodem-command")} === "« 'A' XSEND »"`, 5_000, "what is on the stack");
+  assert.deepEqual(await ev(`[...document.querySelectorAll("#xmodem-dialog .xmodem-keys kbd")].map((k) => k.textContent)`), ["↱", "SYMB"]);
   await ev(press("cancel"));
   await p.until(shown("reconnect"), 5_000, "stopped");
   assert.match(await ev(dialogText("xmodem-lead")), /^Stopped\. If the calculator still waits, press ON on it\./);
@@ -245,7 +255,7 @@ test("the dialog stays inside the window at five widths in both themes", { timeo
   await ev(`tx.panes[0].place.device.write(["HOME"], "AVERYLONGVARIABLENAMEINDEED", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n")).then(() => true)`);
   await p.idle(10_000);
   await ev(`tx.panes[0].act("xmodemGet", [tx.entry("AVERYLONGVARIABLENAMEINDEED")]); true`);
-  await p.until(`${dialogText("xmodem-command")} === "'AVERYLONGVARIABLENAMEINDEED' XSEND"`, 5_000, "what to type");
+  await p.until(`${dialogText("xmodem-command")} === "« 'AVERYLONGVARIABLENAMEINDEED' XSEND »"`, 5_000, "what is on the stack");
   const measure = `(() => {
     const d = document.getElementById("xmodem-dialog");
     const r = d.getBoundingClientRect();

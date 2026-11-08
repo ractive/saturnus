@@ -22,7 +22,7 @@
 //!   holds ([`names::FileKind`]); `satx_core::names`, re-exported, so the
 //!   satx CLI names files the same way.
 //! - [`xmodem`]: the fast transfer of the 48GX and 49G (XModem, the user
-//!   typing `XRECV` or `XSEND` on the calculator).
+//!   pressing EVAL on the calculator for `XRECV` or `XSEND`).
 //! - [`trace`]: recorded serial traffic with its timing, and its replay
 //!   against a [`Device`] on a fake clock (the unit tests; a fake link for
 //!   the page).

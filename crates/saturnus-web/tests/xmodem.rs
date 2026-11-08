@@ -4,9 +4,9 @@
 //! trace's notes and parsed as the page sends them, run against a
 //! `saturnus-tx` device on a fake clock, the calculator replayed byte for
 //! byte. The session: connect, a program put and got by Kermit, got again
-//! by XModem (the server ends, the plan says `'PRG' XSEND`), the
-//! reconnect, the file put back by XModem as PRG2 (`'PRG2' XRECV`), the
-//! reconnect, PRG2 got by Kermit. Also what the device refuses before
+//! by XModem (`« 'PRG' XSEND »` on the stack, the server ends, the plan
+//! names the keys that run it), the reconnect, the file put back by XModem
+//! as PRG2 (`« 'PRG2' XRECV »`), the reconnect, PRG2 got by Kermit. Also what the device refuses before
 //! the server ends.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -179,9 +179,15 @@ fn the_fast_transfer_replays_on_the_48gx_and_49g() {
             })
             .collect();
         assert_eq!(plans.len(), 2, "{model}");
-        assert_eq!(plans[0].keys, "'PRG' XSEND");
+        let keys: &[&str] = if model == "49g" {
+            &["right-shift", "SYMB"]
+        } else {
+            &["EVAL"]
+        };
+        assert_eq!(plans[0].program, "\u{ab} 'PRG' XSEND \u{bb}");
+        assert_eq!(plans[0].keys, keys, "{model}");
         assert_eq!(plans[0].direction, XmodemDirection::FromCalculator);
-        assert_eq!(plans[1].keys, "'PRG2' XRECV");
+        assert_eq!(plans[1].program, "\u{ab} 'PRG2' XRECV \u{bb}");
         assert_eq!(plans[1].switched_to_rpn, model == "49g", "{model}");
         // The user's transfer mode from the first connect, kept through both.
         let modes: Vec<TransferMode> = outcomes

@@ -30,7 +30,7 @@ import { ProtocolClient } from "./protocol.js";
 import { renderPreview, textObject, updateReading } from "./preview.js";
 import { disconnectNote, downloadUrl, failureText, modelTitle, placeTitle, previewPlan, searchText, settingsText } from "./flows.js";
 import { fileItem, folderItem, problemText, removeQuestion, restoreQuestion } from "./transfers.js";
-import { XMODEM_WAIT_S, XmodemDialog, fastDone, fastWords, hasXmodem } from "./xmodem.js";
+import { EVAL_KEYS, XMODEM_WAIT_S, XmodemDialog, fastDone, fastWords, hasXmodem } from "./xmodem.js";
 
 /** Whether a calculator on a cable can be reached: Web Serial, or the desktop app's ports. */
 const hasSerial = () => hasWebSerial() || isTauri();
@@ -309,7 +309,7 @@ export class Pane {
           try {
             await p.device.disconnect();
           } catch (err) {
-            this.say(`The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
+            this.say(err?.kind === "noAnswer" ? "The calculator did not answer the end of server mode. If it still shows “Awaiting Server Cmd.”, press ON on it." : `The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
           }
         }
         if (this.place === p) this.render();
@@ -1198,7 +1198,7 @@ export class Pane {
 
   /**
    * Run a fast transfer on this pane's calculator: the dialog says what
-   * happens and what to type, the job waits in the queue like any other.
+   * happens and which keys start it, the job waits in the queue like any other.
    * Resolves to `{result, error, left, words}` (`left`: the server ended).
    */
   async fast({ direction, name, path, bytes = null, size = null }) {
@@ -1219,7 +1219,7 @@ export class Pane {
         if (job && this.app.queue.cancel(job.id)) return;
         p.device.stopXmodem();
       },
-      type: () => planned && p.emulator?.typeLine(planned.keys).catch((err) => this.say(`The command was not typed: ${String(err?.message ?? err)}`, { error: true })),
+      type: () => planned && p.emulator?.pressKeys((EVAL_KEYS[p.model] ?? EVAL_KEYS["48gx"]).names).catch((err) => this.say(`The keys were not pressed: ${String(err?.message ?? err)}`, { error: true })),
     }, { emulated: p.emulated });
     p.device.addEventListener("progress", onProgress);
     let result = null;

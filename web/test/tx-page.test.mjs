@@ -1002,6 +1002,28 @@ test("an unplug says the calculator is gone, once; a Worker that fails drops the
   assert.deepEqual(c.errors, []);
 });
 
+test("Disconnect lets go of the port when the calculator does not answer the end of server mode", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`(() => {
+    const calc = __fake.fakeCalc({ model: "49g", deafToDisconnect: true });
+    window.__calcs[0] = calc;
+    tx.app.deviceOptions = { worker: calc.worker };
+    window.__link = __fake.stubLink();
+    tx.panes[0].connectLink(__link, { model: "49g" });
+    return true;
+  })()`);
+  await p.idle(10_000);
+  assert.equal(await c.ev(`tx.panes[0].place.device.disconnectWaitMs`), 30_000);
+  await c.ev(`tx.panes[0].place.device.disconnectWaitMs = 300; window.__closed = false; tx.panes[0].close().then(() => { __closed = true; }); true`);
+  await p.until("__closed", 5_000, "closed after the wait");
+  assert.equal(await c.ev("__link.closed"), true, "the port let go of");
+  assert.equal(await c.ev(title("left")), "No calculator");
+  assert.match(await c.ev(`[...document.querySelectorAll(".toast")].map((e) => e.textContent).join("|")`), /did not answer the end of server mode\. If it still shows “Awaiting Server Cmd\.”, press ON on it\./);
+  assert.deepEqual(c.errors, []);
+});
+
 // ---------------------------------------------------------------- the review's cases (PR 135)
 
 test("review: jobs keep the directories they were asked for; drops never open a file in the tab; F5 never reloads; questions wait in turn", { timeout: 120_000 }, async (t) => {

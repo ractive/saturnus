@@ -134,9 +134,11 @@ impl Link {
 
 A PUT is the same with `Op::Put { name, data, mode }` and
 `Reply::Stored(name)`. An XModem transfer is `Op::PrepareXmodem` (the
-calculator leaves server mode and the reply says what to type), then
-`Op::XmodemSend` or `Op::XmodemReceive` on the same machine; afterwards the
-user types `SERVER` and the next operation starts with `Op::Connect`.
+program `« 'NAME' XRECV »` goes on the stack, the calculator leaves server
+mode and the reply says which key runs it: EVAL, right-shift SYMB on the
+49G), then `Op::XmodemSend` or `Op::XmodemReceive` on the same machine;
+afterwards the user starts `SERVER` again and the next operation starts
+with `Op::Connect`.
 
 ## The blocking API
 

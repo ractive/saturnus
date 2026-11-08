@@ -126,7 +126,7 @@ satx put prg.hp --protocol xmodem
 satx get PRG --protocol xmodem
 ```
 
-The calculator's Kermit server cannot start XModem, so satx ends server mode and tells you what to type on the calculator (`'PRG' XRECV` or `'PRG' XSEND`, then ENTER). It waits 60 seconds for it, or as long as `--start-timeout` says. Afterwards, type `SERVER` on the calculator again. On the 49G, XModem moves 1 KB blocks. Kermit stays the default because it needs no typing on the calculator.
+The calculator's Kermit server cannot start XModem, so satx puts the command (`« 'PRG' XRECV »` or `« 'PRG' XSEND »`) on the calculator's stack, ends server mode and tells you which key runs it: EVAL on a 48G, right-shift then SYMB on the 49G. It waits 60 seconds for it, or as long as `--start-timeout` says. If you do not go on, the backspace key drops the command. Afterwards, start the server again: right-shift, then → on a 48G; on the 49G type `SERVER`. On the 49G, XModem moves 1 KB blocks. Kermit stays the default because it needs no key press on the calculator.
 
 ## Files on the computer
 

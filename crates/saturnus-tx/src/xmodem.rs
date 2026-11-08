@@ -11,9 +11,11 @@
 //!    there), and a put's file is a binary transfer file of the model's
 //!    family (XModem on the calculators is binary only).
 //! 2. A 49G in algebraic mode is switched to RPN (flag -95, one host
-//!    command that also says whether it was), then the server ends
-//!    (FINISH), and the [`XmodemPlan`] says what to type: `'NAME' XRECV`
-//!    or `'NAME' XSEND`. The steps of `satx-core`'s `PrepareXmodem`, done
+//!    command that also says whether it was), the program
+//!    `« 'NAME' XRECV »` or `« 'NAME' XSEND »` goes on the stack (a host
+//!    command, not run), then the server ends (FINISH), and the
+//!    [`XmodemPlan`] says which keys run it: EVAL on the 48GX,
+//!    right-shift SYMB on the 49G. The steps of `satx-core`'s `PrepareXmodem`, done
 //!    here so that the listing of step 1 is not read again and the RPN
 //!    switch is known before FINISH. From FINISH on, sent whether or not
 //!    it was answered, the device has left server mode
@@ -23,11 +25,13 @@
 //! 4. The transfer ([`Op::XmodemSend`], [`Op::XmodemReceive`] with
 //!    [`XmodemOptions::for_model`]: 1k blocks and HP's CRC on the 49G,
 //!    128-byte blocks and checksum on the 48GX), waiting up to the
-//!    request's `wait` for the user to start the command.
+//!    request's `wait` for the user to run the program.
 //! 5. The user starts `SERVER` again and the host connects: the transfer
 //!    mode the user had before the fast transfer is kept for the
-//!    disconnect, and a 49G switched to RPN goes back to algebraic mode
-//!    (`-95 SF`, as the satx tool does; wiki: protocols/xmodem-hp).
+//!    disconnect, the program is dropped if it is still on level 1 (the
+//!    transfer was abandoned before EVAL: the stack is the user's again),
+//!    and a 49G switched to RPN goes back to algebraic mode (`-95 SF`, as
+//!    the satx tool does; wiki: protocols/xmodem-hp).
 //!
 //! [`transfer`] is the part after the server has ended, for any XModem
 //! peer the host drives through a [`Machine`](satx_core::Machine): the
@@ -39,7 +43,10 @@
 use satx_core::calc::validate_name;
 use satx_core::machine::{Op, Reply};
 use satx_core::time::Duration;
-use satx_core::xmodem::{XmodemDirection, XmodemOptions, XmodemPlan};
+use satx_core::xmodem::{
+    XmodemDirection, XmodemOptions, XmodemPlan, eval_keys, program_text, server_again,
+    stacked_program,
+};
 use satx_core::{Model, TransferMode};
 
 use crate::copy;
@@ -51,8 +58,8 @@ use crate::device::{
 use crate::names::{self, FileKind};
 
 /// How long a fast transfer waits for the user to start `XRECV` or
-/// `XSEND` by default: typing the name and the command takes a while on
-/// a calculator's keyboard.
+/// `XSEND` (EVAL of the program on the stack) by default: finding the
+/// calculator and the key takes a while.
 pub const DEFAULT_WAIT: Duration = Duration::from_secs(180);
 
 /// Whether `model` has the fast transfer.
@@ -140,11 +147,24 @@ async fn prepare(
     let connection = ctx.session(|s| s.connection.clone())?;
     let model = connection.model;
     let algebraic = model == Model::Hp49G && to_rpn(ctx).await?;
+    // The program the user runs with EVAL once the server has ended: on
+    // the stack, not run (a host command holding only a program pushes
+    // it).
+    let program = stacked_program(direction, name);
+    if let Err(e) = run_checked(ctx, &program).await {
+        if algebraic {
+            // Best effort: the server still runs, so put algebraic mode back.
+            let _ = ctx.op(Op::Run("-95. SF".to_string())).await;
+        }
+        return Err(e);
+    }
     // Recorded before FINISH: a FINISH whose answer is lost may still have
-    // ended the server, and the reconnect must put algebraic mode back.
+    // ended the server, and the reconnect must put algebraic mode back and
+    // take the program off the stack if it was not run.
     ctx.left_server(LeftServer {
         user_mode: connection.user_mode,
         algebraic,
+        program: Some(program),
     });
     device::expect_done(ctx.op(Op::Finish).await?)?;
     let mut notes = Vec::new();
@@ -161,13 +181,19 @@ async fn prepare(
         );
     }
     notes.push(
-        "The calculator has left server mode; start SERVER on it after the transfer.".to_string(),
+        "If the transfer does not happen, the reconnect takes the program off the stack again."
+            .to_string(),
     );
+    notes.push(format!(
+        "The calculator has left server mode; {} after the transfer.",
+        server_again(model)
+    ));
     let plan = XmodemPlan {
         model,
         direction,
         name: name.to_string(),
-        keys: format!("'{name}' {}", direction.calculator_command()),
+        program: program_text(direction, name),
+        keys: eval_keys(model).iter().map(|k| k.to_string()).collect(),
         switched_to_rpn: algebraic,
         exists,
         notes,
@@ -234,10 +260,39 @@ pub(crate) async fn get(
     }
 }
 
-/// After the reconnect that follows a fast transfer: a 49G that was
-/// switched to RPN for it goes back to algebraic mode. Best effort: the
-/// connection is good either way.
+/// Run `command`, failing on the calculator's error.
+async fn run_checked(ctx: &Ctx, command: &str) -> Result<()> {
+    match ctx.op(Op::Run(command.to_string())).await? {
+        Reply::Stack(reply) => match reply.error {
+            None => Ok(()),
+            Some(message) => Err(TxError::Calc(satx_core::Error::Calculator {
+                message,
+                stack: reply.levels,
+            })),
+        },
+        other => Err(device::unexpected(command, &other)),
+    }
+}
+
+/// The host command that drops `program` if it is level 1, the same
+/// object (`SAME`), and leaves the stack alone otherwise: an empty stack,
+/// or the user's own objects once EVAL took the program. A command that
+/// does not compile leaves its text on the stack as a string ("Invalid
+/// Syntax"), so it is checked on both calculators (`fast_drop` in
+/// `web/test/tx-e2e-xmodem.test.mjs`).
+fn drop_if_level1(program: &str) -> String {
+    format!("IF DEPTH 0. > THEN IF DUP {program} SAME THEN DROP END END")
+}
+
+/// After the reconnect that follows a fast transfer: the program is taken
+/// off the stack if it was not run (the transfer was cancelled or timed
+/// out before EVAL), so the stack is the user's as before; then a 49G that
+/// was switched to RPN for it goes back to algebraic mode. Best effort:
+/// the connection is good either way.
 pub(crate) async fn after_reconnect(ctx: &Ctx, left: &LeftServer) {
+    if let Some(program) = &left.program {
+        let _ = ctx.op(Op::Run(drop_if_level1(program))).await;
+    }
     if left.algebraic {
         let _ = ctx.op(Op::Run("-95. SF".to_string())).await;
     }
@@ -301,10 +356,21 @@ mod tests {
     }
 
     #[test]
+    fn the_program_is_dropped_only_when_it_is_level_1() {
+        let program = stacked_program(XmodemDirection::FromCalculator, "PRG");
+        assert_eq!(program, "\\<< 'PRG' XSEND \\>>");
+        assert_eq!(
+            drop_if_level1(&program),
+            "IF DEPTH 0. > THEN IF DUP \\<< 'PRG' XSEND \\>> SAME THEN DROP END END"
+        );
+    }
+
+    #[test]
     fn the_user_mode_from_before_wins() {
         let left = LeftServer {
             user_mode: TransferMode::Ascii,
             algebraic: false,
+            program: None,
         };
         assert_eq!(
             user_mode(TransferMode::Binary, Some(&left)),

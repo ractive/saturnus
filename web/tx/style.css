@@ -331,7 +331,8 @@
   .connect-part[hidden] { display: none; }
   .connect-help summary { cursor: pointer; color: var(--accent-text); }
   .connect-help ul { margin-top: var(--s2); font-size: var(--fs-md); }
-  .xmodem-keys { margin: 0; }
+  .xmodem-program { margin: 0; }
+  .xmodem-keys:empty { display: none; }
   .xmodem-command { display: inline-block; font-family: var(--mono); font-size: var(--fs-lg); padding: var(--s1) var(--s2); background: var(--panel); border: 1px solid var(--rule-soft); border-radius: var(--r-md); overflow-wrap: anywhere; }
   .xmodem-notes { font-size: var(--fs-md); color: var(--muted); }
   .xmodem-notes:empty { display: none; }

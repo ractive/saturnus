@@ -27,8 +27,9 @@
 #
 # XModem (put/get --protocol xmodem): on a 48G/GX or 49G, with
 # SATX_E2E_CONTAINER naming the emulator's Docker container, the script types
-# XRECV/XSEND and SERVER on the calculator with `docker exec CONTAINER
-# calc-keys`; without it these steps print "skipped". On the 48S/SX the
+# EVAL (for the command satx leaves on the stack) and SERVER on the
+# calculator with `docker exec CONTAINER calc-keys`; without it these steps
+# print "skipped". On the 48S/SX the
 # script checks that XModem is refused.
 #
 # SATX_BIN overrides the binary (default: build target/debug/satx).
@@ -135,11 +136,11 @@ xmodem_run() {
     satx "$@" --format text >"$work/xm.out" 2>"$work/xm.err" &
     local pid=$! i
     for ((i = 0; i < 300; i++)); do
-        grep -q "On the calculator, type" "$work/xm.err" && break
+        grep -q "On the calculator, press" "$work/xm.err" && break
         kill -0 "$pid" 2>/dev/null || break
         sleep 0.1
     done
-    grep -q "On the calculator, type" "$work/xm.err" \
+    grep -q "On the calculator, press" "$work/xm.err" \
         || { wait "$pid" || true; fail "no instructions from satx: $(cat "$work/xm.err")"; }
     sleep 1
     type_word "$word"
@@ -453,8 +454,8 @@ elif [[ -z $container ]]; then
 else
     step "xmodem: put --dry-run keeps the server"
     dry=$(satx put "$work/all.hp" --as SATXXM --protocol xmodem --dry-run --json)
-    jq -e --arg keys "'SATXXM' XRECV" \
-        '.results.dry_run and .results.keys == $keys and .results.bytes == 269' \
+    jq -e --arg program "« 'SATXXM' XRECV »" \
+        '.results.dry_run and .results.program == $program and (.results.keys | length) > 0 and .results.bytes == 269' \
         <<<"$dry" >/dev/null || fail "$dry"
     satx ls --json >/dev/null || fail "server not running after --dry-run"
     if satx ls --jq '.results[].name' | grep -qx SATXXM; then fail "dry run stored SATXXM"; fi
@@ -470,18 +471,16 @@ else
     fi
 
     step "xmodem: put (XRECV), Kermit get byte-exact"
-    # As tests/e2e.rs: the name goes on the stack over Kermit, XRECV is typed.
-    satx run "'SATXXM'" --json >/dev/null
-    xmodem_run xrecv put "$work/all.hp" --as SATXXM --protocol xmodem --start-timeout 60
-    grep -q "Type SERVER" "$work/xm.out" || fail "no SERVER note: $(cat "$work/xm.out")"
+    # As tests/e2e.rs: satx leaves « 'SATXXM' XRECV » on the stack, EVAL is typed.
+    xmodem_run eval put "$work/all.hp" --as SATXXM --protocol xmodem --start-timeout 60
+    grep -qi "type SERVER" "$work/xm.out" || fail "no SERVER note: $(cat "$work/xm.out")"
     restart_server
     satx get SATXXM -o "$work/xm-kermit.hp" --json >/dev/null
     cmp "$work/all.hp" "$work/xm-kermit.hp" || fail "XRECV stored something else"
     ok "$(head -1 "$work/xm.out" | sed 's/.*(//; s/)//')"
 
     step "xmodem: get (XSEND) byte-exact"
-    satx run "'SATXXM'" --json >/dev/null
-    xmodem_run xsend get SATXXM -o "$work/xm-back.hp" --protocol xmodem --start-timeout 60
+    xmodem_run eval get SATXXM -o "$work/xm-back.hp" --protocol xmodem --start-timeout 60
     restart_server
     cmp "$work/all.hp" "$work/xm-back.hp" || fail "XSEND gave something else"
     ok "$(head -1 "$work/xm.out" | sed 's/.*(//; s/)//')"

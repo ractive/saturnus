@@ -140,7 +140,7 @@ jobs:
           SATX_E2E_ADDR: tcp://localhost:${{ matrix.port }}
           SATX_E2E_MODEL: ${{ matrix.model }}
           # The 48SX has no XModem: the script checks that it is refused.
-          # On the 49G the XModem steps type XRECV/XSEND/SERVER via
+          # On the 49G the XModem steps type EVAL and SERVER via
           # docker exec calc calc-keys.
           SATX_E2E_CONTAINER: calc
         run: scripts/satx-e2e-cli.sh

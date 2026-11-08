@@ -58,7 +58,9 @@ pub enum Protocol {
     /// The calculator's Kermit server (SERVER): no typing on the calculator.
     #[default]
     Kermit,
-    /// XRECV/XSEND, typed on the calculator when satx says so (48G/GX, 49G).
+    /// XRECV/XSEND: satx leaves the command on the calculator's stack, you
+    /// press EVAL (right-shift SYMB on the 49G) when satx says so (48G/GX,
+    /// 49G).
     Xmodem,
 }
 
@@ -68,7 +70,7 @@ pub struct XmodemArgs {
     /// Transfer protocol.
     #[arg(long, value_enum, default_value_t = Protocol::Kermit)]
     pub protocol: Protocol,
-    /// xmodem: seconds to wait for XRECV/XSEND to start on the calculator
+    /// xmodem: seconds to wait for EVAL to start XRECV/XSEND on the calculator
     /// (1-600) [default: 60].
     #[arg(
         long,

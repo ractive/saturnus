@@ -139,11 +139,14 @@ to see all of it: `:get NAME --ascii` in the REPL, `satx get NAME --ascii
 
 XModem is the alternative to Kermit on the 48G/GX and 49G (the 48S/SX has
 none): `satx put prg.hp --protocol xmodem` or `satx get PRG --protocol
-xmodem`. The Kermit server cannot start XRECV/XSEND, so satx ends server
-mode, prints what to type on the calculator (`'PRG' XRECV` or `'PRG'
-XSEND`, then ENTER) and waits `--start-timeout` seconds (default 60). After
-the transfer, type `SERVER` on the calculator again. Kermit stays the
-default because it needs no typing on the calculator; XModem is for when the
+xmodem`. The Kermit server cannot start XRECV/XSEND, so satx puts the
+program `« 'PRG' XRECV »` (or `XSEND`) on the calculator's stack, ends
+server mode, prints the key that runs it (EVAL on the 48G/GX; right-shift,
+then SYMB on the 49G) and waits `--start-timeout` seconds (default 60). If
+you do not go on, the backspace key drops the program again. After the
+transfer, start the server again: right-shift, then → on the 48G/GX; on
+the 49G type `SERVER` (right-shift → can start its XModem server instead).
+Kermit stays the default because it needs no key press on the calculator; XModem is for when the
 Kermit server is not wanted, and on the 49G it moves 1k blocks. `--dry-run`
 shows the plan without ending the server.
 

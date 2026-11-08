@@ -1,8 +1,9 @@
-//! `get` and `put` with `--protocol xmodem`: satx ends the Kermit server,
-//! tells the user to type `'NAME' XRECV` or `'NAME' XSEND` on the
-//! calculator, waits for it to start and runs the transfer
+//! `get` and `put` with `--protocol xmodem`: satx puts `« 'NAME' XRECV »`
+//! or `« 'NAME' XSEND »` on the calculator's stack, ends the Kermit server,
+//! tells the user which keys run it (EVAL on the 48G/GX, right-shift SYMB
+//! on the 49G), waits for it to start and runs the transfer
 //! ([`satx_core::xmodem`]). Afterwards the calculator is out of server mode
-//! and the user types SERVER again.
+//! and the user starts SERVER again.
 
 use std::fmt::Write as _;
 use std::io::{IsTerminal, Write};
@@ -11,7 +12,9 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use satx_core::reply::Entry;
-use satx_core::xmodem::{XmodemDirection, XmodemPlan};
+use satx_core::xmodem::{
+    XmodemDirection, XmodemPlan, eval_keys, eval_keys_text, program_text, server_again,
+};
 use satx_core::xmodem_proto::{Check, Event};
 use satx_core::{Calculator, Error, Model, XmodemOptions, XmodemSession};
 use serde_json::{Value, json};
@@ -23,8 +26,17 @@ use crate::error::Hinted;
 use crate::output::{Format, Hint, Outcome, shell_quote};
 use crate::util;
 
-/// What to type on the calculator after the transfer.
-const SERVER_AGAIN: &str = "Type SERVER on the calculator to use satx with Kermit again";
+/// What to do on the calculator after the transfer, as a sentence.
+fn server_again_text(model: Model) -> String {
+    let how = server_again(model);
+    let mut chars = how.chars();
+    let first = chars.next().map(|c| c.to_ascii_uppercase());
+    format!(
+        "{}{} on the calculator to use satx with Kermit again",
+        first.map(String::from).unwrap_or_default(),
+        chars.as_str()
+    )
+}
 
 /// Display name of a block check.
 pub fn check_name(check: Check) -> &'static str {
@@ -109,7 +121,7 @@ impl Ctx {
         self.format == Format::Text || std::io::stderr().is_terminal()
     }
 
-    /// Show what to type, then wait for the calculator.
+    /// Show which key to press, then wait for the calculator.
     fn announce(&self, plan: &XmodemPlan, start_timeout: Duration) {
         if self.tell_user() {
             eprintln!(
@@ -139,18 +151,21 @@ impl Ctx {
                     start_timeout.as_secs()
                 ),
                 format!(
-                    "type {} on the calculator and press ENTER while satx waits \
+                    "press {} on the calculator while satx waits; it runs {} \
                      (--start-timeout SECS gives more time). The calculator has left server \
-                     mode: if {command} is running, press ON to cancel it, then type SERVER \
-                     before running satx again",
-                    plan.keys
+                     mode: if {command} is running, press ON to cancel it, else press \u{2190} \
+                     (backspace) to drop the program; then {} before running satx again",
+                    plan.keys_text(),
+                    plan.program,
+                    server_again(plan.model)
                 ),
             )
             .into();
         }
         let mut hint = format!(
-            "the calculator has left server mode: press ON if {command} still runs, type \
-             SERVER, then run the command again; check the cable if it keeps failing"
+            "the calculator has left server mode: press ON if {command} still runs, {}, then \
+             run the command again; check the cable if it keeps failing",
+            server_again(plan.model)
         );
         if plan.direction == XmodemDirection::ToCalculator && plan.model == Model::Hp48Gx {
             let _ = write!(
@@ -194,7 +209,6 @@ impl Ctx {
             )
             .into());
         }
-        let keys = format!("'{name}' XRECV");
         if args.dry_run {
             let mut again = format!(
                 "put {} --as {} --protocol xmodem",
@@ -218,7 +232,7 @@ impl Ctx {
                     profile_text(model)
                 ),
                 model,
-                &keys,
+                &program_text(XmodemDirection::ToCalculator, name),
                 start_timeout,
                 Hint::cmd("Store it", self.cmd(&again)),
             ));
@@ -239,7 +253,7 @@ impl Ctx {
             "{file_label} -> {name} ({} bytes, xmodem, {})\n{}.",
             report.bytes,
             check_name(report.check),
-            SERVER_AGAIN
+            server_again_text(plan.model)
         );
         Ok(Outcome {
             results: json!({
@@ -249,6 +263,7 @@ impl Ctx {
                 "protocol": "xmodem",
                 "check": check_name(report.check),
                 "model": plan.model.name(),
+                "program": plan.program,
                 "keys": plan.keys,
                 "instructions": plan.instructions(),
                 "switched_to_rpn": plan.switched_to_rpn,
@@ -279,7 +294,6 @@ impl Ctx {
             )
             .into());
         };
-        let keys = format!("'{name}' XSEND");
         if args.dry_run {
             let target = if to_stdout {
                 "stdout".to_string()
@@ -312,7 +326,7 @@ impl Ctx {
                     profile_text(model)
                 ),
                 model,
-                &keys,
+                &program_text(XmodemDirection::FromCalculator, name),
                 start_timeout,
                 Hint::cmd("Download it", self.cmd(&again)),
             )));
@@ -344,7 +358,7 @@ impl Ctx {
                 eprintln!("note: {note}");
             }
             if self.tell_user() {
-                eprintln!("{SERVER_AGAIN}.");
+                eprintln!("{}.", server_again_text(plan.model));
             }
             let mut out = std::io::stdout().lock();
             out.write_all(&got.data).context("writing to stdout")?;
@@ -366,7 +380,7 @@ impl Ctx {
         if let Some(note) = &padding_note {
             let _ = write!(text, "\nnote: {note}");
         }
-        let _ = write!(text, "\n{SERVER_AGAIN}.");
+        let _ = write!(text, "\n{}.", server_again_text(plan.model));
         Ok(Some(Outcome {
             results: json!({
                 "name": name,
@@ -378,6 +392,7 @@ impl Ctx {
                 "check": check_name(got.check),
                 "type": kind,
                 "model": plan.model.name(),
+                "program": plan.program,
                 "keys": plan.keys,
                 "instructions": plan.instructions(),
                 "switched_to_rpn": plan.switched_to_rpn,
@@ -396,24 +411,27 @@ impl Ctx {
         mut results: Value,
         first: String,
         model: Model,
-        keys: &str,
+        program: &str,
         start_timeout: Duration,
         run: Hint,
     ) -> Outcome {
         let steps = format!(
-            "satx would end server mode (Kermit FINISH){}, then wait {} s for you to type \
-             {keys} on the calculator and press ENTER. After the transfer, type SERVER on the \
-             calculator again.",
+            "satx would put {program} on the calculator's stack{} and end server mode \
+             (Kermit FINISH), then wait {} s for you to press {} on the calculator to run it. \
+             After the transfer, {} on the calculator.",
             if model == Model::Hp49G {
-                ", switching an algebraic-mode 49G to RPN first"
+                ", switching an algebraic-mode 49G to RPN first,"
             } else {
                 ""
             },
-            start_timeout.as_secs()
+            start_timeout.as_secs(),
+            eval_keys_text(model),
+            server_again(model)
         );
         if let Value::Object(map) = &mut results {
             map.insert("model".into(), json!(model.name()));
-            map.insert("keys".into(), json!(keys));
+            map.insert("program".into(), json!(program));
+            map.insert("keys".into(), json!(eval_keys(model)));
             map.insert("start_timeout".into(), json!(start_timeout.as_secs()));
             map.insert("dry_run".into(), json!(true));
         }
@@ -426,15 +444,19 @@ impl Ctx {
         }
     }
 
-    /// Hints after a transfer: the plan's notes, SERVER, then `ls`.
+    /// Hints after a transfer: the plan's notes that still matter (not
+    /// how to give up, not SERVER), SERVER, then `ls`.
     fn after_hints(&self, plan: &XmodemPlan) -> Vec<Hint> {
         let mut hints: Vec<Hint> = plan
             .notes
             .iter()
-            .filter(|n| !n.contains("type SERVER"))
+            .filter(|n| {
+                !n.starts_with("The calculator has left server mode")
+                    && !n.starts_with("If you do not go on")
+            })
             .map(Hint::advice)
             .collect();
-        hints.push(Hint::advice(SERVER_AGAIN));
+        hints.push(Hint::advice(server_again_text(plan.model)));
         hints.push(Hint::cmd("Then list the directory", self.cmd("ls")));
         hints
     }
@@ -464,5 +486,14 @@ mod tests {
         });
         assert_eq!(p.started, Some(Check::HpCrc));
         assert!(!p.shown);
+    }
+
+    #[test]
+    fn the_server_comes_back_per_model() {
+        assert_eq!(
+            server_again_text(Model::Hp49G),
+            "Type SERVER and press ENTER on the calculator to use satx with Kermit again"
+        );
+        assert!(server_again_text(Model::Hp48Gx).starts_with("Press right-shift, then \u{2192}"));
     }
 }

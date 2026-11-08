@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 68b: fast transfer by one key, server hint, serial port"
 date: 2026-11-08
-status: planned
+status: completed
 tags:
   - iteration
   - web
@@ -40,18 +40,18 @@ After PR #259 (it re-records the 49G traces this changes) and alongside [[iterat
 
 ## Tasks
 
-- [ ] **Fast transfer without typing the command.** Before ending server
+- [x] **Fast transfer without typing the command.** Before ending server
   mode, Files sends `« 'NAME' XSEND »` (download) or `« 'NAME' XRECV »`
   (upload) as an object, so it lands on the stack, then ends server mode;
   the dialog says to press EVAL on a 48GX and right-shift SYMB on a 49G
   instead of typing the command. The emulated calculator's "Type it for
   me" presses the same keys. satx's `--protocol xmodem` does the same and
   prints the key instead of the command. Traces re-recorded.
-- [ ] **Server restart hint.** After a fast transfer the dialog says to type
+- [x] **Server restart hint.** After a fast transfer the dialog says to type
   `SERVER` on a 49G (right-shift → may start XSERV); on a 48GX check what
   right-shift → does on the emulator and keep the shortcut only where it
   is reliable.
-- [ ] **Serial port released on disconnect.** Find why the desktop app kept
+- [x] **Serial port released on disconnect.** Find why the desktop app kept
   `/dev/cu.usbserial-*` open after Files disconnected (two descriptors,
   `crates/saturnus-tauri/src/transfer.rs` `serial_close`/`close_all`) and
   fix it; a test where the platform allows.
