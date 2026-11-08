@@ -618,6 +618,8 @@ test("a browser without Web Serial or a folder picker says so plainly and still 
   assert.equal(s.primary, true);
   // No folder picker: the right pane holds the page's own files.
   assert.equal(s.right, "Files in this browser");
+  // The Change menu keeps a way into the serve screen there (no "Add a calculator" to ask the kind).
+  assert.deepEqual(await c.ev(changeMenu("left")), ["Add an emulated calculator…", "Serve a folder to a 38G, 39G or 40G…"]);
   // The emulated calculator's dialog opens (no ROM kept here: it says so).
   await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-emulated"]').click(); true`);
   await p.until(`document.getElementById("emulated-dialog").open`, 5_000, "the emulated dialog");
@@ -1013,6 +1015,20 @@ test("a calculator that stops answering gets its own card: no \"Connected\", the
   await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="close"]').click(); true`);
   await p.until("!tx.panes[0].place", 10_000, "disconnected");
   assert.equal(await c.ev(`tx.panes[0].note`), "Disconnected.");
+  assert.deepEqual(c.errors, []);
+});
+
+test("a tree put that goes silent part way still shows the not-answering card (its error is a partial one)", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await p.idle(10_000, "connected");
+  await c.ev(`__calcs[0].silence({ partial: true }); true`);
+  const err = await c.ev(`tx.panes[0].place.device.putTree(["HOME"], "DIR", [{ path: ["DIR"] }, { path: ["DIR", "A.hp"], data: new TextEncoder().encode("HPHP48-E" + "String:a") }]).then(() => null, (e) => ({ kind: e.kind, source: e.source?.kind }))`);
+  assert.deepEqual(err, { kind: "partial", source: "notAnswering" });
+  await p.until(`tx.panes[0].place.device.notAnswering && !tx.panes[0].ui.empty.hidden && document.querySelector(".pane[data-pane=left] .start h2")?.textContent === "The calculator stopped answering"`, 10_000, "the card");
+  assert.equal(await c.ev(`!!document.querySelector('.pane[data-pane=left] [data-action="reconnect"]')`), true);
   assert.deepEqual(c.errors, []);
 });
 

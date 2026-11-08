@@ -56,8 +56,14 @@ test("the dialog's words: before the plan, with it, and after", () => {
   assert.match(fastDone({ direction: "get", name: "A", model: "48gx", error: { kind: "aborted" } }).lead, /^Stopped/);
 });
 
-test("the menus offer it on the 48GX only: the 49G has XSERV", () => {
+test("the menus offer it on the 48GX, and on a 49G only without XSERV", () => {
   assert.ok(hasXmodem("48gx") && !hasXmodem("49g") && !hasXmodem("48sx") && !hasXmodem("unknown"));
+  // A 49G whose ROM has XSERV (1.11 on, or not known) copies as fast over it; 1.10 and earlier keep the fast transfer.
+  assert.equal(hasXmodem("49g", "Version HP49-C\r\nRevision #1.18"), false);
+  assert.equal(hasXmodem("49g", "Version HP49-C\r\nRevision #1.10"), true);
+  const old = fastDone({ direction: "get", name: "PRG", model: "49g", version: "Version HP49-C\r\nRevision #1.05", where: "PRG.hp in hp-files" });
+  assert.equal(old.restart, "The calculator is out of server mode. Start its server again: type SERVER and press ENTER. Then reconnect.");
+  assert.equal(fastWords({ direction: "get", name: "PRG", model: "49g", plan: { program: "« 'PRG' XSEND »", switchedToRpn: false } }).lead, "Server mode has ended, and this command is on the stack of the HP 49G. To run it, press right-shift, then SYMB (EVAL):");
   const ids = (items) => items.filter((i) => i !== "-").map((i) => i.id);
   const v = { name: "PRG", directory: false };
   const row = (opts) => rowActions({ kind: "device", entries: [v], ...opts });

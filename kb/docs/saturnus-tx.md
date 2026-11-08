@@ -405,7 +405,9 @@ and asks for a new one if the calculator would refuse it (`satx-core`'s
    as its right-shift → starts either depending on a pause, wiki
    `protocols/xserv`), then "Choose the port" opens the browser's
    chooser. The same words, per model, are every "start it again" (a
-   restore, a fast transfer, a calculator not answering).
+   restore, a fast transfer, a calculator not answering), on a 49G the
+   server it ran: `XSERV`, or `SERVER` after the Kermit server or on a
+   ROM without XSERV (`flows.js` `restartWords`).
 2. The page opens the port at 9600 baud, 8 data bits, no parity, one stop
    bit, no flow control, and syncs (`satx-core`'s `Calculator::sync`)
    once the search below has heard the calculator.
@@ -447,15 +449,24 @@ still shows the server, and the pane says only "Disconnected."
 (iteration 70).
 
 **Not answering** (iteration 70): `saturnus-tx`'s device fails an
-operation the calculator answers at once (a listing, a get, a binary
+operation the calculator answers at once (a listing, a binary get or
 put, a short host command; XSERV's `L`, `M`, `G`, `P` and `E`) as
 `TxError::NotAnswering` when the calculator sends no byte for 25 s on
 the Kermit server (longer than one resend after the 20 s Kermit
-timeout, so a packet lost on the line is still recovered) or 8 s on
-XSERV (asked again every 1.5 s; within XSERV's 60 s after an `E`, the
-busy calculator's time counts instead). Not watched: host commands that
-may run a while (a purge, a backup, a restore, RPL), a text put, the
-fast transfer, FINISH, the sync and the probes. The session ends;
+timeout, so a packet lost on the line is still recovered), or when a
+host command of such an operation gets no byte back before satx-core
+gives up on it (20 s), or for 8 s on XSERV (asked again every 1.5 s;
+within XSERV's 60 s after an `E`, the busy calculator's time counts
+instead). XSERV's `G` and `P` move a file by XModem: their silence is
+XModem's 10 s reply timeout plus one 1K block at the link's speed plus
+5 s (16 s at 9600 baud, 23.6 s at 1200), so a lost block or ACK is
+still recovered. Not watched: host commands that may run a while (a
+purge, a backup, a restore, RPL), a text get or put (the calculator
+decompiles or compiles it), the fast transfer, FINISH, the sync and the
+probes. After it, nothing more goes to the calculator (no flag back, no
+purge of a copy). The page learns it from the device's state, posted
+with the connection after every request, so a tree put that stops
+`partial` shows it too. The session ends;
 every request but a connect is refused; the pane shows "The calculator
 stopped answering" with the model's keys and Reconnect, its status "Not
 answering." (before: the Kermit retries, over two minutes, or XSERV's
@@ -609,7 +620,8 @@ real 49G (ROM 1.18) the commands and the nesting.
   read as commands.
 - **What is not offered**: the fast transfer (every copy is XModem
   already; a request for one is `notForXmodem`); since iteration 70 not
-  on the 49G's Kermit server either.
+  on the Kermit server of a 49G whose ROM has XSERV either (1.11 on, or
+  a revision not known); 1.10 and earlier keep it.
 - **Disconnect**: `Q` ends XSERV (ROM 2.15: the calculator is back at
   its stack, with what `E` left there); `M` once more tells whether it
   did. The page says "XSERV has ended on the calculator." or, for a ROM
@@ -648,15 +660,14 @@ As built (iteration 39, `saturnus-tx`'s `xmodem` module, `web/tx/
 xmodem.js`): XModem is faster than Kermit on the 49G, but `XRECV` and
 `XSEND` do not run inside the server (wiki `protocols/xmodem-hp`), so
 the user starts them: since iteration 68b with one key, EVAL of a
-program the device leaves on the stack. Offered on the 48GX only since
-iteration 70 (the 49G has XSERV, as fast without the steps; `satx`
-keeps `--protocol xmodem` on both): "Fast transfer
+program the device leaves on the stack. Offered on the 48GX, and since
+iteration 70 on a 49G only when its ROM has no XSERV (1.10 and earlier;
+XSERV is as fast without the steps; `satx` keeps `--protocol xmodem`
+on both): "Fast transfer
 to the other pane (XModem)…" (or "as a download") on a variable's menu,
 "Fast transfer a file to it (XModem)…" in the calculator's "⋯", "Fast
 transfer to the calculator (XModem)…" on a folder's `.hp` file (its
-name asked first). The 49G parts below are the device's, which the
-replayed traces still test; Files' dialog has the 48GX's words only.
-One job of the queue:
+name asked first). One job of the queue:
 
 1. Checks while the server answers: a binary file of the model's family
    (text and the other family go by the normal copy, which converts), a
@@ -681,7 +692,7 @@ One job of the queue:
 5. Done: what came over and where, and how to start the server again
    (the connect step's words for the model since iteration 70:
    right-shift → on the 48GX, which starts Kermit however slowly it is
-   pressed), with "Later" and "Reconnect"; the
+   pressed; `SERVER` on the 49G), with "Later" and "Reconnect"; the
    pane says "The calculator left server mode" with Reconnect until
    then. The reconnect keeps the transfer mode the user had, drops the
    program if it is still level 1 (`IF DEPTH 0. > THEN IF DUP « … »
@@ -705,9 +716,10 @@ drive" it expects (wiki `protocols/aplet-transfer`, which answers
 - **Where.** "Serve a folder to a 38G, 39G or 40G": "Add a calculator…",
   then "An HP 38G, 39G or 40G" (iteration 68a; the cable chosen already
   since iteration 70), a kept 38G, 39G or 40G ROM in "Add an emulated
-  calculator…" (chosen already), and a button in the left pane's empty
-  state only where no serial port can be reached. The Change menu's
-  entry went in iteration 70. It opens a screen over the panes
+  calculator…" (chosen already), as does a 38G, 39G or 40G ROM file
+  chosen there, and a button in the left pane's empty state and an
+  entry of the Change menu only where no serial port can be reached
+  (otherwise the Change menu's entry went in iteration 70). It opens a screen over the panes
   (`web/tx/serve.js`, `serve.css`), in the spirit of HPGComm's small
   window: choose a folder (the one a pane shows is offered, or open
   one, or the files in this browser) and a calculator (on a cable, or an

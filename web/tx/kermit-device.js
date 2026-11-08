@@ -116,7 +116,8 @@ export class KermitDevice extends EventTarget {
     try {
       op.resolve(await op.fn());
     } catch (err) {
-      if (err?.kind === "notAnswering" && !this.notAnswering) {
+      // The device's own state, posted with each result: a request that wraps the silence (a tree put's `partial`) counts too.
+      if ((this.client.notAnswering || err?.kind === "notAnswering" || err?.source?.kind === "notAnswering") && !this.notAnswering) {
         this.notAnswering = true;
         this.listings.clear();
         // The waiting operations would only fail the same way.

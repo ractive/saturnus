@@ -20,6 +20,7 @@ import "../shared/components/device-tree.js";
 import "../shared/components/device-list.js";
 import { keyAction, paneActions, rowActions } from "./actions.js";
 import { EmulatedCalculator } from "./emulator.js";
+import { APLET_MODELS } from "./kept-roms.js";
 import { HubClient } from "../shared/calc-hub.js";
 import { HubDevice } from "../shared/hub-device.js";
 import { canPickFolder, clearRecentFolders, download as downloadFolder, fallbackFolder, keptFolder, nameProblem as fileNameProblem, openRecent, pickFolder, recentFolders } from "./folder.js";
@@ -105,10 +106,10 @@ export class Pane {
 
   get other() { return this.app.other(this); }
 
-  /** Whether the place is a calculator with the fast transfer (XModem: the 48GX; never the emulator's own, which needs none). */
+  /** Whether the place is a calculator with the fast transfer (XModem: the 48GX, a 49G without XSERV; never the emulator's own, which needs none, nor one in XSERV). */
   get xmodem() {
     const p = this.place;
-    return p?.kind === "device" && !p.hub && hasXmodem(p.model) && p.device.connection?.server !== "xserv";
+    return p?.kind === "device" && !p.hub && hasXmodem(p.model, p.device.connection?.version) && p.device.connection?.server !== "xserv";
   }
   /** Whether the pane may show a folder: the right one only; the left shows calculators. */
   get folders() { return this.id === "right"; }
@@ -226,7 +227,7 @@ export class Pane {
     };
     // Out of server mode (a restore, a fast transfer) or not answering: how to start the server again, then Reconnect.
     const again = (lead, emulatedLead) => {
-      const r = restartWords(p.model);
+      const r = restartWords(p.model, { server: p.server, version: p.version });
       box.append(el("p", { text: p.emulated ? emulatedLead : `${lead} ${r.text} Then reconnect.` }));
       if (!p.emulated && r.keys) box.append(el("p", { class: "keys", "aria-hidden": "true" }, ...r.keys.map((k) => el("kbd", { class: "calc-key", text: k }))));
       button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
@@ -430,6 +431,7 @@ export class Pane {
       if (this.mine !== place) return null;
       place.model = conn.model;
       place.server = conn.server;
+      place.version = conn.version;
       place.heading = placeTitle({ model: conn.model, emulated, linkLabel: link.label });
       place.title = place.heading;
     } catch (err) {
@@ -518,6 +520,11 @@ export class Pane {
       this.step = null;
       this.mine = null;
       this.render();
+      // A 38G, 39G or 40G ROM file: these start every transfer themselves, so the serve screen opens with it.
+      if (APLET_MODELS.includes(emu.model)) {
+        this.app.openServe({ key: "file", bytes: rom, name });
+        return null;
+      }
       this.say(String(err?.message ?? err), { error: true });
       return null;
     }
@@ -542,6 +549,7 @@ export class Pane {
       const conn = await this.app.queue.add({ label: `Reconnect to ${p.title}`, places: [p.id], run: () => p.device.connect(p.emulated ? { find: true } : this.app.settings) });
       p.model = conn.model;
       p.server = conn.server;
+      p.version = conn.version;
     } catch (err) {
       this.step = null;
       this.render();
@@ -1240,7 +1248,7 @@ export class Pane {
   async fast({ direction, name, path, bytes = null, size = null }) {
     const p = this.place;
     const d = xmodemDialog();
-    const base = { direction, name, model: p.model, emulated: p.emulated, waitS: XMODEM_WAIT_S };
+    const base = { direction, name, model: p.model, version: p.version, emulated: p.emulated, waitS: XMODEM_WAIT_S };
     let planned = null;
     const put = direction === "put";
     const onProgress = (e) => {
@@ -1579,6 +1587,8 @@ export class Pane {
     }
     if (hasSerial()) items.push({ text: "Add a calculator…", icon: "plug", run: () => this.app.openConnect(this) });
     items.push({ text: "Add an emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });
+    // Without a serial port "Add a calculator" is not there to ask the kind: the serve screen keeps its own way in (as the empty card's button).
+    if (!hasSerial()) items.push({ text: "Serve a folder to a 38G, 39G or 40G…", icon: "calculator", run: () => this.app.openServe() });
     if (this.place) items.push("-", { text: this.place.kind === "device" ? (this.place.emulated && !this.place.hub ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });
     openMenu({ anchor: this.ui.change, align: "end", label: "Show in this pane", returnFocus: () => this.ui.change, items });
   }

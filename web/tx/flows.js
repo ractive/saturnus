@@ -51,13 +51,19 @@ export const START_SERVER = {
   },
 };
 
+/** The 49G's Kermit server, for one that ran it or has no XSERV. */
+const SERVER_49G = { step: "Type SERVER and press ENTER.", keys: ["S", "E", "R", "V", "E", "R", "ENTER"] };
+
 /**
  * How to start the server again on `model` (null: not known), in one
- * sentence, and its keys: `{text, keys}`.
+ * sentence, and its keys: `{text, keys}`. On a 49G the server it ran
+ * (`server`, when known) and whether its ROM has XSERV (`version`):
+ * XSERV, else `SERVER`.
  */
-export function restartWords(model) {
-  const s = START_SERVER[model];
+export function restartWords(model, { server = null, version = null } = {}) {
+  let s = START_SERVER[model];
   if (!s) return { text: "Start the calculator's server again.", keys: null };
+  if (model === "49g" && ((server && server !== "xserv") || !hasXserv(version))) s = SERVER_49G;
   return { text: `Start its server again: ${s.step[0].toLowerCase()}${s.step.slice(1)}`, keys: s.keys };
 }
 

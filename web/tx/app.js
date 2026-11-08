@@ -774,8 +774,22 @@ export function mountFiles(root, { shown = () => true } = {}) {
       say(`${f.name} is larger than any calculator's ROM (${bytesText(MAX_ROM_FILE)} at most).`, { error: true });
       return;
     }
-    // Its model is known once it boots.
-    await target.addEmulated(new Uint8Array(await f.arrayBuffer()), f.name, null);
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    // What the ROM is (the core's identify_rom): a 38G, 39G or 40G's opens
+    // the serve screen with it, as these start every transfer themselves
+    // (a 512 KB file may be a 38G's or a 48GX's: only a known one is told).
+    let models = [];
+    try {
+      models = (await helpers()).identify_rom(bytes)?.models ?? [];
+    } catch {
+      models = [];
+    }
+    if (models.length && models.every((m) => APLET_MODELS.includes(m))) {
+      serve.show({ calc: { key: "file", bytes, name: f.name } });
+      return;
+    }
+    // Else its model is known once it boots.
+    await target.addEmulated(bytes, f.name, models.length === 1 && SERIAL_MODELS.includes(models[0]) ? models[0] : null);
   });
 
   // ------------------------------------------------------------ the fixed speed

@@ -33,11 +33,12 @@ the desktop app and the web page share one version.
 - **Files is simpler.** "Add a calculator…" shows the keys that start
   the server for every model at once (Files reads the model and the
   server from the calculator), with a fixed speed under "Trouble with
-  the cable?" instead of a Settings dialog. The 49G has no fast
-  transfer in Files any more: XSERV copies as fast without the steps;
-  the 48G and 48GX keep it. A restore, a fast transfer and a calculator
-  that stopped answering all say how to start the server again with
-  the same keys as the connect step (`XSERV` on the 49G). A 38G, 39G or
+  the cable?" instead of a Settings dialog. A 49G with XSERV (ROM 1.11
+  on) has no fast transfer in Files any more: XSERV copies as fast
+  without the steps; the 48G, the 48GX and a 49G with an older ROM keep
+  it. A restore, a fast transfer and a calculator that stopped answering
+  all say how to start the server again with the same keys as the
+  connect step (`XSERV` on a 49G that ran it, else `SERVER`). A 38G, 39G or
   40G is asked for once: "Add a calculator…" opens the serve screen
   with the cable chosen, and a kept 38G, 39G or 40G ROM in "Add an
   emulated calculator…" opens it with that calculator. The Change menu
@@ -45,7 +46,8 @@ the desktop app and the web page share one version.
 - **A calculator that stops answering says so.** When the calculator
   sends nothing while Files waits for it (its server ended, the cable
   came loose), the pane says "The calculator stopped answering" after
-  about 8 seconds on XSERV or 25 on the Kermit server, instead of two
+  about 8 seconds on XSERV (more while a file moves) or 20 to 25 on the
+  Kermit server, instead of two
   minutes of retries and a protocol message under a status that still
   said "Connected"; Reconnect connects again.
 - **`satx` knows XSERV.** `satx info` says which server answered, and

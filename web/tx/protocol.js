@@ -44,6 +44,8 @@ export class ProtocolClient extends EventTarget {
     this.nextId = 1;
     this.waiting = new Map();
     this.connection = null;
+    /** The calculator stopped answering (the device's state, posted with the connection after each request). */
+    this.notAnswering = false;
     this.closed = false;
     /** The link's operations, one after the other. */
     this.io = Promise.resolve();
@@ -96,6 +98,8 @@ export class ProtocolClient extends EventTarget {
         break;
       case "connection":
         this.connection = m.connection ?? null;
+        // saturnus-tx's silence watchdog ended the session (whatever error the request reports: a tree put's `partial` too).
+        this.notAnswering = Boolean(m.notAnswering);
         this.dispatchEvent(new CustomEvent("connection", { detail: this.connection }));
         break;
       case "result": {

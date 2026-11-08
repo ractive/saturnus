@@ -1034,15 +1034,28 @@ impl Device {
     }
 }
 
+/// The silence an XModem transfer over XSERV may have: its reply timeout
+/// (the other side's recovery after a lost block or ACK), one 1K block at
+/// `baud` (1029 bytes of 10 bits) and [`XMODEM_SLACK`].
+pub(crate) fn xmodem_silence(timeout: Duration, baud: u32) -> Duration {
+    let block = Duration::from_secs_f64(1029.0 * 10.0 / f64::from(baud.max(300)));
+    timeout + block + XMODEM_SLACK
+}
+
+/// Slack on [`xmodem_silence`].
+const XMODEM_SLACK: Duration = Duration::from_secs(5);
+
 /// Whether the calculator answers `op` at once while its server runs, so
 /// a silence means it stopped (the watchdog in [`Ctx::op`]). Not: host
 /// commands that may run a while (a purge, a backup, a restore, RPL), a
-/// text put (the calculator compiles it), the fast transfer (the user
+/// text put or get (the calculator compiles or decompiles it), the fast transfer (the user
 /// starts it), the end of server mode, the sync and the probes. XSERV's
 /// `E` is: it is ACKed before its RPL runs.
 fn watched(op: &Op) -> bool {
     match op {
-        Op::Put { mode, .. } => *mode == TransferMode::Binary,
+        // A text put is compiled and a text get decompiled by the
+        // calculator, which may take a while for a large object.
+        Op::Put { mode, .. } | Op::Get { mode, .. } => *mode == TransferMode::Binary,
         Op::List
         | Op::Path
         | Op::Cd(_)
@@ -1055,7 +1068,6 @@ fn watched(op: &Op) -> bool {
         | Op::Iopar
         | Op::TransferMode
         | Op::SetTransferMode(_)
-        | Op::Get { .. }
         | Op::Pict
         | Op::PictFile
         | Op::XservList
@@ -1123,11 +1135,17 @@ impl Ctx {
 
     /// Run one machine operation. One the calculator answers at once
     /// ([`watched`]) fails as [`TxError::NotAnswering`] when it sends
-    /// nothing for the silence allowed; the session ends with it.
+    /// nothing for the silence allowed, or when its host command gets no
+    /// reply; the session ends with it, and later operations are refused.
     pub(crate) async fn op(&self, op: Op) -> Result<Reply> {
         let execute = matches!(op, Op::XservExecute(_));
         let (silence, busy_until) = {
             let mut sh = self.lock();
+            // The watchdog has ended the session: nothing more goes to the
+            // calculator (the restore of flag -35, a replace's copy, FINISH).
+            if sh.not_answering {
+                return Err(TxError::NotAnswering);
+            }
             let now = sh.now;
             let xserv = matches!(
                 op,
@@ -1137,8 +1155,21 @@ impl Ctx {
                     | Op::XservGet { .. }
                     | Op::XservPut { .. }
             );
+            let baud = sh
+                .session
+                .as_ref()
+                .map_or(LinkSettings::DEFAULT.baud, |s| s.connection.settings.baud);
             let silence = if !watched(&op) {
                 None
+            } else if let Op::XservGet { options, .. } | Op::XservPut { options, .. } = &op {
+                // XModem: its own recovery (a block or an ACK lost) takes
+                // its reply timeout, and a 1K block alone takes 8.6 s at
+                // 1200 baud; the silence is longer than both.
+                Some(
+                    sh.options
+                        .silence_xserv
+                        .max(xmodem_silence(options.xmodem.timeout, baud)),
+                )
             } else if xserv {
                 Some(sh.options.silence_xserv)
             } else {
@@ -1154,6 +1185,7 @@ impl Ctx {
             sh.last_input = now;
             (silence, busy_until)
         };
+        let started = self.lock().now;
         let result = poll_fn(|_| {
             let mut sh = self.lock();
             if let Some(result) = sh.op_result.take() {
@@ -1169,6 +1201,18 @@ impl Ctx {
             Poll::Pending
         })
         .await;
+        // A host command of a watched operation that got no reply and no
+        // byte at all (satx-core sends it once and gives up after the
+        // Kermit timeout, before the silence runs out): the calculator is
+        // silent too. One that NAKed it is there.
+        let result = match result {
+            Ok(Err(satx_core::Error::NoReply { .. }))
+                if silence.is_some() && self.lock().last_input <= started =>
+            {
+                Err(TxError::NotAnswering)
+            }
+            other => other,
+        };
         match result {
             Ok(reply) => {
                 // XSERV answered (or the op was something else): the
@@ -1460,6 +1504,9 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
         let mut sh = ctx.lock();
         sh.machine = None;
         sh.op_result = None;
+        // A new session: the watchdog's verdict was about the old one (a
+        // connect that finds nothing fails with its own error).
+        sh.not_answering = false;
     }
     let (settings, server) = if options.find {
         search(ctx).await?
@@ -1862,4 +1909,41 @@ pub(crate) fn unexpected(what: &str, reply: &Reply) -> TxError {
     TxError::Calc(satx_core::Error::Reply(format!(
         "{what}: unexpected result {reply:?}"
     )))
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    /// A text transfer is compiled or decompiled by the calculator, which
+    /// may take a while: not watched; binary ones are.
+    #[test]
+    fn text_transfers_are_not_watched() {
+        let get = |mode| Op::Get {
+            name: "X".into(),
+            mode,
+        };
+        let put = |mode| Op::Put {
+            name: "X".into(),
+            data: Vec::new(),
+            mode,
+        };
+        assert!(watched(&get(TransferMode::Binary)));
+        assert!(!watched(&get(TransferMode::Ascii)));
+        assert!(watched(&put(TransferMode::Binary)));
+        assert!(!watched(&put(TransferMode::Ascii)));
+        assert!(!watched(&Op::Run("1 2 +".into())));
+    }
+
+    /// XModem over XSERV: its reply timeout, one 1K block at the link's
+    /// speed and the slack.
+    #[test]
+    fn an_xmodem_silence_covers_a_block_at_the_speed() {
+        let t = Duration::from_secs(10);
+        let at = |baud| xmodem_silence(t, baud).as_secs_f64();
+        assert!((at(9600) - (15.0 + 10290.0 / 9600.0)).abs() < 0.01);
+        assert!((at(1200) - (15.0 + 10290.0 / 1200.0)).abs() < 0.01);
+        assert!(at(1200) > 23.0);
+    }
 }

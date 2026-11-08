@@ -47,7 +47,7 @@ If the port does not open, the dialog's "Trouble with the cable?" lists the usua
 
 ### When the calculator stops answering
 
-If the calculator says nothing while Files waits for it, the pane says "The calculator stopped answering" instead of its list: after about 8 seconds on XSERV, about 25 on the Kermit server. Usually its server has ended (ON was pressed, or a key typed), or the cable came loose. The pane shows the keys that start the server again; then choose "Reconnect".
+If the calculator says nothing while Files waits for it, the pane says "The calculator stopped answering" instead of its list: after about 8 seconds on XSERV (longer while a file moves: up to about 25 seconds at 1200 baud), 20 to 25 on the Kermit server. Usually its server has ended (ON was pressed, or a key typed), or the cable came loose. The pane shows the keys that start the server again; then choose "Reconnect".
 
 What the calculator's "⋯" menu offers:
 
@@ -56,7 +56,7 @@ What the calculator's "⋯" menu offers:
 - **Copy everything to a folder**: the whole HOME tree as folders and `.hp` files, one variable at a time. Slower, but it needs no free memory.
 - **Restore from a backup file…**: puts a backup back. It replaces everything in HOME, and the calculator warm-starts; the pane shows the keys that start its server again, then "Reconnect".
 - **Graphics screen**: PICT, the plots and drawings, as a picture.
-- **Fast transfer (XModem)**, on the 48G series: Files puts the command (`« 'PRG' XSEND »`) on the calculator's stack and ends the server; you press EVAL. Afterwards start the server again (right-shift, then →) and reconnect. The 49G has no fast transfer in Files: XSERV copies as fast without these steps.
+- **Fast transfer (XModem)**, on the 48G series, and on a 49G whose ROM has no XSERV (1.10 and earlier): Files puts the command (`« 'PRG' XSEND »`) on the calculator's stack and ends the server; you press EVAL on a 48G, right-shift then SYMB on the 49G. Afterwards start the server again (right-shift, then → on a 48G; `SERVER` on the 49G) and reconnect. A 49G with XSERV has no fast transfer in Files: XSERV copies as fast without these steps.
 
 A variable's own menu has Download and Download as text, for a file in your downloads instead of the other pane.
 
@@ -72,7 +72,7 @@ A ROM file chosen in Files instead starts a calculator of its own, which talks o
 
 ## The 38G, 39G and 40G
 
-These calculators start every transfer themselves, as clients, and expect a "disk drive" on the cable. Files can be that disk drive: choose "Add a calculator…", then "An HP 38G, 39G or 40G", pick a folder, and "Start serving" (the calculator on the cable is chosen already). For an emulated one, choose its ROM in "Add an emulated calculator…" (a 38G, 39G or 40G ROM that Calculator keeps), or, from a ROM file, pick it in the serve screen. In a browser that cannot reach a serial port, the left pane offers "Serve a folder to a 38G, 39G or 40G…".
+These calculators start every transfer themselves, as clients, and expect a "disk drive" on the cable. Files can be that disk drive: choose "Add a calculator…", then "An HP 38G, 39G or 40G", pick a folder, and "Start serving" (the calculator on the cable is chosen already). For an emulated one, choose its ROM in "Add an emulated calculator…" (a 38G, 39G or 40G ROM that Calculator keeps, or a ROM file): the serve screen opens with it. In a browser that cannot reach a serial port, the left pane and its Change menu also offer "Serve a folder to a 38G, 39G or 40G…".
 
 Files reads the folder each time the calculator asks for its list of files, so an aplet put in the folder while serving shows up at the next RECV.
 

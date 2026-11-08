@@ -188,6 +188,7 @@ test("a calculator that goes silent fails the request as notAnswering, and the d
     assert.ok(performance.now() - started < 5_000, "within the silence, not after the Kermit retries");
     assert.deepEqual(said, ["notAnswering"]);
     assert.equal(device.notAnswering, true);
+    assert.equal(client.notAnswering, true, "the device's state posted with the connection");
     assert.equal(device.connection, null);
     // Every request but a connect is refused at once.
     await assert.rejects(device.list(["HOME", "X"]), (err) => err.kind === "notAnswering");

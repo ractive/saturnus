@@ -67,6 +67,11 @@ test("the connect step has every model, XSERV on the 49G; the restart says the s
   assert.deepEqual(restartWords("49g"), { text: "Start its server again: type XSERV and press ENTER.", keys: START_SERVER["49g"].keys });
   assert.deepEqual(restartWords("48gx"), { text: "Start its server again: press right-shift, then → (the right arrow).", keys: ["↱", "→"] });
   assert.deepEqual(restartWords(null), { text: "Start the calculator's server again.", keys: null });
+  // A 49G that ran its Kermit server, or whose ROM has no XSERV (1.10 and earlier): SERVER.
+  const server = { text: "Start its server again: type SERVER and press ENTER.", keys: ["S", "E", "R", "V", "E", "R", "ENTER"] };
+  assert.deepEqual(restartWords("49g", { server: "kermit" }), server);
+  assert.deepEqual(restartWords("49g", { server: "xserv", version: "Version HP49-C\r\nRevision #1.18" }).keys, START_SERVER["49g"].keys);
+  assert.deepEqual(restartWords("49g", { version: "Version HP49-C\r\nRevision #1.10" }), server);
 });
 
 test("the stored connection settings, and the defaults for anything else", () => {

@@ -5,24 +5,29 @@
 // server; the dialog says to press EVAL, waits, and afterwards offers to
 // reconnect once the server runs again (the reconnect drops the program
 // if it was not run). An emulated calculator can have the key pressed for
-// it, and its server started again by the reconnect. The 49G has none in
-// Files since iteration 70: XSERV copies as fast, without the steps.
+// it, and its server started again by the reconnect. A 49G has it only
+// when its ROM has no XSERV (1.10 and earlier): XSERV copies as fast,
+// without the steps (iteration 70).
 //
 // `fastWords` and `fastDone` are pure (web/test/tx-flows.test.mjs); the
 // dialog (`XmodemDialog`) is made once, on first use, so the page is not
 // touched.
 
 import { el } from "../shared/dom.js";
-import { MODEL_NAMES, failureText, restartWords } from "./flows.js";
+import { MODEL_NAMES, failureText, hasXserv, restartWords } from "./flows.js";
 
-/** The models with the fast transfer in Files. */
-export const XMODEM_MODELS = ["48gx"];
+/** The models with the fast transfer in Files: the 48GX, and a 49G whose ROM has no XSERV (1.10 and earlier). */
+export const XMODEM_MODELS = ["48gx", "49g"];
 
 /** How long the calculator has to start the transfer, in seconds. */
 export const XMODEM_WAIT_S = 180;
 
-/** Whether `model` (the page's name: "48gx") has the fast transfer. */
-export const hasXmodem = (model) => XMODEM_MODELS.includes(model);
+/**
+ * Whether `model` (the page's name: "48gx") has the fast transfer in
+ * Files: the 48GX; a 49G only when its `version` says its ROM has no
+ * XSERV, which copies as fast (a revision not known counts as XSERV).
+ */
+export const hasXmodem = (model, version = null) => model === "48gx" || (model === "49g" && !hasXserv(version));
 
 /**
  * The keys that run the program on the stack (EVAL), per model: `labels`
@@ -31,6 +36,8 @@ export const hasXmodem = (model) => XMODEM_MODELS.includes(model);
  */
 export const EVAL_KEYS = {
   "48gx": { labels: ["EVAL"], names: ["eval"], text: "EVAL" },
+  // The 49G has no EVAL key: EVAL is right-shift SYMB.
+  "49g": { labels: ["↱", "SYMB"], names: ["rightshift", "symb"], text: "right-shift, then SYMB (EVAL)" },
 };
 
 /**
@@ -78,7 +85,7 @@ export function fastWords({ direction, name, model, plan = null, emulated = fals
  * ("PRG.hp in hp-files", "PRG.hp in your downloads"); `left` whether the
  * server ended.
  */
-export function fastDone({ direction, name, model, error = null, where = null, left = true, emulated = false }) {
+export function fastDone({ direction, name, model, version = null, error = null, where = null, left = true, emulated = false }) {
   const put = direction === "put";
   let lead;
   if (!error) lead = put ? `${name} is on the calculator.` : `${name} came over: ${where ?? `${name}.hp`}.`;
@@ -88,7 +95,8 @@ export function fastDone({ direction, name, model, error = null, where = null, l
   else lead = `Could not ${put ? "send" : "get"} ${name}: ${failureText(error)}`;
   if (!left) return { lead, restart: null, keys: null, ok: !error };
   // The 48GX's right-shift → starts the Kermit server however slowly it is pressed (emulated 48GX, 2026-11-08).
-  const again = restartWords(model);
+  // A fast transfer runs on the Kermit server: that one starts again.
+  const again = restartWords(model, { server: "kermit", version });
   const restart = emulated
     ? "The emulated calculator is out of server mode. Reconnect starts its server again."
     : `The calculator is out of server mode. ${again.text} Then reconnect.`;

@@ -19,7 +19,9 @@
 // "xserv" a 49G in XSERV (its connection says so, its disconnect ends
 // XSERV); `silence()` makes it stop answering: the next request fails as
 // saturnus-tx's watchdog fails it (`notAnswering`, no connection after),
-// and so does every one but a connect, which answers again.
+// and so does every one but a connect, which answers again;
+// `silence({partial: true})` makes the next tree put stop part way, as
+// saturnus-tx reports it (`partial` with the silence as its `source`).
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -37,6 +39,7 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
   let restarted = false;
   let leftServer = false;
   let silent = false;
+  let silentPartial = false;
   let notAnswering = false;
   /** Posts a Worker event (set by the worker for the running request). */
   let emit = () => {};
@@ -102,6 +105,12 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
       silent = false;
       notAnswering = false;
       return { type: "connected", connection: conn };
+    }
+    if (silentPartial && req.type === "put-tree") {
+      silentPartial = false;
+      connected = false;
+      notAnswering = true;
+      throw fail("partial", "the calculator stopped answering; 0 variables and 1 directory were stored before, the new directory included", null, { directories: 1, variables: 0, rootMade: true, source: { kind: "notAnswering", message: "the calculator stopped answering" } });
     }
     if (silent || notAnswering) {
       connected = false;
@@ -256,7 +265,7 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
             const id = w.running;
             if (id === null || id === undefined) return;
             w.running = null;
-            w.onmessage({ data: { type: "connection", connection: connected ? conn : null } });
+            w.onmessage({ data: { type: "connection", connection: connected ? conn : null, notAnswering } });
             w.onmessage({ data: { type: "result", id, ok: false, error: { kind: "aborted", message: "stopped" } } });
             return;
           }
@@ -268,10 +277,10 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
             const total = m.data instanceof Uint8Array ? m.data.length : 0;
             if (total) w.onmessage({ data: { type: "event", event: { type: "progress", sent: Math.floor(total / 2), total } } });
             const { data, ...outcome } = await answer(m.request, m.data);
-            out.push({ type: "connection", connection: connected ? conn : null }, { type: "result", id: m.id, ok: true, outcome, data });
+            out.push({ type: "connection", connection: connected ? conn : null, notAnswering }, { type: "result", id: m.id, ok: true, outcome, data });
           } catch (err) {
             if (!err.tx) throw err;
-            out.push({ type: "connection", connection: connected ? conn : null }, { type: "result", id: m.id, ok: false, error: err.tx });
+            out.push({ type: "connection", connection: connected ? conn : null, notAnswering }, { type: "result", id: m.id, ok: false, error: err.tx });
           }
           // A request stopped meanwhile has had its answer.
           if (w.running !== m.id) return;
@@ -283,7 +292,7 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
     };
     return w;
   };
-  return { worker, requests, root, answer, release, silence: () => { silent = true; } };
+  return { worker, requests, root, answer, release, silence: ({ partial = false } = {}) => { if (partial) silentPartial = true; else silent = true; } };
 }
 
 /** A link that takes everything (the fake calculator answers without it). */
