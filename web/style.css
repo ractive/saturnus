@@ -888,6 +888,10 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .flags-bar .find { flex: 1; width: auto; max-width: 28ch; }
 :where(#calculator-view) .flags-only { font-size: var(--fs-md); }
 :where(#calculator-view) .flags-only[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+/* `button:hover` and `:active` (tokens.css) outrank the rule above, whose
+   `:where` counts for nothing: their grey under the light text. */
+:where(#calculator-view) .flags-only[aria-pressed=true]:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: color-mix(in srgb, var(--accent) 88%, var(--ink)); }
+:where(#calculator-view) .flags-only[aria-pressed=true]:active:not(:disabled) { background: color-mix(in srgb, var(--accent) 78%, var(--ink)); }
 :where(#calculator-view) .flags-scroll { flex: 1; min-height: 0; overflow: auto; padding: var(--s2) 0 var(--s5); }
 :where(#calculator-view) .flags-scroll > :not(.card) { margin-inline: var(--gutter); }
 :where(#calculator-view) .flags-sum { font-size: var(--fs-md); }
@@ -958,6 +962,7 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .lamps .lamp-toggle:hover .lamp { border-color: var(--accent); }
 :where(#calculator-view) .lamp-grid button.cell { min-height: 0; background: none; box-shadow: none; cursor: pointer; }
 :where(#calculator-view) .lamp-grid button.cell:hover { border-color: var(--accent); color: var(--ink); }
+:where(#calculator-view) .lamp-grid button.cell.on:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: color-mix(in srgb, var(--accent) 88%, var(--ink)); color: var(--accent-ink); }
 :where(#calculator-view) .lamp-grid button.cell.on { background: var(--accent); }
 :where(#calculator-view) .lamp-grid button.cell:disabled, :where(#calculator-view) .lamps .lamp-toggle:disabled { cursor: default; }
 /* One primary button and a "⋯" for the rest: they never wrap, the
