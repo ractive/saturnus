@@ -21,6 +21,7 @@ pub fn aplet_event_json(e: ApletEvent) -> (Value, Option<Vec<u8>>) {
     let v = match e {
         ApletEvent::Model(m) => json!({"type": "model", "model": model_name(m)}),
         ApletEvent::NeedFile { name } => json!({"type": "needFile", "name": name}),
+        ApletEvent::NeedFolder => json!({"type": "needFolder"}),
         ApletEvent::Sending { name, done, total } => {
             json!({"type": "sending", "name": name, "done": done, "total": total})
         }
@@ -178,6 +179,21 @@ impl TxApletServer {
         self.server.provide(now, name, data).map_err(js_err)
     }
 
+    /// Answer a `needFolder` event: the folder's files as just read, as for
+    /// the constructor, or `undefined` when the folder could not be read
+    /// (the server answers from the files it knows). Throws when the
+    /// calculator no longer waits for its list.
+    #[wasm_bindgen(js_name = provideFolder)]
+    pub fn provide_folder(&mut self, now_ms: f64, files: JsValue) -> Result<(), JsValue> {
+        let files = if files.is_undefined() || files.is_null() {
+            None
+        } else {
+            Some(folder_files(&files)?)
+        };
+        let now = self.at(now_ms);
+        self.server.provide_folder(now, files).map_err(js_err)
+    }
+
     /// The page could not store a received file: the server forgets it.
     pub fn forget(&mut self, name: &str) {
         self.server.forget(name);
@@ -212,7 +228,7 @@ impl TxApletServer {
     }
 
     /// What the page does next, in order: `{type: "write", bytes}` and the
-    /// events (`model`, `needFile`, `sending`, `sent`, `notFound`,
+    /// events (`model`, `needFile`, `needFolder`, `sending`, `sent`, `notFound`,
     /// `receiving`, `received` with `data`, `discarded`, `calculatorSays`,
     /// `failed`, `wireStarted`, `wireProgress`, `wireDone`, `wireFailed`).
     pub fn drain(&mut self, now_ms: f64) -> Result<Array, JsValue> {

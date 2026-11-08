@@ -1,12 +1,12 @@
 //! `satx xserv`: the XSERV command server of the 49g+/50g (and the 49G after
 //! ROM 1.10), thin over [`satx_core::xserv`].
 //!
-//! **Unverified on hardware.** The framing follows the wiki's description of
-//! HP's client code (wiki: protocols/xserv); the emulated 49G (ROM 2.15) has
-//! no XSERV, so only the bytes satx would send are tested, against an
-//! in-memory calculator. The client lives here, not in `satx-core`, because
-//! the core module is sans-IO and nothing about the exchange (ACK after the
-//! command packet, reply packets) has been seen on a real calculator yet.
+//! **Tested on a real 49G** (ROM 1.18, 2026-11-08): `mem`, `ls`, `get`,
+//! `put` and `eval`; not yet on a 49g+ or 50g. The framing follows the
+//! wiki's description of HP's client code (wiki: protocols/xserv); the
+//! emulated 49G (ROM 2.15) has no XSERV, so the tests here check the bytes
+//! satx sends against an in-memory calculator. The client lives here, not
+//! in `satx-core`, because the core module is sans-IO.
 
 use std::fmt::Write as _;
 use std::io::Write;
@@ -38,17 +38,17 @@ const REPLY_FAILURES: u32 = 4;
 const QUIET: Duration = Duration::from_millis(200);
 
 /// Shown under every `xserv` subcommand's help.
-const UNVERIFIED: &str = "NOT YET TESTED ON A REAL CALCULATOR: no calculator has answered satx's \
-XSERV yet (the emulated 49G has none). Start XSERV on the calculator instead of SERVER.";
+const XSERV_HELP: &str = "Tested on a real 49G (ROM 1.18) on 2026-11-08; not yet on a 49g+ or \
+50g. Start XSERV on the calculator instead of SERVER.";
 
 /// The `xserv` subcommands.
 #[derive(Subcommand, Debug)]
 pub enum XservCmd {
     /// List the current directory (command L).
-    #[command(after_help = UNVERIFIED)]
+    #[command(after_help = XSERV_HELP)]
     Ls,
     /// Download a variable (command G, then XModem).
-    #[command(after_help = UNVERIFIED)]
+    #[command(after_help = XSERV_HELP)]
     Get {
         /// Variable in the current directory.
         name: String,
@@ -60,7 +60,7 @@ pub enum XservCmd {
         force: bool,
     },
     /// Upload a file as a variable (command P, then XModem).
-    #[command(after_help = UNVERIFIED)]
+    #[command(after_help = XSERV_HELP)]
     Put {
         /// File to upload; - for stdin (then --as is required).
         file: PathBuf,
@@ -72,7 +72,7 @@ pub enum XservCmd {
         dry_run: bool,
     },
     /// Execute RPL on the calculator (command E); results stay on its stack.
-    #[command(after_help = UNVERIFIED)]
+    #[command(after_help = XSERV_HELP)]
     Eval {
         /// RPL words, joined with spaces.
         #[arg(required = true, value_name = "RPL", allow_negative_numbers = true)]
@@ -82,7 +82,7 @@ pub enum XservCmd {
         dry_run: bool,
     },
     /// Free memory (command M); the reply's format is unknown, shown raw.
-    #[command(after_help = UNVERIFIED)]
+    #[command(after_help = XSERV_HELP)]
     Mem,
 }
 
@@ -358,7 +358,7 @@ impl Ctx {
     }
 
     pub(crate) fn xserv(&mut self, command: XservCmd) -> Result<Option<Outcome>> {
-        let label = |cmd: &str| format!("xserv {cmd} (not yet tested on a real calculator)");
+        let label = |cmd: &str| format!("xserv {cmd}");
         match command {
             XservCmd::Ls => {
                 let mut client = self.xserv_open()?;
@@ -428,7 +428,7 @@ impl Ctx {
         }
         let options = self.xserv_xmodem()?;
         let mut client = self.xserv_open()?;
-        let what = format!("xserv get {name} (not yet tested on a real calculator)");
+        let what = format!("xserv get {name}");
         client
             .send(&XservCommand::Get(name.to_string()))
             .with_context(|| what.clone())?;
@@ -492,7 +492,7 @@ impl Ctx {
         }
         let options = self.xserv_xmodem()?;
         let mut client = self.xserv_open()?;
-        let what = format!("xserv put {name} (not yet tested on a real calculator)");
+        let what = format!("xserv put {name}");
         client.send(&cmd).with_context(|| what.clone())?;
         let mut session = XmodemSession::new(client.into_transport(), options);
         let report = session.send(&data).with_context(|| what.clone())?;

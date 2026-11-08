@@ -246,10 +246,11 @@ export class Pane {
       }
       if (serial) button("Add a calculator", "plug", () => this.app.openConnect(this), { primary: left, id: "add-serial" });
       button("Add an emulated calculator", "calculator", () => this.app.openEmulated(this), { primary: left && !serial, id: "add-emulated" });
+      // "Add a calculator" asks which kind and leads a 38G, 39G or 40G to
+      // the serve screen; without a serial port that screen still serves
+      // an emulated one.
+      if (!serial && left) button("Serve a folder to a 38G, 39G or 40G", "calculator", () => this.app.openServe(), { id: "serve-aplets" });
       box.append(actions);
-      const serveLink = el("button", { type: "button", class: "link", id: "serve-aplets", text: "Serve a folder to a 38G, 39G or 40G" });
-      serveLink.addEventListener("click", () => this.app.openServe());
-      if (left) box.append(el("p", { class: "serve-link" }, serveLink));
       if (!serial && left) box.append(el("p", { class: "start-note", text: "This browser cannot reach a serial port. For a calculator on a cable, open the app in Chrome or Edge on a computer. The emulated calculator works here too." }));
       if (pick && !left && !app) box.append(el("p", { class: "start-note", text: "The browser does not open your home folder, Desktop or Downloads themselves: choose or make a folder inside one of them." }));
       if (!pick && !left) box.append(el("p", { class: "start-note", text: "This browser cannot open a folder on the computer: the app keeps files in the browser instead, not on your disk. Add files to them, and download what you copy there (⋯ → Download)." }));

@@ -21,5 +21,9 @@ DTR/RTS behaviour. Every surprise goes into the wiki.
   guess) and that the object walk matches it, and whether the 39G/40G wire
   protocol is Kermit or XModem; record both in the wiki. Needs a 39G or
   40G.
-- [ ] XSERV on a 49g+/50g (`satx xserv` is implemented from the wiki only
-  and unverified). Needs a 49g+ or 50g.
+- [x] XSERV on a real 49G (ROM 1.18), 2026-11-08: `satx xserv mem`, `ls`,
+  `get`, `put` and `eval` work; 4 KB took 8.4 s against Kermit's 16.7 s.
+  The module docs and `satx xserv --help` say so
+  ([[iterations/iteration-68a-aplet-folder-and-add-calculator]]).
+- [ ] XSERV on a 49g+/50g (`satx xserv` follows the wiki; verified on the
+  49G only). Needs a 49g+ or 50g.

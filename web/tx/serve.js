@@ -7,7 +7,9 @@
 // - `ServeSession`: the folder served over one link. The page holds the
 //   link and the folder; saturnus-tx's aplet server runs in its own Worker
 //   (aplet-worker.js). Files the calculator asks for are read from the
-//   folder when it asks; files it sends are written there. A file of the
+//   folder when it asks, and the folder itself each time the calculator
+//   asks for its list of files (every RECV), so a file put there while
+//   serving is offered; files it sends are written there. A file of the
 //   same name, in any case, is replaced (the calculator asked "Replace
 //   existing aplet?" itself) only when it is the calculator's: a directory
 //   file (HP38DIR.*, HP39DIR.*, kept there as HPGComm kept them), a file
@@ -49,17 +51,33 @@ export const HOME_REFUSED = "The home folder itself is not served: the calculato
 /** The aplet Worker. */
 export const apletWorker = () => new Worker(new URL("./aplet-worker.js", import.meta.url), { type: "module" });
 
-/** The folder's files as the server wants them: `[{name, head}]` (all of a directory file). */
-export async function folderFiles(folder, path = folder.home) {
+/**
+ * The folder's files as the server wants them: `[{name, head}]` (all of a
+ * directory file). With `known` (a Map kept across calls), a file whose
+ * size and time are unchanged is not read again: the calculator waits for
+ * its list while the folder is read, at every RECV.
+ */
+export async function folderFiles(folder, path = folder.home, known = null) {
   const listing = await folder.list(path);
   const out = [];
+  const seen = new Set();
   for (const e of listing.entries) {
     if (out.length >= MAX_FILES) break;
     if (e.directory || (e.size ?? 0) > MAX_FILE_BYTES) continue;
-    // Only a directory file is read whole; of the rest the header and the title.
-    const head = await (isDirFile(e.name) ? folder.read(path, e.name).then((f) => f.data) : folder.head(path, e.name, HEAD_BYTES)).catch(() => null);
+    seen.add(e.name);
+    // Only a directory file is read whole, and always: the calculator rewrites it.
+    const dir = isDirFile(e.name);
+    const key = `${e.size ?? ""}/${e.modified ?? ""}`;
+    const old = dir ? null : known?.get(e.name);
+    let head = old?.key === key ? old.head : null;
+    if (!head) {
+      // Of the rest the header and the title.
+      head = await (dir ? folder.read(path, e.name).then((f) => f.data) : folder.head(path, e.name, HEAD_BYTES)).catch(() => null);
+      if (head && !dir) known?.set(e.name, { key, head });
+    }
     if (head) out.push({ name: e.name, head });
   }
+  if (known) for (const name of known.keys()) if (!seen.has(name)) known.delete(name);
   return out;
 }
 
@@ -70,7 +88,8 @@ export class ServeSession extends EventTarget {
   /**
    * Serve `folder` (its `path`, the folder itself by default) over `link`.
    * Events: `event` (`detail` the server's event, `received` after the
-   * file is in the folder, with `storedAs`), `lost` (`detail` why).
+   * file is in the folder, with `storedAs`, `folderRead` with the folder's
+   * `files` each time it was read for a listing), `lost` (`detail` why).
    */
   constructor({ link, folder, path = folder.home, worker = apletWorker, home = defaultHome }) {
     super();
@@ -101,8 +120,11 @@ export class ServeSession extends EventTarget {
 
   async starting() {
     if (await this.servesHome()) throw new Error(HOME_REFUSED);
-    const files = await folderFiles(this.folder, this.path);
-    this.replaceable = new Set(files.filter((f) => isDirFile(f.name) || isCalculatorHead(f.head)).map((f) => foldName(f.name)));
+    // The heads read so far, by name: a RECV reads only what changed.
+    this.heads = new Map();
+    const files = await folderFiles(this.folder, this.path, this.heads);
+    this.replaceable = new Set();
+    this.keepReplaceable(files);
     this.worker = this.makeWorker();
     const ready = new Promise((resolve, reject) => {
       this.worker.onmessage = (e) => {
@@ -119,6 +141,11 @@ export class ServeSession extends EventTarget {
     this.link.addEventListener("lost", this.onLost);
     await this.link.open({ baud: 9600, parity: "none", dataBits: 8 });
     return files;
+  }
+
+  /** The calculator's files among `files` (directory files, 38G and 39G headers) may be replaced by a received one. */
+  keepReplaceable(files) {
+    for (const f of files) if (isDirFile(f.name) || isCalculatorHead(f.head)) this.replaceable.add(foldName(f.name));
   }
 
   lose(reason) {
@@ -144,6 +171,17 @@ export class ServeSession extends EventTarget {
         this.later(async () => {
           const f = await this.folder.read(this.path, m.name).catch(() => null);
           this.worker?.postMessage({ cmd: "provide", name: m.name, data: f?.data });
+        });
+        break;
+      case "needFolder":
+        // The calculator waits for its list: the folder as it is now.
+        this.later(async () => {
+          const files = await folderFiles(this.folder, this.path, this.heads).catch(() => null);
+          if (files) {
+            this.keepReplaceable(files);
+            this.emit({ type: "folderRead", files });
+          }
+          this.worker?.postMessage({ cmd: "provideFolder", files: files ?? undefined });
         });
         break;
       case "received":
@@ -513,6 +551,11 @@ export class ServeView {
     if (e.type === "notFound") this.lastMissing = e.name;
     if (e.type === "wireStarted") this.wire = true;
     if (["wireDone", "wireFailed"].includes(e.type)) this.wire = false;
+    if (e.type === "folderRead") {
+      this.files = e.files;
+      this.refreshWire().then(() => this.renderWire());
+      return;
+    }
     if (e.type === "received" && !e.directory) {
       const head = e.data?.slice?.(0, HEAD_BYTES);
       this.files = [...this.files.filter((f) => f.name.toLowerCase() !== (e.storedAs ?? e.name).toLowerCase()), { name: e.storedAs ?? e.name, head }];

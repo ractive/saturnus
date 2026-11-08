@@ -236,8 +236,10 @@ fn parse() -> Result<Data> {
 
 /// The models that have `name`, with where it is on each: the ROM's
 /// menus that offer it (`menus`, source "rom"), the key or menu a manual
-/// names (`key`, source "manual"), and our own grouping (`group`, source
-/// "ours") only where neither exists. `category` is the first of them.
+/// names (`key`, source "manual"), else the key whose legend is the name
+/// (`keyboard`, source "keyboard" where no menu offers it), and our own
+/// grouping (`group`, source "ours") only where none exists. `category` is
+/// the first of them.
 fn availability(d: &Data, name: &str) -> Vec<(&'static str, Option<Value>)> {
     let ours = d
         .reference
@@ -282,13 +284,18 @@ fn availability(d: &Data, name: &str) -> Vec<(&'static str, Option<Value>)> {
                 }
                 out.insert("key".into(), k);
             }
-            if out.is_empty()
+            if !out.contains_key("key")
                 && let Some(k) = keyboard(m, name)
             {
-                // No menu and no manual statement: the key that carries
-                // the name, from the model's keyboard legends (skins).
-                out.insert("category".into(), json!("Keyboard"));
-                out.insert("source".into(), json!("keyboard"));
+                // No manual statement: the key that carries the name, from
+                // the model's keyboard legends (skins), beside the ROM's
+                // menus where they offer it too (EVAL on the 49G: right
+                // shift, SYMB, and MENU 142). Without a menu it is the
+                // category.
+                if out.is_empty() {
+                    out.insert("category".into(), json!("Keyboard"));
+                    out.insert("source".into(), json!("keyboard"));
+                }
                 out.insert("keyboard".into(), json!(k));
             }
             if out.is_empty()
@@ -994,6 +1001,15 @@ mod tests {
             "{t}"
         );
         assert!(!t.contains("group:") && !t.contains("menu:"), "{t}");
+        // EVAL on the 49G: the ROM's menu, and the key beside it (the 49G
+        // has no EVAL key of its own: right shift, SYMB).
+        let eval = one("EVAL", Some("49g"));
+        assert_eq!(eval["category_source"]["source"], "rom");
+        let t = text(&eval);
+        assert!(
+            t.contains("\nkey:    Keyboard (right shift, SYMB key; from the keyboard's legends)"),
+            "{t}"
+        );
         // A manual's statement wins over the keyboard's legends.
         let asin = one("ASIN", Some("48sx"));
         assert_eq!(asin["category_source"]["source"], "manual");

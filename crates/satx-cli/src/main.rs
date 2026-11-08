@@ -330,11 +330,11 @@ Examples:
     Settings(commands::SettingsArgs),
     /// End server mode on the calculator (Kermit FINISH).
     Finish,
-    /// Talk to a 49g+/50g running XSERV (not yet tested on a real calculator).
+    /// Talk to a 49G, 49g+ or 50g running XSERV, the XModem server.
     #[command(after_help = "\
-NOT YET TESTED ON A REAL CALCULATOR: the XSERV framing follows HP's own
-client code as the wiki describes it; no calculator has answered satx yet
-(the emulated 49G has no XSERV). Reports are welcome.
+Tested on a real 49G (ROM 1.18) on 2026-11-08: mem, ls, get, put and eval
+worked. Not yet tried on a 49g+ or 50g (the emulated 49G has no XSERV).
+Reports are welcome.
 
 Start XSERV on the calculator instead of SERVER. --dir is sent as an E
 command (HOME A B) first. get and put run XModem with HP's CRC and 1k blocks;

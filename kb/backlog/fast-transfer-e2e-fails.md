@@ -26,6 +26,12 @@ Not known yet: whether a person's fast transfer with an emulated calculator
 fails too, or only the test's way of doing it ("Type it for me" through the
 page's dialog).
 
+Real hardware, 2026-11-08 (the owner, 0.10.3): the fast transfer works on a
+real 49G (ROM 1.18), both in Files in the desktop app and with `satx`. So
+the protocol and the dialog's steps are fine on a calculator; what fails is
+the emulated path, "Type it for me" typing XSEND into the emulated
+calculator ([[iterations/iteration-68a-aplet-folder-and-add-calculator]]).
+
 ## Next
 
 - Bisect from 2026-10-17 to `v0.10.2` on the first-parent history, with
