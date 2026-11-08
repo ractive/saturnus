@@ -63,6 +63,8 @@ export const TRANSFER_KEYS = {
   link: "saturnus.transfer.link",
   /** The serial port last used, by its name (the desktop app's port list). */
   port: "saturnus.transfer.port",
+  /** The HP 100LX/200LX palmtop's speed: 19200, or a fixed one (web/tx/app.js). */
+  palmtop: "saturnus.transfer.palmtop",
 };
 
 /**

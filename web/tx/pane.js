@@ -1,6 +1,8 @@
 // One pane of the transfer page (kb/docs/saturnus-tx.md, "Layout"): a
-// place, which is a calculator (on a cable, or emulated in the page) or,
-// in the right pane only, a folder on the computer (folder.js), with its head (the place's name,
+// place, which is a calculator (on a cable, or emulated in the page), an
+// HP 100LX/200LX palmtop on a cable (palmtop.js: a folder with a device's
+// life, in either pane) or, in the right pane only, a folder on the
+// computer (folder.js), with its head (the place's name,
 // its status, "Change", "⋯"), its directory tree, its list and its
 // preview. What crosses panes (copies, the queue, the dialogs) is the
 // page's (app.js), reached through `app`.
@@ -29,7 +31,8 @@ import { clearRecentNative, computerFolder, isTauri, pickNative, recentNative, u
 import { KermitDevice } from "./kermit-device.js";
 import { ProtocolClient } from "./protocol.js";
 import { renderPreview, textObject, updateReading } from "./preview.js";
-import { START_SERVER, connectedText, disconnectNote, downloadUrl, failureText, modelTitle, placeTitle, previewPlan, restartWords, searchText, xservHint } from "./flows.js";
+import { AUTO_PREVIEW_BYTES, START_SERVER, connectedText, disconnectNote, downloadUrl, failureText, modelTitle, palmtopTitle, placeTitle, previewPlan, restartWords, searchText, settingsText, xservHint } from "./flows.js";
+import { PALMTOP_BAUD, PalmtopFolder, palmtopError } from "./palmtop.js";
 import { fileItem, folderItem, problemText, removeQuestion, restoreQuestion } from "./transfers.js";
 import { EVAL_KEYS, XMODEM_WAIT_S, XmodemDialog, fastDone, fastWords, hasXmodem } from "./xmodem.js";
 
@@ -53,6 +56,9 @@ export const NARROW_HEAD = "(max-width: 479px)";
 const FILE_PREVIEW_BYTES = 256 * 1024;
 
 let placeSerial = 0;
+
+/** Whether `place` shows its tree and list: a folder, or a calculator or palmtop while connected. */
+const usable = (place) => Boolean(place && (place.palmtop ? place.device.connection && !place.device.notAnswering : place.kind === "folder" || place.device.connection));
 
 /** The fast transfer's dialog, one for the page, made on first use. */
 let fastDialog = null;
@@ -114,11 +120,12 @@ export class Pane {
   /** Whether the pane may show a folder: the right one only; the left shows calculators. */
   get folders() { return this.id === "right"; }
 
-  /** The pane's place kind when it can be copied to: "device" (connected) or "folder"; else null. */
+  /** The pane's place kind when it can be copied to: "device" (connected) or "folder" (a palmtop: connected); else null. */
   get ready() {
     const p = this.place;
     if (!p) return null;
     if (p.kind === "device") return p.device.connection ? "device" : null;
+    if (p.palmtop) return usable(p) ? "folder" : null;
     return "folder";
   }
 
@@ -146,6 +153,10 @@ export class Pane {
   idleStatus() {
     const p = this.place;
     if (!p) return "";
+    if (p.palmtop) {
+      if (p.device.notAnswering) return "Not answering.";
+      return p.device.connection ? `Connected at ${settingsText(p.device.connection.settings)}.` : "";
+    }
     if (p.kind === "device") {
       if (p.hub) return p.device.connection ? "Connected to the calculator open in Calculator." : "";
       if (p.device.restarted) return "The calculator restarted.";
@@ -175,14 +186,16 @@ export class Pane {
     const source = place?.device ?? place?.folder ?? null;
     this.path = [...homeOf(source)];
     this.ui.list.columns = place?.kind === "folder" ? FOLDER_COLUMNS : COLUMNS;
-    this.ui.list.emptyDirText = place?.kind === "folder" ? "This folder is empty. Drop files here, or copy from the other pane." : "This directory is empty. Drop a file here to put it on the calculator.";
+    this.ui.list.emptyDirText = place?.palmtop
+      ? "This directory is empty. Drop files here, or copy from the other pane."
+      : place?.kind === "folder" ? "This folder is empty. Drop files here, or copy from the other pane." : "This directory is empty. Drop a file here to put it on the calculator.";
     this.ui.list.tableLabel = (path) => (place?.kind === "folder" ? `Files in ${path.join(" ")}` : `Variables in ${path.join(" ")}`);
     this.ui.tree.setAttribute("aria-label", place?.kind === "folder" ? "Folders" : "Directories");
-    const usable = place && (place.kind === "folder" || place.device.connection);
-    this.ui.tree.device = usable ? source : null;
-    this.ui.list.device = usable ? source : null;
+    const shown = usable(place);
+    this.ui.tree.device = shown ? source : null;
+    this.ui.list.device = shown ? source : null;
     // The desktop app's computer opens at the home folder, below its top.
-    if (usable && source?.start) {
+    if (shown && source?.start) {
       this.path = [...source.start];
       this.ui.list.path = this.path;
     }
@@ -199,15 +212,15 @@ export class Pane {
 
   render() {
     const p = this.place;
-    const usable = Boolean(p && (p.kind === "folder" || p.device.connection));
-    this.ui.empty.hidden = usable;
-    this.ui.body.hidden = !usable;
-    this.ui.refresh.hidden = !usable;
+    const shown = usable(p);
+    this.ui.empty.hidden = shown;
+    this.ui.body.hidden = !shown;
+    this.ui.refresh.hidden = !shown;
     this.ui.more.hidden = !p;
     // The emulator's own calculator is shown there too (not one from a ROM file, nor in the desktop app).
     this.ui.emulator.hidden = !(p?.kind === "device" && p.hub && this.app.emulatorUrl?.(p.model));
     this.ui.title.textContent = this.heading;
-    if (!usable) this.renderCard();
+    if (!shown) this.renderCard();
     if (!this.busyLabel) this.setStatus(this.step?.status ?? this.idleStatus());
     this.renderCrumbs();
     this.app.placesChanged();
@@ -233,7 +246,14 @@ export class Pane {
       button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
       button(p.emulated && !p.hub ? "Turn it off" : "Disconnect", "disconnect", () => this.close(), { id: "close" });
     };
-    if (p?.kind === "device" && p.device.restarted) {
+    if (p?.palmtop) {
+      box.append(
+        el("h2", { text: "The palmtop stopped answering" }),
+        el("p", { text: "It sent nothing for a while. Check that Filer is still open and in front with server mode on (MENU, Communications, Remote Settings), that the palmtop has not turned itself off, and the cable. Then reconnect." }),
+      );
+      button("Reconnect", "plug", () => this.reconnect(), { primary: true, id: "reconnect" });
+      button("Disconnect", "disconnect", () => this.close(), { id: "close" });
+    } else if (p?.kind === "device" && p.device.restarted) {
       box.append(el("h2", { text: "The calculator restarted" }));
       again("The restore is done and the calculator left server mode.", "The restore is done and the emulated calculator left server mode. Reconnect starts its server again.");
     } else if (p?.kind === "device" && p.device.leftServer) {
@@ -323,7 +343,17 @@ export class Pane {
       this.say(`${p.title} still has copies running or waiting: let them finish, or cancel the waiting transfers.`, { error: true });
       return false;
     }
-    if (p.kind === "device") {
+    if (p.palmtop) {
+      this.step = { title: p.heading, status: "Disconnecting…", busy: true };
+      this.setStatus(this.step.status);
+      try {
+        if (p.device.connection) await p.device.disconnect().catch(() => {});
+        await p.device.close().catch(() => {});
+      } finally {
+        this.step = null;
+      }
+      this.note = note ?? "Disconnected. Filer on the palmtop stays in server mode for the next connect.";
+    } else if (p.kind === "device") {
       // Ending the server, and letting go of the emulator's calculator (which waits for a send there to end), may take a while: said.
       this.step = { title: p.heading, status: "Disconnecting…", busy: true };
       this.setStatus(this.step.status);
@@ -395,7 +425,7 @@ export class Pane {
       place.emulator?.close();
       this.note = "";
       this.show(null);
-      this.say(`The calculator is gone: ${e.detail}`, { error: true });
+      this.say(`${place.palmtop ? "The palmtop" : "The calculator"} is gone: ${e.detail}`, { error: true });
     });
   }
 
@@ -448,6 +478,53 @@ export class Pane {
     this.step = null;
     this.show(place);
     this.connectedHint(place);
+    return place;
+  }
+
+  /**
+   * Connect to an HP 100LX or 200LX palmtop over `link` at `baud` (19200
+   * unless the user fixed another) and show its drives. Either pane:
+   * the palmtop is a place on a cable, like a calculator. Resolves to the
+   * place, or null when it failed (said in a toast; at another speed it
+   * suggests 19200).
+   */
+  async connectPalmtop(link, { baud = PALMTOP_BAUD } = {}) {
+    if (this.place && !(await this.close())) return null;
+    const stale = this.mine;
+    this.mine = null;
+    if (stale?.device) {
+      await stale.device.close().catch(() => {});
+      stale.emulator?.close();
+    }
+    link = this.app.wrapLink?.(link) ?? link;
+    let device = null;
+    link = this.app.tapLink?.(link, this.id, () => device?.running?.total ?? null) ?? link;
+    const client = new ProtocolClient(link, { ...this.app.deviceOptions, kind: "palmtop" });
+    device = new PalmtopFolder(client, { helpers: () => this.app.helpers() });
+    const heading = palmtopTitle(link.label);
+    const place = { id: `${this.id}:${++placeSerial}`, kind: "folder", palmtop: true, folder: device, device, model: "palmtop", emulated: false, linkLabel: link.label, title: "the palmtop", heading };
+    this.wireDevice(place);
+    this.note = "";
+    this.step = { title: heading, status: `Connecting at ${baud} baud…`, busy: true };
+    this.place = null;
+    this.mine = place;
+    this.render();
+    try {
+      await device.connect({ baud });
+      if (this.mine !== place) return null;
+    } catch (err) {
+      if (this.mine === place) {
+        this.step = null;
+        this.mine = null;
+        await device.close().catch(() => {});
+        this.render();
+        this.say(palmtopError(err).message, { error: true });
+      }
+      return null;
+    }
+    this.step = null;
+    this.mine = null;
+    this.show(place);
     return place;
   }
 
@@ -541,6 +618,7 @@ export class Pane {
   /** After a restore or a fast transfer: start the emulated server again, then connect. */
   async reconnect() {
     const p = this.place;
+    if (p?.palmtop) return this.reconnectPalmtop(p);
     if (p?.kind !== "device") return;
     this.step = { title: p.heading, status: "Looking for the calculator…", busy: true };
     this.renderCard();
@@ -559,6 +637,23 @@ export class Pane {
     this.step = null;
     this.show(p);
     this.connectedHint(p);
+    this.say("Connected again.");
+  }
+
+  /** A palmtop that stopped answering, connected again at the speed it had. */
+  async reconnectPalmtop(p) {
+    this.step = { title: p.heading, status: "Connecting to the palmtop…", busy: true };
+    this.renderCard();
+    try {
+      await this.app.queue.add({ label: `Reconnect to ${p.title}`, places: [p.id], run: () => p.device.connect({ baud: this.app.palmtopBaud?.() ?? PALMTOP_BAUD }) });
+    } catch (err) {
+      this.step = null;
+      this.render();
+      if (!quiet(err)) this.say(palmtopError(err).message, { error: true });
+      return;
+    }
+    this.step = null;
+    this.show(p);
     this.say("Connected again.");
   }
 
@@ -720,6 +815,8 @@ export class Pane {
     const kept = this.previews.get(this.previewKey(this.path, entry));
     if (kept) return kept;
     if (entry.directory) return { status: "none" };
+    // The palmtop sends about 1.7 KB a second at 19200 baud: a small file is read on selection, a larger one when asked.
+    if (this.place?.palmtop) return Number(entry.size) <= AUTO_PREVIEW_BYTES ? { status: "loading" } : { status: "ask", note: "A larger file on the palmtop: it is read only when asked." };
     if (this.place?.kind === "folder") return Number(entry.size) <= FILE_PREVIEW_BYTES ? { status: "loading" } : { status: "ask", note: "A large file: it is read only when asked." };
     const plan = previewPlan(entry);
     if (!plan.fetch) return { status: "none" };
@@ -761,7 +858,8 @@ export class Pane {
     try {
       const h = await this.app.helpers();
       if (place.kind === "folder") {
-        const file = await place.folder.read(path, entry.name);
+        if (place.palmtop) place.folder.cancelQueued("preview");
+        const file = await place.folder.read(path, entry.name, { size: entry.size, tag: "preview" });
         const kind = h.file_kind(file.data);
         if (this.place === place) this.keepDragUrl(key, file.data);
         if (kind === "binary") result = await this.describeFile(h, file.data);
@@ -1026,7 +1124,7 @@ export class Pane {
     const path = [...this.path];
     try {
       if (p.kind === "folder") {
-        const r = await this.app.queue.add({ label: `Download from ${p.title}`, places: [p.id], run: () => downloadFolder(p.folder, path, entries.map((e) => e.name), this.app.downloadDeps) });
+        const r = await this.app.queue.add({ label: `Download from ${p.title}`, places: [p.id], stop: p.palmtop ? () => p.device.stop() : null, run: () => downloadFolder(p.folder, path, entries.map((e) => e.name), this.app.downloadDeps) });
         this.say(r.collisions.length ? `${r.name} saved to your downloads. Some names in it differ only in case: unzipped on macOS or Windows, one of each pair is lost.` : `${r.name} saved to your downloads.`);
         return;
       }
@@ -1055,6 +1153,7 @@ export class Pane {
 
   /** A name check for this place: why `name` is refused, or null. */
   async nameCheck(name) {
+    if (this.place?.palmtop) return this.place.folder.nameProblem(name);
     if (this.place?.kind === "folder") return fileNameProblem(name);
     const h = await this.app.helpers();
     return h.name_problem(name) ? "The calculator does not take this as a name." : null;
@@ -1077,7 +1176,8 @@ export class Pane {
 
   async mkdir() {
     const p = this.place;
-    const name = await this.app.askName({ title: p.kind === "folder" ? "New folder" : "New directory", why: p.kind === "folder" ? `A new folder in ${this.path.at(-1)}:` : `A new directory in ${this.path.at(-1)}:`, suggested: p.kind === "folder" ? "New folder" : "NEWDIR", action: "Create", check: (n) => this.nameCheck(n) });
+    const folder = p.kind === "folder" && !p.palmtop;
+    const name = await this.app.askName({ title: folder ? "New folder" : "New directory", why: folder ? `A new folder in ${this.path.at(-1)}:` : `A new directory in ${this.path.at(-1)}:`, suggested: folder ? "New folder" : "NEWDIR", action: "Create", check: (n) => this.nameCheck(n) });
     if (!name) return;
     const path = [...this.path];
     try {
@@ -1112,7 +1212,7 @@ export class Pane {
     const gone = [];
     for (const e of entries) {
       try {
-        await this.app.queue.add({ label: `${device ? "Purge" : "Delete"} ${e.name}`, places: [p.id], run: () => (device ? p.device.purge(path, e.name, { count: e.directory ? counts.get(e.name) ?? 0 : null }) : p.folder.purge(path, e.name, { recursive: e.directory })) });
+        await this.app.queue.add({ label: `${device ? "Purge" : "Delete"} ${e.name}`, places: [p.id], stop: p.palmtop ? () => p.device.stop() : null, run: () => (device ? p.device.purge(path, e.name, { count: e.directory ? counts.get(e.name) ?? 0 : null }) : p.folder.purge(path, e.name, { recursive: e.directory })) });
         gone.push(e.name);
       } catch (err) {
         if (quiet(err)) continue;
@@ -1461,7 +1561,7 @@ export class Pane {
     if (!p) return;
     this.previews.clear();
     this.dropDragUrls();
-    if (p.kind === "device") p.device.refresh(null);
+    if (p.kind === "device" || p.palmtop) p.device.refresh(null);
     else this.ui.list.reload();
     this.ui.tree.device = this.ui.tree.device;
     this.ui.tree.current = this.path;
@@ -1508,10 +1608,10 @@ export class Pane {
     this.ui.more.addEventListener("click", () => {
       const p = this.place;
       if (!p) return;
-      const items = paneActions({ kind: p.kind, connected: Boolean(p.device?.connection), emulated: p.emulated && !p.hub, hub: Boolean(p.hub), picked: p.picked, other: this.other.ready, otherFolders: this.other.folders, xmodem: this.xmodem });
+      const items = paneActions({ kind: p.kind, palmtop: Boolean(p.palmtop), connected: Boolean(p.device?.connection), emulated: p.emulated && !p.hub, hub: Boolean(p.hub), picked: p.picked, other: this.other.ready, otherFolders: this.other.folders, xmodem: this.xmodem });
       // A phone's header has no room for "Open in the emulator": it is here instead.
       if (!this.ui.emulator.hidden && globalThis.matchMedia?.(NARROW_HEAD).matches) items.unshift({ id: "emulator", text: "Show in Calculator", icon: "calculator" }, "-");
-      openMenu({ anchor: this.ui.more, label: p.kind === "device" ? "Calculator" : "Folder", returnFocus: () => this.ui.more, items: items.map((it) => (it === "-" ? it : { ...it, run: () => this.runPaneAction(it.id) })) });
+      openMenu({ anchor: this.ui.more, label: p.kind === "device" ? "Calculator" : p.palmtop ? "Palmtop" : "Folder", returnFocus: () => this.ui.more, items: items.map((it) => (it === "-" ? it : { ...it, run: () => this.runPaneAction(it.id) })) });
     });
     this.root.addEventListener("keydown", (e) => {
       if (e.target.closest("input, textarea, select, dialog, .menu")) return;
@@ -1589,7 +1689,7 @@ export class Pane {
     items.push({ text: "Add an emulated calculator…", icon: "calculator", run: () => this.app.openEmulated(this) });
     // Without a serial port "Add a calculator" is not there to ask the kind: the serve screen keeps its own way in (as the empty card's button).
     if (!hasSerial()) items.push({ text: "Serve a folder to a 38G, 39G or 40G…", icon: "calculator", run: () => this.app.openServe() });
-    if (this.place) items.push("-", { text: this.place.kind === "device" ? (this.place.emulated && !this.place.hub ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });
+    if (this.place) items.push("-", { text: this.place.kind === "device" || this.place.palmtop ? (this.place.emulated && !this.place.hub ? "Nothing (turn the emulated calculator off)" : "Nothing (disconnect)") : "Nothing (close the folder)", icon: "close", run: () => this.close() });
     openMenu({ anchor: this.ui.change, align: "end", label: "Show in this pane", returnFocus: () => this.ui.change, items });
   }
 }

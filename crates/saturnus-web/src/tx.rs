@@ -21,6 +21,10 @@
 //! - The 38G, 39G and 40G: [`aplets::TxApletServer`] serves a folder to
 //!   the calculator, which drives the transfers; [`aplets::aplet_info`]
 //!   reads a file's header.
+//! - The HP 100LX and 200LX palmtops: [`palmtop::TxPalmtop`] (the same
+//!   calls as [`TxDevice`], so one driver runs either), the 8.3 name
+//!   check [`palmtop::palmtop_name_problem`], and
+//!   [`palmtop::TxFilerServer`], the page tests' palmtop.
 //!
 //! The page's JavaScript tests of these bindings are
 //! `web/test/tx-bindings.test.mjs`; `tests/xmodem.rs` replays the fast
@@ -45,6 +49,7 @@ use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
 pub mod aplets;
+pub mod palmtop;
 pub mod preview;
 
 pub use preview::{RomNames, describe_bytes, file_model, text_body};

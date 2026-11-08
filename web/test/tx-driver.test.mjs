@@ -196,3 +196,43 @@ test("a calculator that goes silent fails the request as notAnswering, and the d
     await device.close();
   }
 });
+
+test("the palmtop trace's session through the page's protocol stack", { timeout: 60_000 }, async (t) => {
+  const pkg = await load();
+  if (!pkg) {
+    t.skip("web/pkg not built (just web)");
+    return;
+  }
+  // crates/saturnus-tx/src/palmtop_tests.rs `session_requests`, in its order, against its recorded Filer server.
+  const link = new FakeLink(readFileSync(new URL("100lx-session.trace", TRACES), "utf8"));
+  const client = new ProtocolClient(link, { worker: () => inProcessWorker(pkg.TxPalmtop), kind: "palmtop" });
+  const data = new Uint8Array([0x10, 0x16, 0x03, ...new TextEncoder().encode(" hello, palmtop\r\n")]);
+  const C = ["C:"];
+  const put = (replace) => client.request({ type: "put", dir: C, name: "NEW.TXT", replace }, data);
+  try {
+    const conn = await client.request({ type: "connect", baud: 19200 });
+    assert.deepEqual(conn.connection, { model: "palmtop", settings: { baud: 19200, parity: "none", dataBits: 8 }, revision: 2 });
+    assert.deepEqual(client.connection, conn.connection);
+    const drives = await client.request({ type: "list", dir: [] });
+    assert.deepEqual(drives.entries.map((e) => [e.name, e.drive, e.directory]), [["A:", true, true], ["C:", true, true], ["D:", true, true]]);
+    const c = await client.request({ type: "list", dir: C });
+    assert.deepEqual(c.entries.map((e) => [e.name, e.size, e.directory]), [["BIG.BIN", 5000, false], ["HELLO.TXT", 7, false], ["SUB", 0, true]]);
+    assert.deepEqual(c.entries[1].modified, { year: 2026, month: 1, day: 1, hour: 12, minute: 0, second: 0 });
+    const hello = await client.request({ type: "get", dir: C, name: "HELLO.TXT" });
+    assert.equal(new TextDecoder().decode(hello.data), "Hello\r\n");
+    assert.equal((await put(false)).name, "NEW.TXT");
+    await assert.rejects(put(false), (err) => err.kind === "exists" && err.varName === "NEW.TXT");
+    assert.equal((await put(true)).name, "NEW.TXT");
+    assert.deepEqual(await client.request({ type: "rename", dir: C, from: "NEW.TXT", to: "NOTES.TXT" }), { type: "renamed", from: "NEW.TXT", to: "NOTES.TXT", data: undefined });
+    assert.equal((await client.request({ type: "mkdir", dir: C, name: "DOCS" })).name, "DOCS");
+    assert.equal((await client.request({ type: "remove", dir: C, name: "SUB", directory: true })).count, 3);
+    const after = await client.request({ type: "list", dir: C });
+    assert.deepEqual(after.entries.map((e) => e.name), ["BIG.BIN", "DOCS", "HELLO.TXT", "NOTES.TXT"]);
+    await client.request({ type: "disconnect" });
+    assert.equal(client.connection, null);
+    assert.equal(link.failure, null);
+    assert.equal(link.next, link.steps.length, "every step of the trace was played");
+  } finally {
+    await client.close();
+  }
+});

@@ -64,6 +64,38 @@ impl Rig {
         }
         panic!("job did not finish");
     }
+
+    /// Run a job and cancel it once it has reported `after` progress
+    /// events.
+    fn run_cancelled(&mut self, job: Job, after: usize) -> Result<Output, JobError> {
+        self.session.start(self.now, job).unwrap();
+        let mut seen = 0;
+        for _ in 0..10_000 {
+            while let Some(frame) = self.session.poll_output(self.now) {
+                self.sent.push(frame.clone());
+                self.server.handle_input(&frame);
+            }
+            while let Some(reply) = self.server.poll_output() {
+                self.session.handle_input(self.now, &reply);
+            }
+            while let Some(event) = self.session.poll_event() {
+                match event {
+                    SessionEvent::Finished(result) => return result,
+                    SessionEvent::Progress { .. } => {
+                        seen += 1;
+                        if seen == after {
+                            self.session.cancel();
+                        }
+                    }
+                }
+            }
+            if let Some(t) = self.session.next_timeout() {
+                self.now = t;
+                self.session.handle_timeout(t);
+            }
+        }
+        panic!("job did not finish");
+    }
 }
 
 fn names(output: Output) -> Vec<String> {
@@ -393,4 +425,47 @@ fn a_listing_of_only_dots_gives_up() {
         finished.get(1),
         Some(&Err(JobError::Failed(Failure::Fs(FsError::INTERNAL))))
     );
+}
+
+#[test]
+fn a_cancelled_get_closes_its_file_and_the_session_goes_on() {
+    let mut r = Rig::new();
+    assert_eq!(
+        r.run_cancelled(Job::Get(b"C:\\BYTES.BIN".to_vec()), 1),
+        Err(JobError::Cancelled)
+    );
+    // The last request was the close of handle 0.
+    assert_eq!(r.sent.last().unwrap()[6], 0x01);
+    assert!(r.session.is_open());
+    assert!(!r.session.is_cancelling());
+    let Output::File { data, .. } = r.run(Job::Get(b"C:\\BYTES.BIN".to_vec())).unwrap() else {
+        panic!()
+    };
+    assert_eq!(data, bytes());
+}
+
+#[test]
+fn a_cancelled_put_deletes_the_part_written() {
+    let mut r = Rig::new();
+    let job = Job::Put {
+        path: b"C:\\NEW.BIN".to_vec(),
+        data: bytes(),
+        modified: None,
+        overwrite: true,
+    };
+    assert_eq!(r.run_cancelled(job, 1), Err(JobError::Cancelled));
+    assert_eq!(r.server.fs().file(b"C:\\NEW.BIN"), None);
+    assert_eq!(r.sent.last().unwrap()[6], 0x04);
+    // A listing cancelled before it starts ends at its first reply.
+    r.session.start(r.now, Job::List(b"C:\\*.*".to_vec())).unwrap();
+    r.session.cancel();
+    let frame = r.session.poll_output(r.now).unwrap();
+    r.server.handle_input(&frame);
+    let reply = r.server.poll_output().unwrap();
+    r.session.handle_input(r.now, &reply);
+    assert_eq!(
+        r.session.poll_event(),
+        Some(SessionEvent::Finished(Err(JobError::Cancelled)))
+    );
+    assert!(r.session.is_open());
 }

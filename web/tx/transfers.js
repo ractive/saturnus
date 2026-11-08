@@ -8,7 +8,8 @@
 // is a job of the queue (queue.js) on the places it uses.
 //
 // A place is `{id, kind: "device" | "folder", title, device | folder,
-// model}` (a pane's, app.js). Items to copy are a calculator's listing
+// model}` (a pane's, app.js); a palmtop is a folder (`palmtop: true`,
+// palmtop.js) whose `device` is the same object, for its progress and Stop. Items to copy are a calculator's listing
 // entries, or file-system items (`FsItem`: a folder's entries, dropped
 // files and folders): `{name, directory, size, read(), children()}`.
 // No DOM: web/test/tx-transfers.test.mjs runs it over fakes.
@@ -166,8 +167,11 @@ export class Transfers {
     }
     const places = [from?.id, to.id].filter((p) => p !== undefined && p !== null);
     const result = { copied: [], failed: [], skipped: [] };
+    // A copy to or from a palmtop can be stopped while it runs (at the palmtop's next reply).
+    const palmtops = [from, to].filter((p) => p?.palmtop);
+    const stop = palmtops.length ? () => palmtops.forEach((p) => p.device.stop()) : null;
     await Promise.all(plan.steps.map((step) => this.queue
-      .add({ label: `Copy ${step.name} to ${to.title}`, places, total: step.size ?? null, run: ({ report }) => this.marked(step, { from, fromPath, to, toPath }, report) })
+      .add({ label: `Copy ${step.name} to ${to.title}`, places, total: step.size ?? null, stop, run: ({ report }) => this.marked(step, { from, fromPath, to, toPath }, report) })
       .then((note) => {
         result.copied.push(step.name);
         if (note) this.say(note);
@@ -224,14 +228,14 @@ export class Transfers {
   }
 
   /**
-   * Forward the progress of the calculators among `places` to `report`
+   * Forward the progress of the calculators (and palmtops) among `places` to `report`
    * while `fn` runs, added up: a copy between two calculators gets from
    * one, then puts to the other, and its count only grows. Before the
    * second one reports, its total is taken to be the first one's, so the
    * bar does not run to full twice.
    */
   async watch(places, report, fn) {
-    const devices = [...new Set(places.filter((p) => p?.kind === "device").map((p) => p.device))];
+    const devices = [...new Set(places.filter((p) => p?.kind === "device" || p?.palmtop).map((p) => p.device))];
     const seen = new Map();
     const off = [];
     for (const d of devices) {
@@ -275,6 +279,9 @@ export class Transfers {
     const steps = [];
     const inUse = [];
     const blocked = [];
+    /** Names the target does not take (a palmtop's 8.3 rule), with why. */
+    const badNames = [];
+    const refused = async (name) => (to.kind === "folder" && to.folder.nameProblem ? to.folder.nameProblem(name) : null);
     const strings = [];
     const families = [];
     let familyMessage = null;
@@ -284,6 +291,10 @@ export class Transfers {
       for (const e of items) {
         const asFile = !e.directory || single;
         const fileName = asFile ? h.file_name(e.name, "binary") : h.folder_name(e.name);
+        if (await refused(fileName)) {
+          badNames.push(fileName);
+          continue;
+        }
         const there = to.folder.existing ? await to.folder.existing(toPath, fileName) : null;
         if (there && (!there.exact || there.directory !== !asFile)) {
           blocked.push(there.exact ? `${fileName} (a ${there.directory ? "folder" : "file"} of that name is there)` : `${fileName} (${there.name} differs only in case)`);
@@ -323,6 +334,10 @@ export class Transfers {
               blocked.push(`${item.name} (a folder cannot go into itself)`);
               continue;
             }
+          }
+          if (await refused(item.name)) {
+            badNames.push(item.name);
+            continue;
           }
           const there = await to.folder.existing(toPath, item.name);
           if (there && (!there.exact || there.directory !== item.directory)) {
@@ -422,7 +437,17 @@ export class Transfers {
     }
     if (strings.length) sections.push({ text: "These are not calculator files. The calculator keeps their contents as strings:", items: strings });
     if (blocked.length) sections.push({ text: "Left out: the name is taken by something a copy cannot replace:", items: blocked });
-    return { steps, inUse, sections, stringsOnly: strings.length > 0 && !families.length && !blocked.length, nothing: blocked.length ? `Nothing was copied: ${namesText(blocked)}.` : null };
+    if (badNames.length) sections.push({ text: "Left out: the palmtop takes DOS names only, up to 8 letters or digits, a dot and up to 3 more (like NOTES.TXT). Rename these first:", items: badNames });
+    const left = [...blocked, ...badNames];
+    return {
+      steps,
+      inUse,
+      sections,
+      stringsOnly: strings.length > 0 && !families.length && !left.length,
+      nothing: badNames.length && !blocked.length
+        ? `Nothing was copied: the palmtop takes DOS names only (up to 8 letters or digits, a dot and up to 3 more), not ${namesText(badNames)}.`
+        : left.length ? `Nothing was copied: ${namesText(left)}.` : null,
+    };
   }
 
   /** A copy between two calculators: saturnus-tx's copy plan, its warnings, a get and a put per item. */

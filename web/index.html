@@ -251,6 +251,41 @@
       </details>
       <p id="connect-known" class="muted" hidden></p>
     </div>
+    <div id="connect-palmtop" class="connect-part" hidden>
+      <p>On the palmtop, put Filer in server mode:</p>
+      <ol class="palmtop-steps">
+        <li>Open Filer.</li>
+        <li>Press MENU, then choose Communications, Remote Settings.</li>
+        <li>Set Baud to <span id="palmtop-baud-text">19200</span>, Interface to COM1 and Server Mode on. Press OK.</li>
+        <li>Leave Filer open and in front while Files works with it.</li>
+      </ol>
+      <p class="connect-warning" role="note"><strong>Use the palmtop's own cable.</strong> Never plug the palmtop's cable into an HP 48 or 49G, and never use a 38G cable or adapter on the palmtop: the plugs fit, but the wiring differs and can damage the device.</p>
+      <details class="connect-help">
+        <summary>Trouble with the cable?</summary>
+        <ul>
+          <li>HP's palmtop cable ends in a serial plug with the null modem built in: plug a USB serial adapter straight into it, nothing in between.</li>
+          <li>At the palmtop, the plug goes in with the HP logo up.</li>
+          <li>On Linux, your user must be in the <code>dialout</code> group (<code>uucp</code> on Arch) to reach the port.</li>
+          <li>Files talks at 19200 baud. If you set the palmtop faster, set the same speed here.</li>
+        </ul>
+        <label class="switch"><input id="palmtop-fixed" type="checkbox"> <span>Use a fixed speed</span></label>
+        <div class="settings-row">
+          <label for="palmtop-baud">Speed</label>
+          <select id="palmtop-baud">
+            <option value="19200">19200 baud</option>
+            <option value="38400">38400 baud</option>
+            <option value="57600">57600 baud</option>
+            <option value="115200">115200 baud</option>
+            <option value="9600">9600 baud</option>
+            <option value="4800">4800 baud</option>
+            <option value="2400">2400 baud</option>
+            <option value="1200">1200 baud</option>
+          </select>
+        </div>
+        <p id="palmtop-fast" class="muted" hidden>Above 19200 the palmtop's serial chip may lose bytes, so a copy can fail part way. If it does, go back to 19200.</p>
+      </details>
+      <p id="palmtop-known" class="muted" hidden></p>
+    </div>
     <div class="tx-dialog-actions">
       <button value="cancel" type="submit">Cancel</button>
       <button id="connect-back" type="button" hidden>Back</button>

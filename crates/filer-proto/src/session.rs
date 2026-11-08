@@ -123,6 +123,9 @@ pub enum JobError {
     },
     /// The link failed and the session is over.
     Link(client::Error),
+    /// Stopped by [`Session::cancel`]: a file left open was closed, and a
+    /// file being written deleted again.
+    Cancelled,
 }
 
 impl JobError {
@@ -142,6 +145,7 @@ impl fmt::Display for JobError {
             JobError::Exists => f.write_str("the name exists"),
             JobError::TooLarge { limit } => write!(f, "file larger than {limit} bytes"),
             JobError::Link(e) => e.fmt(f),
+            JobError::Cancelled => f.write_str("stopped"),
         }
     }
 }
@@ -267,6 +271,8 @@ pub struct Session {
     running: Option<Running>,
     events: VecDeque<SessionEvent>,
     max_file: usize,
+    /// [`Session::cancel`] asked to stop the running job.
+    cancelling: bool,
 }
 
 impl Session {
@@ -277,6 +283,7 @@ impl Session {
             running: None,
             events: VecDeque::new(),
             max_file: MAX_FILE,
+            cancelling: false,
         }
     }
 
@@ -404,6 +411,23 @@ impl Session {
         while self.client.poll_event().is_some() {}
     }
 
+    /// Stop the running job at its next reply, the session kept: a get
+    /// closes its file, a put closes and deletes the part written; any
+    /// other job ends there. The job finishes with [`JobError::Cancelled`]
+    /// (or with its own result when it was done by then). Nothing is sent
+    /// at once: the request on the line is still answered first. CONNECT
+    /// is not stopped.
+    pub fn cancel(&mut self) {
+        if self.running.is_some() && !matches!(self.running, Some(Running::Connect)) {
+            self.cancelling = true;
+        }
+    }
+
+    /// Whether [`Session::cancel`] waits for the running job to stop.
+    pub fn is_cancelling(&self) -> bool {
+        self.cancelling
+    }
+
     /// Feed bytes read from the link.
     pub fn handle_input(&mut self, now: Instant, bytes: &[u8]) {
         self.client.handle_input(now, bytes);
@@ -452,6 +476,7 @@ impl Session {
 
     fn finish(&mut self, result: Result<Output, JobError>) {
         self.running = None;
+        self.cancelling = false;
         self.events.push_back(SessionEvent::Finished(result));
     }
 
@@ -468,6 +493,15 @@ impl Session {
         let Some(running) = self.running.take() else {
             return;
         };
+        if self.cancelling
+            && !matches!(
+                running,
+                Running::Connect | Running::Get { .. } | Running::Put { .. }
+            )
+        {
+            // Nothing is open: the job ends at this reply.
+            return self.finish(Err(JobError::Cancelled));
+        }
         match running {
             Running::Connect => self.running = Some(Running::Connect),
             Running::Single => self.finish(match reply {
@@ -641,6 +675,41 @@ impl Session {
         else {
             return;
         };
+        if self.cancelling && error.is_none() {
+            match step {
+                // The open failed: nothing to close.
+                GetStep::Open if !matches!(reply, Ok(Response::Handle(_))) => {
+                    return self.finish(Err(JobError::Cancelled));
+                }
+                GetStep::Open | GetStep::Close => {}
+                _ => {
+                    error = Some(JobError::Cancelled);
+                    self.running = Some(Running::Get {
+                        path,
+                        step: GetStep::Close,
+                        handle,
+                        data,
+                        size,
+                        modified,
+                        error,
+                    });
+                    return self.send(now, Request::Close(handle));
+                }
+            }
+            if let (GetStep::Open, Ok(Response::Handle(h))) = (&step, &reply) {
+                let handle = *h;
+                self.running = Some(Running::Get {
+                    path,
+                    step: GetStep::Close,
+                    handle,
+                    data,
+                    size,
+                    modified,
+                    error: Some(JobError::Cancelled),
+                });
+                return self.send(now, Request::Close(handle));
+            }
+        }
         let next = match step {
             GetStep::Open => match reply {
                 Ok(Response::Handle(h)) => {
@@ -758,6 +827,30 @@ impl Session {
         else {
             return;
         };
+        if self.cancelling && error.is_none() {
+            let close = match (&step, &reply) {
+                (PutStep::Create | PutStep::Replace, Ok(Response::Handle(h))) => Some(*h),
+                // Nothing was made.
+                (PutStep::Create | PutStep::Replace, _) => {
+                    return self.finish(Err(JobError::Cancelled));
+                }
+                (PutStep::Write | PutStep::Time, _) => Some(handle),
+                (PutStep::Close | PutStep::Delete, _) => None,
+            };
+            if let Some(handle) = close {
+                self.running = Some(Running::Put {
+                    path,
+                    data,
+                    modified,
+                    overwrite,
+                    step: PutStep::Close,
+                    handle,
+                    position,
+                    error: Some(JobError::Cancelled),
+                });
+                return self.send(now, Request::Close(handle));
+            }
+        }
         let write = |handle: u16, position: usize, data: &[u8]| {
             let end = (position + MAX_BLOCK).min(data.len());
             Request::Write {

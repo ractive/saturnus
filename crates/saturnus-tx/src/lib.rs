@@ -25,6 +25,9 @@
 //!   pressing EVAL on the calculator for `XRECV` or `XSEND`).
 //! - [`xserv`]: a 49G running XSERV, the XModem server: the requests over
 //!   it, and the Kermit server nested in it for what XSERV cannot do.
+//! - [`palmtop`]: an HP 100LX or 200LX palmtop, its Filer in server mode
+//!   (`filer-proto`): the drives, listings, get, put, rename, removal of
+//!   a file or a directory tree, new directories, 8.3 names, Stop.
 //! - [`trace`]: recorded serial traffic with its timing, and its replay
 //!   against a [`Device`] on a fake clock (the unit tests; a fake link for
 //!   the page).
@@ -42,6 +45,7 @@ pub mod copy;
 pub mod device;
 pub use satx_core::names;
 mod ops;
+pub mod palmtop;
 mod search;
 pub mod trace;
 pub mod xmodem;

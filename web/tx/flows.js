@@ -108,6 +108,21 @@ export function linkSettings(text) {
   return { find: v?.find !== false, baud, parity };
 }
 
+/** The palmtop's speed stored as `text` (JSON): `{fixed, baud}`; 19200 unless fixed to one of the Filer's speeds. */
+export function palmtopSettings(text) {
+  let v = null;
+  try {
+    v = JSON.parse(text ?? "null");
+  } catch {
+    v = null;
+  }
+  const baud = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200].includes(v?.baud) ? v.baud : 19200;
+  return { fixed: v?.fixed === true, baud };
+}
+
+/** The name of a palmtop on a link: "HP 100LX/200LX on USB serial port". */
+export const palmtopTitle = (linkLabel = "serial port") => `HP 100LX/200LX on ${linkLabel}`;
+
 /** A size in bytes, short: `840 bytes`, `1.2 KB`, `31 KB`. */
 export function bytesText(n) {
   const b = Math.max(0, Number(n) || 0);
