@@ -2,7 +2,7 @@
 
 All notable changes to saturnus. The crates (`saturnus-core`,
 `saturnus-objects`, `saturnus-host`, `saturnus-drive`, `saturnus`,
-`kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
+`kermit-proto`, `xmodem-proto`, `filer-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
 ## Unreleased
@@ -22,6 +22,18 @@ the desktop app and the web page share one version.
   calculator runs XSERV, and how to go on. `satx xserv quit` ends
   XSERV, `satx xserv mem` gives the free memory as a number, and `satx
   xserv ls` gives the sizes `satx ls` gives.
+- **`satx lx`: files on an HP 100LX or 200LX palmtop.** satx talks to
+  the palmtop's built-in Filer in server mode over the serial cable:
+  `satx lx drives`, `ls` (a directory, a file or a pattern), `get` (with
+  the palmtop's date), `put` (with the file's date; an existing name only
+  with `--overwrite`), `rm`, `mkdir`, `rmdir` and `mv`, at 19200 baud by
+  default (`--baud`). The help says how to set the palmtop up. Tested
+  against BSD Filer, a Unix emulation of the Filer server, not yet on a
+  real palmtop.
+- **New crate `filer-proto`:** the Filer protocol of the HP 100LX/200LX,
+  sans-IO and for wasm32 too: framing and CRC, the commands and their
+  error codes, a client with HP's timing and retries, the file manager's
+  request sequences, and a server for tests.
 - **`satx` reads a 49G whole.** The 49G sends each stack level only as
   wide as its display (20 characters on ROM 1.18), without saying so, so
   `satx info` and `satx settings` failed on IOPAR on a real 49G, and the

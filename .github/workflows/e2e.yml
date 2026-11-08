@@ -184,7 +184,7 @@ jobs:
       - name: satx-core lx tests (in process and against the oracle)
         env:
           FILER_E2E_ADDR: tcp://localhost:4853
-        run: cargo test --locked -p satx-core --test lx -- --nocapture
+        run: cargo test --locked -p satx-core --test e2e lx:: -- --nocapture
       - name: CLI end-to-end script
         env:
           FILER_E2E_ADDR: tcp://localhost:4853

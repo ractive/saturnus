@@ -3,7 +3,11 @@
 The HP calculator layer of satx on top of `kermit-proto` and
 `xmodem-proto`: the Kermit and XModem driver loops, the calculator
 operations (list, get, put, host commands, PICT, backup, restore, XModem
-preparation), the HP object format, GROBs and the HP character set.
+preparation), the HP object format, GROBs and the HP character set. It
+also drives `filer-proto` for the HP 100LX/200LX palmtops
+(`filer::Palmtop`: drives, list, get, put, rename, delete, mkdir, rmdir;
+blocking, not in the wasm32 build, where `filer_proto::Session` is the
+face).
 
 The protocol logic never reads a clock, sleeps or touches a port. Two faces
 run it:

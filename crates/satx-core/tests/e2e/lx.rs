@@ -1,4 +1,5 @@
-//! `satx_core::filer::Palmtop` end to end, over TCP:
+//! `satx_core::filer::Palmtop` end to end, over TCP (a module of the
+//! e2e binary, `cargo test -p satx-core --test e2e lx::`):
 //!
 //! - always against `filer-proto`'s test server (`Server` over
 //!   `MemoryFs`), in a thread of this process;
@@ -12,7 +13,6 @@
 //! Both serve the same files: `HELLO.TXT` (30 bytes, 2004-12-14
 //! 13:49:36), `BYTES.BIN` (5000 bytes, every value), `EMPTY.DAT`,
 //! `SUB\NOTE.TXT` (tools/filer-oracle/entrypoint.sh).
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
