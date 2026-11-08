@@ -7,7 +7,8 @@
 //! The protocol logic (Kermit session, calculator operations, XModem) never
 //! reads a clock, sleeps or touches a port. It runs behind either face:
 //!
-//! - **Blocking**: [`Calculator`], [`Session`] and [`XmodemSession`] over a
+//! - **Blocking**: [`Calculator`], [`Session`], [`XmodemSession`] and
+//!   [`XservSession`] over a
 //!   [`transport::Transport`] (serial port, TCP, the in-process saturnus
 //!   emulator, memory), with the system clock. This is what the satx CLI
 //!   uses.
@@ -54,8 +55,8 @@
 //! - [`charset`]: the HP character set and its ASCII trigraphs.
 //! - [`xmodem`]: XModem transfers with `XRECV`/`XSEND` started on the
 //!   calculator ([`XmodemSession`]).
-//! - [`xserv`]: XSERV (49g+/50g, the 49G) packet framing; tested on a real
-//!   49G.
+//! - [`xserv`]: XSERV (49g+/50g, the 49G): framing, the detection probe and
+//!   a client ([`XservSession`]); tested on a real 49G and the emulated one.
 //!
 //! Wiki references (calculator-knowledgebase,
 //! <https://github.com/ractive/calculator-knowledgebase>): `protocols/server-commands`,
@@ -99,3 +100,6 @@ pub use xmodem::XmodemOptions;
 #[cfg(not(target_arch = "wasm32"))]
 pub use xmodem::XmodemSession;
 pub use xmodem_proto;
+pub use xserv::XservOptions;
+#[cfg(not(target_arch = "wasm32"))]
+pub use xserv::XservSession;

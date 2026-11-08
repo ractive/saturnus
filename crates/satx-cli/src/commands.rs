@@ -14,14 +14,23 @@ use satx_core::calc::validate_name;
 use satx_core::names;
 use satx_core::object::{self, ObjectType};
 use satx_core::reply::{Entry, Iopar, Listing, parse_real};
-use satx_core::{Calculator, Error, Options, Session, TransferMode, transport};
+use satx_core::{
+    Calculator, Error, Options, Session, TransferMode, XservOptions, XservSession, transport,
+};
 use serde_json::{Value, json};
 
-use crate::error::{Hinted, LinkInfo, describe};
+use crate::error::{Hinted, LinkInfo, XservRunning, describe};
 use crate::offline::{self, GrobCommand, ObjectCommand, PartialFailure};
 use crate::output::{self, Format, Hint, Outcome, shell_quote};
 use crate::util;
 use crate::{Cli, Command, Global};
+
+/// How long opening the link listens for XSERV's answer to `M`: the drain
+/// of the stale input it replaces took as long. The emulated 49G answers
+/// within 0.15 s.
+const XSERV_PROBE: Duration = Duration::from_millis(500);
+/// The same for `info`, which says which server runs.
+const XSERV_INFO_PROBE: Duration = Duration::from_millis(1500);
 
 /// The temporary variable `restore` leaves in port 0.
 const RESTORE_LEFTOVER: &str = ":0:SATXRS";
@@ -335,7 +344,13 @@ impl Ctx {
 
     /// Open the link, finish a pending restore cleanup, change to `--dir`.
     pub(crate) fn connect(&mut self) -> Result<Calculator> {
-        let mut calc = self.open()?;
+        self.connect_probing(XSERV_PROBE)
+    }
+
+    /// [`Ctx::connect`], listening `probe` for XSERV (see
+    /// [`Ctx::open_kermit`]).
+    fn connect_probing(&mut self, probe: Duration) -> Result<Calculator> {
+        let mut calc = self.open_kermit(probe)?;
         if let Some(marker) = self.restore_marker()
             && marker_pending(&marker)
         {
@@ -351,12 +366,30 @@ impl Ctx {
     }
 
     fn open(&mut self) -> Result<Calculator> {
+        self.open_kermit(XSERV_PROBE)
+    }
+
+    /// Open the link to the Kermit server. `probe`: how long the opening
+    /// drain listens for XSERV's answer to the `M` it sends first (a
+    /// Kermit server ignores a lone `M`); XSERV answering is
+    /// [`XservRunning`].
+    fn open_kermit(&mut self, probe: Duration) -> Result<Calculator> {
         let addr = crate::port::resolve(self.global.port.as_deref())?;
         self.link.addr = Some(addr.clone());
         let link = transport::open(&addr).with_context(|| format!("cannot open {addr}"))?;
+        let mut xserv = XservSession::new(link, XservOptions::default());
+        if let Some(free) = xserv
+            .probe(probe)
+            .with_context(|| format!("cannot open {addr}"))?
+        {
+            return Err(XservRunning { free }.into());
+        }
+        let link = xserv.into_transport();
         let mut options = Options::default();
         options.kermit.timeout = self.link.timeout;
         options.kermit.retries = self.link.retries;
+        // The probe has drained the stale input.
+        options.drain = Duration::ZERO;
         let session = Session::new(link, options).with_context(|| format!("cannot open {addr}"))?;
         let mut calc = Calculator::new(session);
         // A late reply from an aborted client lands on this query, not on
@@ -431,8 +464,39 @@ impl Ctx {
     }
 
     fn info(&mut self) -> Result<Outcome> {
-        let mut calc = self.connect()?;
+        let mut calc = match self.connect_probing(XSERV_INFO_PROBE) {
+            Ok(calc) => calc,
+            Err(e) => match e.downcast_ref::<XservRunning>() {
+                Some(x) => return Ok(self.xserv_info(x.free)),
+                None => return Err(e),
+            },
+        };
         self.info_on(&mut calc)
+    }
+
+    /// `info` when XSERV answered.
+    fn xserv_info(&self, free: f64) -> Outcome {
+        let addr = self.link.addr.clone().unwrap_or_default();
+        let mut text = String::new();
+        let _ = writeln!(text, "server    XSERV (the XModem server of the 49G)");
+        let _ = writeln!(text, "free      {} bytes", util::number_text(free));
+        let _ = writeln!(text, "port      {addr}");
+        Outcome {
+            results: json!({
+                "server": "xserv",
+                "free_bytes": util::number(free),
+                "port": addr,
+            }),
+            total: None,
+            dir: None,
+            hints: vec![
+                Hint::cmd("List the current directory", self.cmd("xserv ls")),
+                Hint::advice(
+                    "satx ls, get, put and the rest need the Kermit server: press ON on the calculator, then type SERVER",
+                ),
+            ],
+            text,
+        }
     }
 
     /// `info` on an open link.
@@ -445,6 +509,7 @@ impl Ctx {
         let model = satx_core::Model::from_version(version.as_deref()).name();
         let addr = self.link.addr.clone().unwrap_or_default();
         let mut text = String::new();
+        let _ = writeln!(text, "server    Kermit");
         let _ = writeln!(text, "model     {model}");
         let _ = writeln!(
             text,
@@ -460,6 +525,7 @@ impl Ctx {
         let _ = writeln!(text, "port      {addr}");
         Ok(Outcome {
             results: json!({
+                "server": "kermit",
                 "model": model,
                 "version": version,
                 "path": path,
