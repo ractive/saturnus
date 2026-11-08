@@ -116,7 +116,8 @@ test("the page with a recorded calculator: connect, list, drop, replace, preview
       expanded: document.getElementById("show-cable").getAttribute("aria-expanded"),
       label: document.getElementById("show-cable").textContent.trim(),
       first: [text(rows[0], ".cl-src"), text(rows[0], ".cl-desc")],
-      init: [text(rows[1], ".cl-dir"), text(rows[1], ".cl-type"), text(rows[1], ".cl-desc")],
+      probe: [text(rows[1], ".cl-dir"), text(rows[1], ".cl-type"), text(rows[1], ".cl-desc")],
+      init: [text(rows[2], ".cl-dir"), text(rows[2], ".cl-type"), text(rows[2], ".cl-desc")],
       types: [...new Set(rows.map((r) => text(r, ".cl-type").split(" ")[0]).filter(Boolean))].sort(),
       bad: rows.filter((r) => r.classList.contains("bad")).length,
       data: rows.some((r) => /HPHP48-/.test(text(r, ".cl-text"))),
@@ -126,6 +127,8 @@ test("the page with a recorded calculator: connect, list, drop, replace, preview
   assert.equal(cable.expanded, "true");
   assert.equal(cable.label, "Hide the packets");
   assert.deepEqual(cable.first, ["L", "opened at 9600 baud, no parity"]);
+  // XSERV's M first (no XSERV answers), then the Kermit probe.
+  assert.deepEqual(cable.probe, ["→", "M", "XSERV: how much memory is free?"]);
   assert.deepEqual(cable.init, ["→", "I 0", "init: up to 94 bytes a packet, check type 1"]);
   for (const k of ["B", "C", "D", "F", "G", "I", "R", "S", "X", "Y", "Z"]) assert.ok(cable.types.includes(k), `a ${k} line in ${cable.types}`);
   assert.equal(cable.bad, 0, "a clean session has nothing in red");
@@ -141,7 +144,8 @@ test("the page with a recorded calculator: connect, list, drop, replace, preview
   assert.equal(await c.ev(`getComputedStyle(document.querySelector("#cable .cable-line:last-child .cl-desc")).color`), "rgb(255, 107, 107)");
   await c.ev(`window.__copied = null; navigator.clipboard.writeText = async (t) => { __copied = t; }; document.querySelector("#cable .cable-copy").click(); true`);
   await p.until(`__copied !== null`, 5_000, "the log copied");
-  assert.match(await c.ev(`__copied.split("\\n")[1]`), /^ +0\.\d{3} {2}L {2}→ {2}I 0/);
+  assert.match(await c.ev(`__copied.split("\\n")[1]`), /^ +0\.\d{3} {2}L {2}→ {2}M /);
+  assert.match(await c.ev(`__copied.split("\\n")[2]`), /^ +\d+\.\d{3} {2}L {2}→ {2}I 0/);
   await c.ev(`document.querySelector("#cable .cable-clear").click(); true`);
   assert.equal(await c.ev(`document.querySelectorAll("#cable .cable-line").length + tx.app.cable.size`), 0);
   await c.ev(`document.querySelector("#cable .cable-close").click(); true`);
