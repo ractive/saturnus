@@ -167,6 +167,15 @@ pub(crate) async fn get_tree(
                 skipped.push((path, e.kind));
                 continue;
             }
+            if ctx.via_xserv() {
+                // Just listed, so no listing again before each `G`.
+                let data = xserv::get_listed(ctx, &e.name).await?;
+                items.push(TreeItem {
+                    path,
+                    data: Some(data),
+                });
+                continue;
+            }
             match get(ctx, &here, e.name, format).await? {
                 Outcome::File(File { data, .. }) => items.push(TreeItem {
                     path,
@@ -188,6 +197,40 @@ pub(crate) async fn get_tree(
         items,
         skipped,
     }))
+}
+
+/// What `request` would refuse before it sends anything, checked
+/// without the calculator: a bad name, a file that is no object (not to
+/// be kept as a string), a tree that does not lay out.
+pub(crate) fn check(request: &crate::Request) -> Result<()> {
+    use crate::Request;
+    match request {
+        Request::Get { name, .. } => check_name(name),
+        Request::Put {
+            name,
+            data,
+            as_string,
+            ..
+        } => {
+            check_name(name)?;
+            if FileKind::of(data) == FileKind::Other && !as_string {
+                return Err(TxError::NotAnObject);
+            }
+            Ok(())
+        }
+        Request::PutTree {
+            name,
+            items,
+            as_string,
+            ..
+        } => {
+            if let Some(name) = name {
+                check_name(name)?;
+            }
+            layout(items.clone(), *as_string).map(|_| ())
+        }
+        _ => Ok(()),
+    }
 }
 
 /// [`crate::Request::PutTree`] without its directory.
@@ -421,8 +464,13 @@ pub(crate) async fn restore(ctx: &Ctx, data: Vec<u8>) -> Result<Outcome> {
     ctx.session(|_| ())?;
     cd(ctx, &["HOME".to_string()]).await?;
     // RESTORE keeps the calculator's flags and ends server mode, so flag
-    // -35 goes back to the user's setting before it, as a disconnect does.
-    let mode = ctx.session(|s| s.connection.user_mode)?;
+    // -35 goes back to the user's setting before it, as a disconnect does:
+    // on an XSERV session the setting the nested Kermit server found (the
+    // connection's says binary, XSERV ignoring the flag).
+    let mode = match ctx.xserv_session(|x| x.user_mode) {
+        Ok(Some(mode)) => mode,
+        _ => ctx.session(|s| s.connection.user_mode)?,
+    };
     let restored = ctx.op(Op::RestoreLeaving { data, mode }).await;
     match restored {
         Ok(reply) => {

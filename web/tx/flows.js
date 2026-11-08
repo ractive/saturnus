@@ -40,7 +40,7 @@ export const START_SERVER = {
     title: "HP 49G",
     steps: ["Type XSERV and press ENTER."],
     keys: ["X", "S", "E", "R", "V", "ENTER"],
-    keysNote: "XSERV copies about twice as fast. SERVER and ENTER start the other server instead; Files works with either.",
+    keysNote: "Alpha mode for the letters (α twice, then the letter keys). XSERV copies about twice as fast. ROM 1.10 and earlier have no XSERV: type SERVER instead. Files works with either.",
     shown: "The display says “Xmodem server” (or “Awaiting Server Cmd.” after SERVER).",
   },
 };
@@ -49,14 +49,25 @@ export const START_SERVER = {
 export const SERVER_SHOWN = "The display says “Awaiting Server Cmd.”";
 
 /**
+ * Whether a 49G whose VERSION reads `version` ("…Revision #1.18") has
+ * XSERV: ROM 1.11 and later (wiki: protocols/xserv); `true` when the
+ * revision cannot be read.
+ */
+export function hasXserv(version) {
+  const m = /Revision #(\d+)\.(\d+)/.exec(String(version ?? ""));
+  if (!m) return true;
+  return Number(m[1]) > 1 || Number(m[2]) >= 11;
+}
+
+/**
  * The status of a connected calculator: the speed, the server when it is
- * XSERV, and on a 49G on a cable in the Kermit server the hint that XSERV
- * is faster.
+ * XSERV, and on a 49G with XSERV on a cable in the Kermit server the hint
+ * that XSERV is faster.
  */
 export function connectedText(connection, { emulated = false } = {}) {
   const at = settingsText(connection.settings);
   if (connection.server === "xserv") return `Connected to XSERV at ${at}.`;
-  if (connection.model === "49g" && !emulated) return `Connected at ${at}. XSERV copies faster: disconnect, type XSERV on the 49G and connect again.`;
+  if (connection.model === "49g" && !emulated && hasXserv(connection.version)) return `Connected at ${at}. XSERV copies faster: disconnect, type XSERV on the 49G and connect again.`;
   return `Connected at ${at}.`;
 }
 

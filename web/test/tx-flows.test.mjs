@@ -58,7 +58,8 @@ test("the connect dialog has every model, the 49G's keys quickly", () => {
   // XSERV on the 49G: typed, as its right-shift → starts either server depending on a pause.
   assert.equal(START_SERVER["49g"].steps[0], "Type XSERV and press ENTER.");
   assert.deepEqual(START_SERVER["49g"].keys, ["X", "S", "E", "R", "V", "ENTER"]);
-  assert.match(START_SERVER["49g"].keysNote, /SERVER and ENTER/);
+  assert.match(START_SERVER["49g"].keysNote, /^Alpha mode for the letters/);
+  assert.match(START_SERVER["49g"].keysNote, /ROM 1\.10 and earlier have no XSERV: type SERVER instead\./);
   assert.match(START_SERVER["49g"].shown, /Xmodem server/);
 });
 
@@ -107,6 +108,12 @@ test("failures read as sentences; the 49G's note after FINISH", () => {
   assert.match(connectedText(conn("49g", "kermit")), /^Connected at 9600 baud\. XSERV copies faster: disconnect, type XSERV on the 49G and connect again\.$/);
   assert.equal(connectedText(conn("49g", "kermit"), { emulated: true }), "Connected at 9600 baud.");
   assert.equal(connectedText(conn("48gx", "kermit")), "Connected at 9600 baud.");
+  // The hint only where the ROM has XSERV (1.11 and later), or its revision is not known.
+  const v = (version) => ({ ...conn("49g", "kermit"), version });
+  assert.equal(connectedText(v("Version HP49-C\r\nRevision #1.05")), "Connected at 9600 baud.");
+  assert.equal(connectedText(v("Version HP49-C\r\nRevision #1.10")), "Connected at 9600 baud.");
+  for (const r of ["1.11", "1.18", "1.19-6", "2.15"]) assert.match(connectedText(v(`Version HP48-C\r\nRevision #${r}`)), /XSERV copies faster/, r);
+  assert.match(connectedText(v("Version HP49-C")), /XSERV copies faster/);
   assert.match(disconnectNote("49g"), /^The calculator has left server mode\. .*algebraic mode.*one list/);
 });
 

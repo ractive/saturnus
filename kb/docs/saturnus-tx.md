@@ -409,7 +409,7 @@ and asks for a new one if the calculator would refuse it (`satx-core`'s
    bit, no flow control, and syncs (`satx-core`'s `Calculator::sync`)
    once the search below has heard the calculator.
 3. **Speed and parity found by probing** (`saturnus-tx`'s search): at
-   each speed (9600, 4800, 2400, 1200) first XSERV's `M`, 1.5 s for
+   each speed (9600, 4800, 2400, 1200) first XSERV's `M`, 0.5 s for
    its answer (an answer is an XSERV session, "Files over XSERV"; the
    Kermit servers of the real 49G and the emulated 48SX, 48GX and 49G
    ignore a lone `M`), then a Kermit I packet, which the

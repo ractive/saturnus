@@ -22,7 +22,7 @@ and in the desktop app (`kb/docs/saturnus-tx.md`): what a user does with an HP 4
 | `abort(now)`, `connection()`, `restarted()` | Drop the running request; the connected calculator; whether a restore restarted it. |
 
 - **XSERV** (the 49G's XModem server, `xserv` module): the connect
-  sends XSERV's `M` at each speed first and listens 1.5 s; an answer
+  sends XSERV's `M` at each speed first and listens 0.5 s; an answer
   makes an XSERV session (`Connection::server`). Listings, binary gets
   and puts, the memory, changes (RPL through `E`, each checked in a
   fresh listing) run on XSERV; text, files kept as strings, PICT, backup

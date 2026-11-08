@@ -646,6 +646,12 @@ pub enum TxError {
         "the calculator left server mode for the fast transfer; start SERVER on it and reconnect"
     )]
     LeftServer,
+    /// An HP 48 answered as XSERV (the XSrvr48 library), which Files does
+    /// not use.
+    #[error(
+        "an HP 48 answered as XSERV (the XSrvr48 library), and Files uses XSERV on the 49G only: press ON on the calculator, start SERVER and connect again"
+    )]
+    Xsrvr48,
     /// What a fast transfer cannot do (the reason).
     #[error("{0}")]
     NotForXmodem(String),
@@ -938,6 +944,15 @@ impl Device {
         sh.op_result = None;
         if let Some(session) = sh.session.as_mut() {
             session.cwd = None;
+            // A nest stopped part way, or a nested request: which server
+            // answers is found out before the next request. Stopped on
+            // XSERV itself, it is XSERV still (perhaps busy: the client
+            // asks `M` until it answers).
+            if let Some(x) = session.xserv.as_mut()
+                && x.running != xserv::Running::Xserv
+            {
+                x.running = xserv::Running::Unknown;
+            }
         }
     }
 
@@ -1111,7 +1126,7 @@ impl Ctx {
             .session
             .as_ref()
             .and_then(|s| s.xserv.as_ref())
-            .is_some_and(|x| x.nested.is_none())
+            .is_some_and(|x| x.running == xserv::Running::Xserv)
     }
 
     /// Wait `period`; input meanwhile is dropped.
@@ -1169,6 +1184,8 @@ async fn perform_on_xserv(ctx: &Ctx, request: Request) -> Result<Outcome> {
         xserv::leave_kermit(ctx).await?;
         return dispatch(ctx, request).await;
     }
+    // What would be refused is refused before the round trip to Kermit.
+    ops::check(&request)?;
     xserv::enter_kermit(ctx).await?;
     if ctx.lock().leftover {
         purge_leftover(ctx).await;
@@ -1370,12 +1387,12 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
     Ok(Outcome::Connected(connection))
 }
 
-/// The rest of a connect to XSERV: the 49G (XSERV is built into no other
-/// model), its directory unknown (XSERV cannot say it). After a fast
-/// transfer a 49G switched to RPN goes back to algebraic mode; the program
-/// left on the stack is not dropped (XSERV's own objects sit above it).
+/// The rest of a connect to XSERV: the 49G, told from an HP 48 running
+/// the XSrvr48 library ([`xserv::identify`]), which is refused; the
+/// directory HOME. After a fast transfer a 49G switched to RPN goes back
+/// to algebraic mode; the program left on the stack is not dropped
+/// (XSERV's own objects sit above it).
 async fn connect_xserv(ctx: &Ctx, settings: LinkSettings) -> Result<Outcome> {
-    let left = ctx.lock().left_server.clone();
     let connection = Connection {
         settings,
         model: Model::Hp49G,
@@ -1383,16 +1400,22 @@ async fn connect_xserv(ctx: &Ctx, settings: LinkSettings) -> Result<Outcome> {
         user_mode: TransferMode::Binary,
         server: Server::Xserv,
     };
-    {
+    // The session's state already while the calculator is told apart.
+    ctx.lock().session = Some(Session {
+        connection: connection.clone(),
+        cwd: None,
+        xserv: Some(XservSession::default()),
+    });
+    let found = xserv::identify(ctx).await;
+    if !matches!(found, Ok(true)) {
+        ctx.lock().session = None;
+        return Err(found.err().unwrap_or(TxError::Xsrvr48));
+    }
+    let left = {
         let mut sh = ctx.lock();
         sh.restarted = false;
-        sh.left_server = None;
-        sh.session = Some(Session {
-            connection: connection.clone(),
-            cwd: None,
-            xserv: Some(XservSession::default()),
-        });
-    }
+        sh.left_server.take()
+    };
     if left.is_some_and(|l| l.algebraic) {
         let _ = ctx.op(Op::XservExecute("-95. SF".into())).await;
     }

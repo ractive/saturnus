@@ -47,8 +47,13 @@ use crate::device::{Ctx, Request, Result, TxError, expect_done, unexpected};
 use crate::names::FileKind;
 
 /// How long the connect listens for XSERV's answer to `M` at each speed:
-/// the emulated 49G answers within 0.15 s.
-pub const PROBE_WAIT: Duration = Duration::from_millis(1500);
+/// the emulated 49G answers within 0.15 s, the real one (ROM 1.18) at
+/// once too; satx waits as long.
+pub const PROBE_WAIT: Duration = Duration::from_millis(500);
+
+/// How many times [`settle`] asks `M` before it takes the silence for the
+/// Kermit server: XSERV drops an `M` that comes too soon after FINISH.
+const SETTLE_PROBES: usize = 3;
 
 /// How long the XModem of a `G` or `P` waits for its start: it starts at
 /// once, as the command packet is ACKed.
@@ -77,12 +82,28 @@ impl Server {
     }
 }
 
+/// Which server answers on an XSERV session.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Running {
+    /// XSERV.
+    #[default]
+    Xserv,
+    /// The Kermit server nested in XSERV, in step, flag -35 set.
+    Kermit,
+    /// Not known: a nest was started or ended part way (an error, a
+    /// stop). [`settle`] finds out before the next request.
+    Unknown,
+}
+
 /// What an XSERV session keeps besides the current directory.
 #[derive(Debug, Default)]
 pub(crate) struct XservSession {
-    /// Set while the Kermit server runs nested in XSERV: the transfer mode
-    /// (flag -35) it had, put back before FINISH.
-    pub(crate) nested: Option<TransferMode>,
+    /// The server that answers.
+    pub(crate) running: Running,
+    /// The transfer mode (flag -35) the first nested Kermit server found,
+    /// put back before each FINISH; `None` while the flag was never read
+    /// (and so never changed).
+    pub(crate) user_mode: Option<TransferMode>,
     /// The directories seen in listings, as paths from HOME.
     pub(crate) dirs: HashSet<Vec<String>>,
 }
@@ -135,34 +156,107 @@ pub(crate) fn needs_kermit(request: &Request) -> bool {
     }
 }
 
+/// The server that answers.
+fn running(ctx: &Ctx) -> Result<Running> {
+    ctx.xserv_session(|x| x.running)
+}
+
+fn set_running(ctx: &Ctx, running: Running) -> Result<()> {
+    ctx.xserv_session(|x| x.running = running)
+}
+
 /// Start the Kermit server inside XSERV: `SERVER` through `E`, the sync,
-/// binary transfers (flag -35 kept for [`leave_kermit`]).
+/// binary transfers (flag -35 kept for [`leave_kermit`]). Unknown from
+/// `SERVER` on until it is in step: an error or a stop part way leaves it
+/// to [`settle`].
 pub(crate) async fn enter_kermit(ctx: &Ctx) -> Result<()> {
-    if ctx.xserv_session(|x| x.nested.is_some())? {
-        return Ok(());
+    match running(ctx)? {
+        Running::Kermit => return Ok(()),
+        Running::Unknown => settle(ctx).await?,
+        Running::Xserv => {}
     }
-    expect_done(ctx.op(Op::XservExecute("SERVER".into())).await?)?;
+    set_running(ctx, Running::Unknown)?;
+    execute(ctx, "SERVER".into()).await?;
     ctx.pause(KERMIT_START).await;
     expect_done(ctx.op(Op::Connect).await?)?;
-    let mode = match ctx.op(Op::TransferMode).await? {
-        Reply::TransferMode(mode) => mode,
-        other => return Err(unexpected("-35 FS?", &other)),
-    };
-    ctx.xserv_session(|x| x.nested = Some(mode))?;
+    if ctx.xserv_session(|x| x.user_mode.is_none())? {
+        let mode = match ctx.op(Op::TransferMode).await? {
+            Reply::TransferMode(mode) => mode,
+            other => return Err(unexpected("-35 FS?", &other)),
+        };
+        ctx.xserv_session(|x| x.user_mode = Some(mode))?;
+    }
     expect_done(ctx.op(Op::SetTransferMode(TransferMode::Binary)).await?)?;
-    Ok(())
+    set_running(ctx, Running::Kermit)
 }
 
 /// End the nested Kermit server (flag -35 back, FINISH): the calculator
-/// is in XSERV again. A no-op when none runs.
+/// is in XSERV again. A no-op when XSERV answers; an unknown server is
+/// found out first ([`settle`]).
 pub(crate) async fn leave_kermit(ctx: &Ctx) -> Result<()> {
-    let Some(mode) = ctx.xserv_session(|x| x.nested).ok().flatten() else {
-        return Ok(());
+    match running(ctx)? {
+        Running::Xserv => Ok(()),
+        Running::Unknown => settle(ctx).await,
+        Running::Kermit => finish(ctx).await,
+    }
+}
+
+/// Flag -35 back (when it was read), FINISH. Unknown until FINISH is
+/// answered: a lost answer leaves it to [`settle`].
+async fn finish(ctx: &Ctx) -> Result<()> {
+    set_running(ctx, Running::Unknown)?;
+    let restored = match ctx.xserv_session(|x| x.user_mode)? {
+        Some(mode) => ctx.op(Op::SetTransferMode(mode)).await.and_then(expect_done),
+        None => Ok(()),
     };
-    let restored = ctx.op(Op::SetTransferMode(mode)).await;
     expect_done(ctx.op(Op::Finish).await?)?;
-    ctx.xserv_session(|x| x.nested = None)?;
-    expect_done(restored?)
+    set_running(ctx, Running::Xserv)?;
+    restored
+}
+
+/// Find out which server answers when that is not known: XSERV if it
+/// answers `M` (asked [`SETTLE_PROBES`] times, as it answers about a
+/// second after FINISH; the Kermit server ignores a lone `M`), else the
+/// Kermit server, which is synced and ended with FINISH. The current
+/// directory is forgotten.
+pub(crate) async fn settle(ctx: &Ctx) -> Result<()> {
+    ctx.session(|s| s.cwd = None)?;
+    for _ in 0..SETTLE_PROBES {
+        if let Reply::XservProbe(Some(_)) = ctx.op(Op::XservProbe(PROBE_WAIT)).await? {
+            return set_running(ctx, Running::Xserv);
+        }
+    }
+    expect_done(ctx.op(Op::Sync).await?)?;
+    set_running(ctx, Running::Kermit)?;
+    finish(ctx).await
+}
+
+/// The variable [`identify`] stores in HOME and purges again.
+const ID_VAR: &str = "SATXID";
+
+/// Whether the calculator in XSERV is a 49G (`false`: an HP 48 running
+/// the XSrvr48 library, which answers alike). In HOME, `1. R→I` is stored
+/// in a variable and listed: on the 49G it is an integer (prolog #2614),
+/// on a 48, which has no `R→I`, the name `R→I` (the `1.` is dropped).
+/// Without the variable in the listing (the RPL failed) it counts as a
+/// 49G. The variable is purged; the current directory is HOME.
+pub(crate) async fn identify(ctx: &Ctx) -> Result<bool> {
+    let home = vec!["HOME".to_string()];
+    ctx.session(|s| s.cwd = None)?;
+    execute(
+        ctx,
+        format!(
+            "HOME DEPTH \\-> satxd \\<< 1. R\\->I '{ID_VAR}' STO DEPTH satxd - DROPN \\>>"
+        ),
+    )
+    .await?;
+    let entries = list_here(ctx, &home).await?;
+    let stored = entries.iter().find(|e| e.name == ID_VAR);
+    if stored.is_some() {
+        execute(ctx, guarded(&format!("'{ID_VAR}' PURGE"), &[ID_VAR])).await?;
+    }
+    ctx.session(|s| s.cwd = Some(home))?;
+    Ok(stored.is_none_or(|e| e.kind == "Integer"))
 }
 
 /// Run `rpl` with `E`.
@@ -240,6 +334,13 @@ pub(crate) async fn get(ctx: &Ctx, dir: &[String], name: &str) -> Result<Vec<u8>
     if !listing.entries.iter().any(|e| e.name == name) {
         return Err(TxError::NotFound(name.to_string()));
     }
+    get_listed(ctx, name).await
+}
+
+/// Get `name`, which the caller has just seen in the listing of the
+/// current directory, as a binary transfer file (no listing first).
+pub(crate) async fn get_listed(ctx: &Ctx, name: &str) -> Result<Vec<u8>> {
+    validate_name(name).map_err(|_| TxError::BadName(name.to_string()))?;
     let op = Op::XservGet {
         name: name.to_string(),
         options: transfer_options(START_WAIT),
@@ -395,22 +496,11 @@ pub(crate) async fn quit(ctx: &Ctx) -> Result<bool> {
     }
 }
 
-/// [`Request::Sync`] on an XSERV session: whichever server answers. XSERV
-/// answering `M`: no Kermit server runs. Else the nested Kermit server is
-/// synced and ended.
+/// [`Request::Sync`] on an XSERV session: whichever server answers
+/// ([`settle`]), back to XSERV.
 pub(crate) async fn resync(ctx: &Ctx) -> Result<()> {
-    ctx.session(|s| s.cwd = None)?;
-    if let Reply::XservProbe(Some(_)) = ctx.op(Op::XservProbe(PROBE_WAIT)).await? {
-        ctx.xserv_session(|x| x.nested = None)?;
-        return Ok(());
-    }
-    expect_done(ctx.op(Op::Sync).await?)?;
-    if ctx.xserv_session(|x| x.nested.is_none())? {
-        // The flag the Kermit server had is not known any more: binary,
-        // as the nest sets it.
-        ctx.xserv_session(|x| x.nested = Some(TransferMode::Binary))?;
-    }
-    leave_kermit(ctx).await
+    set_running(ctx, Running::Unknown)?;
+    settle(ctx).await
 }
 
 #[cfg(test)]

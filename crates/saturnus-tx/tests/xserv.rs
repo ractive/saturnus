@@ -28,6 +28,8 @@ const DIR: &str = "SATXXS";
 struct Calculator {
     device: Device,
     transport: SaturnusTransport,
+    /// XSERV `L` bytes written.
+    listings: usize,
 }
 
 impl Calculator {
@@ -68,6 +70,7 @@ impl Calculator {
         let mut c = Self {
             device: Device::new(Instant::now(), DeviceOptions::default(), 7),
             transport: SaturnusTransport::open(model, &rom).unwrap(),
+            listings: 0,
         };
         // The boot types SERVER: connect to it and end it.
         let kermit = c.run(Request::Connect(Default::default()));
@@ -97,10 +100,11 @@ impl Calculator {
         let mut buf = [0u8; 2048];
         loop {
             while let Some(action) = self.device.poll_action() {
-                if let Action::Write(bytes) = action
-                    && let Err(e) = self.transport.write_packet(&bytes)
-                {
-                    self.device.handle_link_error(Instant::now(), &e);
+                if let Action::Write(bytes) = action {
+                    self.listings += usize::from(bytes == b"L");
+                    if let Err(e) = self.transport.write_packet(&bytes) {
+                        self.device.handle_link_error(Instant::now(), &e);
+                    }
                 }
             }
             while self.device.poll_event().is_some() {}
@@ -253,7 +257,10 @@ fn files_over_xserv() {
     assert!(text.contains("6 7 *"), "{text}");
     assert!(c.names(&dir).contains(&"PRG".to_string()));
 
-    // A tree got by XSERV, and put back as a new directory.
+    // A tree got by XSERV, and put back as a new directory. One listing
+    // per directory (an `L` sent again to a busy calculator aside), none
+    // before each variable.
+    let listed = c.listings;
     let tree = match c.run(Request::GetTree {
         dir: dir.iter().map(|s| s.to_string()).collect(),
         format: Format::Binary,
@@ -263,6 +270,7 @@ fn files_over_xserv() {
         other => panic!("tree: {other:?}"),
     };
     assert_eq!(tree.items.len(), 4, "{:?}", tree.items);
+    assert!(c.listings - listed <= 3, "{} listings", c.listings - listed);
     let items: Vec<TreeItem> = tree.items.clone();
     let stored = c.run(Request::PutTree {
         dir: vec![],
