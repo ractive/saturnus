@@ -51,6 +51,9 @@ which must build for `wasm32`. Its kb is `kb/satx/`; its backlog items are
   `kb/docs/clean-room-rule.md` allows) with the serial port on TCP. Ports
   4848-4852 belong to its containers (`just satx-oracle-up`); our own
   serial bridges use 4860-4869.
+- The HP 100LX/200LX's Filer oracle is BSD Filer in Docker (`tools/filer-oracle/`, a 1996 Filer
+  server emulator, run as a black box) on port 4853; it sends no error
+  codes, so error cases are tested against filer-proto's own server.
 - `SATX_E2E_ADDR` gates satx-core's e2e suite: `tcp://localhost:4848` for
   the oracle, `saturnus://MODEL@ROM` for saturnus in process
   (`just satx-e2e-saturnus 49g` takes the ROMs from `SATURNUS_ROM_DIR`,
