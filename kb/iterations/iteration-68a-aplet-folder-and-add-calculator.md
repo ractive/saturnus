@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 68a: aplet folder, Add a calculator, kb notes"
 date: 2026-11-08
-status: planned
+status: completed
 tags:
   - iteration
   - web
@@ -40,7 +40,7 @@ Split from the session's plan: 68a has what does not touch the 49G traces that P
 
 ## Tasks
 
-- [ ] **Aplet folder read at each listing.** When the 38G/39G/40G asks for
+- [x] **Aplet folder read at each listing.** When the 38G/39G/40G asks for
   its directory file (the start of every RECV), the server asks the host
   for the folder's files and answers once they come, the way it already
   waits for a file's content (`ApletEvent::NeedFile` → `provide`). In
@@ -49,12 +49,12 @@ Split from the session's plan: 68a has what does not touch the 49G traces that P
   (`web/tx/aplet-worker.js`, `aplet-driver.js`) and `web/tx/serve.js`.
   Tests: Rust unit test (a file added between two listings is offered),
   the serve page test.
-- [ ] **"Add a calculator" asks which kind.** "Serve a folder to a 38G, 39G
+- [x] **"Add a calculator" asks which kind.** "Serve a folder to a 38G, 39G
   or 40G" is a small link under two big buttons and easy to miss (owner).
   "Add a calculator" first asks: an HP 48 or 49 (today's flow), or an HP
   38G, 39G or 40G (the serve flow). Remove the separate link. Keep the
   emulated-calculator button as it is. Page tests updated.
-- [ ] **kb and wiki.**
+- [x] **kb and wiki.**
   - `kb/backlog/fast-transfer-e2e-fails.md`: fast transfer works on a real
     49G in Files and with satx (2026-11-08); only the emulated "Type it for
     me" path fails.

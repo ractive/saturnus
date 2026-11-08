@@ -647,7 +647,8 @@ impl ApletServer {
         if !self.kermit.is_requested() {
             self.asked = None;
         }
-        let Some(Asked::Folder { name }) = self.asked.take_if(|a| matches!(a, Asked::Folder { .. }))
+        let Some(Asked::Folder { name }) =
+            self.asked.take_if(|a| matches!(a, Asked::Folder { .. }))
         else {
             // A file's request stays waiting.
             return Err(ApletError::NoRequest);
@@ -1216,10 +1217,7 @@ mod tests {
         assert_eq!(s.poll_event(), Some(ApletEvent::NeedFolder));
         assert!(s.is_busy());
         assert_eq!(s.poll_output(now), None);
-        assert_eq!(
-            s.provide(now, "GAME.000", None),
-            Err(ApletError::NoRequest)
-        );
+        assert_eq!(s.provide(now, "GAME.000", None), Err(ApletError::NoRequest));
         s.provide_folder(now, None).unwrap();
         assert!(s.poll_output(now).unwrap().starts_with(b"\x01"));
         s.cancel(now);
