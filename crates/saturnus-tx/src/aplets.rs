@@ -367,6 +367,11 @@ impl Default for ApletOptions {
 pub enum ApletEvent {
     /// The calculator's model, the first time a directory file tells it.
     Model(Model),
+    /// The calculator asked for its list of files (a directory file other
+    /// than `HP38DIR.CUR`, at the start of every RECV): the host reads the
+    /// folder and answers with [`ApletServer::provide_folder`], so a file
+    /// put there while serving is offered.
+    NeedFolder,
     /// The calculator asked for a file that is not a directory file: the
     /// host answers with [`ApletServer::provide`] (its bytes, or `None`).
     NeedFile {
@@ -451,7 +456,8 @@ pub enum ApletEvent {
 pub enum ApletError {
     /// A transfer runs: an XModem send waits until it ends.
     Busy,
-    /// [`ApletServer::provide`] without a request waiting for it.
+    /// [`ApletServer::provide`] or [`ApletServer::provide_folder`] without
+    /// a request waiting for it.
     NoRequest,
 }
 
@@ -466,10 +472,21 @@ impl fmt::Display for ApletError {
 
 impl std::error::Error for ApletError {}
 
+/// A request of the calculator's that waits for the host.
+#[derive(Debug)]
+enum Asked {
+    /// A file ([`ApletEvent::NeedFile`]): the name the calculator asked for
+    /// and the folder's spelling of it (the one the event gave).
+    File { name: String, file: String },
+    /// A directory file other than the current one's pointer
+    /// ([`ApletEvent::NeedFolder`]): the name asked for.
+    Folder { name: String },
+}
+
 /// A folder served to a 38G, 39G or 40G over one link. Feed it the link's
 /// bytes and the time, write what [`ApletServer::poll_output`] gives, and
 /// act on its [`ApletEvent`]s: store what it received, answer
-/// [`ApletEvent::NeedFile`].
+/// [`ApletEvent::NeedFile`] and [`ApletEvent::NeedFolder`].
 #[derive(Debug)]
 pub struct ApletServer {
     options: ApletOptions,
@@ -477,10 +494,8 @@ pub struct ApletServer {
     wire: Option<xmodem_proto::Transfer>,
     files: Vec<FolderFile>,
     model: Option<Model>,
-    /// The request waiting for the host: the name the calculator asked for
-    /// and the folder's spelling of it (the one [`ApletEvent::NeedFile`]
-    /// gave).
-    asked: Option<(String, String)>,
+    /// The request waiting for the host.
+    asked: Option<Asked>,
     /// The file being sent or received, and whether it is a directory file.
     current: Option<(String, bool)>,
     /// Names received in this session (ASCII lower case): the calculator's
@@ -606,16 +621,41 @@ impl ApletServer {
             self.asked = None;
         }
         match &self.asked {
-            Some((_, f)) if f == file => {}
+            Some(Asked::File { file: f, .. }) if f == file => {}
             _ => return Err(ApletError::NoRequest),
         }
-        let Some((name, _)) = self.asked.take() else {
+        let Some(Asked::File { name, .. }) = self.asked.take() else {
             return Err(ApletError::NoRequest);
         };
         match data {
             Some(data) => self.serve(now, name, data, false),
             None => self.refuse(now, name),
         }
+        Ok(())
+    }
+
+    /// Answer [`ApletEvent::NeedFolder`]: the folder's files as the host
+    /// read them just now (see [`FolderFile`]), or `None` when it could
+    /// not read the folder (the server answers from the files it knows).
+    /// The server keeps them as [`ApletServer::set_files`] does. Refused
+    /// when no such request waits.
+    pub fn provide_folder(
+        &mut self,
+        now: Instant,
+        files: Option<Vec<FolderFile>>,
+    ) -> Result<(), ApletError> {
+        if !self.kermit.is_requested() {
+            self.asked = None;
+        }
+        let Some(Asked::Folder { name }) = self.asked.take_if(|a| matches!(a, Asked::Folder { .. }))
+        else {
+            // A file's request stays waiting.
+            return Err(ApletError::NoRequest);
+        };
+        if let Some(files) = files {
+            self.files = files;
+        }
+        self.answer(now, name);
         Ok(())
     }
 
@@ -693,6 +733,9 @@ impl ApletServer {
             .map_or_else(|| family.dir_name(), |e| e.file)
     }
 
+    /// A request from the calculator: the current directory's pointer is
+    /// answered at once, any other directory file once the host read the
+    /// folder ([`ApletEvent::NeedFolder`]), a file once the host gave it.
     fn on_request(&mut self, now: Instant, name: String) {
         if let Some(family) = directory_file(&name) {
             let model = family.model();
@@ -700,6 +743,18 @@ impl ApletServer {
                 self.model = Some(model);
                 self.events.push_back(ApletEvent::Model(model));
             }
+            if !name.eq_ignore_ascii_case(&family.cur_name()) {
+                self.asked = Some(Asked::Folder { name });
+                self.events.push_back(ApletEvent::NeedFolder);
+                return;
+            }
+        }
+        self.answer(now, name);
+    }
+
+    /// Answer a request from the files the server knows.
+    fn answer(&mut self, now: Instant, name: String) {
+        if let Some(family) = directory_file(&name) {
             if name.eq_ignore_ascii_case(&family.cur_name()) {
                 let data = self
                     .find(&name)
@@ -715,7 +770,10 @@ impl ApletServer {
         }
         match self.find(&name).map(|f| f.name.clone()) {
             Some(file) => {
-                self.asked = Some((name, file.clone()));
+                self.asked = Some(Asked::File {
+                    name,
+                    file: file.clone(),
+                });
                 self.events.push_back(ApletEvent::NeedFile { name: file });
             }
             None => self.refuse(now, name),
@@ -1015,6 +1073,7 @@ mod tests {
                             .provide(now, name, folder.get(name).cloned())
                             .unwrap();
                     }
+                    ApletEvent::NeedFolder => server.provide_folder(now, None).unwrap(),
                     ApletEvent::Received { name, data, .. } => {
                         folder.insert(name.clone(), data.clone());
                     }
@@ -1150,10 +1209,18 @@ mod tests {
                 .encode(kermit_proto::BlockCheck::Type1, &Default::default())
                 .unwrap()
         };
-        // The stored HP39DIR.CUR names HP39DIR.001: that is the listing.
+        // The stored HP39DIR.CUR names HP39DIR.001: that is the listing,
+        // made once the host read the folder.
         s.handle_input(now, &wire(0, b'R', b"HP39DIR.001"));
         assert_eq!(s.poll_event(), Some(ApletEvent::Model(Model::Hp39G)));
+        assert_eq!(s.poll_event(), Some(ApletEvent::NeedFolder));
         assert!(s.is_busy());
+        assert_eq!(s.poll_output(now), None);
+        assert_eq!(
+            s.provide(now, "GAME.000", None),
+            Err(ApletError::NoRequest)
+        );
+        s.provide_folder(now, None).unwrap();
         assert!(s.poll_output(now).unwrap().starts_with(b"\x01"));
         s.cancel(now);
         while s.poll_event().is_some() {}
@@ -1266,5 +1333,81 @@ mod tests {
             Err(ApletError::NoRequest)
         );
         assert!(s.provide(now, "B.000", Some(b"BBBB".to_vec())).is_ok());
+    }
+
+    /// The folder is read at every listing: a file put there while serving
+    /// is offered at the next RECV, one taken away is not.
+    #[test]
+    fn the_folder_is_read_at_each_listing() {
+        let now = Instant::now();
+        let mut s = ApletServer::new(
+            ApletOptions::default(),
+            vec![file("A.000", &aplet("HP38", "Apple"))],
+        );
+        let wire = |seq: u8, kind: u8, data: &[u8]| {
+            kermit_proto::codec::Packet::new(seq, kind, data.to_vec())
+                .encode(kermit_proto::BlockCheck::Type1, &Default::default())
+                .unwrap()
+        };
+        let list = |s: &mut ApletServer, files: Option<Vec<FolderFile>>| -> Vec<String> {
+            // The pointer is answered from what the server knows.
+            s.handle_input(now, &wire(0, b'R', b"HP38DIR.CUR"));
+            assert!(s.poll_output(now).is_some());
+            s.cancel(now);
+            while s.poll_output(now).is_some() {}
+            while s.poll_event().is_some() {}
+            s.handle_input(now, &wire(0, b'R', b"HP38DIR.000"));
+            let events: Vec<_> = std::iter::from_fn(|| s.poll_event()).collect();
+            assert!(events.contains(&ApletEvent::NeedFolder), "{events:?}");
+            assert_eq!(s.poll_output(now), None, "no answer before the folder");
+            s.provide_folder(now, files).unwrap();
+            // Acknowledge every packet up to the end of the file; the D
+            // packets carry the listing.
+            let mut data = Vec::new();
+            for _ in 0..20 {
+                let out = s.poll_output(now).unwrap();
+                let (seq, kind) = (out[2] - 32, out[3]);
+                if kind == b'D' {
+                    data.extend_from_slice(&out[4..out.len() - 2]);
+                }
+                if kind == b'Z' {
+                    break;
+                }
+                s.handle_input(now, &wire(seq, b'Y', b""));
+            }
+            s.cancel(now);
+            while s.poll_output(now).is_some() {}
+            while s.poll_event().is_some() {}
+            let text = String::from_utf8_lossy(&data);
+            ["A.000", "B.000"]
+                .into_iter()
+                .filter(|n| text.contains(n))
+                .map(String::from)
+                .collect()
+        };
+        assert_eq!(list(&mut s, None), ["A.000"]);
+        // B.000 is put in the folder between two RECVs.
+        let now_files = vec![
+            file("A.000", &aplet("HP38", "Apple")),
+            file("B.000", &aplet("HP38", "Banana")),
+        ];
+        assert_eq!(list(&mut s, Some(now_files)), ["A.000", "B.000"]);
+        // And it is served when asked for.
+        s.handle_input(now, &wire(0, b'R', b"B.000"));
+        assert_eq!(
+            s.poll_event(),
+            Some(ApletEvent::NeedFile {
+                name: "B.000".into()
+            })
+        );
+        // A folder answer does not answer a file's request.
+        assert_eq!(s.provide_folder(now, None), Err(ApletError::NoRequest));
+        assert!(s.provide(now, "B.000", Some(b"BBBB".to_vec())).is_ok());
+        s.cancel(now);
+        while s.poll_output(now).is_some() {}
+        while s.poll_event().is_some() {}
+        // A.000 is taken away: the next listing has only B.000.
+        let later = vec![file("B.000", &aplet("HP38", "Banana"))];
+        assert_eq!(list(&mut s, Some(later)), ["B.000"]);
     }
 }

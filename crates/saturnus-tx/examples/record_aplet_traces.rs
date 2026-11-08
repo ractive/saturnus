@@ -120,6 +120,10 @@ impl Rig {
                     eprintln!("  serves {name}");
                     self.server.provide(now, name, data)?;
                 }
+                ApletEvent::NeedFolder => {
+                    let files = self.files();
+                    self.server.provide_folder(now, Some(files))?;
+                }
                 ApletEvent::Received { name, data, .. } => {
                     eprintln!("  received {name} ({} bytes)", data.len());
                     self.folder.insert(name.clone(), data.clone());
@@ -314,7 +318,6 @@ fn record(model: &str, rom_dir: &Path, repo: &Path) -> Result<(), Error> {
         .cloned()
         .ok_or("L1 did not arrive")?;
 
-    rig.server.set_files(rig.files());
     rig.trace.note("receive L1: RECEIVE, Disk drive, L1");
     eprintln!("{model}: receive {l1}");
     rig.keys(&["e"])?;

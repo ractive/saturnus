@@ -1435,7 +1435,8 @@ with a switch above them.
   with what to press on the calculator, the transfers as they happen,
   the wire send of a binary aplet (39G, 40G) and "Stop serving".
   `ServeSession` holds the link and the folder (files read when the
-  calculator asks, written when it sends); the server runs in
+  calculator asks, the folder each time it asks for its list, files
+  written when it sends); the server runs in
   `aplet-worker.js` (`aplet-driver.js` over the wasm `TxApletServer`);
   `serve-flows.js` has the words (pure). Tests: `tx-serve.test.mjs`
   (ROM-free, the 38G's recorded session) and `tx-serve-e2e.test.mjs`

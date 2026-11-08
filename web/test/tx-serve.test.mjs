@@ -158,6 +158,7 @@ test("a session replays the 38G's recording: L1 into the folder and back", { ski
   const types = events.map((e) => e.type);
   assert.equal(types[0], "model");
   assert.ok(types.includes("needFile"));
+  assert.ok(types.includes("folderRead"), "the folder is read for each listing");
   const names = (await folder.list(folder.home)).entries.map((e) => e.name).sort();
   assert.deepEqual(names, ["HP38DIR.000", "L1000000.000"]);
   const l1 = (await folder.read(folder.home, "L1000000.000")).data;
@@ -218,6 +219,60 @@ test("a received file the folder refuses is forgotten by the server; a file aske
   assert.equal(provide.name, "GAME.000");
   assert.equal(new TextDecoder().decode(provide.data), "HP39BinB\x04Game");
   await session.stop();
+});
+
+test("the folder is read again each time the calculator asks for its list: a file put there while serving is offered", async () => {
+  const enc = (t) => new TextEncoder().encode(t);
+  const folder = new Folder(new MemoryDirectory("f"), { kind: "memory", title: "f" });
+  await folder.write(folder.home, "GAME.000", enc("HP39BinB\x04Game"));
+  const link = new Link();
+  const sent = [];
+  const session = new ServeSession({ link, folder, worker: recordingWorker(sent) });
+  const events = [];
+  session.addEventListener("event", (e) => events.push(e.detail));
+  const files = await session.start();
+  assert.deepEqual(files.map((f) => f.name), ["GAME.000"]);
+  // Put in the folder after serving started.
+  await folder.write(folder.home, "NEW.000", enc("HP39BinB\x03New"));
+  session.receive({ type: "needFolder" });
+  await session.io;
+  const answer = sent.findLast((m) => m.cmd === "provideFolder");
+  assert.deepEqual(answer.files.map((f) => f.name).sort(), ["GAME.000", "NEW.000"]);
+  assert.deepEqual(events.at(-1).files.map((f) => f.name).sort(), ["GAME.000", "NEW.000"]);
+  assert.equal(events.at(-1).type, "folderRead");
+  // The new file is the calculator's: a copy from the calculator may replace it.
+  assert.ok(session.replaceable.has("new.000"));
+  await session.stop();
+});
+
+test("the driver answers a listing once the folder came, with the file added since the start", { skip: !existsSync(PKG) && "web/pkg not built (just web)" }, async () => {
+  const api = await wasm();
+  const posted = [];
+  let t = 0;
+  const driver = new ApletDriver({
+    TxApletServer: api.TxApletServer,
+    now: () => t,
+    setTimer: () => 1,
+    clearTimer: () => {},
+    post: (m) => posted.push(m),
+    files: [],
+  });
+  // A Kermit R packet for HP38DIR.000 (type 1 check).
+  const packet = (seq, type, data) => {
+    const body = [32 + data.length + 3, 32 + seq, type.charCodeAt(0), ...new TextEncoder().encode(data)];
+    const sum = body.reduce((a, b) => a + b, 0);
+    return new Uint8Array([1, ...body, 32 + ((sum + ((sum & 192) >> 6)) & 63), 13]);
+  };
+  driver.handle({ cmd: "input", bytes: packet(0, "R", "HP38DIR.000") });
+  assert.ok(posted.some((m) => m.type === "needFolder"));
+  assert.ok(!posted.some((m) => m.type === "write"), "nothing written before the folder came");
+  t = 10;
+  driver.handle({ cmd: "provideFolder", files: [{ name: "B.000", head: new TextEncoder().encode("HP38BinB\x01B") }] });
+  assert.ok(posted.some((m) => m.type === "write"), "the listing starts");
+  assert.ok(!posted.some((m) => m.type === "refused"));
+  // A second answer finds no request waiting.
+  driver.handle({ cmd: "provideFolder" });
+  assert.equal(posted.at(-1).type, "refused");
 });
 
 test("a received file replaces only the calculator's files; another file of that name stays", async () => {

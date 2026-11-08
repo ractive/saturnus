@@ -583,6 +583,10 @@ drive" it expects (wiki `protocols/aplet-transfer`, which answers
   other files of that family with a calculator header and an 8.3 name,
   titled from their header. So a folder of aplets from anywhere works
   at once, and the calculator never asks "Initialize directory?". The
+  folder is read each time the calculator asks for that list (every
+  RECV: `ApletEvent::NeedFolder`, answered with `provide_folder`), so a
+  file put in the folder while serving is offered without a restart
+  (iteration 68a; before, the folder was read once at the start). The
   directory files the calculator writes after a SEND are kept in the
   folder, as HPGComm kept them.
 - **Files.** What the calculator sends is written under its own name
