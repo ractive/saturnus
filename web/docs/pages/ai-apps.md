@@ -15,6 +15,12 @@ In the app, choose **Connect your AI app…** (in the panel beside the calculato
 
 The tools tell the AI app what it needs to start: which calculators run, which tools work on each model, and how to check its work on the display.
 
+## Your browser's own AI
+
+Some browsers have an AI of their own that can use a page's tools through [WebMCP](https://github.com/webmachinelearning/webmcp): [Chrome](https://www.google.com/chrome/) from version 149 and [Edge](https://www.microsoft.com/en-us/edge) from version 150 try it out on saturnus's site, and extensions for Chrome can use it too. In such a browser the app offers the same tools to the browser's AI as well, with no address or code: the tools for the calculator Calculator shows, and for every calculator the AI has listed. The display comes as text unless the AI asks for a picture. Only the browser's AI and the app itself can call them, not other sites.
+
+Storing or purging a variable through the store and purge tools asks you in the app first, every time. The AI can still press keys and run commands, as you can, and those can store or purge too without asking. The question protects against a mistaken call; an AI that can click in the page could also click Allow, so give it the page only if you trust it. The calls show in **The AI's calls** under "Your browser's AI"; choose **Calls** in the panel beside the calculator. Connecting an AI app through the dialog works as before, beside it. The desktop app has no WebMCP.
+
 ## Claude Desktop
 
 Claude Desktop uses the calculators of the desktop app through an extension:

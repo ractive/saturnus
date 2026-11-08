@@ -437,7 +437,11 @@ export class PaletteModel {
  * (web/ai-tools.js).
  */
 export async function pressFunction(backend, store, km, steps, { fresh = false, pace = undefined } = {}) {
-  const wait = () => settle(backend, store, pace);
+  // A cancelled call (`pace.signal`, web/ai-tools.js) presses no more keys.
+  const wait = async () => {
+    await settle(backend, store, pace);
+    if (pace?.signal?.aborted) throw new Error("Cancelled");
+  };
   // The 38G, 39G and 40G go to HOME first (`home`), and an example
   // then clears the edit line with the leave keys (CANCEL).
   const home = km?.home;
