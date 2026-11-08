@@ -637,14 +637,35 @@ mkfifo "$work/repl.fifo"
 # The first line (CLEAR) is answered once the REPL has connected; the
 # loop goes out right after it, so the REPL is killed a second after that
 # answer, not after a fixed time (a 48SX at 9600 baud may not have sent
-# anything 3 s in). 2000 iterations take about 11 s on a real 48SX and 4
-# on the emulated 49G: still running at the kill, done well within the
-# first sync attempt of the next satx (one timeout, 20 s).
+# anything 3 s in). The loop is sized for about 8 s on this calculator:
+# 2000 iterations take about 11 s on a real 48SX, 4 on the emulated 49G
+# and a fraction of a second on the saturnng oracle. Still running at the
+# kill, done well within the first sync attempt of the next satx (one
+# timeout, 20 s).
+now() { python3 -c 'import time; print(time.time())'; }
+# Seconds `1 N START NEXT` takes, without the link's own time (an empty
+# command's round trip).
+loop_secs() {
+    local t0 t1 t2
+    t0=$(now)
+    satx run 'DEPTH DROP' >/dev/null
+    t1=$(now)
+    satx run "1 $1 START NEXT" >/dev/null
+    t2=$(now)
+    awk -v a="$t0" -v b="$t1" -v c="$t2" 'BEGIN { s = (c - b) - (b - a); print (s > 0 ? s : 0) }'
+}
+loops=2000
+secs=$(loop_secs "$loops")
+while awk -v s="$secs" 'BEGIN { exit !(s < 1) }' && ((loops < 100000000)); do
+    loops=$((loops * 10))
+    secs=$(loop_secs "$loops")
+done
+loops=$(awk -v n="$loops" -v s="$secs" 'BEGIN { printf "%d", n * 8 / s }')
 "$SATX_BIN" repl --json <"$work/repl.fifo" >"$work/abort.jsonl" 2>"$work/abort.err" &
 repl_pid=$!
 {
     echo CLEAR
-    echo '1 2000 START NEXT 4711'
+    echo "1 $loops START NEXT 4711"
     exec sleep 120
 } >"$work/repl.fifo" &
 feeder_pid=$!
