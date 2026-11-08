@@ -19,8 +19,8 @@ use crate::time::Instant;
 /// The largest file [`Job::Get`] reads by default (16 MiB; the palmtops'
 /// cards hold far less).
 pub const MAX_FILE: usize = 16 << 20;
-/// Listing entries after which [`Job::List`] gives up on a server that
-/// never ends its listing.
+/// Listing replies (every entry, `.` and `..` too) after which
+/// [`Job::List`] gives up on a server that never ends its listing.
 const MAX_ENTRIES: usize = 65_536;
 
 /// One thing to do.
@@ -200,6 +200,8 @@ enum Running {
     },
     List {
         entries: Vec<DirEntry>,
+        /// Entries the server gave, kept or not.
+        replies: usize,
     },
     Get {
         path: Vec<u8>,
@@ -332,6 +334,7 @@ impl Session {
             Job::List(pattern) => (
                 Running::List {
                     entries: Vec::new(),
+                    replies: 0,
                 },
                 Request::FindFirst {
                     pattern,
@@ -512,21 +515,25 @@ impl Session {
                     }
                 }
             }
-            Running::List { mut entries } => match reply {
+            Running::List {
+                mut entries,
+                replies,
+            } => match reply {
                 Ok(Response::Entry(Some(e))) => {
+                    let replies = replies + 1;
+                    if replies > MAX_ENTRIES {
+                        return self.finish(Err(JobError::Failed(Failure::Fs(FsError::INTERNAL))));
+                    }
                     if e.name != b"." && e.name != b".." {
                         entries.push(e);
                     }
-                    if entries.len() > MAX_ENTRIES {
-                        return self.finish(Err(JobError::Failed(Failure::Fs(FsError::INTERNAL))));
-                    }
-                    self.running = Some(Running::List { entries });
+                    self.running = Some(Running::List { entries, replies });
                     self.send(now, Request::FindNext);
                 }
                 Ok(Response::Entry(None)) => self.finish(Ok(Output::Listing(entries))),
                 // The reply to 0x12.
                 Ok(_) => {
-                    self.running = Some(Running::List { entries });
+                    self.running = Some(Running::List { entries, replies });
                     self.send(now, Request::FindNext);
                 }
                 Err(f) => self.finish(Err(JobError::Failed(f))),

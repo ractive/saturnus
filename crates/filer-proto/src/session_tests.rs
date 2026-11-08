@@ -340,3 +340,57 @@ fn revision_one_server() {
     assert_eq!(r.sent.last().unwrap()[9], 1);
     let _ = codec::REVISION;
 }
+
+#[test]
+fn a_listing_of_only_dots_gives_up() {
+    // A server that answers every 0x09 with `.`: the entries dropped from
+    // the listing still count towards its limit.
+    use crate::{Code, DirEntry, Response, attr};
+    let mut session = Session::new(Config::default());
+    let now = Instant::now();
+    let dot = Response::Entry(Some(DirEntry {
+        attributes: attr::DIRECTORY,
+        modified: DosDateTime::default(),
+        size: 0,
+        name: b".".to_vec(),
+    }))
+    .encode();
+    let mut deframer = codec::Deframer::new();
+    let mut finished = Vec::new();
+    session.start(now, Job::Connect).unwrap();
+    let mut started = false;
+    for _ in 0..100_000 {
+        while let Some(wire) = session.poll_output(now) {
+            deframer.push(&wire);
+            while let Some(frame) = deframer.next_frame() {
+                let frame = frame.unwrap();
+                let data = match Code::from_byte(frame.command) {
+                    Some(Code::Connect) => vec![0, 0],
+                    Some(Code::FindNext) => dot.clone(),
+                    Some(Code::Disconnect) => continue,
+                    _ => Response::Done.encode(),
+                };
+                let reply = codec::Frame::reply(frame.command, frame.counter, 2, data).encode();
+                session.handle_input(now, &reply);
+            }
+        }
+        while let Some(event) = session.poll_event() {
+            if let SessionEvent::Finished(result) = event {
+                finished.push(result);
+            }
+        }
+        match finished.len() {
+            1 if !started => {
+                assert_eq!(finished[0], Ok(Output::Connected { revision: 2 }));
+                session.start(now, Job::List(b"C:\\*.*".to_vec())).unwrap();
+                started = true;
+            }
+            2 => break,
+            _ => {}
+        }
+    }
+    assert_eq!(
+        finished.get(1),
+        Some(&Err(JobError::Failed(Failure::Fs(FsError::INTERNAL))))
+    );
+}
