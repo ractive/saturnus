@@ -76,4 +76,7 @@ Split from the session's plan: 68a has what does not touch the 49G traces that P
 - Each task's tests pass; `just gates` and `node scripts/check-links.mjs`;
   `hyalo lint` clean.
 - The fast-transfer dialog and satx name the right key per model, checked
-  on the emulated 48GX and 49G.
+  on the emulated 48GX and 49G: that is 68b's work, copied here when the
+  plan was split; nothing in 68a names a fast-transfer key. 68a's part is
+  the reference: `saturnus ref EVAL` and Search name right-shift SYMB on
+  the 49G.

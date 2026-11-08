@@ -663,8 +663,9 @@ export function exampleResult(example) {
 /**
  * Where `command` is on `model`: `{menus, key, keyboard, group}` with the
  * ROM's menus, the manual's statement (`{category, manual, title, page,
- * url, other}`), the keyboard legend (`SIN key`, from `legends`, the
- * skin's keys) and our own group only where nothing else places it.
+ * url, other}`), the keyboard legend where no manual names a key (`SIN
+ * key`, from `legends`, the skin's keys) and our own group only where
+ * nothing else places it.
  */
 export function placement(index, command, legends = null) {
   const per = command.per;
@@ -680,7 +681,8 @@ export function placement(index, command, legends = null) {
     }
     : null;
   const menus = per.menus ?? [];
-  const keyboard = !menus.length && !key && legends ? keyLegend(legends, command.name) : null;
+  // The key legend also beside the ROM's menus (EVAL on the 49G: right shift, SYMB, and MENU 142).
+  const keyboard = !key && legends ? keyLegend(legends, command.name) : null;
   const group = !menus.length && !key && !keyboard ? command.entry.group ?? null : null;
   return { menus, key, keyboard, group };
 }

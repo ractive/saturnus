@@ -54,7 +54,8 @@
 //! - [`charset`]: the HP character set and its ASCII trigraphs.
 //! - [`xmodem`]: XModem transfers with `XRECV`/`XSEND` started on the
 //!   calculator ([`XmodemSession`]).
-//! - [`xserv`]: XSERV (49g+/50g) packet framing; unverified on hardware.
+//! - [`xserv`]: XSERV (49g+/50g, the 49G) packet framing; tested on a real
+//!   49G.
 //!
 //! Wiki references (calculator-knowledgebase,
 //! <https://github.com/ractive/calculator-knowledgebase>): `protocols/server-commands`,

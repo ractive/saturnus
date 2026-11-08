@@ -1,11 +1,13 @@
 //! XSERV packet framing and commands: the command server on top of XModem
 //! (49g+/50g, the 49G after ROM 1.10, and the XSrvr48 library on the 48).
 //!
-//! **Unverified on hardware.** Everything here follows the wiki's
-//! description of HP's own client code (wiki: protocols/xserv); no
-//! calculator has been seen answering it. The emulated 49G (ROM 2.15) used
-//! for the e2e tests has no XSERV, so this module is covered by unit tests
-//! with hand-built vectors only. It is sans-IO: no transport, no clock.
+//! **Tested on a real 49G** (ROM 1.18, 2026-11-08): `satx xserv mem`, `ls`,
+//! `get`, `put` and `eval` worked, and 4 KB took 8.4 s against
+//! Kermit's 16.7 s. Not yet tried on a 49g+ or 50g. Everything here follows
+//! the wiki's description of HP's own client code (wiki: protocols/xserv).
+//! The emulated 49G (ROM 2.15) used for the e2e tests has no XSERV, so this
+//! module is covered by unit tests with hand-built vectors. It is sans-IO:
+//! no transport, no clock.
 //!
 //! # Framing
 //!

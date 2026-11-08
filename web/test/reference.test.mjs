@@ -296,6 +296,9 @@ test("examples, placement and manual links read the data as saturnus ref prints 
   assert.ok(links.length >= 1 && links.every((l) => l.url.includes("#page=")));
   assert.ok(links.every((l) => l.models.includes("48sx")));
   assert.equal(stackVerified(g49.byName.get("PLOT")), false);
+  // A key legend shows beside the ROM's menus: EVAL on the 49G is right shift, SYMB (it has no EVAL key).
+  const eval49 = placement(g49, g49.byName.get("EVAL"), [{ name: "symb", label: "SYMB", left: "MTH", right: "EVAL" }]);
+  assert.deepEqual(eval49, { menus: ["MENU 142"], key: null, keyboard: "right shift, SYMB key", group: null });
 });
 
 test("the menu tree follows the ROM's menu paths, roots in key order", () => {

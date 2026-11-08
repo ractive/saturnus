@@ -140,8 +140,10 @@ Kermit server is not wanted, and on the 49G it moves 1k blocks. `--dry-run`
 shows the plan without ending the server.
 
 `satx xserv ls|get|put|eval|mem` talks to the XSERV command server of the
-49g+/50g. It is **not yet tested on a real calculator**: it follows HP's
-client code as the wiki documents it, and the emulated 49G has no XSERV.
+49G, 49g+ and 50g. It was tested on a real 49G (ROM 1.18) on 2026-11-08:
+`mem`, `ls`, `get`, `put` and `eval` worked, and 4 KB took 8.4 s
+against Kermit's 16.7 s. It is not yet tried on a 49g+ or 50g, and the
+emulated 49G has no XSERV.
 
 Developing satx itself:
 
