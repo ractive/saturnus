@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 71: the web app's tools through WebMCP"
 date: 2026-11-08
-status: planned
+status: completed
 tags:
   - iteration
   - web
@@ -43,18 +43,18 @@ with `consequentialHint` on the tools that change the calculator.
 
 ## Tasks
 
-- [ ] **Register through WebMCP where the browser has it:** feature-detect
+- [x] **Register through WebMCP where the browser has it:** feature-detect
   `document.modelContext` (and, while Chrome builds still carry it, the
   older `navigator.modelContext`), register every tool of `aiTools(...)`
   with an `AbortSignal` per registration, re-register when the set changes
   (a calculator's model decides the tool family), withdraw on page hide or
   when the user turns it off. Same tools, same `execute` as tab-mcp.
-- [ ] **Shape:** pass `execute(input, {signal})` through and honour the
+- [x] **Shape:** pass `execute(input, {signal})` through and honour the
   signal where a tool waits (keys, a running command); add `outputSchema`
   where a tool returns structured data; check annotations map
   (`readOnlyHint` for read tools, `consequentialHint` as today,
   `untrustedContentHint` for results that carry user content).
-- [ ] **Always registered; the page confirms changes:** only the browser
+- [x] **Always registered; the page confirms changes:** only the browser
   agent (built into the browser, or hosted by it through an extension or
   plug-in) can call a page's tools, and the permissions-policy feature
   `tools` (default allowlist `'self'`) keeps cross-origin frames out
@@ -63,19 +63,19 @@ with `consequentialHint` on the tools that change the calculator.
   call is confirmed in the page as for tab-mcp
   (`web/shared/components/confirm.js`), and the AI log records WebMCP calls
   too. tab-mcp and WebMCP run side by side.
-- [ ] **Origin trial:** the owner registers `https://ractive.ch` (a token
+- [x] **Origin trial:** the owner registers `https://ractive.ch` (a token
   is bound to the origin, not a path) for the Chrome 149
   and Edge 150 trials; the tokens go into the page's `<meta
   http-equiv="origin-trial">` (one per browser), with a note of their
   expiry in kb. The Chrome token for `https://ractive.ch` is in `web/index.html`
   since 2026-11-08 and expires on 2027-03-30; Edge's (same origin) is there too and expires on
   2026-12-23, to be renewed in Edge's origin trials console. Not in the desktop app (its webview has no WebMCP).
-- [ ] **Tests:** unit tests with a fake `document.modelContext`
+- [x] **Tests:** unit tests with a fake `document.modelContext`
   (registration, re-registration, abort, consent off); a page test in
   Chrome with WebMCP testing enabled if the flag works headless (find the
   switch), calling a read tool and a consequential tool through
   `executeTool`.
-- [ ] **Docs:** the AI access help and `web/docs` page, `kb/docs`, the
+- [x] **Docs:** the AI access help and `web/docs` page, `kb/docs`, the
   CHANGELOG; facts about WebMCP behaviour in browsers go to `kb/research`.
 
 ## Acceptance
@@ -92,3 +92,18 @@ with `consequentialHint` on the tools that change the calculator.
 - Chrome origin trial: <https://developer.chrome.com/blog/ai-webmcp-origin-trial>,
   local testing: <https://developer.chrome.com/docs/ai/webmcp>
 - Chrome Status: <https://chromestatus.com/feature/5117755740913664>
+
+## Outcome
+
+- `web/ai-webmcp.js` registers the shown calculator's tool family with
+  `document.modelContext` (Chrome's early `navigator.modelContext` as a
+  fallback), re-registers on a family change, withdraws on `pagehide`;
+  calls are checked, confirmed in tab-mcp's dialog where consequential,
+  and logged as "Your browser's AI". Decisions: [[decision-log]]
+  2026-11-08; Chrome's behaviour: [[research/webmcp]].
+- Chrome 156 turns WebMCP on headless with
+  `--enable-features=WebMCPTesting`: `web/test/ai-webmcp-page.test.mjs`
+  calls through `executeTool` (the app on load, a fake calculator with
+  the confirmation, and the 48GX with `SATURNUS_ROM_DIR`).
+- Not verified: a real browser agent (Gemini in Chrome, an extension,
+  Edge) calling the tools, and the origin trial on the deployed site.

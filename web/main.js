@@ -50,10 +50,25 @@ const pwa = installServiceWorker(desktop ? "tauri" : "worker", { set() {} });
  * iteration 58): the window attaches its tools at once.
  */
 const calculatorView = () => mounted.calculator ?? null;
+/**
+ * WebMCP (iteration 71, web/ai-webmcp.js): where the browser has it, the
+ * same tools for the browser's own AI agent, always registered. Not in
+ * the desktop app (its webview has none). The older
+ * `navigator.modelContext` as in ai-webmcp.js `modelContextOf`.
+ */
+const hasWebMcp = !desktop && Boolean(document.modelContext ?? navigator.modelContext);
 const ai = desktop
   ? import("./ai-local.js").then(({ LocalAiAccess }) => new LocalAiAccess({ calculatorView }))
-  : relayUrl() ? import("./ai.js").then(({ AiAccess }) => new AiAccess({ calculatorView })) : null;
+  : relayUrl() || hasWebMcp ? import("./ai.js").then(({ AiAccess }) => new AiAccess({ calculatorView })) : null;
 ai?.then((a) => a.resume(), (err) => console.error("saturnus: AI access did not load", err));
+const webmcp = hasWebMcp
+  ? Promise.all([ai, import("./ai-webmcp.js")]).then(([a, { WebMcp }]) => {
+    const w = new WebMcp({ ai: a });
+    a.webmcp = w;
+    w.start().catch((err) => console.error("saturnus: WebMCP did not start", err));
+    return w;
+  }, (err) => console.error("saturnus: WebMCP did not load", err))
+  : null;
 
 /** The ROM commands of the home page: the app's, or the browser's hub's. */
 const roms = desktop ? appRoms(nativeHub()) : hubRoms();
@@ -90,6 +105,8 @@ function routeNow() {
 
 /** Calculator runs `model` now: its route follows, so a reload opens it again. */
 function onModel(model) {
+  // The shown calculator's model decides the tools WebMCP offers.
+  webmcp?.then((w) => w?.update(model));
   const r = routeNow();
   if (current !== "calculator" || (r?.model ?? null) === (model ?? null)) return;
   // Turned off: the route drops the model, so Back or a reload does not boot it again.

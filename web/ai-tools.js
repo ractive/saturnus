@@ -1,6 +1,11 @@
 // The tools an AI app gets for the app's calculators (iteration 55),
 // in the WebMCP shape tab-mcp's `registerTool` takes: `{name, title,
-// description, inputSchema, annotations, execute}`. Pure over what it is
+// description, inputSchema, outputSchema, annotations, execute}`
+// (`outputSchema` only WebMCP passes on, web/ai-webmcp.js; tab-mcp's
+// client and the desktop app's tool list leave it out). `execute(input,
+// {signal})`: a call whose signal aborts presses nothing more, drops the
+// keys it queued and the calculator has not played yet (`releaseAll`)
+// and stops waiting for the calculator ("Cancelled"). Pure over what it is
 // given (web/ai.js gives the real parts; web/test/ai-tools.test.mjs fakes):
 //
 //   calculators()  the running calculators, `[{id, model, title, rom, shown}]`
@@ -33,13 +38,17 @@ export const KEYED_RPL_MODELS = ["28s"];
 /** The models whose functions are pressed by the reference's key paths (`run_function`). */
 export const FUNCTION_MODELS = ["42s", "27s", "17bii", "17b", "19bii", "38g", "39g", "40g"];
 
+/** The tools that work on each family of models. */
+export const FAMILY_TOOLS = Object.freeze({
+  rpl: Object.freeze(["read_display", "press_keys", "list_keys", "run_rpl", "to_stack", "read_stack", "list_variables", "read_variable", "store_variable", "purge_variable", "lookup_command"]),
+  "rpl-keys": Object.freeze(["read_display", "press_keys", "list_keys", "run_rpl", "lookup_command"]),
+  keys: Object.freeze(["read_display", "press_keys", "list_keys", "run_function", "lookup_command"]),
+});
+
 /** The family of a model and the tools that work on it, for `list_calculators`. */
 export function familyOf(model) {
-  if (RPL_MODELS.includes(model)) {
-    return { family: "rpl", tools: ["read_display", "press_keys", "list_keys", "run_rpl", "to_stack", "read_stack", "list_variables", "read_variable", "store_variable", "purge_variable", "lookup_command"] };
-  }
-  if (KEYED_RPL_MODELS.includes(model)) return { family: "rpl-keys", tools: ["read_display", "press_keys", "list_keys", "run_rpl", "lookup_command"] };
-  return { family: "keys", tools: ["read_display", "press_keys", "list_keys", "run_function", "lookup_command"] };
+  const family = RPL_MODELS.includes(model) ? "rpl" : KEYED_RPL_MODELS.includes(model) ? "rpl-keys" : "keys";
+  return { family, tools: [...FAMILY_TOOLS[family]] };
 }
 
 /** A model's title: "HP 48GX". */
@@ -71,6 +80,73 @@ const CALCULATOR = { type: "string", description: "The calculator's id from list
 const LOOK = { type: "string", enum: ["lcd", "bw"], description: "The image's colours: the LCD's (lcd, drawn at the normal contrast whatever the calculator's) or black on white (bw). Default: the app's Screen images setting." };
 const DISPLAY = { type: "string", enum: ["image", "text", "both", "none"], description: "What of the display to return afterwards: a PNG image, text (annunciators, the command line on the 48SX, 48GX, 49G and 28S, and the stack on the 48SX, 48GX and 49G), both, or none." };
 
+/**
+ * The tools' results (WebMCP `outputSchema`, web/ai-webmcp.js): what
+ * each returns, as WebMCP gives it to the agent (a display image as the
+ * `image` data URL). Nothing is required and other fields may come, so a
+ * failed call's `{error}` (WebMCP's form of a tool error) fits as well.
+ */
+const STR = { type: "string" };
+const INT = { type: "integer" };
+const BOOL = { type: "boolean" };
+const LEVEL = { type: "object", properties: { level: INT, type: STR, text: STR } };
+const obj = (properties) => ({ type: "object", properties: { calculator: STR, error: { type: "string", description: "Why the call failed, or the calculator's error message." }, ...properties } });
+const VARIABLE_ROW = { type: "object", properties: { name: STR, type: STR, size: INT, variables: { type: "array", items: { type: "object" } } } };
+const OUT = {
+  calculators: {
+    type: "object",
+    properties: {
+      calculators: {
+        type: "array",
+        items: { type: "object", properties: { id: STR, model: STR, title: STR, rom: STR, shown: BOOL, family: { type: "string", enum: ["rpl", "rpl-keys", "keys"] }, tools: { type: "array", items: STR }, mode: { type: "string", enum: ["algebraic", "rpn"] } } },
+      },
+      note: STR,
+      error: STR,
+    },
+  },
+  keys: obj({ model: STR, keys: { type: "array", items: { type: "object", properties: { name: STR, label: STR, left: STR, right: STR, alpha: STR } } }, shifts: { type: "array", items: STR } }),
+  display: obj({
+    model: STR,
+    screen: STR,
+    next: STR,
+    haltedPrograms: INT,
+    annunciators: { type: "array", items: STR },
+    commandLine: { type: "object", properties: { text: STR, cursor: INT } },
+    stack: { type: ["array", "string"], items: LEVEL },
+    stackDepth: INT,
+    display: STR,
+    pixels: { type: "array", items: STR },
+    image: { type: "string", description: "The display as a PNG, a data: URL, when an image was asked for." },
+    mode: { type: "string", enum: ["algebraic", "rpn"] },
+    running: BOOL,
+    pressed: INT,
+    ran: STR,
+    keys: STR,
+    closed: { type: "array", items: STR },
+    commandLineOpen: BOOL,
+    note: STR,
+  }),
+  stack: obj({ mode: { type: "string", enum: ["algebraic", "rpn"] }, depth: INT, levels: { type: "array", items: LEVEL }, running: BOOL, note: STR }),
+  variables: obj({ current: { type: "array", items: STR }, home: { type: "array", items: VARIABLE_ROW } }),
+  variable: obj({ dir: { type: "array", items: STR }, name: STR, text: STR }),
+  stored: obj({ stored: BOOL, dir: { type: "array", items: STR }, name: STR }),
+  purged: obj({ purged: BOOL, dir: { type: "array", items: STR }, name: STR }),
+  lookup: {
+    type: "object",
+    properties: {
+      model: STR,
+      name: STR,
+      longName: STR,
+      stack: STR,
+      description: STR,
+      note: STR,
+      matches: { type: "array", items: { type: "object", properties: { name: STR, stack: STR, description: STR, keys: STR } } },
+      examples: { type: "array", items: { type: "object" } },
+      error: STR,
+    },
+  },
+};
+
 /** How long a tool waits for the calculator to settle after its keys (ms). */
 const SETTLE_MS = 30_000;
 /** Most CANCEL presses `to_stack` makes. */
@@ -87,7 +163,13 @@ export function aiTools(deps) {
   const pace = deps.pace ?? { first: 40, poll: 40, limit: SETTLE_MS };
   /** One call at a time per calculator: two AI calls would mix their keys. */
   const queues = new Map();
-  /** `presses`: the tool types or reads what has the keyboard, so it waits out a cold boot's question first. */
+  /**
+   * `presses`: the tool types or reads what has the keyboard, so it waits
+   * out a cold boot's question first. A call cancelled after it queued
+   * keys (`typeKeys` queues them all at once) drops those not played yet
+   * (`releaseAll`) before it ends, so the next call's keys and reads do
+   * not mix with them.
+   */
   const onCalculator = async (input, fn, signal = null, { presses = false } = {}) => {
     const t = await targetOf(optionalString(input.calculator));
     const prev = queues.get(t.id) ?? Promise.resolve();
@@ -98,7 +180,14 @@ export function aiTools(deps) {
         await started(t, signal);
         if (signal?.aborted) throw new Error("Cancelled");
       }
-      return fn(t);
+      let queued = false;
+      const keyed = { ...t, backend: notingKeys(t.backend, () => { queued = true; }) };
+      try {
+        return await fn(keyed, signal);
+      } catch (err) {
+        if (queued && signal?.aborted) t.backend.releaseAll();
+        throw err;
+      }
     });
     const tail = run.catch(() => {});
     queues.set(t.id, tail);
@@ -107,7 +196,11 @@ export function aiTools(deps) {
     });
     return run;
   };
-  const wait = (t) => settle(t.backend, t.store, pace);
+  /** Until the calculator has settled after keys; a cancelled call stops waiting ("Cancelled"). */
+  const wait = async (t, signal = null) => {
+    await settle(t.backend, t.store, signal ? { ...pace, signal } : pace);
+    cancelled(signal);
+  };
   /**
    * Right after a cold boot the host still answers "Try To Recover
    * Memory?" (`status.starting`): the screen is not the stack yet, so the
@@ -122,7 +215,7 @@ export function aiTools(deps) {
       if (Date.now() > until) throw new Error("The calculator is still starting (it answers its boot question). Try again in a moment.");
       await new Promise((r) => setTimeout(r, pace.poll));
     }
-    await wait(t);
+    await wait(t, signal);
   };
 
   /**
@@ -148,7 +241,9 @@ export function aiTools(deps) {
       title: "List calculators",
       description: "The calculators running in the app: id, model, ROM file, whether the app's Calculator view shows it (the default for the other tools), and which tools work on it. On the 49G the app shows (or one a tool already used), \"mode\": \"algebraic\" (flag -95 set: RPN text does not parse) or \"rpn\"; left out otherwise and while it starts (read_stack gives it).",
       inputSchema: { type: "object", properties: {} },
-      annotations: { readOnlyHint: true },
+      outputSchema: OUT.calculators,
+      // The ROM's file name is the user's.
+      annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute: async () => {
         const list = await calculators();
         return {
@@ -162,6 +257,7 @@ export function aiTools(deps) {
       title: "List keys",
       description: "The calculator's keys as press_keys names them, each with its legend, the functions its shifts give and its ALPHA letter.",
       inputSchema: { type: "object", properties: { calculator: CALCULATOR } },
+      outputSchema: OUT.keys,
       annotations: { readOnlyHint: true },
       execute: (input, options) => onCalculator(input, async (t) => {
         const keys = await skinKeys(t);
@@ -186,6 +282,7 @@ export function aiTools(deps) {
           look: LOOK,
         },
       },
+      outputSchema: OUT.display,
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute: (input, options) => onCalculator(input, async (t) => display(t, String(input.format ?? "both"), { pixels: input.pixels === true, png, look: askedLook(input), extra: await modeField(t) }), options?.signal),
     },
@@ -203,15 +300,17 @@ export function aiTools(deps) {
         },
         required: ["keys"],
       },
+      outputSchema: OUT.display,
       annotations: { untrustedContentHint: true },
-      execute: (input, options) => onCalculator(input, async (t) => {
+      execute: (input, options) => onCalculator(input, async (t, signal) => {
         ready(t);
         const keys = input.keys.map(String);
         const names = new Set((await skinKeys(t)).map((k) => k.name));
         const unknown = [...new Set(keys.filter((k) => !names.has(k)))];
         if (unknown.length) throw new Error(`The ${titleOf(t.model)} has no key ${unknown.map((k) => JSON.stringify(k)).join(", ")}. list_keys gives the names.`);
+        cancelled(signal);
         t.backend.typeKeys(keys);
-        await wait(t);
+        await wait(t, signal);
         return display(t, String(input.display ?? "both"), { png, look: askedLook(input), extra: { pressed: keys.length, ...(await stillRunning(t)) } });
       }, options?.signal, { presses: true }),
     },
@@ -229,13 +328,15 @@ export function aiTools(deps) {
         },
         required: ["text"],
       },
+      outputSchema: OUT.display,
       annotations: { untrustedContentHint: true },
-      execute: (input, options) => onCalculator(input, async (t) => {
+      execute: (input, options) => onCalculator(input, async (t, signal) => {
         ready(t);
         const text = String(input.text);
         if (KEYED_RPL_MODELS.includes(t.model)) {
           await refuseOpenLine(t);
-          await send28(t.backend, t.store, "run", fromCodes28(text), pace);
+          await send28(t.backend, t.store, "run", fromCodes28(text), signal ? { ...pace, signal } : pace);
+          cancelled(signal);
           return display(t, String(input.display ?? "both"), { png, look: askedLook(input), extra: { ran: text, ...(await stillRunning(t)) } });
         }
         if (!RPL_MODELS.includes(t.model)) throw new Error(`The ${titleOf(t.model)} has no RPL command line. Use run_function or press_keys.`);
@@ -246,6 +347,8 @@ export function aiTools(deps) {
           throw new Error(`The calculator shows ${screenPhrase(screen)}, not the stack: run_rpl would type into it. screen: ${JSON.stringify(screen.screen)}. next: ${screen.next} Or to_stack, which presses CANCEL until the stack is back.`);
         }
         await refuseOpenLine(t);
+        cancelled(signal);
+        // The calculator's own run ends by itself (its result, or "running" after its limit).
         const r = await t.backend.run(text, { codes: true });
         const mode = t.model === "49g" ? await modeOf(t) : null;
         return display(t, String(input.display ?? "text"), {
@@ -260,8 +363,9 @@ export function aiTools(deps) {
       title: "Back to the stack",
       description: "48SX, 48GX, 49G: leaves an input form (no field being edited), a choose box, a message or the graphics screen by pressing CANCEL (ATTN on the 48) until the stack has the keyboard again, at most 5 times, reading the screen from memory before each press; returns what it closed (\"closed\") and the display. It presses nothing where CANCEL could throw away typing or stop a program: a command line (at the stack, in a form's field, for INPUT), a halted or running program, or a screen it cannot name; it refuses there (or, after closing something, stops) with \"next\": what to do yourself. Nothing is pressed at the stack.",
       inputSchema: { type: "object", properties: { calculator: CALCULATOR, display: { ...DISPLAY, description: `${DISPLAY.description} Default: text.` }, look: LOOK } },
+      outputSchema: OUT.display,
       annotations: { untrustedContentHint: true },
-      execute: (input, options) => onCalculator(input, async (t) => {
+      execute: (input, options) => onCalculator(input, async (t, signal) => {
         rplOnly(t);
         ready(t);
         const closed = [];
@@ -283,7 +387,7 @@ export function aiTools(deps) {
           }
           closed.push(screen.screen);
           t.backend.typeKeys(["on"]);
-          await wait(t);
+          await wait(t, signal);
         }
       }, options?.signal, { presses: true }),
     },
@@ -295,6 +399,7 @@ export function aiTools(deps) {
         type: "object",
         properties: { calculator: CALCULATOR, levels: { type: "integer", minimum: 1, maximum: 200, description: "At most this many levels. Default: 50." } },
       },
+      outputSchema: OUT.stack,
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
@@ -310,6 +415,7 @@ export function aiTools(deps) {
       title: "List variables",
       description: "48SX, 48GX, 49G: the current directory and the variables of HOME's tree (name, type, size in bytes; a directory with its own), read from memory (no key pressed).",
       inputSchema: { type: "object", properties: { calculator: CALCULATOR } },
+      outputSchema: OUT.variables,
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
@@ -326,6 +432,7 @@ export function aiTools(deps) {
         properties: { calculator: CALCULATOR, name: { type: "string", minLength: 1, maxLength: 64 }, dir: dirSchema() },
         required: ["name"],
       },
+      outputSchema: OUT.variable,
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
@@ -348,6 +455,7 @@ export function aiTools(deps) {
         },
         required: ["name", "text"],
       },
+      outputSchema: OUT.stored,
       annotations: { consequentialHint: true },
       execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
@@ -367,6 +475,7 @@ export function aiTools(deps) {
         properties: { calculator: CALCULATOR, name: { type: "string", minLength: 1, maxLength: 64 }, dir: dirSchema() },
         required: ["name"],
       },
+      outputSchema: OUT.purged,
       annotations: { consequentialHint: true, destructiveHint: true },
       execute: (input, options) => onCalculator(input, async (t) => {
         rplOnly(t);
@@ -390,15 +499,17 @@ export function aiTools(deps) {
         },
         required: ["name"],
       },
+      outputSchema: OUT.display,
       annotations: { untrustedContentHint: true },
-      execute: (input, options) => onCalculator(input, async (t) => {
+      execute: (input, options) => onCalculator(input, async (t, signal) => {
         ready(t);
         if (!FUNCTION_MODELS.includes(t.model)) throw new Error(`On the ${titleOf(t.model)} commands are typed: use run_rpl.`);
         const index = await reference.index(t.model);
         const command = findCommand(index, String(input.name));
         if (!command) throw new Error(`The ${titleOf(t.model)} reference has no function ${JSON.stringify(String(input.name))}. lookup_command with query finds names.`);
         if (!command.steps) throw new Error(`${command.name} has no keys to press: it is typed into an equation in the Solver.`);
-        await pressFunction(t.backend, t.store, index.km, command.steps, { pace });
+        await pressFunction(t.backend, t.store, index.km, command.steps, { pace: signal ? { ...pace, signal } : pace });
+        cancelled(signal);
         return display(t, String(input.display ?? "both"), { png, look: askedLook(input), extra: { ran: command.name, keys: command.keysText, ...(await stillRunning(t)) } });
       }, options?.signal, { presses: true }),
     },
@@ -415,6 +526,7 @@ export function aiTools(deps) {
           calculator: CALCULATOR,
         },
       },
+      outputSchema: OUT.lookup,
       annotations: { readOnlyHint: true },
       execute: async (input) => {
         const name = optionalString(input.name);
@@ -444,6 +556,29 @@ export function aiTools(deps) {
 }
 
 // ---------------------------------------------------------------- helpers
+
+/** The protocol's commands that queue key presses (web/protocol.md). */
+const KEY_COMMANDS = new Set(["typeKeys", "keyDown", "keyUp", "keyScript", "typeLetter"]);
+
+/** `backend` that calls `onKeys` whenever a command queues keys. */
+function notingKeys(backend, onKeys) {
+  return new Proxy(backend, {
+    get(target, prop) {
+      const v = Reflect.get(target, prop, target);
+      if (typeof v !== "function") return v;
+      if (!KEY_COMMANDS.has(prop)) return v.bind(target);
+      return (...args) => {
+        onKeys();
+        return v.apply(target, args);
+      };
+    },
+  });
+}
+
+/** Throws "Cancelled" once `signal` (a call's) has aborted. */
+function cancelled(signal) {
+  if (signal?.aborted) throw new Error("Cancelled");
+}
 
 /** `v` as a string, or null when it is not a non-empty one. */
 function optionalString(v) {

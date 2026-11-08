@@ -17,7 +17,8 @@ export function appLabel(client) {
 /**
  * What Calculator's sidebar says for AI access `a` (web/app.js
  * `watchAi`): the entry's text, its dot (`on` the accent, `lost` the
- * warning colour), the actions below it (`show`, `connected`, `lost`) or
+ * warning colour), the actions below it (`show`, `connected`, `lost`;
+ * `calls` while off once the browser's AI called through WebMCP) or
  * a note (why it went off), and the sentence the live region reads.
  */
 export function aiView(a) {
@@ -30,7 +31,9 @@ export function aiView(a) {
     const entry = grants.length === 1 ? `${appLabel(grants[0].client)} is connected` : `${grants.length} AI apps are connected`;
     return { entry, dot: "on", actions: "connected", said: `${entry}.` };
   }
-  return { entry: "Connect your AI app…", note: a.error ?? null, said: a.error ? `AI access is off. ${a.error}` : "" };
+  // The browser's AI has used the tools through WebMCP (web/ai-webmcp.js): "Calls" opens the log.
+  const calls = a.webmcp?.called ? { actions: "calls" } : {};
+  return { entry: "Connect your AI app…", note: a.error ?? null, ...calls, said: a.error ? `AI access is off. ${a.error}` : "" };
 }
 
 /** How many entries are kept. */

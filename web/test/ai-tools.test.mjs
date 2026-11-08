@@ -494,3 +494,41 @@ test("a queued call cancelled before its turn presses nothing", async () => {
   await assert.rejects(second, /Cancelled/);
   assert.ok(!c.calls.some(([cmd]) => cmd === "typeKeys"), "no key pressed");
 });
+
+test("a call cancelled while its keys play drops those not played: the next call's keys come alone", async () => {
+  // The calculator plays one queued key every 15 ms, as the engine's queue does.
+  const played = [];
+  let queue = [];
+  const c = fake("48gx", { uiState: AT_STACK, commandLine: { active: false }, stack: [], stats: () => ({ loop: queue.length ? "frame" : "sleep" }) });
+  const backend = c.backend;
+  const timer = setInterval(() => { if (queue.length) played.push(queue.shift()); }, 15);
+  c.backend = new Proxy({}, {
+    get: (_, cmd) => {
+      if (cmd === "typeKeys") return (k) => { queue.push(...k); return backend.typeKeys(k); };
+      if (cmd === "releaseAll") return () => { queue = []; return backend.releaseAll(); };
+      return backend[cmd];
+    },
+  });
+  try {
+    const t = tools({ "48gx": c }, { png: async () => null });
+    const abort = new AbortController();
+    const first = t.press_keys.execute({ keys: Array(20).fill("1"), display: "none" }, { signal: abort.signal, client: { grantId: "g", id: "x", host: "x" } });
+    await new Promise((r) => setTimeout(r, 70));
+    abort.abort();
+    await assert.rejects(first, /Cancelled/);
+    const second = await call(t.press_keys, { keys: ["plus"], display: "none" });
+    assert.equal(second.pressed, 1);
+    assert.ok(c.calls.some(([cmd]) => cmd === "releaseAll"), "the queue dropped");
+    assert.ok(played.filter((k) => k === "1").length < 20, "not every key of the cancelled call played");
+    assert.equal(played.at(-1), "plus");
+    assert.equal(played.indexOf("plus"), played.length - 1, "no key of the cancelled call after the next call's");
+    // A call cancelled before it pressed anything drops nothing (the user's own keys stay).
+    const quiet = fake("48gx", { uiState: AT_STACK, commandLine: { active: false }, stack: [] });
+    const stop = new AbortController();
+    stop.abort();
+    await assert.rejects(tools({ "48gx": quiet }).press_keys.execute({ keys: ["1"] }, { signal: stop.signal }), /Cancelled/);
+    assert.ok(!quiet.calls.some(([cmd]) => cmd === "releaseAll" || cmd === "typeKeys"));
+  } finally {
+    clearInterval(timer);
+  }
+});

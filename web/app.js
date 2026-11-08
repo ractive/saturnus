@@ -429,10 +429,13 @@ function watchAi(ai, store) {
     return b;
   };
   Promise.all([ai, import("./ai-log.js")]).then(([a, { aiView }]) => {
-    a.load().catch(() => {});
+    // Without a relay (WebMCP alone) there is no client to load.
+    if (a.available) a.load().catch(() => {});
     // Open as it was left in this browser.
     if (prefs.get("aiLog") === "open") toggleAiLog(ai, null, { restore: true });
     const render = () => {
+      // No relay (a page served from this computer) but WebMCP: nothing to connect, the log still there.
+      button.hidden = !a.available;
       if (keepRunning !== a.keepsRunning) {
         keepRunning = a.keepsRunning;
         visibility?.(document.hidden);
@@ -447,6 +450,8 @@ function watchAi(ai, store) {
         // The desktop app: one switch for every AI app, so its word is Turn off.
         connected: () => [calls(), " · ", link(a.local ? "Turn off" : "Disconnect", () => a.disconnect())],
         lost: () => [calls(), " · ", link("Turn off", () => a.disconnect())],
+        // The browser's AI called through WebMCP (web/ai-webmcp.js): its calls are in the log.
+        calls: () => [...(v.note ? [v.note, " · "] : []), calls()],
       }[v.actions];
       const line = actions ? actions() : v.note ? [v.note] : [];
       chip.replaceChildren(...line);
