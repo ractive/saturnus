@@ -129,6 +129,14 @@ $ printf "6 7 *\n1 0 /\nCLEAR\n:ls\n" | satx repl --json
 {"results":[{"checksum":8861,"directory":false,"name":"IOPAR","size":29.5,"type":"List"}]}
 ```
 
+The 49G sends each stack level only as wide as its display (20 or 22
+characters), so a longer string, list, program or algebraic arrives cut.
+Levels that end inside an object are listed in `"cut"` (level numbers)
+with a `"hint"`, here and in `satx run`'s results (a 48 string that holds
+a `"` looks the same); store the object (`'NAME' STO`) and get it as text
+to see all of it: `:get NAME --ascii` in the REPL, `satx get NAME --ascii
+-o -` outside it.
+
 XModem is the alternative to Kermit on the 48G/GX and 49G (the 48S/SX has
 none): `satx put prg.hp --protocol xmodem` or `satx get PRG --protocol
 xmodem`. The Kermit server cannot start XRECV/XSEND, so satx ends server
