@@ -1571,15 +1571,15 @@ fn a_calculator_in_xserv_is_found_listed_and_changed() {
         if expect_packet && w.len() >= 3 {
             expect_packet = false;
             let text = String::from_utf8_lossy(&w[2..w.len() - 1]).to_string();
-            for word in text.split(' ') {
-                match word {
-                    "HOME" => cwd = vec!["HOME".into()],
-                    "'N'" | "CRDIR" => {}
-                    name => cwd.push(name.to_string()),
-                }
-            }
-            if text == "'N' CRDIR" {
+            if text.contains("'N' CRDIR") {
                 made.push("N".into());
+            } else {
+                for word in text.split(' ') {
+                    match word {
+                        "HOME" => cwd = vec!["HOME".into()],
+                        name => cwd.push(name.to_string()),
+                    }
+                }
             }
             seen.borrow_mut().push(text);
             return vec![vec![0x06]];
@@ -1666,7 +1666,17 @@ fn a_calculator_in_xserv_is_found_listed_and_changed() {
         },
     );
     assert!(matches!(missing, Err(TxError::NotFound(_))), "{missing:?}");
-    assert_eq!(*executed.borrow(), ["HOME", "D", "'N' CRDIR", "HOME"]);
+    // The change in a guard that leaves nothing on the stack when it fails.
+    let executed = executed.borrow();
+    assert_eq!(executed.len(), 4, "{executed:?}");
+    assert_eq!([&executed[..2], &executed[3..]].concat(), ["HOME", "D", "HOME"]);
+    assert!(
+        executed[2].starts_with("DEPTH ")
+            && executed[2].contains(" IFERR \"'N' CRDIR\" STR")
+            && executed[2].contains(" THEN DEPTH satxd - DROPN END "),
+        "{executed:?}"
+    );
+    drop(executed);
 
     // No fast transfer; the disconnect ends XSERV.
     let fast = host.run(

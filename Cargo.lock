@@ -2991,6 +2991,7 @@ dependencies = [
  "kermit-proto",
  "saturnus-core",
  "saturnus-drive",
+ "saturnus-objects",
  "satx-core",
  "thiserror 2.0.21",
 ]

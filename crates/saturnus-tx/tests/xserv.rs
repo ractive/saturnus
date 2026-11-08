@@ -33,6 +33,31 @@ struct Calculator {
 impl Calculator {
     /// The 49G with its Kermit server ended and XSERV typed.
     fn boot() -> Option<Self> {
+        let mut c = Self::at_stack()?;
+        c.type_xserv();
+        Some(c)
+    }
+
+    /// Type `XSERV` and ENTER.
+    fn type_xserv(&mut self) {
+        self.keys("wait 1000\nalpha alpha x sin e sqrt eex\nalpha\nenter\nwait 1000");
+    }
+
+    /// The stack (level 1 first) and whether flag -95 (algebraic mode) is
+    /// set, from the RAM.
+    fn stack_and_mode(&mut self) -> (Vec<String>, bool) {
+        let machine = self.transport.machine();
+        let stack = saturnus_objects::ram::stack_objects(machine)
+            .unwrap()
+            .iter()
+            .map(|o| format!("{o:?}"))
+            .collect();
+        let flags = saturnus_objects::ram::flags(machine).unwrap();
+        (stack, flags.get(-95) == Some(true))
+    }
+
+    /// The 49G with its Kermit server ended, at its stack.
+    fn at_stack() -> Option<Self> {
         let rom = std::env::var_os("SATURNUS_ROM_DIR").map(PathBuf::from)?;
         let rom = rom.join("rom.49g");
         if !rom.is_file() {
@@ -54,7 +79,6 @@ impl Calculator {
             c.run(Request::Disconnect),
             Ok(Outcome::Disconnected)
         ));
-        c.keys("wait 1000\nalpha alpha x sin e sqrt eex\nalpha\nenter\nwait 1000");
         Some(c)
     }
 
@@ -316,4 +340,69 @@ fn files_over_xserv() {
         "{quit:?}"
     );
     eprintln!("whole session {:?}", t0.elapsed());
+}
+
+/// The Kermit server nested in XSERV leaves the stack and algebraic mode
+/// alone: the 49G in algebraic mode (flag -95) with three numbers on its
+/// stack, XSERV typed, two nested Kermit cycles (a text get, PICT) and the
+/// disconnect; and a rename that fails on the calculator (`PICT` takes
+/// only a graphics object) leaves nothing on the stack.
+#[test]
+fn the_nested_kermit_server_leaves_the_stack_and_algebraic_mode() {
+    let Some(mut c) = Calculator::at_stack() else {
+        return;
+    };
+    c.keys("1\nenter\n2\nenter\n3\nenter\nwait 500");
+    let before = c.stack_and_mode();
+    assert!(before.1, "the 49G boots in algebraic mode");
+    // In algebraic mode each entry is the result and the line typed.
+    assert!(before.0.len() >= 6, "{before:?}");
+    c.type_xserv();
+    let connected = c.run(Request::Connect(Default::default()));
+    assert!(
+        matches!(&connected, Ok(Outcome::Connected(conn)) if conn.server == Server::Xserv),
+        "{connected:?}"
+    );
+    // XSERV keeps the user's stack out of sight while it runs (the RAM
+    // shows only its own objects): what counts is the stack after it.
+    let text = c.get(&["HOME"], "IOPAR", Format::Text);
+    assert!(text.starts_with(b"%%HP"), "{text:?}");
+    assert!(matches!(c.run(Request::Pict), Ok(Outcome::Pict(_))));
+    assert!(c.stack_and_mode().1, "algebraic mode after two nests");
+
+    // A rename the calculator refuses: the recalled object and the name
+    // do not stay on the stack (both read after a listing).
+    assert!(matches!(
+        c.put(&["HOME"], "SATXS", HELLO, false),
+        Ok(Outcome::Stored(_))
+    ));
+    let idle = c.stack_and_mode();
+    let refused = c.run(Request::Rename {
+        dir: vec![],
+        from: "SATXS".into(),
+        to: "PICT".into(),
+    });
+    assert!(refused.is_err(), "{refused:?}");
+    assert_eq!(c.stack_and_mode(), idle);
+    assert!(matches!(
+        c.run(Request::Purge {
+            dir: vec![],
+            name: "SATXS".into(),
+            count: None,
+        }),
+        Ok(Outcome::Purged { .. })
+    ));
+
+    let quit = c.run(Request::Disconnect);
+    assert!(
+        matches!(quit, Ok(Outcome::XservQuit { ended: true })),
+        "{quit:?}"
+    );
+    c.keys("wait 1000");
+    // Typing XSERV added its own entry (the line and its result); below
+    // it the stack is as it was, not packed into a list, and the 49G is
+    // still in algebraic mode.
+    let after = c.stack_and_mode();
+    assert!(after.1, "algebraic mode after XSERV");
+    assert_eq!(after.0.get(2..), Some(&before.0[..]), "{after:?}");
 }

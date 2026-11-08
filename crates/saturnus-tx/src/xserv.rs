@@ -13,6 +13,9 @@
 //!   fresh listing, which the XSERV client sends again until a calculator
 //!   still running the RPL answers. An RPL error is not reported by XSERV
 //!   (the calculator stays in XSERV), so the listing is the only proof.
+//!   Each change runs as a string in `IFERR … STR→`, which drops what a
+//!   failure leaves: else the `E` text stays on the stack (see
+//!   [`guarded`]).
 //! - **The current directory**: XSERV cannot say it, so the device keeps
 //!   it and the directories it has seen in listings; it walks from HOME or
 //!   from where it is, a listing per level it has not seen, and evaluates
@@ -292,6 +295,22 @@ async fn change(
     }
 }
 
+/// `rpl` (a change that leaves the stack as it found it) wrapped so that
+/// an error leaves nothing behind either: XSERV keeps the text of an `E`
+/// whose RPL fails on its stack, which the user finds there after XSERV
+/// ends, and a failed `STO` puts its arguments back (emulated 49G, ROM
+/// 2.15, 2026-11-08). The depth before is kept in a local variable named
+/// unlike every name in `names`.
+fn guarded(rpl: &str, names: &[&str]) -> String {
+    let depth = ["satxd", "satxe", "satxf"]
+        .into_iter()
+        .find(|d| !names.contains(d))
+        .unwrap_or("satxg");
+    format!(
+        "DEPTH \\-> {depth} \\<< IFERR \"{rpl}\" STR\\-> THEN DEPTH {depth} - DROPN END \\>>"
+    )
+}
+
 fn quoted(name: &str) -> Result<String> {
     validate_name(name).map_err(|_| TxError::BadName(name.to_string()))?;
     Ok(format!("'{name}'"))
@@ -299,7 +318,7 @@ fn quoted(name: &str) -> Result<String> {
 
 /// Make directory `name` in the current directory, `here`.
 pub(crate) async fn mkdir(ctx: &Ctx, here: &[String], name: &str) -> Result<()> {
-    let rpl = format!("{} CRDIR", quoted(name)?);
+    let rpl = guarded(&format!("{} CRDIR", quoted(name)?), &[name]);
     ctx.xserv_session(|x| x.forget(&join(here, name)))?;
     change(ctx, here, rpl, &format!("make {name}"), |entries| {
         entries.iter().any(|e| e.name == name && e.is_directory())
@@ -311,7 +330,7 @@ pub(crate) async fn mkdir(ctx: &Ctx, here: &[String], name: &str) -> Result<()> 
 /// current directory, `here`.
 pub(crate) async fn remove(ctx: &Ctx, here: &[String], name: &str, directory: bool) -> Result<()> {
     let purge = if directory { "PGDIR" } else { "PURGE" };
-    let rpl = format!("{} {purge}", quoted(name)?);
+    let rpl = guarded(&format!("{} {purge}", quoted(name)?), &[name]);
     ctx.xserv_session(|x| x.forget(&join(here, name)))?;
     change(ctx, here, rpl, &format!("purge {name}"), |entries| {
         !entries.iter().any(|e| e.name == name)
@@ -330,7 +349,7 @@ pub(crate) async fn rename(
 ) -> Result<()> {
     let purge = if directory { "PGDIR" } else { "PURGE" };
     let (f, t) = (quoted(from)?, quoted(to)?);
-    let rpl = format!("{f} RCL {t} STO {f} {purge}");
+    let rpl = guarded(&format!("{f} RCL {t} STO {f} {purge}"), &[from, to]);
     ctx.xserv_session(|x| {
         x.forget(&join(here, from));
         x.forget(&join(here, to));
@@ -345,7 +364,7 @@ pub(crate) async fn rename(
 /// directory, `here` (a put that replaces).
 pub(crate) async fn swap_in(ctx: &Ctx, here: &[String], stored: &str, name: &str) -> Result<()> {
     let (s, n) = (quoted(stored)?, quoted(name)?);
-    let rpl = format!("{s} RCL {n} STO {s} PURGE");
+    let rpl = guarded(&format!("{s} RCL {n} STO {s} PURGE"), &[stored, name]);
     change(ctx, here, rpl, &format!("replace {name}"), |entries| {
         entries.iter().any(|e| e.name == name) && !entries.iter().any(|e| e.name == stored)
     })
@@ -355,7 +374,7 @@ pub(crate) async fn swap_in(ctx: &Ctx, here: &[String], stored: &str, name: &str
 /// Purge `name` from `here`, best effort (a failed replace's copy).
 pub(crate) async fn drop_copy(ctx: &Ctx, name: &str) {
     if let Ok(q) = quoted(name) {
-        let _ = execute(ctx, format!("{q} PURGE")).await;
+        let _ = execute(ctx, guarded(&format!("{q} PURGE"), &[name])).await;
     }
 }
 
@@ -423,6 +442,15 @@ mod tests {
         assert_eq!(x.dirs, HashSet::from([path(&["HOME", "B"])]));
         x.forget(&path(&["HOME", "B"]));
         assert!(x.dirs.is_empty());
+    }
+
+    #[test]
+    fn a_change_is_guarded_by_a_local_named_unlike_its_names() {
+        assert_eq!(
+            guarded("'A' PURGE", &["A"]),
+            "DEPTH \\-> satxd \\<< IFERR \"'A' PURGE\" STR\\-> THEN DEPTH satxd - DROPN END \\>>"
+        );
+        assert!(guarded("x", &["satxd", "B"]).contains("\\-> satxe "));
     }
 
     #[test]
