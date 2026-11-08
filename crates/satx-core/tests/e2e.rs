@@ -415,15 +415,14 @@ fn xmodem_round_trip() -> TestResult {
         _ => Check::Checksum,
     };
 
-    // XRECV: the name goes on the stack over Kermit (the same as typing
-    // `'SATXXM'`), XRECV is typed.
-    calc.run(&format!("'{XMODEM_VAR}'"))?;
+    // XRECV: the plan leaves `« 'SATXXM' XRECV »` on the stack; EVAL
+    // (typed, as the EVAL key does) runs it.
     let plan = calc.prepare_for_xmodem(XmodemDirection::ToCalculator, XMODEM_VAR)?;
     eprintln!("xmodem: {}", plan.instructions());
     let switched_to_rpn = plan.switched_to_rpn;
     let mut xs = XmodemSession::new(calc.into_transport(), options.clone());
     let started = Arc::new(AtomicBool::new(false));
-    let typer = type_later(&container, "xrecv", Duration::from_secs(2), started.clone());
+    let typer = type_later(&container, "eval", Duration::from_secs(2), started.clone());
     let start = Instant::now();
     let sent = xs.send_with(&file, &mut progress(&started));
     eprintln!("xmodem: XRECV took {:?}", start.elapsed());
@@ -443,13 +442,12 @@ fn xmodem_round_trip() -> TestResult {
         return Err(e);
     }
 
-    // XSEND.
-    calc.run(&format!("'{XMODEM_VAR}'"))?;
+    // XSEND, the same way.
     let plan = calc.prepare_for_xmodem(XmodemDirection::FromCalculator, XMODEM_VAR)?;
     eprintln!("xmodem: {}", plan.instructions());
     let mut xs = XmodemSession::new(calc.into_transport(), options);
     let started = Arc::new(AtomicBool::new(false));
-    let typer = type_later(&container, "xsend", Duration::from_secs(2), started.clone());
+    let typer = type_later(&container, "eval", Duration::from_secs(2), started.clone());
     let start = Instant::now();
     let received = xs.receive_with(&mut progress(&started));
     eprintln!("xmodem: XSEND took {:?}", start.elapsed());

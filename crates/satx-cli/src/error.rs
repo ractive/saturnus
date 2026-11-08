@@ -191,7 +191,8 @@ fn core_failure(message: String, err: &Error, link: &LinkInfo) -> Failure {
         }
         Error::Xmodem(_) => Some(
             "the XModem transfer failed; the calculator is out of server mode: press ON if \
-             XRECV/XSEND still runs, type SERVER, check the cable and run the command again"
+             XRECV/XSEND still runs, start SERVER again, check the cable and run the command \
+             again"
                 .into(),
         ),
         Error::Unsupported(_) => Some(

@@ -3,12 +3,14 @@
 // "Add an emulated calculator" path (gxrom-r, rom.49g from
 // SATURNUS_ROM_DIR, read only) and a folder in memory. Per model: a
 // program put by Kermit and got back as the reference; got by the fast
-// transfer into the folder (the page ends the server, the dialog says
-// `'PRG' XSEND`, "Type it for me" types it on the emulated calculator),
-// byte for byte the same; Reconnect starts the server again; the file put
-// back by the fast transfer under another name (`'PRG2' XRECV`), byte for
-// byte the same again over Kermit. The 49G, booted in algebraic mode, is
-// switched to RPN for the command and back at the reconnect.
+// transfer into the folder (the page puts `« 'PRG' XSEND »` on the stack
+// and ends the server, "Press the keys for me" presses EVAL, right-shift
+// SYMB on the 49G), byte for byte the same; Reconnect starts the server
+// again; the file put back by the fast transfer under another name
+// (`« 'PRG2' XRECV »`), byte for byte the same again over Kermit; a third
+// fast get cancelled before EVAL, and the reconnect takes the program off
+// the stack again. The 49G, booted in algebraic mode, is switched to RPN
+// for the command and back at the reconnect.
 //
 // With SATURNUS_TX_TRACES=DIR the link's bytes are written to
 // DIR/MODEL-xmodem.trace (saturnus-tx's trace format, the device seed
@@ -137,12 +139,12 @@ for (const [model, file, header] of [["48gx", "gxrom-r", "HPHP48-"], ["49g", "ro
     assert.equal(String.fromCharCode(...reference.slice(0, 7)), header);
     const checksum = (await ev(`tx.entry("PRG")`)).checksum;
 
-    // Fast get: what to type, typed on the emulated calculator, into the folder.
+    // Fast get: the command on the stack, the keys pressed on the emulated calculator, into the folder.
     await ev(`window.__get = tx.panes[0].act("xmodemGet", [tx.entry("PRG")]); true`);
-    await p.until(`${dialogText("xmodem-command")} === "'PRG' XSEND"`, STEP_MS, "what to type for the get");
+    await p.until(`${dialogText("xmodem-command")} === "« 'PRG' XSEND »"`, STEP_MS, "the command for the get");
     const notes = await ev(`[...document.querySelectorAll("#xmodem-dialog .xmodem-notes li")].map((l) => l.textContent).join(" ")`);
     if (model === "49g") assert.match(notes, /algebraic mode/, "the fresh 49G is in algebraic mode");
-    assert.equal(await ev(shown("type")), true, "the emulated calculator can have it typed");
+    assert.equal(await ev(shown("type")), true, "the emulated calculator can have the keys pressed");
     await ev(press("type"));
     await p.until(shown("reconnect"), STEP_MS * 2, "the fast get done");
     assert.equal(await ev(dialogText("xmodem-lead")), "PRG came over: PRG.hp in hp-files.");
@@ -161,7 +163,7 @@ for (const [model, file, header] of [["48gx", "gxrom-r", "HPHP48-"], ["49g", "ro
     await ev(`window.__put = tx.panes[1].act("xmodemPut", [tx.entry("PRG.hp", 1)]); true`);
     await p.until(`document.getElementById("name-dialog").open`, 10_000, "the name");
     await ev(`(() => { document.getElementById("name-input").value = "PRG2"; document.getElementById("name-ok").click(); return true; })()`);
-    await p.until(`${dialogText("xmodem-command")} === "'PRG2' XRECV"`, STEP_MS, "what to type for the put");
+    await p.until(`${dialogText("xmodem-command")} === "« 'PRG2' XRECV »"`, STEP_MS, "the command for the put");
     await ev(press("type"));
     await p.until(shown("reconnect"), STEP_MS * 2, "the fast put done");
     assert.equal(await ev(dialogText("xmodem-lead")), "PRG2 is on the calculator.");
@@ -194,6 +196,22 @@ for (const [model, file, header] of [["48gx", "gxrom-r", "HPHP48-"], ["49g", "ro
       ])`);
       writeFileSync(join(traces, `${model}-xmodem.trace`), model === "49g" ? zeroPadding(text, reference.length) : text);
     }
+
+    // Cancelled before EVAL (after the trace: its replay has no abort): the command waits on the stack, and the reconnect takes it off again.
+    const stack = () => ev(`tx.panes[0].place.emulator.request("stack")`);
+    const before = await stack();
+    await ev(`window.__left = tx.panes[0].act("xmodemGet", [tx.entry("PRG")]); true`);
+    await p.until(`${dialogText("xmodem-command")} === "« 'PRG' XSEND »"`, STEP_MS, "the command for the cancelled get");
+    const waiting = await stack();
+    assert.equal(waiting.length, before.length + 1, `the command on the stack (${JSON.stringify(waiting)})`);
+    await ev(press("cancel"));
+    await p.until(shown("reconnect"), STEP_MS, "cancelled");
+    assert.match(await ev(dialogText("xmodem-lead")), /^Stopped/);
+    await ev(press("reconnect"));
+    await ev("__left");
+    await p.idle(STEP_MS * 2, "reconnected after the cancel");
+    assert.equal(await ev("tx.panes[0].place.device.leftServer"), false);
+    assert.deepEqual(await stack(), before, "the stack as it was");
     await ev("tx.panes[0].close().then(() => true)");
     assert.deepEqual(c.errors, []);
   });

@@ -2,7 +2,7 @@
 type: backlog
 title: The fast transfer's end-to-end test fails on the emulated 48GX and 49G
 date: 2026-11-05
-status: planned
+status: completed
 priority: high
 tags:
   - backlog
@@ -31,3 +31,16 @@ page's dialog).
 - Bisect from 2026-10-17 to `v0.10.2` on the first-parent history, with
   `--test-name-pattern 48gx` and a `just web` per step, in a worktree.
 - Try the same steps by hand on an emulated 48GX in Files.
+
+## 2026-11-08: passes with the one-key start
+
+Iteration 68b replaced the typed `'PRG' XSEND` with a program left on
+the stack and "Press the keys for me" (EVAL on the 48GX, right-shift
+SYMB on the 49G, `typeKeys`). The test passes on both models again, in
+about 30 s (48GX) and 40 s (49G); the traces
+(`crates/saturnus-tx/traces/*-xmodem.trace`) are recorded from it again,
+with no edits but the 49G's padding. One run of the 48GX test in ten
+failed the old way ("Nothing came from the calculator in time") at the
+first fast get, alone on the machine; the cause of that and of the old
+failures (typing through `run`) was not found. The bisect is no longer
+needed.

@@ -181,11 +181,9 @@ export class EmulatedCalculator extends EventTarget {
     return true;
   }
 
-  /** Type `text` and ENTER (a fast transfer's `'NAME' XRECV`): resolves once typed, the command possibly still running. */
-  async typeLine(text) {
-    const r = await this.request("run", { text });
-    if (r?.error) throw new Error(`${text}: ${r.error}`);
-    return r;
+  /** Press the keys `names` (key names: a fast transfer's `["eval"]`), one after the other: resolves once they are queued, what they run possibly still running. */
+  async pressKeys(names) {
+    return this.request("typeKeys", { keys: names });
   }
 
   /** Press `key` (a key name) and release it after `ms`. */

@@ -570,8 +570,10 @@ pub fn event_json(e: Event) -> Option<Value> {
 }
 
 /// A fast transfer's plan as the `xmodem` event: `{type: "xmodem",
-/// direction: "put" | "get", name, keys, model, switchedToRpn, exists,
-/// notes}`; `keys` is what the user types, then ENTER.
+/// direction: "put" | "get", name, program, keys, model, switchedToRpn,
+/// exists, notes}`; `program` is on the calculator's stack
+/// (`« 'NAME' XSEND »`), `keys` the keys that run it, as labelled
+/// (`["EVAL"]`, `["right-shift", "SYMB"]`).
 pub fn xmodem_plan_json(plan: &satx_core::xmodem::XmodemPlan) -> Value {
     json!({
         "type": "xmodem",
@@ -580,6 +582,7 @@ pub fn xmodem_plan_json(plan: &satx_core::xmodem::XmodemPlan) -> Value {
             satx_core::xmodem::XmodemDirection::FromCalculator => "get",
         },
         "name": plan.name,
+        "program": plan.program,
         "keys": plan.keys,
         "model": model_name(plan.model),
         "switchedToRpn": plan.switched_to_rpn,
@@ -1331,7 +1334,8 @@ mod tests {
             model: Model::Hp49G,
             direction: satx_core::xmodem::XmodemDirection::ToCalculator,
             name: "A".into(),
-            keys: "'A' XRECV".into(),
+            program: "\u{ab} 'A' XRECV \u{bb}".into(),
+            keys: vec!["right-shift".into(), "SYMB".into()],
             switched_to_rpn: true,
             exists: false,
             notes: vec!["n".into()],
@@ -1339,12 +1343,17 @@ mod tests {
         let v = event_json(Event::Xmodem(plan)).unwrap();
         assert_eq!(
             (v["type"].clone(), v["direction"].clone(), v["keys"].clone()),
-            (json!("xmodem"), json!("put"), json!("'A' XRECV"))
+            (
+                json!("xmodem"),
+                json!("put"),
+                json!(["right-shift", "SYMB"])
+            )
         );
         assert_eq!(
             (v["model"].clone(), v["switchedToRpn"].clone()),
             (json!("49g"), json!(true))
         );
+        assert_eq!(v["program"], "\u{ab} 'A' XRECV \u{bb}");
         let p = |bytes, total| {
             event_json(Event::Progress(Progress::Xmodem(
                 satx_core::xmodem_proto::Event::Progress { bytes, total },

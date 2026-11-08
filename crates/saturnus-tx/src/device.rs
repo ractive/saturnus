@@ -315,8 +315,9 @@ pub enum Request {
     /// The graphics screen (PICT). [`Outcome::Pict`].
     Pict,
     /// Put a binary transfer file into a variable by XModem (the 48GX and
-    /// 49G): the server ends, [`Event::Xmodem`] says what the user types
-    /// (`'NAME' XRECV`), and the device waits `wait` for it.
+    /// 49G): `« 'NAME' XRECV »` goes on the stack, the server ends,
+    /// [`Event::Xmodem`] says which keys run it (EVAL), and the device
+    /// waits `wait` for it.
     /// [`Outcome::Stored`]; the device has then left server mode
     /// ([`Device::left_server`]). A name in use is [`TxError::NameClash`]
     /// (there is no replace: the calculator would not overwrite it).
@@ -331,7 +332,7 @@ pub enum Request {
         wait: Duration,
     },
     /// Get a variable by XModem (the 48GX and 49G): as
-    /// [`Request::XmodemPut`], the user types `'NAME' XSEND`.
+    /// [`Request::XmodemPut`], with `« 'NAME' XSEND »`.
     /// [`Outcome::File`] (binary).
     XmodemGet {
         /// The directory.
@@ -688,12 +689,17 @@ struct Shared {
 }
 
 /// What a fast transfer leaves for the reconnect after it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct LeftServer {
     /// The transfer mode the user had (flag -35), for the disconnect.
     pub(crate) user_mode: TransferMode,
     /// A 49G was switched from algebraic mode to RPN for it.
     pub(crate) algebraic: bool,
+    /// The program put on the stack for the user to run
+    /// ([`satx_core::xmodem::stacked_program`]), once it is there: the
+    /// reconnect drops it if it is still on level 1 (the transfer was
+    /// abandoned before EVAL).
+    pub(crate) program: Option<String>,
 }
 
 impl Shared {
@@ -1210,7 +1216,7 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
         other => return Err(unexpected("VERSION", &other)),
     };
     let model = Model::from_version(version.as_deref());
-    let left = ctx.lock().left_server;
+    let left = ctx.lock().left_server.clone();
     let user_mode = match ctx.op(Op::TransferMode).await? {
         Reply::TransferMode(mode) => xmodem::user_mode(mode, left.as_ref()),
         other => return Err(unexpected("-35 FS?", &other)),

@@ -1,10 +1,12 @@
 // The fast transfer (XModem) of the 48GX and 49G: what the page says and
 // the dialog that says it (kb/docs/saturnus-tx.md, "Fast transfer").
-// XRECV and XSEND do not run inside the calculator's server, so the page
-// ends the server, shows what to type on the calculator ('NAME' XRECV or
-// 'NAME' XSEND, then ENTER), waits, and afterwards offers to reconnect
-// once SERVER runs again. An emulated calculator can have the command
-// typed for it, and its server started again by the reconnect.
+// XRECV and XSEND do not run inside the calculator's server, so the
+// device puts the program « 'NAME' XRECV » (or XSEND) on the stack and
+// ends the server; the dialog says which keys run it (EVAL on the 48GX,
+// right-shift SYMB on the 49G), waits, and afterwards offers to reconnect
+// once SERVER runs again (the reconnect drops the program if it was not
+// run). An emulated calculator can have the keys pressed for it, and its
+// server started again by the reconnect.
 //
 // `fastWords` and `fastDone` are pure (web/test/tx-flows.test.mjs); the
 // dialog (`XmodemDialog`) is made once, on first use, so the page is not
@@ -23,11 +25,34 @@ export const XMODEM_WAIT_S = 180;
 export const hasXmodem = (model) => XMODEM_MODELS.includes(model);
 
 /**
+ * The keys that run the program on the stack (EVAL), per model: `labels`
+ * as the dialog shows them, `names` the emulator's key names (`typeKeys`),
+ * `text` in words. The 49G has no EVAL key: EVAL is right-shift SYMB.
+ */
+export const EVAL_KEYS = {
+  "48gx": { labels: ["EVAL"], names: ["eval"], text: "EVAL" },
+  "49g": { labels: ["↱", "SYMB"], names: ["rightshift", "symb"], text: "right-shift, then SYMB (EVAL)" },
+};
+
+/**
+ * How the server starts again after a fast transfer, per model, as
+ * START_SERVER's entries. The 49G's right-shift → starts its XModem
+ * server instead when there is a pause between the keys (wiki:
+ * protocols/xserv), so after a fast transfer it says SERVER only; the
+ * 48GX's right-shift → starts the Kermit server however slowly it is
+ * pressed (emulated 48GX, 2026-11-08).
+ */
+const RESTART = {
+  "48gx": START_SERVER["48gx"],
+  "49g": { steps: ["Type SERVER and press ENTER."], keys: ["S", "E", "R", "V", "E", "R", "ENTER"] },
+};
+
+/**
  * The words of the dialog while it waits: `title`, `lead` (before the
- * plan: what happens; with it: what to do), `keys` (what to type),
- * `notes` (sentences), for a `direction` ("put" or "get") of variable
- * `name` with `model`, `plan` the device's (`{keys, switchedToRpn}`)
- * once the server has ended.
+ * plan: what happens; with it: what to do), `program` (what is on the
+ * stack), `keys` (the key labels that run it), `notes` (sentences), for
+ * a `direction` ("put" or "get") of variable `name` with `model`, `plan`
+ * the device's (`{program, switchedToRpn}`) once the server has ended.
  */
 export function fastWords({ direction, name, model, plan = null, emulated = false, waitS = XMODEM_WAIT_S }) {
   const put = direction === "put";
@@ -37,20 +62,24 @@ export function fastWords({ direction, name, model, plan = null, emulated = fals
     return {
       title,
       lead: `Files ends server mode on ${who}, then you start the transfer on it.`,
+      program: null,
       keys: null,
       notes: [],
       status: "Ending server mode…",
     };
   }
   const notes = [];
+  const run = EVAL_KEYS[model] ?? EVAL_KEYS["48gx"];
   if (plan.switchedToRpn) notes.push("The calculator was in algebraic mode, so Files switched it to RPN for the command. It goes back when you reconnect.");
   if (put && model === "48gx") notes.push(`If the transfer fails, ${name} may be left on the calculator as an empty string.`);
-  notes.push("To stop it on the calculator, press ON.");
+  notes.push("If you cancel before pressing it, the reconnect takes the command off the stack again.");
+  notes.push("To stop the transfer on the calculator, press ON.");
   const minutes = Math.round(waitS / 60);
   return {
     title,
-    lead: `Server mode has ended. On ${who}, type this and press ENTER:`,
-    keys: plan.keys,
+    lead: `Server mode has ended, and this command is on the stack of ${who}. To run it, press ${run.text}:`,
+    program: plan.program,
+    keys: run.labels,
     notes,
     status: `Waiting for the calculator (up to ${minutes} ${minutes === 1 ? "minute" : "minutes"})…`,
   };
@@ -69,10 +98,10 @@ export function fastDone({ direction, name, model, error = null, where = null, l
   if (!error) lead = put ? `${name} is on the calculator.` : `${name} came over: ${where ?? `${name}.hp`}.`;
   else if (!left && (error.kind === "aborted" || error.kind === "cancelled")) lead = "Cancelled before it started: the calculator is still in server mode.";
   else if (error.kind === "aborted" || error.kind === "cancelled") lead = "Stopped. If the calculator still waits, press ON on it.";
-  else if (error.kind === "xmodemTimeout") lead = `Nothing came from the calculator in time. Was ${put ? "XRECV" : "XSEND"} typed and ENTER pressed? If the calculator still waits, press ON on it.`;
+  else if (error.kind === "xmodemTimeout") lead = `Nothing came from the calculator in time. Was ${(EVAL_KEYS[model] ?? EVAL_KEYS["48gx"]).text} pressed? If the calculator still waits, press ON on it.`;
   else lead = `Could not ${put ? "send" : "get"} ${name}: ${failureText(error)}`;
   if (!left) return { lead, restart: null, keys: null, ok: !error };
-  const s = START_SERVER[model];
+  const s = RESTART[model] ?? START_SERVER[model];
   const restart = emulated
     ? "The emulated calculator is out of server mode. Reconnect starts its server again."
     : `The calculator is out of server mode. ${s ? `${s.steps[0]} That starts its server again; then reconnect.` : "Start its server again, then reconnect."}`;
@@ -84,8 +113,8 @@ export function fastDone({ direction, name, model, error = null, where = null, l
  * shows it; `plan(plan)` once the server has ended; `progress(text)`;
  * `finish(words)` with `fastDone`'s words. Its buttons call the hooks
  * given to `start`: `cancel` (while it runs) and `type` (an emulated
- * calculator: type the command); `finish` resolves to the button that
- * closed it.
+ * calculator: press the keys that run the command); `finish` resolves to
+ * the button that closed it.
  */
 export class XmodemDialog {
   constructor(doc = document) {
@@ -103,7 +132,8 @@ export class XmodemDialog {
         el("h2", { id: "xmodem-title", class: "xmodem-title" }),
         el("p", { class: "xmodem-lead" }),
         el("div", { class: "connect-steps xmodem-steps", hidden: true },
-          el("p", { class: "xmodem-keys" }, el("code", { class: "xmodem-command" })),
+          el("p", { class: "xmodem-program" }, el("code", { class: "xmodem-command" })),
+          el("p", { class: "keys xmodem-keys", "aria-hidden": "true" }),
           el("ul", { class: "xmodem-notes" }),
         ),
         el("p", { class: "xmodem-status muted", role: "status" }),
@@ -116,13 +146,13 @@ export class XmodemDialog {
           el("button", { type: "button", "data-act": "cancel", text: "Cancel" }),
           el("button", { type: "button", "data-act": "close", text: "Close" }),
           el("button", { type: "button", "data-act": "later", text: "Later" }),
-          el("button", { type: "button", class: "primary", "data-act": "type", text: "Type it for me" }),
+          el("button", { type: "button", class: "primary", "data-act": "type", text: "Press the keys for me" }),
           el("button", { type: "button", class: "primary", "data-act": "reconnect", text: "Reconnect" }),
         ),
       ),
     );
     this.ui = {
-      title: q("xmodem-title"), lead: q("xmodem-lead"), steps: q("xmodem-steps"), command: q("xmodem-command"),
+      title: q("xmodem-title"), lead: q("xmodem-lead"), steps: q("xmodem-steps"), command: q("xmodem-command"), keys: q("xmodem-keys"),
       notes: q("xmodem-notes"), status: q("xmodem-status"), bar: q("xmodem-bar"), restart: q("xmodem-restart"),
       restartText: q("xmodem-restart-text"), restartKeys: q("xmodem-restart-keys"),
     };
@@ -155,7 +185,7 @@ export class XmodemDialog {
     }
   }
 
-  /** Show the dialog for a transfer: `words` from `fastWords` (no plan yet); `hooks` as above; `emulated` offers "Type it for me" once the plan is in. */
+  /** Show the dialog for a transfer: `words` from `fastWords` (no plan yet); `hooks` as above; `emulated` offers "Press the keys for me" once the plan is in. */
   start(words, hooks = {}, { emulated = false } = {}) {
     this.build();
     this.hooks = hooks;
@@ -174,11 +204,12 @@ export class XmodemDialog {
     this.dialog.querySelector('[data-act="cancel"]').focus();
   }
 
-  /** The server has ended: what to type (`fastWords` with the plan). */
+  /** The server has ended: what is on the stack and the keys that run it (`fastWords` with the plan). */
   plan(words) {
     if (this.state !== "running") return;
     this.ui.lead.textContent = words.lead;
-    this.ui.command.textContent = words.keys;
+    this.ui.command.textContent = words.program;
+    this.ui.keys.replaceChildren(...(words.keys ?? []).map((k) => el("kbd", { class: "calc-key", text: k })));
     this.ui.notes.replaceChildren(...words.notes.map((n) => el("li", { text: n })));
     this.ui.steps.hidden = false;
     this.ui.status.textContent = words.status;

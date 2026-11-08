@@ -206,7 +206,7 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
         if (!put && there.dir) throw fail("isDirectory", `${req.name} is a directory`, req.name);
         connected = false;
         leftServer = true;
-        emit({ type: "xmodem", direction: put ? "put" : "get", name: req.name, keys: `'${req.name}' ${put ? "XRECV" : "XSEND"}`, model, switchedToRpn: false, exists: Boolean(there), notes: [] });
+        emit({ type: "xmodem", direction: put ? "put" : "get", name: req.name, program: `« '${req.name}' ${put ? "XRECV" : "XSEND"} »`, keys: model === "49g" ? ["right-shift", "SYMB"] : ["EVAL"], model, switchedToRpn: false, exists: Boolean(there), notes: [] });
         if (holdXmodem) await new Promise((r) => { held = r; });
         if (put) {
           emit({ type: "progress", sent: data.length, total: data.length });

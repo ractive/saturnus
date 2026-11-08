@@ -261,8 +261,8 @@ export class KermitDevice extends EventTarget {
    * A fast transfer (XModem; the 48GX and 49G): `bytes` put into variable
    * `name` of `path` (a binary file of the model's family), or `name`
    * got (no `bytes`): `{name, fileName, format, data}`. The calculator
-   * leaves server mode first; `onPlan(plan)` gets what the user types
-   * (`{direction, name, keys, model, switchedToRpn}`), and the device
+   * leaves server mode first; `onPlan(plan)` gets the plan: the program on the stack and the keys that run it
+   * (`{direction, name, program, keys, model, switchedToRpn}`), and the device
    * waits `wait` seconds for it. Afterwards (done or not, once the server
    * ended) the device is not connected (`leftServer`) until `connect`.
    */
