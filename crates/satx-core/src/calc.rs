@@ -929,7 +929,13 @@ impl CalcOps<'_> {
         }
         // The program the user runs with EVAL once the server has ended
         // (XRECV and XSEND do not run inside it): on the stack, not run.
-        self.exec(&[stacked_program(direction, name)]).await?;
+        if let Err(e) = self.exec(&[stacked_program(direction, name)]).await {
+            // Nothing happened for the user: algebraic mode back, as it was.
+            if switched_to_rpn {
+                let _ = self.exec(&["-95. SF".to_string()]).await;
+            }
+            return Err(e);
+        }
         self.finish().await?;
         self.st.mode = None;
 
@@ -2514,6 +2520,31 @@ pub(crate) mod tests {
         assert!(
             text.ends_with("type SERVER and press ENTER after the transfer."),
             "{text}"
+        );
+    }
+
+    /// Review of PR #261: the program could not be put on the stack, so
+    /// the 49G goes back to algebraic mode and the error is the push's.
+    #[test]
+    fn prepare_xrecv_failed_push_restores_alg_mode() {
+        let (mut c, log) = calc(|cmd| match cmd {
+            "VERSION" => G49_VERSION.into(),
+            VERSION_CHUNKS => {
+                chunk_reply("Version HP48-C\nRevision #2.15", "Copyright HP 2009", &[])
+            }
+            "G D" => "{ HOME } 2000.\r\n".into(),
+            "-95. FS?" => "1:                     1.\r\n".into(),
+            "\u{ab} 'SATXX' XRECV \u{bb}" => "Error: Insufficient Memory\r\n".into(),
+            _ => EMPTY.into(),
+        });
+        let err = c
+            .prepare_for_xmodem(XmodemDirection::ToCalculator, "SATXX")
+            .unwrap_err();
+        assert!(matches!(err, Error::Calculator { .. }), "{err:?}");
+        let sent = sent(&log);
+        assert_eq!(
+            &sent[sent.len() - 3..],
+            ["-95. CF", "\u{ab} 'SATXX' XRECV \u{bb}", "-95. SF"]
         );
     }
 

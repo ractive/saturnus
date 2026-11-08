@@ -1015,7 +1015,7 @@ test("Disconnect lets go of the port when the calculator does not answer the end
     return true;
   })()`);
   await p.idle(10_000);
-  assert.equal(await c.ev(`tx.panes[0].place.device.disconnectWaitMs`), 10_000);
+  assert.equal(await c.ev(`tx.panes[0].place.device.disconnectWaitMs`), 30_000);
   await c.ev(`tx.panes[0].place.device.disconnectWaitMs = 300; window.__closed = false; tx.panes[0].close().then(() => { __closed = true; }); true`);
   await p.until("__closed", 5_000, "closed after the wait");
   assert.equal(await c.ev("__link.closed"), true, "the port let go of");

@@ -25,9 +25,10 @@ import { TxFailure } from "./protocol.js";
  * it lets go of the port anyway. A calculator that answers ends it in a
  * second or two; one that does not (its server stopped meanwhile, or
  * another server started instead) would hold the port for the retries of
- * two exchanges, over two minutes (emulated 49G, 2026-11-08).
+ * two exchanges, over two minutes (emulated 49G, 2026-11-08). Room for one
+ * resend after a lost packet: the Kermit timeout is 20 s.
  */
-export const DISCONNECT_WAIT_MS = 10_000;
+export const DISCONNECT_WAIT_MS = 30_000;
 
 export class KermitDevice extends EventTarget {
   /**
