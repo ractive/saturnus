@@ -2,7 +2,8 @@
 # End-to-end test of the satx binary against a calculator in server mode,
 # usually the emulator: SATX_E2E_ADDR=tcp://localhost:4848 scripts/satx-e2e-cli.sh
 #
-# Re-expresses the satx-core e2e scenarios through the CLI: info, ls, a
+# Re-expresses the satx-core e2e scenarios through the CLI: info (also in
+# FIX 4 with fraction mark `,`, where the 49G cuts IOPAR's list), ls, a
 # byte-exact binary put/get round trip of all 256 byte values, run, error
 # paths, pict, backup, rm, `ls --json | jq`, `repl` from a pipe (text and
 # JSON lines), the late reply of a killed REPL's command, and
@@ -76,10 +77,12 @@ xm_switched=0
 pict_drawn=0
 # Set while the user's PICT is saved in SATXPC.
 pict_saved=0
+# Set while the user's flags are saved in SATXFL (the display-mode step).
+flags_saved=0
 # The variables this script creates in HOME (SATXPT is put --overwrite's
 # temporary). None may exist before the run.
 TEST_NAMES=(SATXCLI SATXPT SATXSM SATXCD SATXCE SATXGR SATXG2 SATXCV SATXCW SATXCX SATXXM SATXR
-    SATXAAAA SATXPC)
+    SATXAAAA SATXPC SATXFL)
 
 satx() { "$SATX_BIN" "$@"; }
 # Object bytes without the 8-byte HPHP4x-x header.
@@ -142,16 +145,24 @@ xmodem_run() {
     wait "$pid" || fail "satx $*: $(cat "$work/xm.err")"
 }
 
-# Put the user's PICT back (or blank the e2e drawing when there was none).
+# Put the user's PICT back, or make it empty (0x0) again when it was:
+# ERASE would leave an empty 131x64 PICT, about 1.1 KB of the user's memory.
 restore_pict() {
     if ((pict_saved)); then
         satx --dir HOME run 'SATXPC PICT STO' >/dev/null
         satx --dir HOME rm SATXPC >/dev/null
         pict_saved=0
     else
-        satx run ERASE >/dev/null
+        satx run 'PICT PURGE' >/dev/null
     fi
     pict_drawn=0
+}
+
+# Put the user's flags (display mode, fraction mark) back from SATXFL.
+restore_flags() {
+    satx --dir HOME run 'SATXFL STOF' >/dev/null
+    satx --dir HOME rm SATXFL >/dev/null
+    flags_saved=0
 }
 
 cleanup() {
@@ -168,6 +179,7 @@ cleanup() {
     fi
     if ((xm_switched)); then satx run -95 SF >/dev/null 2>&1 || true; fi
     if ((pict_saved || pict_drawn)); then restore_pict >/dev/null 2>&1 || true; fi
+    if ((flags_saved)); then restore_flags >/dev/null 2>&1 || true; fi
     # Best effort: remove what this script created (none of these names
     # existed when it started, see TEST_NAMES).
     local names
@@ -216,6 +228,45 @@ info=$(satx --dir HOME info --json)
 jq -e '.results.free_bytes > 0' <<<"$info" >/dev/null || fail "info: free memory: $info"
 jq -e '.results.iopar.baud == 9600' <<<"$info" >/dev/null || fail "info: IOPAR: $info"
 ok "$model"
+
+step "FIX 4, fraction mark ,: info, settings, run"
+# The 49G sends each stack level only as wide as its display (20 or 22
+# characters) and cuts VERSION's two-line string; in FIX 4 IOPAR's list is
+# far wider too, and with flag -51 the 48 shows 9600 as 9.600,0000. The
+# user's flags go to SATXFL and back.
+depth=$(satx run DEPTH --jq '.results.stack[0]')
+satx run DROP >/dev/null
+satx --dir HOME run "RCLF 'SATXFL' STO" >/dev/null
+flags_saved=1
+satx run '4 FIX -51 SF' >/dev/null
+wide=$(satx info --json) || fail "info in FIX 4: $wide"
+# Free memory as a number in this mode too (SATXFL took some of it).
+jq -e --argjson free "$(jq '.results.free_bytes' <<<"$info")" \
+    '.results.iopar.baud == 9600 and .results.iopar.checksum == 3
+     and ($free - .results.free_bytes) >= 0 and ($free - .results.free_bytes) < 500' \
+    <<<"$wide" >/dev/null || fail "info in FIX 4: $wide"
+[[ $(jq -r '.results.version' <<<"$wide") == "$(jq -r '.results.version' <<<"$info")" ]] \
+    || fail "version differs in FIX 4: $wide"
+if [[ $model == "HP 49G" ]]; then
+    jq -e '.results.version | test("Revision #[0-9]")' <<<"$wide" >/dev/null \
+        || fail "49G version cut: $wide"
+fi
+settings=$(satx settings --json) || fail "settings in FIX 4: $settings"
+jq -e '.results.iopar.baud == 9600' <<<"$settings" >/dev/null || fail "settings in FIX 4: $settings"
+# `run` says which level arrived cut (the 49G) and leaves the stack alone.
+out=$(satx run IOPAR '"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"' --json)
+satx run DROP2 >/dev/null
+if [[ $model == "HP 49G" ]]; then
+    jq -e '.results.cut == [1, 2] and (.hints[0].cmd | test("get NAME --ascii"))' <<<"$out" \
+        >/dev/null || fail "run did not flag the cut levels: $out"
+else
+    jq -e '(.results | has("cut") | not) and .results.stack[0] == "\"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\""' \
+        <<<"$out" >/dev/null || fail "run on the $model: $out"
+fi
+restore_flags
+[[ $(satx run DEPTH --jq '.results.stack[0]') == "$depth" ]] || fail "the step changed the stack's depth"
+satx run DROP >/dev/null
+ok "$(jq -r '.results.iopar.baud' <<<"$wide") baud"
 
 step "ls"
 listing=$(satx ls --json)
@@ -567,14 +618,30 @@ mkfifo "$work/repl.fifo"
 # The binary itself, not the `satx` function: `$!` of a backgrounded
 # function is a subshell, and killing it left the REPL running (it then
 # resynced and competed with the next command).
-"$SATX_BIN" repl <"$work/repl.fifo" >/dev/null 2>&1 &
+# The first line (CLEAR) is answered once the REPL has connected; the
+# loop goes out right after it, so the REPL is killed a second after that
+# answer, not after a fixed time (a 48SX at 9600 baud may not have sent
+# anything 3 s in). 2000 iterations take about 11 s on a real 48SX and 4
+# on the emulated 49G: still running at the kill, done well within the
+# first sync attempt of the next satx (one timeout, 20 s).
+"$SATX_BIN" repl --json <"$work/repl.fifo" >"$work/abort.jsonl" 2>"$work/abort.err" &
 repl_pid=$!
 {
-    echo '1 1000000 START NEXT 4711'
-    exec sleep 60
+    echo CLEAR
+    echo '1 2000 START NEXT 4711'
+    exec sleep 120
 } >"$work/repl.fifo" &
 feeder_pid=$!
-sleep 3
+for ((i = 0; i < 600; i++)); do
+    [[ -s $work/abort.jsonl ]] && break
+    kill -0 "$repl_pid" 2>/dev/null || break
+    sleep 0.1
+done
+[[ $(cat "$work/abort.jsonl" 2>/dev/null) == '{"stack":[]}' ]] \
+    || fail "the REPL did not answer CLEAR: $(cat "$work/abort.jsonl" "$work/abort.err")"
+sleep 1
+[[ $(wc -l <"$work/abort.jsonl" | tr -d ' ') == 1 ]] \
+    || fail "the loop finished before the REPL was killed: $(cat "$work/abort.jsonl")"
 kill -TERM "$repl_pid" 2>/dev/null || true
 wait "$repl_pid" 2>/dev/null || true
 kill "$feeder_pid" 2>/dev/null || true

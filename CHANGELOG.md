@@ -5,6 +5,24 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **`satx` reads a 49G whole.** The 49G sends each stack level only as
+  wide as its display (20 characters on ROM 1.18), without saying so, so
+  `satx info` and `satx settings` failed on IOPAR on a real 49G, and the
+  version came out cut (`Version HP48-C Revisi`). IOPAR is now read item
+  by item and VERSION in short pieces, in any display mode (FIX, SCI,
+  fraction mark `,`), and the stack is left as it was. Files gets the
+  whole version too.
+- **`satx run` and the REPL say when a level is cut.** A string, list,
+  program or algebraic that ends before its closing delimiter is marked
+  in the text and as `cut` in the JSON, with a hint to store it and get
+  it whole.
+- **The CLI's end-to-end script works on a real calculator.** The aborted
+  command's step waits until the REPL has sent it, and its loop takes
+  seconds on a 48SX, not hours. A PICT that was empty is left empty
+  (`PICT PURGE`), not as a blank 131x64 picture.
+
 ## 0.10.3 (2026-11-05)
 
 - tab-mcp client 0.10.0: its dialogs set `margin: auto`, so they stay
