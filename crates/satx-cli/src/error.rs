@@ -222,6 +222,7 @@ fn core_failure(message: String, err: &Error, link: &LinkInfo) -> Failure {
              again"
                 .into(),
         ),
+        Error::Filer(e) => Some(filer_hint(e)),
         Error::Unsupported(_) => Some(
             "use Kermit, the default: drop --protocol xmodem (the 48S/SX has no XRECV/XSEND)"
                 .into(),
@@ -231,6 +232,54 @@ fn core_failure(message: String, err: &Error, link: &LinkInfo) -> Failure {
         error: message,
         hint,
         stack,
+    }
+}
+
+/// What to do about a failed `satx lx` job.
+fn filer_hint(err: &satx_core::filer_proto::JobError) -> String {
+    use satx_core::filer_proto::{Error as LinkError, Failure, FsError, JobError};
+    const SETUP: &str = "on the palmtop: Filer open and in front; MENU, Communications, \
+        Remote Settings: Server Mode enabled, Interface Com1, Baud as --baud (19200 by \
+        default); then check the cable (HP's 10-pin serial cable)";
+    match err {
+        JobError::Link(LinkError::NoReply {
+            code: satx_core::filer_proto::Code::Connect,
+            ..
+        })
+        | JobError::Link(LinkError::Refused(_)) => format!("no connection: {SETUP}"),
+        JobError::Link(LinkError::NotConnected) => {
+            "the palmtop left server mode or was switched off; start the command again".into()
+        }
+        JobError::Link(LinkError::NoReply { .. }) => format!(
+            "the palmtop stopped answering (a server without this command does not answer \
+             either); {SETUP}"
+        ),
+        JobError::Link(_) => format!("the link broke off; run the command again. {SETUP}"),
+        JobError::Exists => {
+            "choose another name, or `satx lx put --overwrite` to replace a file".into()
+        }
+        JobError::TooLarge { .. } => "the file is larger than satx reads".into(),
+        JobError::Failed(Failure::Fs(e)) => match *e {
+            FsError::NOT_FOUND | FsError::PATH_NOT_FOUND => {
+                "`satx lx ls` lists a directory, `satx lx drives` the drives".into()
+            }
+            FsError::WRITE_PROTECTED => {
+                "the drive is write-protected (D: is the palmtop's ROM)".into()
+            }
+            FsError::ACCESS_DENIED => "a read-only file, or a directory that is not empty".into(),
+            FsError::NOT_READY => "no card in that slot?".into(),
+            FsError::INVALID_NAME => {
+                "DOS names are 8.3: up to 8 characters, a dot, up to 3, without spaces or \
+                 \"/[]|<>+=;,"
+                    .into()
+            }
+            FsError::OTHER_DRIVE => {
+                "mv works within one drive; get the file and put it on the other".into()
+            }
+            _ => "the palmtop refused the request".into(),
+        },
+        JobError::Failed(Failure::Status(_)) => "the palmtop refused the request".into(),
+        _ => "the palmtop refused the request".into(),
     }
 }
 

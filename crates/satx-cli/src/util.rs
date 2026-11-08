@@ -18,15 +18,20 @@ pub const MAX_INPUT: u64 = 4 << 20;
 /// size is checked before it is read, and the read stops one byte past the
 /// limit (stdin, a file that grows), so nothing larger is ever buffered.
 pub fn read_input(file: &Path) -> Result<Vec<u8>> {
-    read_input_limited(file, MAX_INPUT)
+    read_input_limited(
+        file,
+        MAX_INPUT,
+        "satx reads at most 4 MiB, more than any calculator holds; is it the right file?",
+    )
 }
 
-fn read_input_limited(file: &Path, limit: u64) -> Result<Vec<u8>> {
+/// [`read_input`] with another limit and the hint for a larger file.
+pub fn read_input_limited(file: &Path, limit: u64, hint: &str) -> Result<Vec<u8>> {
     let label = file.display().to_string();
     let too_large = || {
         anyhow::Error::new(Hinted::new(
             format!("{label} is larger than {} bytes", limit),
-            "satx reads at most 4 MiB, more than any calculator holds; is it the right file?",
+            hint,
         ))
     };
     let mut data = Vec::new();
@@ -191,8 +196,8 @@ mod tests {
             "{err}"
         );
         std::fs::write(&path, b"12345").unwrap();
-        assert_eq!(read_input_limited(&path, 5).unwrap(), b"12345");
-        assert!(read_input_limited(&path, 4).is_err());
+        assert_eq!(read_input_limited(&path, 5, "h").unwrap(), b"12345");
+        assert!(read_input_limited(&path, 4, "h").is_err());
         let _ = std::fs::remove_file(&path);
     }
 

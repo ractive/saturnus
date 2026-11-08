@@ -58,6 +58,13 @@ const MIN_TIMEOUT: Duration = Duration::from_millis(1);
 /// prefix is a serial device path (`/dev/ttyUSB0`, `COM3`). Serial and
 /// TCP need the `native` feature: without it they are [`Error::Address`].
 pub fn open(addr: &str) -> Result<Box<dyn Transport>> {
+    open_at(addr, BAUD)
+}
+
+/// [`open`] with the serial line at `baud` instead of [`BAUD`] (the
+/// HP 100LX/200LX Filer: 19200 by default); TCP and in-process links
+/// ignore it.
+pub fn open_at(addr: &str, baud: u32) -> Result<Box<dyn Transport>> {
     if addr.starts_with("saturnus://") {
         let (model, rom) = parse_saturnus(addr)?;
         return open_saturnus(model, rom);
@@ -71,7 +78,7 @@ pub fn open(addr: &str) -> Result<Box<dyn Transport>> {
     if addr.is_empty() || addr.contains("://") {
         return Err(Error::Address(addr.to_string()));
     }
-    open_serial(addr)
+    open_serial(addr, baud)
 }
 
 #[cfg(feature = "native")]
@@ -87,12 +94,12 @@ fn open_tcp(addr: &str, _host_port: &str) -> Result<Box<dyn Transport>> {
 }
 
 #[cfg(feature = "native")]
-fn open_serial(addr: &str) -> Result<Box<dyn Transport>> {
-    Ok(Box::new(SerialTransport::open(addr)?))
+fn open_serial(addr: &str, baud: u32) -> Result<Box<dyn Transport>> {
+    Ok(Box::new(SerialTransport::open_at(addr, baud)?))
 }
 
 #[cfg(not(feature = "native"))]
-fn open_serial(addr: &str) -> Result<Box<dyn Transport>> {
+fn open_serial(addr: &str, _baud: u32) -> Result<Box<dyn Transport>> {
     Err(Error::Address(format!(
         "{addr} (satx-core was built without the `native` feature)"
     )))
@@ -293,9 +300,14 @@ impl std::fmt::Debug for SerialTransport {
 
 #[cfg(feature = "native")]
 impl SerialTransport {
-    /// Open and configure the serial device at `path`.
+    /// Open and configure the serial device at `path`, at [`BAUD`].
     pub fn open(path: &str) -> Result<Self> {
-        let mut port = serialport::new(path, BAUD)
+        Self::open_at(path, BAUD)
+    }
+
+    /// Open and configure the serial device at `path`, at `baud`.
+    pub fn open_at(path: &str, baud: u32) -> Result<Self> {
+        let mut port = serialport::new(path, baud)
             .data_bits(serialport::DataBits::Eight)
             .parity(serialport::Parity::None)
             .stop_bits(serialport::StopBits::One)

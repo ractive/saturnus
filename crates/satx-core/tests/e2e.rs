@@ -10,6 +10,11 @@
 //! It runs only on a detected 49G or 48G/GX.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+/// `satx lx` (the HP 100LX/200LX): in process always, BSD Filer with
+/// `FILER_E2E_ADDR`.
+#[path = "e2e/lx.rs"]
+mod lx;
+
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};

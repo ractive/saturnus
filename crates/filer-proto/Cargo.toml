@@ -1,0 +1,21 @@
+[package]
+name = "filer-proto"
+description = "Sans-IO client and server of the Filer protocol of the HP 100LX and 200LX palmtops (framing, CRC, commands, error codes, retries)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+documentation = "https://docs.rs/filer-proto"
+readme = "README.md"
+keywords = ["hp100lx", "hp200lx", "sans-io", "serial", "file-transfer"]
+categories = ["network-programming", "hardware-support"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# The caller's clock on wasm32 (`std::time::Instant::now()` panics on
+# wasm32-unknown-unknown); see "Time and WebAssembly" in the crate docs.
+web-time = "1.1.0"
+
+[lints]
+workspace = true

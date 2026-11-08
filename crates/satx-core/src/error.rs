@@ -87,6 +87,11 @@ pub enum Error {
     /// so it names no variable or directory ([`names`](crate::names)).
     #[error("file name {0:?}: its %XX codes are not UTF-8")]
     FileName(String),
+    /// A Filer job on an HP 100LX/200LX failed: the server refused a
+    /// request (a file-system code with its meaning), the name exists, or
+    /// the link broke ([`filer_proto::JobError`]).
+    #[error("palmtop: {0}")]
+    Filer(filer_proto::JobError),
     /// The calculator's reply could not be understood.
     #[error("unexpected reply: {0}")]
     Reply(String),

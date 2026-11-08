@@ -19,7 +19,7 @@ on:
         description: "Comma-separated crates, in dependency order"
         required: false
         # The same list and order as release.yml's publish-crates.
-        default: "saturnus-core,kermit-proto,saturnus-objects,saturnus-host,saturnus-drive,saturnus,xmodem-proto,satx-core,satx"
+        default: "saturnus-core,kermit-proto,saturnus-objects,saturnus-host,saturnus-drive,saturnus,xmodem-proto,filer-proto,satx-core,satx"
 
 permissions:
   contents: read
