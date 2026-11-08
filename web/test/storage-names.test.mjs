@@ -67,7 +67,7 @@ test("the names keep the values the two pages had: the kept ROMs, states, settin
   });
   // AI access's address secret, one per relay (tab-mcp DEC-052).
   assert.equal(aiSecretKey("https://relay.ractive.ch"), "saturnus.aiSecret:https://relay.ractive.ch");
-  assert.deepEqual(TRANSFER_KEYS, { link: "saturnus.transfer.link", model: "saturnus.transfer.model", port: "saturnus.transfer.port" });
+  assert.deepEqual(TRANSFER_KEYS, { link: "saturnus.transfer.link", port: "saturnus.transfer.port" });
 });
 
 test("the service worker's cache prefix is the module's rule, with the colon that keeps the scopes apart", () => {
@@ -110,7 +110,7 @@ test("Files stores under its own names only", () => {
   }
   const app = readFileSync(join(WEB, "tx", "app.js"), "utf8");
   for (const m of app.matchAll(/store\.set\(([A-Za-z_.]+),/g)) {
-    assert.ok(["TRANSFER_KEYS.link", "TRANSFER_KEYS.model", "TRANSFER_KEYS.port"].includes(m[1]), `tx/app.js sets ${m[1]}`);
+    assert.ok(["TRANSFER_KEYS.link", "TRANSFER_KEYS.port"].includes(m[1]), `tx/app.js sets ${m[1]}`);
   }
 });
 

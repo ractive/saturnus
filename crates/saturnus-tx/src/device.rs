@@ -167,6 +167,15 @@ pub struct DeviceOptions {
     /// How long the search listens at each speed for an answer to its
     /// probes, which it sends at the start and halfway.
     pub listen: Duration,
+    /// How long the Kermit server may say nothing during an operation it
+    /// answers at once (a listing, a get, a binary put, a short host
+    /// command) before the calculator counts as not answering
+    /// ([`TxError::NotAnswering`]): longer than one resend after the
+    /// Kermit timeout, so a packet lost on the line is still recovered.
+    pub silence_kermit: Duration,
+    /// The same for XSERV, which is asked again every 1.5 s: not after an
+    /// `E`, while the calculator may be busy running its RPL.
+    pub silence_xserv: Duration,
 }
 
 impl Default for DeviceOptions {
@@ -174,6 +183,8 @@ impl Default for DeviceOptions {
         DeviceOptions {
             session: Options::default(),
             listen: Duration::from_secs(6),
+            silence_kermit: Duration::from_secs(25),
+            silence_xserv: Duration::from_secs(8),
         }
     }
 }
@@ -659,6 +670,13 @@ pub enum TxError {
         "XSERV gives no reason. Perhaps the name is one of the calculator's commands, or its memory is too small"
     )]
     Unconfirmed,
+    /// The calculator sent nothing for longer than an operation it answers
+    /// at once allows ([`DeviceOptions::silence_kermit`]): the session is
+    /// over; start the server again and connect.
+    #[error(
+        "the calculator stopped answering: is its server still running? Start it again, then reconnect"
+    )]
+    NotAnswering,
     /// What a fast transfer cannot do (the reason).
     #[error("{0}")]
     NotForXmodem(String),
@@ -721,6 +739,15 @@ struct Shared {
     leftover: bool,
     /// A fast transfer ended server mode; cleared by a connect.
     left_server: Option<LeftServer>,
+    /// The calculator said nothing for longer than the silence allowed
+    /// ([`DeviceOptions::silence_kermit`]); cleared by a connect.
+    not_answering: bool,
+    /// When the calculator last sent a byte to the machine.
+    last_input: Instant,
+    /// When XSERV's last `E` was ACKed, if the operation after it has not
+    /// been answered yet: the calculator may be busy running its RPL for up
+    /// to [`satx_core::XservOptions::busy`] after it.
+    after_execute: Option<Instant>,
 }
 
 /// What a fast transfer leaves for the reconnect after it.
@@ -804,6 +831,9 @@ impl Device {
                 restarted: false,
                 leftover: false,
                 left_server: None,
+                not_answering: false,
+                last_input: now,
+                after_execute: None,
             })),
             task: None,
             result: None,
@@ -837,6 +867,9 @@ impl Device {
                 sh.heard.extend_from_slice(bytes);
             } else if let Some(machine) = sh.machine.as_mut() {
                 machine.handle_input(now, bytes);
+                if !bytes.is_empty() {
+                    sh.last_input = sh.now;
+                }
             }
         }
         self.step();
@@ -931,6 +964,14 @@ impl Device {
         self.shared().left_server.is_some()
     }
 
+    /// Whether the calculator stopped answering since the last connect
+    /// ([`TxError::NotAnswering`]): its server ended (ON pressed, a key
+    /// typed), the cable came loose or it turned off. Every request but
+    /// [`Request::Connect`] fails until it answers again.
+    pub fn not_answering(&self) -> bool {
+        self.shared().not_answering
+    }
+
     /// Drop the running request without telling the calculator (see
     /// [`Machine::abort`]). The connection stays; the next request starts
     /// from HOME. No-op when idle.
@@ -993,6 +1034,39 @@ impl Device {
     }
 }
 
+/// Whether the calculator answers `op` at once while its server runs, so
+/// a silence means it stopped (the watchdog in [`Ctx::op`]). Not: host
+/// commands that may run a while (a purge, a backup, a restore, RPL), a
+/// text put (the calculator compiles it), the fast transfer (the user
+/// starts it), the end of server mode, the sync and the probes. XSERV's
+/// `E` is: it is ACKed before its RPL runs.
+fn watched(op: &Op) -> bool {
+    match op {
+        Op::Put { mode, .. } => *mode == TransferMode::Binary,
+        Op::List
+        | Op::Path
+        | Op::Cd(_)
+        | Op::Updir
+        | Op::Mkdir(_)
+        | Op::Rename { .. }
+        | Op::Mem
+        | Op::Version
+        | Op::Model
+        | Op::Iopar
+        | Op::TransferMode
+        | Op::SetTransferMode(_)
+        | Op::Get { .. }
+        | Op::Pict
+        | Op::PictFile
+        | Op::XservList
+        | Op::XservMemory
+        | Op::XservExecute(_)
+        | Op::XservGet { .. }
+        | Op::XservPut { .. } => true,
+        _ => false,
+    }
+}
+
 fn lock(shared: &Mutex<Shared>) -> MutexGuard<'_, Shared> {
     // Nothing panics while holding the lock.
     shared.lock().unwrap_or_else(PoisonError::into_inner)
@@ -1047,20 +1121,75 @@ impl Ctx {
         self.lock().actions.push_back(Action::Open(settings));
     }
 
-    /// Run one machine operation.
+    /// Run one machine operation. One the calculator answers at once
+    /// ([`watched`]) fails as [`TxError::NotAnswering`] when it sends
+    /// nothing for the silence allowed; the session ends with it.
     pub(crate) async fn op(&self, op: Op) -> Result<Reply> {
-        {
+        let execute = matches!(op, Op::XservExecute(_));
+        let (silence, busy_until) = {
             let mut sh = self.lock();
             let now = sh.now;
+            let xserv = matches!(
+                op,
+                Op::XservList
+                    | Op::XservMemory
+                    | Op::XservExecute(_)
+                    | Op::XservGet { .. }
+                    | Op::XservPut { .. }
+            );
+            let silence = if !watched(&op) {
+                None
+            } else if xserv {
+                Some(sh.options.silence_xserv)
+            } else {
+                Some(sh.options.silence_kermit)
+            };
+            // Right after an `E` the calculator may still run its RPL.
+            let busy_until = sh
+                .after_execute
+                .filter(|_| xserv)
+                .map(|at| at + satx_core::XservOptions::default().busy);
             let machine = sh.machine.as_mut().ok_or(TxError::NotConnected)?;
             machine.start(now, op).map_err(|Busy| TxError::Busy)?;
-        }
-        poll_fn(|_| match self.lock().op_result.take() {
-            Some(result) => Poll::Ready(result),
-            None => Poll::Pending,
+            sh.last_input = now;
+            (silence, busy_until)
+        };
+        let result = poll_fn(|_| {
+            let mut sh = self.lock();
+            if let Some(result) = sh.op_result.take() {
+                return Poll::Ready(Ok(result));
+            }
+            if let Some(silence) = silence {
+                let deadline = (sh.last_input + silence).max(busy_until.unwrap_or(sh.last_input));
+                if sh.now >= deadline {
+                    return Poll::Ready(Err(TxError::NotAnswering));
+                }
+                sh.wake = Some(sh.wake.map_or(deadline, |w| w.min(deadline)));
+            }
+            Poll::Pending
         })
-        .await
-        .map_err(TxError::from)
+        .await;
+        match result {
+            Ok(reply) => {
+                // XSERV answered (or the op was something else): the
+                // calculator is no longer busy with an `E`.
+                let mut sh = self.lock();
+                sh.after_execute = execute.then_some(sh.now);
+                drop(sh);
+                reply.map_err(TxError::from)
+            }
+            Err(e) => {
+                let mut sh = self.lock();
+                let now = sh.now;
+                if let Some(machine) = sh.machine.as_mut() {
+                    machine.abort(now);
+                }
+                sh.session = None;
+                sh.not_answering = true;
+                sh.after_execute = None;
+                Err(e)
+            }
+        }
     }
 
     /// Collect input until a packet is heard or `until`.
@@ -1149,6 +1278,9 @@ async fn perform(ctx: &Ctx, request: Request) -> Result<Outcome> {
     }
     if ctx.lock().left_server.is_some() && !matches!(request, Request::Connect(_)) {
         return Err(TxError::LeftServer);
+    }
+    if ctx.lock().not_answering && !matches!(request, Request::Connect(_)) {
+        return Err(TxError::NotAnswering);
     }
     let on_xserv = ctx
         .lock()
@@ -1378,6 +1510,7 @@ async fn connect(ctx: &Ctx, options: ConnectOptions) -> Result<Outcome> {
     {
         let mut sh = ctx.lock();
         sh.restarted = false;
+        sh.not_answering = false;
         sh.left_server = None;
         sh.session = Some(Session {
             connection: connection.clone(),
@@ -1421,6 +1554,7 @@ async fn connect_xserv(ctx: &Ctx, settings: LinkSettings) -> Result<Outcome> {
     let left = {
         let mut sh = ctx.lock();
         sh.restarted = false;
+        sh.not_answering = false;
         sh.left_server.take()
     };
     if left.is_some_and(|l| l.algebraic) {

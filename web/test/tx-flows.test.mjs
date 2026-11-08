@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
 import { HOME, checksumCell, directoriesOf, parentPath, pathKey, pathTitle, samePath, sizeCell, sortEntries } from "../shared/device.js";
 import {
-  AUTO_PREVIEW_BYTES, MODELS, START_SERVER, bytesText, connectedText, connectionLine, disconnectNote, downloadUrl, failureText, linkSettings, placeTitle, previewPlan,
+  AUTO_PREVIEW_BYTES, MODELS, START_SERVER, bytesText, connectedText, disconnectNote, downloadUrl, failureText, linkSettings, placeTitle, previewPlan, restartWords, xservHint,
   progressText, putPlan, replaceQuestion, searchText, settingsText, stringQuestion,
 } from "../tx/flows.js";
 import { SERIAL_MODELS, slotsOf } from "../tx/kept-roms.js";
@@ -43,26 +43,30 @@ test("the words: sizes, progress, settings, the search, places", () => {
 
 test("no protocol words in what the main flows say", () => {
   const said = [
-    ...Object.values(START_SERVER).flatMap((s) => [s.title, ...s.steps, s.keysNote]),
+    ...Object.values(START_SERVER).flatMap((s) => [s.title, s.step, s.note]),
     stringQuestion("a.md", "A").body, replaceQuestion("A").body, disconnectNote("49g"),
     disconnectNote("49g", { server: "xserv", ended: false }), connectedText({ model: "49g", server: "kermit", settings: { baud: 9600 } }),
-    ...["noAnswer", "nameClash", "isDirectory", "badName", "notAnObject", "cancelled", "busy", "notConnected"].map((kind) => failureText({ kind, varName: "A" })),
+    xservHint({ model: "49g", server: "kermit", settings: { baud: 9600 } }), restartWords("49g").text,
+    ...["noAnswer", "nameClash", "isDirectory", "badName", "notAnObject", "cancelled", "busy", "notConnected", "notAnswering"].map((kind) => failureText({ kind, varName: "A" })),
   ].join(" ");
   assert.doesNotMatch(said, /kermit|packet|iopar|xmodem|baud rate/i);
 });
 
-test("the connect dialog has every model, the 49G's keys quickly", () => {
+test("the connect step has every model, XSERV on the 49G; the restart says the same", () => {
   assert.deepEqual(MODELS, ["48sx", "48gx", "49g"]);
-  for (const m of MODELS) assert.ok(START_SERVER[m].steps.length && START_SERVER[m].keys.length, m);
-  assert.match(START_SERVER["48sx"].steps[0], /SERVER/);
+  for (const m of MODELS) assert.ok(START_SERVER[m].step && START_SERVER[m].keys.length && START_SERVER[m].shown, m);
+  assert.match(START_SERVER["48sx"].step, /SERVER/);
   // XSERV on the 49G: typed, as its right-shift → starts either server depending on a pause.
-  assert.equal(START_SERVER["49g"].steps[0], "Type XSERV and press ENTER.");
+  assert.equal(START_SERVER["49g"].step, "Type XSERV and press ENTER.");
   assert.deepEqual(START_SERVER["49g"].keys, ["X", "S", "E", "R", "V", "ENTER"]);
-  assert.match(START_SERVER["49g"].keysNote, /^Alpha mode for the letters \(α twice/);
-  // α once types one letter on the 48SX too (flag -60 clear): SERVER needs alpha locked.
-  assert.match(START_SERVER["48sx"].keysNote, /^Alpha mode for the letters \(α twice/);
-  assert.match(START_SERVER["49g"].keysNote, /ROM 1\.10 and earlier have no XSERV: type SERVER instead\./);
-  assert.match(START_SERVER["49g"].shown, /Xmodem server/);
+  // α once types one letter (flag -60 clear): the letters need alpha locked.
+  assert.match(START_SERVER["49g"].note, /^α twice for the letters\. Or type SERVER \(ROM 1\.10 and earlier have no XSERV\)\.$/);
+  assert.match(START_SERVER["48sx"].note, /^α twice for the letters/);
+  assert.equal(START_SERVER["49g"].shown, "Xmodem server");
+  // One text per model wherever the server is started again.
+  assert.deepEqual(restartWords("49g"), { text: "Start its server again: type XSERV and press ENTER.", keys: START_SERVER["49g"].keys });
+  assert.deepEqual(restartWords("48gx"), { text: "Start its server again: press right-shift, then → (the right arrow).", keys: ["↱", "→"] });
+  assert.deepEqual(restartWords(null), { text: "Start the calculator's server again.", keys: null });
 });
 
 test("the stored connection settings, and the defaults for anything else", () => {
@@ -96,7 +100,8 @@ test("a preview: programs as text, data as the file, nothing for libraries; larg
 });
 
 test("failures read as sentences; the 49G's note after FINISH", () => {
-  assert.match(failureText({ kind: "noAnswer" }), /server mode/);
+  assert.match(failureText({ kind: "noAnswer" }), /Is its server running.*Trouble with the cable/);
+  assert.match(failureText({ kind: "notAnswering" }), /^The calculator stopped answering\./);
   assert.equal(failureText({ kind: "nameClash", varName: "X" }), "X is already there.");
   assert.equal(failureText(new Error("the calculator said: No Room")), "The calculator said: No Room");
   // A request the wasm package does not know: the page's files are from two builds.
@@ -104,20 +109,22 @@ test("failures read as sentences; the 49G's note after FINISH", () => {
   assert.equal(problemText(new Error('no request "pict"')), "The app's files are from different versions. Reload the page.");
   assert.equal(disconnectNote("48gx"), "The calculator has left server mode.");
   assert.equal(disconnectNote("49g", { type: "disconnected", server: "xserv", ended: true }), "XSERV has ended on the calculator.");
-  assert.equal(connectionLine("HP 48G/GX on USB serial port", { server: "kermit", settings: { baud: 2400, parity: "odd" } }), "HP 48G/GX on USB serial port, 2400 baud, odd parity");
-  assert.equal(connectionLine("HP 49G on USB serial port", { server: "xserv", settings: { baud: 9600 } }), "HP 49G on USB serial port, XSERV at 9600 baud");
   assert.match(disconnectNote("49g", { type: "disconnected", server: "xserv", ended: false }), /still runs XSERV: press ON/);
   const conn = (model, server) => ({ model, server, settings: { baud: 9600, parity: "none" } });
   assert.equal(connectedText(conn("49g", "xserv")), "Connected to XSERV at 9600 baud.");
-  assert.match(connectedText(conn("49g", "kermit")), /^Connected at 9600 baud\. XSERV copies faster: disconnect, type XSERV on the 49G and connect again\.$/);
-  assert.equal(connectedText(conn("49g", "kermit"), { emulated: true }), "Connected at 9600 baud.");
+  // The status is one line; a 49G on its Kermit server on a cable gets the XSERV hint once, apart.
+  assert.equal(connectedText(conn("49g", "kermit")), "Connected at 9600 baud.");
   assert.equal(connectedText(conn("48gx", "kermit")), "Connected at 9600 baud.");
+  assert.equal(xservHint(conn("49g", "kermit")), "XSERV copies about twice as fast: disconnect, type XSERV on the 49G and connect again.");
+  assert.equal(xservHint(conn("49g", "kermit"), { emulated: true }), null);
+  assert.equal(xservHint(conn("49g", "xserv")), null);
+  assert.equal(xservHint(conn("48gx", "kermit")), null);
   // The hint only where the ROM has XSERV (1.11 and later), or its revision is not known.
   const v = (version) => ({ ...conn("49g", "kermit"), version });
-  assert.equal(connectedText(v("Version HP49-C\r\nRevision #1.05")), "Connected at 9600 baud.");
-  assert.equal(connectedText(v("Version HP49-C\r\nRevision #1.10")), "Connected at 9600 baud.");
-  for (const r of ["1.11", "1.18", "1.19-6", "2.15"]) assert.match(connectedText(v(`Version HP48-C\r\nRevision #${r}`)), /XSERV copies faster/, r);
-  assert.match(connectedText(v("Version HP49-C")), /XSERV copies faster/);
+  assert.equal(xservHint(v("Version HP49-C\r\nRevision #1.05")), null);
+  assert.equal(xservHint(v("Version HP49-C\r\nRevision #1.10")), null);
+  for (const r of ["1.11", "1.18", "1.19-6", "2.15"]) assert.match(xservHint(v(`Version HP48-C\r\nRevision #${r}`)), /XSERV copies/, r);
+  assert.match(xservHint(v("Version HP49-C")), /XSERV copies/);
   assert.match(disconnectNote("49g"), /^The calculator has left server mode\. .*algebraic mode.*one list/);
 });
 

@@ -17,7 +17,9 @@
 // `release()` (the calculator's user typing the command); with
 // `deafToDisconnect` a disconnect never gets its answer; `server`
 // "xserv" a 49G in XSERV (its connection says so, its disconnect ends
-// XSERV).
+// XSERV); `silence()` makes it stop answering: the next request fails as
+// saturnus-tx's watchdog fails it (`notAnswering`, no connection after),
+// and so does every one but a connect, which answers again.
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -34,6 +36,8 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
   let connected = false;
   let restarted = false;
   let leftServer = false;
+  let silent = false;
+  let notAnswering = false;
   /** Posts a Worker event (set by the worker for the running request). */
   let emit = () => {};
   let held = null;
@@ -95,7 +99,14 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
       connected = true;
       restarted = false;
       leftServer = false;
+      silent = false;
+      notAnswering = false;
       return { type: "connected", connection: conn };
+    }
+    if (silent || notAnswering) {
+      connected = false;
+      notAnswering = true;
+      throw fail("notAnswering", "the calculator stopped answering: is its server still running? Start it again, then reconnect");
     }
     if (restarted) throw fail("restarted", "the calculator restarted; start SERVER on it and reconnect");
     if (leftServer) throw fail("leftServer", "the calculator left server mode for the fast transfer; start SERVER on it and reconnect");
@@ -272,7 +283,7 @@ export function fakeCalc({ model = "48gx", delay = () => 10, free = 100_000, hol
     };
     return w;
   };
-  return { worker, requests, root, answer, release };
+  return { worker, requests, root, answer, release, silence: () => { silent = true; } };
 }
 
 /** A link that takes everything (the fake calculator answers without it). */

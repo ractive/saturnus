@@ -59,10 +59,8 @@ export const aiSecretKey = (origin) => `saturnus.aiSecret:${origin}`;
  * alone writes their states, web/hub.js).
  */
 export const TRANSFER_KEYS = {
-  /** The connection settings: find automatically, speed, parity (web/tx/app.js). */
+  /** The connection settings: find automatically or a fixed speed and parity (web/tx/app.js). */
   link: "saturnus.transfer.link",
-  /** The model last chosen in the connect dialog. */
-  model: "saturnus.transfer.model",
   /** The serial port last used, by its name (the desktop app's port list). */
   port: "saturnus.transfer.port",
 };

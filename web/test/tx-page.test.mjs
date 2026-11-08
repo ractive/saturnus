@@ -550,7 +550,8 @@ test("no horizontal overflow at five widths in both themes; dialogs and menus in
       await p.until(`document.getElementById("name-dialog").open`, 5_000, "the name dialog");
     },
     connect: () => ev(`tx.app.openConnect(tx.panes[0]); true`).then(() => p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog")),
-    settings: () => ev(`(() => { document.getElementById("open-settings").click(); return true; })()`).then(() => p.until(`document.getElementById("settings-dialog").open`, 5_000, "the settings")),
+    // The connect step: one table of the models' keys, and the fixed speed under "Trouble with the cable?".
+    connectStep: () => ev(`tx.app.openConnect(tx.panes[0]); true`).then(() => p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog")).then(() => ev(`document.querySelector('#connect-kind [data-kind="48-49"]').click(); document.querySelector("#connect-dialog details").open = true; true`)),
     serve: () => ev(`tx.serve.show().then(() => true)`),
     serving: () => ev(`(() => { const s = tx.serve; s.root.hidden = false; s.stage.dataset.mode = "serve"; s.folder = tx.panes[1].place.folder; s.session = { stop: async () => {}, cancel() {} }; s.emulator = { booted: "39g", tap: async () => {} }; s.linkLabel = "the calculator on the USB serial port with a long name"; s.model = null; s.wireAplets = [{ name: "LONGGAME.000", title: "A game with a rather long title" }]; s.lines = [{ kind: "in", text: "Received A-VERY-LONG-APLET-TITLE-WITHOUT-BREAKS (LONGNAME.000), 12 KB.", at: new Date() }, { kind: "error", text: "The calculator says “Transfer Failed”: NOPE.000 is not in the folder. It offers to get another file.", at: new Date() }]; s.render(); return true; })()`),
   };
@@ -640,7 +641,7 @@ test("where a folder can be opened, the page says which folders the browser refu
   assert.deepEqual(c.errors, []);
 });
 
-test("\"Add a calculator\" asks the kind first: an HP 48 or 49 goes on to the model, a 38G, 39G or 40G to the serve screen", { timeout: 60_000 }, async (t) => {
+test("\"Add a calculator\" asks the kind first: an HP 48 or 49 goes on to one connect step, a 38G, 39G or 40G to the serve screen with the cable chosen", { timeout: 60_000 }, async (t) => {
   const c = await open(t);
   if (!c) return;
   await c.send("Page.enable");
@@ -654,14 +655,32 @@ test("\"Add a calculator\" asks the kind first: an HP 48 or 49 goes on to the mo
   await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-serial"]').click(); true`);
   await p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog");
   assert.deepEqual(await c.ev(step), { open: true, ask: true, cable: false, go: false, back: false, kinds: ["An HP 48 or 49", "An HP 38G, 39G or 40G"] });
+  assert.equal(await c.ev(`document.getElementById("connect-ask-text").textContent`), "Which calculator?");
   await c.ev(`document.querySelector('#connect-kind [data-kind="48-49"]').click(); true`);
   assert.deepEqual(await c.ev(step), { open: true, ask: false, cable: true, go: true, back: true, kinds: ["An HP 48 or 49", "An HP 38G, 39G or 40G"] });
+  // No model to pick: one row per model with its keys; Files reads the model and the server from the calculator.
+  const rows = await c.ev(`[...document.querySelectorAll("#connect-steps tr")].map((r) => [r.dataset.model, r.querySelector("th").textContent, r.querySelector("td p").textContent, [...r.querySelectorAll("kbd")].map((k) => k.textContent).join(" ")])`);
+  assert.deepEqual(rows, [
+    ["48sx", "HP 48S, 48SX", "Type SERVER and press ENTER.", "S E R V E R ENTER"],
+    ["48gx", "HP 48G, 48G+, 48GX", "Press right-shift, then → (the right arrow).", "↱ →"],
+    ["49g", "HP 49G", "Type XSERV and press ENTER.", "X S E R V ENTER"],
+  ]);
+  assert.equal(await c.ev(`!!document.querySelector("#connect-dialog [role=radiogroup]")`), false, "no model picker");
+  // The fixed speed lives under "Trouble with the cable?": off by default, its choices off with it; kept for the next connect.
+  assert.deepEqual(await c.ev(`({ fixed: document.getElementById("set-fixed").checked, baud: document.getElementById("set-baud").disabled, parity: document.getElementById("set-parity").disabled, settings: !!document.getElementById("open-settings") || !!document.getElementById("settings-dialog") })`), { fixed: false, baud: true, parity: true, settings: false });
+  await c.ev(`document.getElementById("set-fixed").click(); const b = document.getElementById("set-baud"); b.value = "2400"; b.dispatchEvent(new Event("change")); true`);
+  assert.deepEqual(await c.ev(`tx.app.settings`), { find: false, baud: 2400, parity: "none" });
+  assert.equal(await c.ev(`JSON.parse(localStorage.getItem("saturnus.transfer.link")).baud`), 2400);
+  await c.ev(`document.getElementById("set-fixed").click(); true`);
+  assert.equal((await c.ev(`tx.app.settings`)).find, true);
   // Back to the question, then the other kind: the dialog closes, the serve screen opens.
   await c.ev(`document.getElementById("connect-back").click(); true`);
   assert.equal((await c.ev(step)).ask, true);
   await c.ev(`document.querySelector('#connect-kind [data-kind="38-40"]').click(); true`);
   await p.until(`!document.getElementById("serve").hidden && !!document.getElementById("serve-title")`, 5_000, "the serve screen");
   assert.equal(await c.ev(`document.getElementById("connect-dialog").open`), false);
+  // Asked once: the cable is chosen already.
+  assert.equal(await c.ev(`document.querySelector('#serve [data-calc="serial"]').getAttribute("aria-checked")`), "true");
   // The left pane's card has no separate serve link where a port can be reached.
   assert.equal(await c.ev(`!!document.querySelector('.pane[data-pane=left] [data-action="serve-aplets"], #serve-aplets')`), false);
   assert.deepEqual(c.errors, []);
@@ -687,13 +706,14 @@ test("folders only in the right pane: the left's Change menu and card offer calc
   await c.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   const p = txPage(c);
   await p.open(c.port);
+  // The card's labels; the serve screen is reached from "Add a calculator", not from here.
   const left = await c.ev(changeMenu("left"));
-  // "Serve a folder to a 38G…" opens the serve screen over both panes, not a folder in this pane.
-  const serve = ["-", "Serve a folder to a 38G, 39G or 40G…"];
-  assert.deepEqual(left, ["A calculator on a cable…", "An emulated calculator…", ...serve]);
-  assert.ok(!left.some((s) => /folder|files/i.test(s) && !/^Serve /.test(s)), `no folder entry on the left: ${left}`);
+  assert.deepEqual(left, ["Add a calculator…", "Add an emulated calculator…"]);
+  assert.ok(!left.some((s) => /folder|files/i.test(s)), `no folder entry on the left: ${left}`);
   const right = await c.ev(changeMenu("right"));
-  assert.deepEqual(right, ["A folder on this computer…", "Files in this browser", "-", "A calculator on a cable…", "An emulated calculator…", ...serve]);
+  assert.deepEqual(right, ["Open a folder…", "Use files in this browser", "-", "Add a calculator…", "Add an emulated calculator…"]);
+  const labels = await c.ev(`[...document.querySelectorAll('.pane[data-pane=right] .pane-empty [data-action]')].map((b) => b.textContent.trim())`);
+  assert.deepEqual(labels, ["Open a folder…", "Use files in this browser", "Add a calculator…", "Add an emulated calculator…"]);
   // The start cards: the left's ways in are calculators, the right's a folder first, then a calculator.
   const cards = await c.ev(`(() => {
     const ways = (side) => [...document.querySelectorAll('.pane[data-pane=' + side + '] .pane-empty [data-action]')].map((b) => b.dataset.action);
@@ -953,6 +973,46 @@ test("the graphics screen goes to the other pane like a variable: PICT.hp in its
   await p.until(`__calcs[1].requests.some((r) => r.type === "put")`, 10_000, "a put to the other calculator");
   assert.deepEqual(await c.ev(`__calcs[1].requests.filter((r) => r.type === "put").map((r) => r.name)`), ["SCREEN"]);
   await toast(/SCREEN\.hp copied to/);
+  assert.deepEqual(c.errors, []);
+});
+
+test("a calculator that stops answering gets its own card: no \"Connected\", the keys that start its server, Reconnect", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0, "49g", { server: "xserv" })`);
+  await p.idle(10_000, "connected to XSERV");
+  await c.ev(`__calcs[0].silence(); tx.panes[0].refresh(); true`);
+  await p.until(`!tx.panes[0].ui.empty.hidden && document.querySelector(".pane[data-pane=left] .start h2")?.textContent === "The calculator stopped answering"`, 10_000, "the card");
+  const card = await c.ev(`(() => {
+    const pane = document.querySelector(".pane[data-pane=left]");
+    return {
+      status: pane.querySelector(".pane-status-text").textContent,
+      text: pane.querySelector(".start p").textContent,
+      keys: [...pane.querySelectorAll(".start .keys kbd")].map((k) => k.textContent).join(" "),
+      actions: [...pane.querySelectorAll(".start [data-action]")].map((b) => b.dataset.action),
+      list: !pane.querySelector(".pane-body").hidden,
+    };
+  })()`);
+  assert.equal(card.status, "Not answering.");
+  assert.match(card.text, /no longer says “Xmodem server”.*Start its server again: type XSERV and press ENTER\. Then reconnect\./);
+  assert.equal(card.keys, "X S E R V ENTER");
+  assert.deepEqual(card.actions, ["reconnect", "close"]);
+  assert.equal(card.list, false);
+  assert.equal(await c.ev(`tx.panes[0].ui.hint.hidden`), true, "no hint on the card");
+  assert.equal(await c.ev(`tx.panes[0].place.device.notAnswering`), true);
+  // The server runs again: Reconnect connects, and the list is back.
+  await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="reconnect"]').click(); true`);
+  await p.idle(10_000, "connected again");
+  assert.equal(await c.ev(`tx.panes[0].place.device.notAnswering`), false);
+  assert.equal(await c.ev(`tx.panes[0].ui.status.textContent`), "Connected to XSERV at 9600 baud.");
+  // Silent again, then Disconnect from the card: it does not claim the server ended.
+  await c.ev(`__calcs[0].silence(); tx.panes[0].refresh(); true`);
+  // The card shown again (not the one hidden since the reconnect), its buttons on.
+  await p.until(`tx.panes[0].place.device.notAnswering && !tx.panes[0].ui.empty.hidden && document.querySelector('.pane[data-pane=left] [data-action="close"]')?.disabled === false`, 10_000, "the card again");
+  await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="close"]').click(); true`);
+  await p.until("!tx.panes[0].place", 10_000, "disconnected");
+  assert.equal(await c.ev(`tx.panes[0].note`), "Disconnected.");
   assert.deepEqual(c.errors, []);
 });
 

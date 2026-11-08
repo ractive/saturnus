@@ -2025,3 +2025,73 @@ fn a_restore_over_xserv_puts_the_users_transfer_mode_back() {
     let cf = peer.executed.iter().rposition(|c| c == "-35 CF");
     assert!(cf.is_some_and(|cf| cf < restore), "{:?}", peer.executed);
 }
+
+/// The Kermit server goes silent (ON pressed, the cable pulled): a get
+/// fails as `NotAnswering` after the silence allowed, not after the
+/// Kermit retries (two minutes and more); the session is over, and every
+/// request but a connect is refused without a byte sent.
+#[test]
+fn a_silent_kermit_server_is_not_answering_within_the_silence() {
+    let trace = trace("48sx").before_note("request get PRG binary");
+    let mut host = Host::new();
+    let mut replay = Replay::new(&trace, host.clock);
+    let mut driver = |label: &str, request| {
+        if label == "get PRG binary" {
+            return Err(TxError::Busy);
+        }
+        host.run(&mut replay, request)
+    };
+    scenario::run("48sx", &mut driver).unwrap_err();
+    let mut silent = then(&Trace::new(), host.clock, |_| Vec::new());
+    let before = host.clock;
+    let result = host.run(
+        &mut silent,
+        Request::Get {
+            dir: vec![],
+            name: "PRG".into(),
+            format: saturnus_tx::Format::Binary,
+        },
+    );
+    assert!(matches!(result, Err(TxError::NotAnswering)), "{result:?}");
+    let took = host.clock - before;
+    let silence = DeviceOptions::default().silence_kermit;
+    assert!(
+        took >= silence && took < silence + Duration::from_secs(2),
+        "{took:?}"
+    );
+    assert!(host.device.not_answering());
+    assert!(host.device.connection().is_none());
+    let writes = silent.actions.len();
+    let again = host.run(&mut silent, Request::List { dir: vec![] });
+    assert!(matches!(again, Err(TxError::NotAnswering)), "{again:?}");
+    assert_eq!(silent.actions.len(), writes, "nothing sent");
+}
+
+/// XSERV goes silent: a listing of a directory not seen yet (an `E` to
+/// walk there, then `L`) fails as `NotAnswering` after XSERV's silence,
+/// not after the 60 s it waits for a calculator busy with an `E`.
+#[test]
+fn a_silent_xserv_is_not_answering_within_its_silence() {
+    let mut peer = XservCalc::new();
+    let mut host = xserv_connected(&mut peer);
+    peer.serving = Serving::Nothing;
+    // Some time after the connect's last `E` (right after it, a busy
+    // calculator still has XSERV's 60 s).
+    host.clock += Duration::from_secs(120);
+    let before = host.clock;
+    let result = host.run(
+        &mut peer,
+        Request::List {
+            dir: vec!["D".into()],
+        },
+    );
+    assert!(matches!(result, Err(TxError::NotAnswering)), "{result:?}");
+    let took = host.clock - before;
+    let silence = DeviceOptions::default().silence_xserv;
+    assert!(
+        took >= silence && took < silence + Duration::from_secs(3),
+        "{took:?}"
+    );
+    assert!(host.device.not_answering());
+    assert!(host.device.connection().is_none());
+}

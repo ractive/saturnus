@@ -25,7 +25,7 @@ export function keyAction(e) {
  * only while connected), null when it shows nothing usable;
  * `otherFolders` whether the other pane may show a folder (the right
  * one); `xmodem` the calculator (this pane's, or for a folder the other
- * pane's) has the fast transfer (a 48GX or 49G); `restore` the other
+ * pane's) has the fast transfer (a 48GX); `restore` the other
  * pane's calculator takes a restore (not the emulator's own).
  */
 export function rowActions({ kind, entries, other = null, otherFolders = true, xmodem = false, restore = true }) {
@@ -81,7 +81,6 @@ export function paneActions({ kind, connected = true, emulated = false, hub = fa
         ]),
       { id: "copyAll", text: "Copy everything to a folder", icon: "copy-to", disabled: off || other !== "folder", title: other === "folder" ? null : otherFolders ? "Show a folder in the other pane first." : "A folder opens only in the right pane: show this calculator in the left one." },
       "-",
-      ...(hub ? [] : [{ id: "settings", text: "Connection settings…", icon: "settings" }]),
       { id: "refresh", text: "Read everything again", icon: "refresh", disabled: off },
       "-",
       { id: "close", text: emulated ? "Turn the emulated calculator off" : "Disconnect", icon: "disconnect" },

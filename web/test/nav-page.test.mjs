@@ -89,8 +89,8 @@ test("Files links to Calculator, its brand goes home; #/files/<model> says why i
     const link = await ev(`(() => { const a = document.getElementById("to-emulator"); const r = a.getBoundingClientRect(); return { href: a.getAttribute("href"), shown: !a.hidden && r.width > 0, text: a.textContent.trim() }; })()`);
     assert.deepEqual(link, { href: "#/calculator", shown: true, text: "Calculator" }, `${width} px`);
     assert.equal(await ev(`document.querySelector(".tx-bar .brand").getAttribute("href")`), "#/");
-    // The header keeps to one line: the link and Settings inside it.
-    const fits = await ev(`(() => { const bar = document.querySelector(".tx-bar").getBoundingClientRect(); return ["#to-emulator", "#open-settings", ".tx-bar .brand"].every((s) => { const r = document.querySelector(s).getBoundingClientRect(); return r.top >= bar.top && r.bottom <= bar.bottom + 0.5 && r.right <= bar.right + 0.5; }); })()`);
+    // The header keeps to one line: the link inside it (Files has no Settings button since iteration 70).
+    const fits = await ev(`(() => { const bar = document.querySelector(".tx-bar").getBoundingClientRect(); return ["#to-emulator", ".tx-bar .brand"].every((s) => { const r = document.querySelector(s).getBoundingClientRect(); return r.top >= bar.top && r.bottom <= bar.bottom + 0.5 && r.right <= bar.right + 0.5; }); })()`);
     assert.equal(fits, true, `${width} px: the header's parts inside it`);
   }
   assert.deepEqual(c.errors, []);

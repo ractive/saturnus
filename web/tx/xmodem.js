@@ -1,22 +1,22 @@
-// The fast transfer (XModem) of the 48GX and 49G: what the page says and
-// the dialog that says it (kb/docs/saturnus-tx.md, "Fast transfer").
-// XRECV and XSEND do not run inside the calculator's server, so the
-// device puts the program « 'NAME' XRECV » (or XSEND) on the stack and
-// ends the server; the dialog says which keys run it (EVAL on the 48GX,
-// right-shift SYMB on the 49G), waits, and afterwards offers to reconnect
-// once SERVER runs again (the reconnect drops the program if it was not
-// run). An emulated calculator can have the keys pressed for it, and its
-// server started again by the reconnect.
+// The fast transfer (XModem) of the 48GX: what the page says and the
+// dialog that says it (kb/docs/saturnus-tx.md, "Fast transfer"). XRECV
+// and XSEND do not run inside the calculator's server, so the device puts
+// the program « 'NAME' XRECV » (or XSEND) on the stack and ends the
+// server; the dialog says to press EVAL, waits, and afterwards offers to
+// reconnect once the server runs again (the reconnect drops the program
+// if it was not run). An emulated calculator can have the key pressed for
+// it, and its server started again by the reconnect. The 49G has none in
+// Files since iteration 70: XSERV copies as fast, without the steps.
 //
 // `fastWords` and `fastDone` are pure (web/test/tx-flows.test.mjs); the
 // dialog (`XmodemDialog`) is made once, on first use, so the page is not
 // touched.
 
 import { el } from "../shared/dom.js";
-import { MODEL_NAMES, START_SERVER, failureText } from "./flows.js";
+import { MODEL_NAMES, failureText, restartWords } from "./flows.js";
 
-/** The models with the fast transfer. */
-export const XMODEM_MODELS = ["48gx", "49g"];
+/** The models with the fast transfer in Files. */
+export const XMODEM_MODELS = ["48gx"];
 
 /** How long the calculator has to start the transfer, in seconds. */
 export const XMODEM_WAIT_S = 180;
@@ -27,24 +27,10 @@ export const hasXmodem = (model) => XMODEM_MODELS.includes(model);
 /**
  * The keys that run the program on the stack (EVAL), per model: `labels`
  * as the dialog shows them, `names` the emulator's key names (`typeKeys`),
- * `text` in words. The 49G has no EVAL key: EVAL is right-shift SYMB.
+ * `text` in words.
  */
 export const EVAL_KEYS = {
   "48gx": { labels: ["EVAL"], names: ["eval"], text: "EVAL" },
-  "49g": { labels: ["↱", "SYMB"], names: ["rightshift", "symb"], text: "right-shift, then SYMB (EVAL)" },
-};
-
-/**
- * How the server starts again after a fast transfer, per model, as
- * START_SERVER's entries. The 49G's right-shift → starts its XModem
- * server instead when there is a pause between the keys (wiki:
- * protocols/xserv), so after a fast transfer it says SERVER only; the
- * 48GX's right-shift → starts the Kermit server however slowly it is
- * pressed (emulated 48GX, 2026-11-08).
- */
-const RESTART = {
-  "48gx": START_SERVER["48gx"],
-  "49g": { steps: ["Type SERVER and press ENTER."], keys: ["S", "E", "R", "V", "E", "R", "ENTER"] },
 };
 
 /**
@@ -101,11 +87,12 @@ export function fastDone({ direction, name, model, error = null, where = null, l
   else if (error.kind === "xmodemTimeout") lead = `Nothing came from the calculator in time. Was ${(EVAL_KEYS[model] ?? EVAL_KEYS["48gx"]).text} pressed? If the calculator still waits, press ON on it.`;
   else lead = `Could not ${put ? "send" : "get"} ${name}: ${failureText(error)}`;
   if (!left) return { lead, restart: null, keys: null, ok: !error };
-  const s = RESTART[model] ?? START_SERVER[model];
+  // The 48GX's right-shift → starts the Kermit server however slowly it is pressed (emulated 48GX, 2026-11-08).
+  const again = restartWords(model);
   const restart = emulated
     ? "The emulated calculator is out of server mode. Reconnect starts its server again."
-    : `The calculator is out of server mode. ${s ? `${s.steps[0]} That starts its server again; then reconnect.` : "Start its server again, then reconnect."}`;
-  return { lead, restart, keys: emulated ? null : s?.keys ?? null, ok: !error };
+    : `The calculator is out of server mode. ${again.text} Then reconnect.`;
+  return { lead, restart, keys: emulated ? null : again.keys, ok: !error };
 }
 
 /**

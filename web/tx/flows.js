@@ -20,33 +20,46 @@ export const modelTitle = (model) => globalThis.SATURNUS_MODEL_TITLES[model] ?? 
 export const EMULATED_NAMES = Object.fromEntries(MODELS.map((m) => [m, modelTitle(m)]));
 
 /**
- * What to do on the calculator to start its server, per model: `keys`
- * is a sequence of key caps (drawn as keys), `or` the typed alternative.
+ * What to do on the calculator to start its server, per model, as the
+ * connect step and every "start it again" (a restore, a fast transfer, a
+ * calculator that stopped answering) show it: `title`, `step` (in words),
+ * `keys` (key caps, drawn as keys), `note` (the alternative), `shown`
+ * (what the display says then). The 49G's is XSERV, which Files prefers;
+ * its Kermit server works too.
  */
 export const START_SERVER = {
   "48sx": {
-    title: "HP 48S or 48SX",
-    steps: ["Type SERVER and press ENTER."],
+    title: "HP 48S, 48SX",
+    step: "Type SERVER and press ENTER.",
     keys: ["S", "E", "R", "V", "E", "R", "ENTER"],
-    keysNote: "Alpha mode for the letters (α twice, then the letter keys).",
+    note: "α twice for the letters.",
+    shown: "Awaiting Server Cmd.",
   },
   "48gx": {
-    title: "HP 48G, 48G+ or 48GX",
-    steps: ["Press right-shift, then → (the right arrow)."],
+    title: "HP 48G, 48G+, 48GX",
+    step: "Press right-shift, then → (the right arrow).",
     keys: ["↱", "→"],
-    keysNote: "Or type SERVER and press ENTER.",
+    note: "Or type SERVER and press ENTER.",
+    shown: "Awaiting Server Cmd.",
   },
   "49g": {
     title: "HP 49G",
-    steps: ["Type XSERV and press ENTER."],
+    step: "Type XSERV and press ENTER.",
     keys: ["X", "S", "E", "R", "V", "ENTER"],
-    keysNote: "Alpha mode for the letters (α twice, then the letter keys). XSERV copies about twice as fast. ROM 1.10 and earlier have no XSERV: type SERVER instead. Files works with either.",
-    shown: "The display says “Xmodem server” (or “Awaiting Server Cmd.” after SERVER).",
+    note: "α twice for the letters. Or type SERVER (ROM 1.10 and earlier have no XSERV).",
+    shown: "Xmodem server",
   },
 };
 
-/** What every model shows once its server runs (a model's own `shown` first). */
-export const SERVER_SHOWN = "The display says “Awaiting Server Cmd.”";
+/**
+ * How to start the server again on `model` (null: not known), in one
+ * sentence, and its keys: `{text, keys}`.
+ */
+export function restartWords(model) {
+  const s = START_SERVER[model];
+  if (!s) return { text: "Start the calculator's server again.", keys: null };
+  return { text: `Start its server again: ${s.step[0].toLowerCase()}${s.step.slice(1)}`, keys: s.keys };
+}
 
 /**
  * Whether a 49G whose VERSION reads `version` ("…Revision #1.18") has
@@ -59,22 +72,21 @@ export function hasXserv(version) {
   return Number(m[1]) > 1 || Number(m[2]) >= 11;
 }
 
-/**
- * The status of a connected calculator: the speed, the server when it is
- * XSERV, and on a 49G with XSERV on a cable in the Kermit server the hint
- * that XSERV is faster.
- */
-export function connectedText(connection, { emulated = false } = {}) {
+/** The status of a connected calculator: the speed, and the server when it is XSERV. */
+export function connectedText(connection) {
   const at = settingsText(connection.settings);
   if (connection.server === "xserv") return `Connected to XSERV at ${at}.`;
-  if (connection.model === "49g" && !emulated && hasXserv(connection.version)) return `Connected at ${at}. XSERV copies faster: disconnect, type XSERV on the 49G and connect again.`;
   return `Connected at ${at}.`;
 }
 
-/** A connected calculator in the settings' "Connected now" line: `HP 49G on USB serial port, XSERV at 9600 baud`. */
-export function connectionLine(heading, connection) {
-  const at = settingsText(connection.settings);
-  return connection.server === "xserv" ? `${heading}, XSERV at ${at}` : `${heading}, ${at}`;
+/**
+ * The hint a 49G on its Kermit server on a cable gets once per connection
+ * (a note under the pane's head that can be closed), or null: XSERV
+ * copies about twice as fast.
+ */
+export function xservHint(connection, { emulated = false } = {}) {
+  if (emulated || connection?.model !== "49g" || connection.server === "xserv" || !hasXserv(connection.version)) return null;
+  return "XSERV copies about twice as fast: disconnect, type XSERV on the 49G and connect again.";
 }
 
 /** The connection settings stored as `text` (JSON): `{find, baud, parity}`, the defaults for anything else. */
@@ -191,7 +203,9 @@ export function failureText(err) {
   const message = String(err?.message ?? err ?? "");
   switch (kind) {
     case "noAnswer":
-      return "No calculator answered. Is it in server mode, and is the cable plugged in at both ends? In Settings you can try a fixed speed.";
+      return "No calculator answered. Is its server running, and is the cable plugged in at both ends? Under “Trouble with the cable?” in Add a calculator you can set a fixed speed.";
+    case "notAnswering":
+      return "The calculator stopped answering. Start its server again, then reconnect.";
     case "nameClash":
       return `${err.varName ?? "That name"} is already there.`;
     case "isDirectory":

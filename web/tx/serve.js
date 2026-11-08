@@ -261,6 +261,9 @@ export class ServeSession extends EventTarget {
 
 // ------------------------------------------------------------ the view
 
+/** A folder as the screen names it: the files in this browser as the panes call them, a picked one by its name. */
+const folderName = (f) => (f.kind === "opfs" || f.kind === "memory" ? "the files in this browser" : f.title);
+
 /** The keys the emulated calculator offers, per family: `[name, label]`. */
 const EMULATED_KEYS = {
   "38g": [["lib", "LIB"], ["home", "HOME"]],
@@ -327,7 +330,9 @@ export class ServeView {
   get open() { return !this.root.hidden; }
 
   /** Show the setup screen. */
-  async show() {
+  /** Show the screen; `calc` chosen already ("Add a calculator": the cable; "Add an emulated calculator": a kept ROM). */
+  async show({ calc = null } = {}) {
+    if (calc) this.calc = calc;
     this.root.hidden = false;
     this.stage.dataset.mode = "serve";
     if (!this.folder) {
@@ -363,7 +368,7 @@ export class ServeView {
     );
     const folderBox = el("section", { class: "serve-step", "aria-labelledby": "serve-folder-title" },
       el("h3", { id: "serve-folder-title", class: "caps", text: "Folder" }),
-      el("p", { class: "serve-choice", text: this.folder ? this.folder.title : "None chosen yet." }),
+      el("p", { class: "serve-choice", text: this.folder ? folderName(this.folder) : "None chosen yet." }),
     );
     const folderActions = el("div", { class: "start-actions" });
     if (canPickFolder()) folderActions.append(this.button("Open a folder…", "folder-open", () => this.chooseFolder(), { id: "serve-open-folder", primary: !this.folder }));
@@ -371,7 +376,7 @@ export class ServeView {
       if (f.kind === "picked" && f !== this.folder) folderActions.append(this.button(`Use ${f.title}`, "folder", () => this.setFolder(f)));
     }
     // The desktop app has the computer's folders; the page's own files are the browser's.
-    if (!isTauri()) folderActions.append(this.button("Files in this browser", "folder", async () => this.setFolder(await fallbackFolder()), { id: "serve-page-files" }));
+    if (!isTauri()) folderActions.append(this.button("Use files in this browser", "folder", async () => this.setFolder(await fallbackFolder()), { id: "serve-page-files" }));
     folderBox.append(folderActions);
 
     const calcBox = el("section", { class: "serve-step", "aria-labelledby": "serve-calc-title" },
@@ -582,7 +587,7 @@ export class ServeView {
 
   renderServing() {
     const head = el("div", { class: "serve-head" },
-      el("h2", { id: "serve-title", tabindex: "-1", text: `Serving ${this.folder.title}` }),
+      el("h2", { id: "serve-title", tabindex: "-1", text: `Serving ${folderName(this.folder)}` }),
       el("p", { class: "serve-to muted", text: `To ${this.linkLabel}, at 9600 baud.` }),
       el("p", { class: "serve-status", role: "status", "aria-live": "polite", text: "" }),
     );

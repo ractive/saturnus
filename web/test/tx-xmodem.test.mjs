@@ -1,4 +1,4 @@
-// The fast transfer (XModem) of the 48GX and 49G (web/tx/xmodem.js,
+// The fast transfer (XModem) of the 48GX (web/tx/xmodem.js,
 // pane.js): the words of its dialog and the menus that offer it, without
 // a browser; then the page in headless Chrome with the fake calculator
 // (web/test/tx-fake-calc.js) and a folder in memory: a get into the
@@ -32,20 +32,16 @@ test("the dialog's words: before the plan, with it, and after", () => {
   assert.ok(gx.notes.some((n) => /takes the command off the stack/.test(n)), "how the stack comes back");
   assert.ok(gx.notes.some((n) => /empty string/.test(n)), "the 48GX's empty string after a failed XRECV");
   assert.match(gx.status, /up to 3 minutes/);
-  const g49 = fastWords({ direction: "get", name: "PRG", model: "49g", plan: { program: "« 'PRG' XSEND »", switchedToRpn: true }, emulated: true });
-  assert.equal(g49.title, "Fast transfer of PRG from the calculator");
-  assert.equal(g49.lead, "Server mode has ended, and this command is on the stack of the emulated calculator. To run it, press right-shift, then SYMB (EVAL):");
-  assert.deepEqual(g49.keys, ["↱", "SYMB"]);
-  assert.ok(g49.notes.some((n) => /algebraic mode/.test(n)));
-  assert.ok(!g49.notes.some((n) => /empty string/.test(n)));
+  const emuGet = fastWords({ direction: "get", name: "PRG", model: "48gx", plan: { program: "« 'PRG' XSEND »", switchedToRpn: false }, emulated: true });
+  assert.equal(emuGet.title, "Fast transfer of PRG from the calculator");
+  assert.equal(emuGet.lead, "Server mode has ended, and this command is on the stack of the emulated calculator. To run it, press EVAL:");
+  assert.ok(!emuGet.notes.some((n) => /empty string/.test(n)), "no empty string after a get");
 
-  const done = fastDone({ direction: "get", name: "PRG", model: "49g", where: "PRG.hp in hp-files" });
-  assert.equal(done.lead, "PRG came over: PRG.hp in hp-files.");
-  assert.ok(done.ok);
-  assert.equal(done.restart, "The calculator is out of server mode. Type SERVER and press ENTER. That starts its server again; then reconnect.");
-  assert.deepEqual(done.keys, ["S", "E", "R", "V", "E", "R", "ENTER"]);
   const gxDone = fastDone({ direction: "get", name: "PRG", model: "48gx", where: "PRG.hp in hp-files" });
-  assert.match(gxDone.restart, /Press right-shift, then → .* then reconnect/);
+  assert.equal(gxDone.lead, "PRG came over: PRG.hp in hp-files.");
+  assert.ok(gxDone.ok);
+  // The connect step's words for the model (flows.js restartWords).
+  assert.equal(gxDone.restart, "The calculator is out of server mode. Start its server again: press right-shift, then → (the right arrow). Then reconnect.");
   assert.deepEqual(gxDone.keys, ["↱", "→"]);
   const emu = fastDone({ direction: "put", name: "PRG", model: "48gx", emulated: true });
   assert.equal(emu.lead, "PRG is on the calculator.");
@@ -53,16 +49,15 @@ test("the dialog's words: before the plan, with it, and after", () => {
   assert.equal(emu.keys, null);
   const late = fastDone({ direction: "put", name: "PRG", model: "48gx", error: { kind: "xmodemTimeout", message: "x" } });
   assert.match(late.lead, /Was EVAL pressed\?/);
-  assert.match(fastDone({ direction: "get", name: "PRG", model: "49g", error: { kind: "xmodemTimeout", message: "x" } }).lead, /Was right-shift, then SYMB \(EVAL\) pressed\?/);
   assert.ok(!late.ok);
   const before2 = fastDone({ direction: "put", name: "PRG", model: "48gx", error: { kind: "nameClash", varName: "PRG", message: "PRG already exists" }, left: false });
   assert.equal(before2.restart, null, "the server never ended: nothing to restart");
   assert.match(before2.lead, /Could not send PRG: PRG is already there/);
-  assert.match(fastDone({ direction: "get", name: "A", model: "49g", error: { kind: "aborted" } }).lead, /^Stopped/);
+  assert.match(fastDone({ direction: "get", name: "A", model: "48gx", error: { kind: "aborted" } }).lead, /^Stopped/);
 });
 
-test("the menus offer it on the 48GX and 49G only", () => {
-  assert.ok(hasXmodem("48gx") && hasXmodem("49g") && !hasXmodem("48sx") && !hasXmodem("unknown"));
+test("the menus offer it on the 48GX only: the 49G has XSERV", () => {
+  assert.ok(hasXmodem("48gx") && !hasXmodem("49g") && !hasXmodem("48sx") && !hasXmodem("unknown"));
   const ids = (items) => items.filter((i) => i !== "-").map((i) => i.id);
   const v = { name: "PRG", directory: false };
   const row = (opts) => rowActions({ kind: "device", entries: [v], ...opts });
@@ -154,7 +149,7 @@ test("a fast get into the folder and a fast put from it: the keys to press, the 
   await ev(`__calcs[0].release(); true`);
   await p.until(shown("reconnect"), 5_000, "done, with the reconnect");
   assert.equal(await ev(dialogText("xmodem-lead")), "PRG came over: PRG.hp in hp-files.");
-  assert.match(await ev(dialogText("xmodem-restart-text")), /out of server mode\. Press right-shift, then →/);
+  assert.match(await ev(dialogText("xmodem-restart-text")), /out of server mode\. Start its server again: press right-shift, then →/);
   assert.equal(await ev(`document.querySelectorAll("#xmodem-dialog .xmodem-restart-keys kbd").length`), 2);
   const got = await ev(`tx.panes[1].place.folder.read(["hp-files"], "PRG.hp").then((f) => new TextDecoder().decode(f.data))`);
   assert.match(got, /^HPHP48-/);
@@ -199,12 +194,12 @@ test("a fast get into the folder and a fast put from it: the keys to press, the 
   assert.deepEqual(c.errors, []);
 });
 
-test("Cancel while waiting stops the transfer; the 48SX and a text file are not offered", { timeout: 60_000 }, async (t) => {
+test("Cancel while waiting stops the transfer; the 48SX and the 49G are not offered it", { timeout: 60_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;
   const { c, p } = f;
   const { ev } = c;
-  await ev(`__calc(0, "49g", { holdXmodem: true })`);
+  await ev(`__calc(0, "48gx", { holdXmodem: true })`);
   await ev(`__folder(1)`);
   await p.idle(10_000);
   await ev(`tx.panes[0].place.device.write(["HOME"], "A", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n")).then(() => true)`);
@@ -225,7 +220,7 @@ test("Cancel while waiting stops the transfer; the 48SX and a text file are not 
   // Running: Cancel stops the device's wait (the fake answers the abort as the driver does), the dialog says so.
   await ev(`window.__get = tx.panes[0].act("xmodemGet", [tx.entry("A")]); true`);
   await p.until(`${dialogText("xmodem-command")} === "« 'A' XSEND »"`, 5_000, "what is on the stack");
-  assert.deepEqual(await ev(`[...document.querySelectorAll("#xmodem-dialog .xmodem-keys kbd")].map((k) => k.textContent)`), ["↱", "SYMB"]);
+  assert.deepEqual(await ev(`[...document.querySelectorAll("#xmodem-dialog .xmodem-keys kbd")].map((k) => k.textContent)`), ["EVAL"]);
   await ev(press("cancel"));
   await p.until(shown("reconnect"), 5_000, "stopped");
   assert.match(await ev(dialogText("xmodem-lead")), /^Stopped\. If the calculator still waits, press ON on it\./);
@@ -241,16 +236,25 @@ test("Cancel while waiting stops the transfer; the 48SX and a text file are not 
   assert.doesNotMatch(await ev(`document.querySelector(".menu").textContent`), /XModem/);
   await ev(`document.querySelector(".menu").remove(); true`);
   assert.equal(await ev(`tx.panes[0].xmodem`), false);
-  // A 49G in XSERV: every copy is XModem already, no fast transfer either; the status names XSERV.
+  // A 49G on its Kermit server: no fast transfer; a one-line status and the XSERV hint once, under the head, closed by its button.
+  await ev(`__calc(0, "49g")`);
+  await p.idle(10_000);
+  assert.equal(await ev(`tx.panes[0].xmodem`), false);
+  assert.equal(await ev(`tx.panes[0].ui.status.textContent`), "Connected at 9600 baud.");
+  assert.equal(await ev(`tx.panes[0].ui.hint.hidden`), false);
+  assert.match(await ev(`tx.panes[0].ui.hintText.textContent`), /^XSERV copies about twice as fast: disconnect, type XSERV on the 49G and connect again\.$/);
+  await ev(`tx.panes[0].ui.hintClose.click(); true`);
+  assert.equal(await ev(`tx.panes[0].ui.hint.hidden`), true);
+  await ev(`document.querySelector('.pane[data-pane=left] .pane-more').click(); true`);
+  await p.until(`!!document.querySelector(".menu")`, 5_000, "the pane's menu");
+  assert.doesNotMatch(await ev(`document.querySelector(".menu").textContent`), /XModem/);
+  await ev(`document.querySelector(".menu").remove(); true`);
+  // A 49G in XSERV: the status names XSERV, no hint.
   await ev(`__calc(0, "49g", { server: "xserv" })`);
   await p.idle(10_000);
   assert.equal(await ev(`tx.panes[0].xmodem`), false);
   assert.equal(await ev(`tx.panes[0].ui.status.textContent`), "Connected to XSERV at 9600 baud.");
-  // The settings name XSERV too, and no longer say every connection is Kermit.
-  await ev(`document.getElementById("open-settings").click(); true`);
-  assert.match(await ev(`document.getElementById("set-now").textContent`), /^Connected now: .*, XSERV at 9600 baud\.$/);
-  assert.doesNotMatch(await ev(`document.getElementById("settings-dialog").textContent`), /fixed: Kermit/);
-  await ev(`document.getElementById("settings-dialog").close(); true`);
+  assert.equal(await ev(`tx.panes[0].ui.hint.hidden`), true);
   await ev(`document.querySelector('.pane[data-pane=left] .pane-more').click(); true`);
   await p.until(`!!document.querySelector(".menu")`, 5_000, "the pane's menu");
   assert.doesNotMatch(await ev(`document.querySelector(".menu").textContent`), /XModem/);
@@ -265,7 +269,7 @@ test("the dialog stays inside the window at five widths in both themes", { timeo
   if (!f) return;
   const { c, p } = f;
   const { send, ev, settled } = c;
-  await ev(`__calc(0, "49g", { holdXmodem: true, label: "USB serial port with a long name" })`);
+  await ev(`__calc(0, "48gx", { holdXmodem: true, label: "USB serial port with a long name" })`);
   await ev(`__folder(1)`);
   await p.idle(10_000);
   await ev(`tx.panes[0].place.device.write(["HOME"], "AVERYLONGVARIABLENAMEINDEED", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n1\\r\\n")).then(() => true)`);

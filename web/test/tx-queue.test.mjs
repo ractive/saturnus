@@ -155,7 +155,7 @@ test("a folder's rows: copy, download (a .zip for a folder), rename, delete; a .
 
 test("the pane's own menu: a calculator's and a folder's", () => {
   const calc = paneActions({ kind: "device", connected: true, emulated: false, other: "folder" });
-  assert.deepEqual(ids(calc), ["mkdir", "backup", "restore", "pict", "copyAll", "settings", "refresh", "close"]);
+  assert.deepEqual(ids(calc), ["mkdir", "backup", "restore", "pict", "copyAll", "refresh", "close"]);
   assert.equal(calc.find((i) => i.id === "close").text, "Disconnect");
   assert.equal(calc.find((i) => i.id === "pict").text, "Graphics screen");
   assert.ok(!calc.find((i) => i.id === "copyAll").disabled);
@@ -167,9 +167,9 @@ test("the pane's own menu: a calculator's and a folder's", () => {
   assert.equal(rightCalc.disabled, true);
   assert.match(rightCalc.title, /only in the right pane/);
   assert.equal(rowActions({ kind: "device", entries: [{ name: "X", directory: false }], other: null, otherFolders: false }).find((i) => i.id === "copy").title, "Show a calculator in the other pane first.");
-  // After a restore: everything but the settings and the disconnect off.
+  // After a restore: everything but the disconnect off (no settings menu: the fixed speed is in the connect step).
   const restarted = paneActions({ kind: "device", connected: false, emulated: true, other: "folder" });
-  assert.deepEqual(restarted.filter((i) => i !== "-" && !i.disabled).map((i) => i.id), ["settings", "close"]);
+  assert.deepEqual(restarted.filter((i) => i !== "-" && !i.disabled).map((i) => i.id), ["close"]);
   assert.equal(restarted.find((i) => i.id === "close").text, "Turn the emulated calculator off");
   // The emulator's own calculator: no restore, graphics screen, fast transfer or settings; a line says where its restore is.
   const hub = paneActions({ kind: "device", connected: true, hub: true, xmodem: true, other: "folder" });
