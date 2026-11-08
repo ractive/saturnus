@@ -36,7 +36,7 @@ jobs:
       # crates" 429, and skips one that is already up. Keep in sync with
       # publish-crates.yml and `just package` (kb/docs/releasing.md). The
       # other crates are `publish = false`.
-      publish-crates: saturnus-core,kermit-proto,saturnus-objects,saturnus-host,saturnus-drive,saturnus,xmodem-proto,satx-core,satx
+      publish-crates: saturnus-core,kermit-proto,saturnus-objects,saturnus-host,saturnus-drive,saturnus,xmodem-proto,filer-proto,satx-core,satx
       # A .deb and an .rpm of the CLI (x86_64, package `saturnus`:
       # [package.metadata.deb] and [package.metadata.generate-rpm] in its
       # manifest), uploaded as saturnus-vV-x86_64-linux.deb/.rpm.

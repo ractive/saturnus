@@ -6,6 +6,7 @@
 mod commands;
 mod convert;
 mod error;
+mod lx;
 mod offline;
 mod output;
 mod port;
@@ -357,6 +358,9 @@ Examples:
         #[command(subcommand)]
         command: xserv::XservCmd,
     },
+    /// Files on an HP 100LX or 200LX palmtop, through its Filer in server mode.
+    #[command(after_help = lx::after_help())]
+    Lx(lx::LxArgs),
     /// Inspect or convert object files on this computer (no calculator needed).
     Object {
         #[command(subcommand)]

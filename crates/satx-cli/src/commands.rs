@@ -308,6 +308,7 @@ impl Ctx {
             Command::Settings(args) => self.settings(&args)?,
             Command::Finish => self.finish()?,
             Command::Xserv { command } => return self.xserv(command),
+            Command::Lx(args) => return self.lx(args),
             Command::Object {
                 command: ObjectCommand::Inspect { files, model },
             } => offline::inspect(&files, model)?,

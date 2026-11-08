@@ -70,11 +70,11 @@ rom-tests rom_dir:
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test -p saturnus-tauri --locked -q
     SATURNUS_ROM_DIR="{{rom_dir}}" cargo test --release --locked -p saturnus-refgen -- --ignored
 
-# The core, the host crate and the two protocol crates build for wasm32,
+# The core, the host crate and the three protocol crates build for wasm32,
 # so do satx-core without its native features, saturnus-tx and the
 # bindings (saturnus-web); the web package builds (their native tests are in `test`).
 wasm: web
-    cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
+    cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto -p filer-proto --target wasm32-unknown-unknown --locked
     cargo check -p satx-core --no-default-features --target wasm32-unknown-unknown --locked
     cargo clippy --locked -p satx-core --no-default-features --all-targets -- -D warnings
     cargo check -p saturnus-tx -p saturnus-web --target wasm32-unknown-unknown --locked
@@ -177,15 +177,15 @@ lint-kb:
 # code. Both are removed first, the artifacts in the rehearsal's own target
 # directory (CI starts empty).
 package:
-    rm -rf "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/saturnus-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/satx-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/kermit-proto-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/xmodem-proto-*
-    cargo clean -q --target-dir target/rehearsal -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core
-    for c in saturnus-core saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto satx-core satx-cli; do cmp -s LICENSE crates/$c/LICENSE || { echo "crates/$c/LICENSE differs from LICENSE"; exit 1; }; done
-    cargo package --locked --allow-dirty --target-dir target/rehearsal -p saturnus-core -p kermit-proto -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p xmodem-proto -p satx-core -p satx
+    rm -rf "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/saturnus-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/satx-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/kermit-proto-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/xmodem-proto-* "${CARGO_HOME:-$HOME/.cargo}"/registry/src/-*/filer-proto-*
+    cargo clean -q --target-dir target/rehearsal -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p filer-proto -p satx-core
+    for c in saturnus-core saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto filer-proto satx-core satx-cli; do cmp -s LICENSE crates/$c/LICENSE || { echo "crates/$c/LICENSE differs from LICENSE"; exit 1; }; done
+    cargo package --locked --allow-dirty --target-dir target/rehearsal -p saturnus-core -p kermit-proto -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p xmodem-proto -p filer-proto -p satx-core -p satx
 
 # The published crates' docs as docs.rs builds them, warnings denied; the
 # two CLIs have no library, so theirs are their binaries'.
 doc:
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core -p saturnus -p satx
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p filer-proto -p satx-core -p saturnus -p satx
 
 # Everything CI checks (.github/workflows/ci.yml); keep both in sync.
 gates: lint test web-test tauri wasm lint-kb package doc
@@ -248,6 +248,30 @@ satx-e2e-saturnus model="48sx" roms=env("SATURNUS_ROM_DIR", "roms"):
     esac
     dir=$(cd "{{roms}}" && pwd)
     SATX_E2E_ADDR="saturnus://{{model}}@$dir/$rom" cargo test --locked -p satx-core --features saturnus --test e2e -- --nocapture
+
+# `satx lx` (the HP 100LX/200LX Filer). Its oracle is BSD Filer v0.3 in
+# Docker (tools/filer-oracle/), on port 4853; the image downloads the
+# author's archive at build time and is never pushed.
+filer_e2e_addr := env("FILER_E2E_ADDR", "tcp://localhost:4853")
+
+# Build and start the Filer oracle on port 4853.
+lx-oracle-up:
+    @if command -v lsof >/dev/null && lsof -nP -iTCP:4853 -sTCP:LISTEN >/dev/null; then \
+        echo "port 4853 is already in use:" >&2; lsof -nP -iTCP:4853 -sTCP:LISTEN >&2; exit 1; fi
+    docker build -t filer-oracle tools/filer-oracle
+    docker rm -f lx >/dev/null 2>&1 || true
+    docker run -d -p 4853:4853 --name lx filer-oracle
+    tools/filer-oracle/wait-ready.sh lx
+
+# Stop and remove the Filer oracle.
+lx-oracle-down:
+    -docker rm -f lx
+
+# satx lx end to end: the in-process server always, the oracle at FILER_E2E_ADDR
+# (`just lx-oracle-up` first), then the CLI script against the oracle.
+lx-e2e addr=filer_e2e_addr:
+    FILER_E2E_ADDR="{{addr}}" cargo test --locked -p satx-core --test lx -- --nocapture
+    FILER_E2E_ADDR="{{addr}}" scripts/satx-lx-e2e.sh
 
 # Record a Kermit trace from the running oracle to stdout,
 # e.g. `just satx-record-trace dir > crates/kermit-proto/traces/48sx-dir.trace`

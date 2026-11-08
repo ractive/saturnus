@@ -3030,6 +3030,7 @@ dependencies = [
  "jaq-core",
  "jaq-json",
  "jaq-std",
+ "jiff",
  "kermit-proto",
  "rustyline",
  "satx-core",

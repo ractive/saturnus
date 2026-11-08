@@ -1,6 +1,7 @@
 name: satx e2e
 
-# satx against the saturnng oracle, 18-19 minutes, so not on every PR push
+# satx against the saturnng oracle (18-19 minutes) and satx lx against the
+# BSD Filer oracle, so not on every PR push
 # (kb/docs/ci.md, "What runs when"):
 # - on a push to main whose changes reach what the job builds: satx and
 #   its protocol crates, the saturnus crates of its `saturnus` feature,
@@ -29,12 +30,15 @@ on:
       - 'crates/satx-cli/**'
       - 'crates/kermit-proto/**'
       - 'crates/xmodem-proto/**'
+      - 'crates/filer-proto/**'
       - 'crates/saturnus-core/**'
       - 'crates/saturnus-objects/**'
       - 'crates/saturnus-host/**'
       - 'crates/saturnus-drive/**'
       - 'tools/saturnng-oracle/**'
+      - 'tools/filer-oracle/**'
       - 'scripts/satx-e2e-cli.sh'
+      - 'scripts/satx-lx-e2e.sh'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/e2e.yml'
@@ -150,3 +154,43 @@ jobs:
           docker exec calc calc-screen || true
           docker exec calc cat /tmp/saturn.log || true
           docker logs calc
+
+  # satx lx against BSD Filer v0.3 (tools/filer-oracle/), a Unix emulation
+  # of the HP 100LX/200LX Filer server, as a black box: the image builds it
+  # from the author's archive (checksum checked) and is never cached,
+  # pushed or shipped. Port 4853. A minute or two of tests; the same
+  # gating as satx-e2e.
+  lx-e2e:
+    if: >-
+      github.event_name != 'pull_request'
+      || (contains(github.event.pull_request.labels.*.name, 'e2e')
+          && (github.event.action != 'labeled' || github.event.label.name == 'e2e'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Build the Filer oracle image
+        run: docker build -t filer-oracle tools/filer-oracle
+      - name: Start BSD Filer
+        run: |
+          docker run -d -p 4853:4853 --name lx filer-oracle
+          tools/filer-oracle/wait-ready.sh lx
+      - name: satx-core lx tests (in process and against the oracle)
+        env:
+          FILER_E2E_ADDR: tcp://localhost:4853
+        run: cargo test --locked -p satx-core --test lx -- --nocapture
+      - name: CLI end-to-end script
+        env:
+          FILER_E2E_ADDR: tcp://localhost:4853
+        run: scripts/satx-lx-e2e.sh
+      - name: Log on failure
+        if: failure()
+        run: |
+          docker exec lx cat /tmp/bsdfiler.log || true
+          docker logs lx
