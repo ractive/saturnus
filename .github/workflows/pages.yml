@@ -47,7 +47,8 @@ jobs:
       # same runner image after the web tests passed) instead of building
       # it again. Without one (another branch, CI skipped its wasm job by
       # the path filter, is still running or failed, the artifact
-      # expired, the download failed) the steps after build it here.
+      # expired, the download did not succeed, digests included: any
+      # partial web/pkg is removed) the steps after build it here.
       # Either way web/site.sh hashes the files it assembles into the
       # service worker, so its refusal of a mixed build holds.
       - name: CI's web package of this commit
@@ -57,7 +58,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: echo "run=$(scripts/ci-web-pkg-run.sh "$SHA")" >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - id: web-pkg
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: steps.ci.outputs.run != ''
         continue-on-error: true
         with:
@@ -69,12 +71,15 @@ jobs:
         id: pkg
         env:
           RUN: ${{ steps.ci.outputs.run }}
+          OUTCOME: ${{ steps.web-pkg.outcome }}
         run: |
-          if [ -n "$RUN" ] && [ -f web/pkg/saturnus_web.js ] && [ -f web/pkg/saturnus_web_bg.wasm ]; then
+          head=$(git rev-parse HEAD)
+          if [ -n "$RUN" ] && [ "$OUTCOME" = success ] && [ "$head" = "$GITHUB_SHA" ] \
+            && [ -f web/pkg/saturnus_web.js ] && [ -f web/pkg/saturnus_web_bg.wasm ]; then
             echo "web/pkg from CI run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN"
             echo prebuilt=true >> "$GITHUB_OUTPUT"
           else
-            echo "no CI package of $GITHUB_SHA: building it here"
+            echo "no usable CI package of $GITHUB_SHA (run '${RUN}', download ${OUTCOME:-skipped}, HEAD $head): building it here"
             rm -rf web/pkg
             echo prebuilt=false >> "$GITHUB_OUTPUT"
           fi

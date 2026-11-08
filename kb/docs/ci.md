@@ -193,12 +193,18 @@ builds a merge ref) whose `wasm` job succeeded, so the package passed
 the web tests, and whose `web-pkg` artifact has not expired; it prints
 that run's id or nothing. `actions/download-artifact` (`run-id`,
 `github-token`, the jobs have `actions: read`) puts it into `web/pkg`,
-`continue-on-error`. Without a run, or when the download failed, the
-workflow builds the package itself as before: a branch, a commit whose
+`continue-on-error`. The package counts only when that step's outcome
+is `success` (a download that broke off or failed its digest check
+does not), both `saturnus_web.js` and `saturnus_web_bg.wasm` are there,
+and `git rev-parse HEAD` is the commit looked up; otherwise `web/pkg`
+is removed and the workflow builds the package itself as before: a branch, a commit whose
 push did not touch `rust` or `web` (CI skipped `wasm`), a CI run still
 going or failed, an artifact older than 14 days. With CI's package
 `pages.yml` skips the toolchain and wasm-pack; `desktop.yml` finds the run once in
-`verify` (for the tag's commit, or the dispatched ref's) and sets
+`verify` (for the tag's commit, or `github.sha` for a dispatch
+without one, which the build jobs then check out instead of the
+branch, whose tip may have moved; a tag that moved fails the `HEAD`
+check) and sets
 `SATURNUS_WEB_PKG_PREBUILT=1` in the build jobs, which makes
 `web/build.sh` (the app's `beforeBuildCommand`) keep the downloaded
 package, and skips installing wasm-pack. Both builds are CI's on

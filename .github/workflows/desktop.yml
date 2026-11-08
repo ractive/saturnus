@@ -51,6 +51,7 @@ jobs:
       actions: read
     outputs:
       web-pkg-run: ${{ steps.pkg.outputs.run }}
+      commit: ${{ steps.pkg.outputs.commit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,10 +79,11 @@ jobs:
             echo "::error::$TAG's commit is not on main"
             exit 1
           fi
-      # CI's `web-pkg` artifact of the commit built (the tag's, or the
-      # dispatched ref's): the build jobs take it instead of running
-      # wasm-pack on every system (scripts/ci-web-pkg-run.sh; none found,
-      # they build it as before).
+      # The commit the build jobs check out (the tag's, or github.sha for a
+      # dispatch without one) and CI's `web-pkg` artifact of it: the build
+      # jobs take that instead of running wasm-pack on every system, but
+      # only when they did check out this commit
+      # (scripts/ci-web-pkg-run.sh; none found, they build it as before).
       - name: CI's web package of the commit built
         id: pkg
         shell: bash
@@ -93,6 +95,7 @@ jobs:
         run: |
           commit=$SHA
           if [ -n "$TAG" ]; then commit=$(git rev-parse "refs/tags/$TAG^{commit}"); fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
           echo "run=$(scripts/ci-web-pkg-run.sh "$commit")" >> "$GITHUB_OUTPUT"
 
   build:
@@ -133,17 +136,20 @@ jobs:
     steps:
       # With a release tag, build exactly that tag (the checkout fails if
       # it does not exist), so what is attached to a release is what the
-      # release is; otherwise the dispatched ref.
+      # release is; otherwise the dispatched commit (github.sha, not the
+      # branch's tip by now, so that it is the commit verify looked at).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ (github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag) != '' && format('refs/tags/{0}', github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag) || github.ref }}
+          ref: ${{ (github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag) != '' && format('refs/tags/{0}', github.event.workflow_run.event == 'release' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch || inputs.release-tag) || github.sha }}
           persist-credentials: false
       # Files' protocol, aplet server and private calculators run in the
-      # page's wasm: CI's package of this commit when verify found one
-      # (web/build.sh, the app's beforeBuildCommand, then keeps it:
-      # SATURNUS_WEB_PKG_PREBUILT), else built by that command (wasm-pack,
-      # the wasm32 target).
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      # page's wasm: CI's package of this commit when verify found one, the
+      # download succeeded (digests checked) and HEAD is the commit verify
+      # resolved (a tag moved in between: not); web/build.sh, the app's
+      # beforeBuildCommand, then keeps it (SATURNUS_WEB_PKG_PREBUILT).
+      # Otherwise that command builds it (wasm-pack, the wasm32 target).
+      - id: web-pkg
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.verify.outputs.web-pkg-run != ''
         continue-on-error: true
         with:
@@ -152,16 +158,19 @@ jobs:
           run-id: ${{ needs.verify.outputs.web-pkg-run }}
           github-token: ${{ github.token }}
       - name: CI's web package or a build here
-        if: needs.verify.outputs.web-pkg-run != ''
         shell: bash
         env:
           RUN: ${{ needs.verify.outputs.web-pkg-run }}
+          COMMIT: ${{ needs.verify.outputs.commit }}
+          OUTCOME: ${{ steps.web-pkg.outcome }}
         run: |
-          if [ -f web/pkg/saturnus_web.js ] && [ -f web/pkg/saturnus_web_bg.wasm ]; then
+          head=$(git rev-parse HEAD)
+          if [ -n "$RUN" ] && [ "$OUTCOME" = success ] && [ "$head" = "$COMMIT" ] \
+            && [ -f web/pkg/saturnus_web.js ] && [ -f web/pkg/saturnus_web_bg.wasm ]; then
             echo "web/pkg from CI run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN"
             echo "SATURNUS_WEB_PKG_PREBUILT=1" >> "$GITHUB_ENV"
           else
-            echo "the download failed: the app's build makes web/pkg"
+            echo "no usable CI package (run '${RUN}', download ${OUTCOME:-skipped}, HEAD $head, verify's commit $COMMIT): the app's build makes web/pkg"
             rm -rf web/pkg
           fi
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
