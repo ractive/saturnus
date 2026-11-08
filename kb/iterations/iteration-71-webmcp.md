@@ -68,7 +68,8 @@ with `consequentialHint` on the tools that change the calculator.
   and Edge 150 trials; the tokens go into the page's `<meta
   http-equiv="origin-trial">` (one per browser), with a note of their
   expiry in kb. The Chrome token for `https://ractive.ch` is in `web/index.html`
-  since 2026-11-08 and expires on 2027-03-30; Edge's is still to come. Not in the desktop app (its webview has no WebMCP).
+  since 2026-11-08 and expires on 2027-03-30; Edge's (same origin) is there too and expires on
+  2026-12-23, to be renewed in Edge's origin trials console. Not in the desktop app (its webview has no WebMCP).
 - [ ] **Tests:** unit tests with a fake `document.modelContext`
   (registration, re-registration, abort, consent off); a page test in
   Chrome with WebMCP testing enabled if the flag works headless (find the
