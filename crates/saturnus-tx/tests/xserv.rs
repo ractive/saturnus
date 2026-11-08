@@ -390,7 +390,7 @@ fn the_nested_kermit_server_leaves_the_stack_and_algebraic_mode() {
         from: "SATXS".into(),
         to: "PICT".into(),
     });
-    assert!(refused.is_err(), "{refused:?}");
+    assert!(matches!(refused, Err(TxError::Unconfirmed)), "{refused:?}");
     assert_eq!(c.stack_and_mode(), idle);
     assert!(matches!(
         c.run(Request::Purge {

@@ -153,6 +153,8 @@ export class Pane {
     this.place = place;
     this.selected = null;
     this.previews.clear();
+    // What the preview shows (a variable, the graphics screen) was the old place's, or read before a restart.
+    renderPreview(this.ui.preview, null, null);
     this.dropDragUrls();
     const source = place?.device ?? place?.folder ?? null;
     this.path = [...homeOf(source)];
@@ -305,12 +307,14 @@ export class Pane {
       this.step = { title: p.heading, status: "Disconnecting…", busy: true };
       this.setStatus(this.step.status);
       let result = null;
+      let unanswered = false;
       try {
         if (p.device.connection) {
           const shows = p.device.connection.server === "xserv" ? "Xmodem server" : "Awaiting Server Cmd.";
           try {
             result = await p.device.disconnect();
           } catch (err) {
+            unanswered = true;
             this.say(err?.kind === "noAnswer" ? `The calculator did not answer the end of server mode. If it still shows “${shows}”, press ON on it.` : `The calculator did not answer the end of server mode: ${failureText(err)}`, { error: true });
           }
         }
@@ -320,7 +324,8 @@ export class Pane {
       } finally {
         this.step = null;
       }
-      this.note = note ?? (p.hub ? "Disconnected. The calculator stays in Calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : disconnectNote(p.model, result));
+      // Not answered: whether the server ended is not known, so the note does not say it did (the toast said what to check).
+      this.note = note ?? (p.hub ? "Disconnected. The calculator stays in Calculator as you left it." : p.emulated ? "The emulated calculator was turned off." : unanswered ? "Disconnected." : disconnectNote(p.model, result));
     } else {
       this.note = note ?? "";
     }
@@ -1363,7 +1368,8 @@ export class Pane {
     }
     let state;
     try {
-      state = { status: "shown", object: h.describe_file(got.data) };
+      // A graphics screen nothing was drawn on since the calculator started is 0 × 0 (a fresh 49G).
+      state = got.width && got.height ? { status: "shown", object: h.describe_file(got.data) } : { status: "none", note: "The graphics screen is empty: nothing was plotted or drawn on it yet." };
     } catch (err) {
       state = { status: "error", error: String(err?.message ?? err) };
     }

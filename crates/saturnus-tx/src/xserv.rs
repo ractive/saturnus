@@ -394,15 +394,8 @@ pub(crate) async fn put(ctx: &Ctx, here: &[String], name: &str, data: Vec<u8>) -
     if entries.iter().any(|e| e.name == name) {
         Ok(())
     } else {
-        Err(not_done(&format!("store {name}")))
+        Err(TxError::Unconfirmed)
     }
-}
-
-/// Why a change the listing does not show failed.
-fn not_done(what: &str) -> TxError {
-    TxError::Calc(satx_core::Error::Reply(format!(
-        "the calculator did not {what}, and XSERV gives no reason: the name may be one of the calculator's commands, or the free memory too small"
-    )))
 }
 
 /// Run `rpl` in `here` (the current directory) and check the listing with
@@ -411,7 +404,6 @@ async fn change(
     ctx: &Ctx,
     here: &[String],
     rpl: String,
-    what: &str,
     done: impl Fn(&[Entry]) -> bool,
 ) -> Result<()> {
     execute(ctx, rpl).await?;
@@ -419,7 +411,7 @@ async fn change(
     if done(&entries) {
         Ok(())
     } else {
-        Err(not_done(what))
+        Err(TxError::Unconfirmed)
     }
 }
 
@@ -446,7 +438,7 @@ fn quoted(name: &str) -> Result<String> {
 pub(crate) async fn mkdir(ctx: &Ctx, here: &[String], name: &str) -> Result<()> {
     let rpl = guarded(&format!("{} CRDIR", quoted(name)?), &[name]);
     ctx.xserv_session(|x| x.forget(&join(here, name)))?;
-    change(ctx, here, rpl, &format!("make {name}"), |entries| {
+    change(ctx, here, rpl, |entries| {
         entries.iter().any(|e| e.name == name && e.is_directory())
     })
     .await
@@ -458,7 +450,7 @@ pub(crate) async fn remove(ctx: &Ctx, here: &[String], name: &str, directory: bo
     let purge = if directory { "PGDIR" } else { "PURGE" };
     let rpl = guarded(&format!("{} {purge}", quoted(name)?), &[name]);
     ctx.xserv_session(|x| x.forget(&join(here, name)))?;
-    change(ctx, here, rpl, &format!("purge {name}"), |entries| {
+    change(ctx, here, rpl, |entries| {
         !entries.iter().any(|e| e.name == name)
     })
     .await
@@ -480,7 +472,7 @@ pub(crate) async fn rename(
         x.forget(&join(here, from));
         x.forget(&join(here, to));
     })?;
-    change(ctx, here, rpl, &format!("rename {from}"), |entries| {
+    change(ctx, here, rpl, |entries| {
         entries.iter().any(|e| e.name == to) && !entries.iter().any(|e| e.name == from)
     })
     .await
@@ -491,7 +483,7 @@ pub(crate) async fn rename(
 pub(crate) async fn swap_in(ctx: &Ctx, here: &[String], stored: &str, name: &str) -> Result<()> {
     let (s, n) = (quoted(stored)?, quoted(name)?);
     let rpl = guarded(&format!("{s} RCL {n} STO {s} PURGE"), &[stored, name]);
-    change(ctx, here, rpl, &format!("replace {name}"), |entries| {
+    change(ctx, here, rpl, |entries| {
         entries.iter().any(|e| e.name == name) && !entries.iter().any(|e| e.name == stored)
     })
     .await
@@ -566,6 +558,13 @@ mod tests {
             "DEPTH \\-> satxd \\<< IFERR \"'A' PURGE\" STR\\-> THEN DEPTH satxd - DROPN END \\>>"
         );
         assert!(guarded("x", &["satxd", "B"]).contains("\\-> satxe "));
+    }
+
+    #[test]
+    fn a_change_the_listing_does_not_show_is_said_in_words() {
+        let m = TxError::Unconfirmed.to_string();
+        assert!(m.starts_with("XSERV gives no reason."), "{m}");
+        assert!(!m.contains("unexpected reply"), "{m}");
     }
 
     #[test]

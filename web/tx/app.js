@@ -41,7 +41,7 @@ import { CableLog } from "./cable.js";
 import { CableView } from "./cable-view.js";
 import { connectRefusal, refusalText } from "../shared/site-links.js";
 import { nativeHub } from "../native-hub.js";
-import { EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, bytesText, linkSettings, progressText, settingsText } from "./flows.js";
+import { EMULATED_NAMES, MODELS, MODEL_NAMES, SERVER_SHOWN, START_SERVER, bytesText, connectionLine, linkSettings, progressText } from "./flows.js";
 
 // ------------------------------------------------------------ preferences
 
@@ -787,7 +787,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
   function renderSettings() {
     const now = $("set-now");
     // The emulator's calculator has no line: no speed, no parity to say.
-    const conn = panes.map((p) => (p.place?.kind === "device" && p.place.device.connection?.settings ? `${p.place.heading}, ${settingsText(p.place.device.connection.settings)}` : null)).filter(Boolean);
+    const conn = panes.map((p) => (p.place?.kind === "device" && p.place.device.connection?.settings ? connectionLine(p.place.heading, p.place.device.connection) : null)).filter(Boolean);
     now.hidden = !conn.length;
     now.textContent = conn.length ? `Connected now: ${conn.join("; ")}.` : "";
     ui.setFind.checked = app.settings.find;

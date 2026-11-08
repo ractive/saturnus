@@ -28,7 +28,7 @@ export const START_SERVER = {
     title: "HP 48S or 48SX",
     steps: ["Type SERVER and press ENTER."],
     keys: ["S", "E", "R", "V", "E", "R", "ENTER"],
-    keysNote: "Alpha mode for the letters (α, then the letter keys).",
+    keysNote: "Alpha mode for the letters (α twice, then the letter keys).",
   },
   "48gx": {
     title: "HP 48G, 48G+ or 48GX",
@@ -69,6 +69,12 @@ export function connectedText(connection, { emulated = false } = {}) {
   if (connection.server === "xserv") return `Connected to XSERV at ${at}.`;
   if (connection.model === "49g" && !emulated && hasXserv(connection.version)) return `Connected at ${at}. XSERV copies faster: disconnect, type XSERV on the 49G and connect again.`;
   return `Connected at ${at}.`;
+}
+
+/** A connected calculator in the settings' "Connected now" line: `HP 49G on USB serial port, XSERV at 9600 baud`. */
+export function connectionLine(heading, connection) {
+  const at = settingsText(connection.settings);
+  return connection.server === "xserv" ? `${heading}, XSERV at ${at}` : `${heading}, ${at}`;
 }
 
 /** The connection settings stored as `text` (JSON): `{find, baud, parity}`, the defaults for anything else. */

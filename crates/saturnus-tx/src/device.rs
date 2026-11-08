@@ -652,6 +652,13 @@ pub enum TxError {
         "an HP 48 answered as XSERV (the XSrvr48 library), and Files uses XSERV on the 49G only: press ON on the calculator, start SERVER and connect again"
     )]
     Xsrvr48,
+    /// A change over XSERV (store, new directory, rename, purge) that the
+    /// listing after it does not show: XSERV reports no RPL error, so
+    /// there is no reason to give.
+    #[error(
+        "XSERV gives no reason. Perhaps the name is one of the calculator's commands, or its memory is too small"
+    )]
+    Unconfirmed,
     /// What a fast transfer cannot do (the reason).
     #[error("{0}")]
     NotForXmodem(String),

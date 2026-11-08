@@ -246,6 +246,11 @@ test("Cancel while waiting stops the transfer; the 48SX and a text file are not 
   await p.idle(10_000);
   assert.equal(await ev(`tx.panes[0].xmodem`), false);
   assert.equal(await ev(`tx.panes[0].ui.status.textContent`), "Connected to XSERV at 9600 baud.");
+  // The settings name XSERV too, and no longer say every connection is Kermit.
+  await ev(`document.getElementById("open-settings").click(); true`);
+  assert.match(await ev(`document.getElementById("set-now").textContent`), /^Connected now: .*, XSERV at 9600 baud\.$/);
+  assert.doesNotMatch(await ev(`document.getElementById("settings-dialog").textContent`), /fixed: Kermit/);
+  await ev(`document.getElementById("settings-dialog").close(); true`);
   await ev(`document.querySelector('.pane[data-pane=left] .pane-more').click(); true`);
   await p.until(`!!document.querySelector(".menu")`, 5_000, "the pane's menu");
   assert.doesNotMatch(await ev(`document.querySelector(".menu").textContent`), /XModem/);

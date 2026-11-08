@@ -2,7 +2,7 @@
 
 Transfer files between an HP 48S/SX, 48G/GX or 49G and your computer over a
 serial cable, on macOS, Windows and Linux. satx uses the calculator's Kermit
-server or XModem, runs RPL commands on the calculator, and backs up and
+server, XModem or the 49G's XSERV, runs RPL commands on the calculator, and backs up and
 restores HOME. Its output is text for people and JSON for scripts and AI
 agents. Files, the view for moving files in the
 [saturnus](https://ractive.ch/saturnus/) app, uses the same code.

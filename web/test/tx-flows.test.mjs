@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
 import { HOME, checksumCell, directoriesOf, parentPath, pathKey, pathTitle, samePath, sizeCell, sortEntries } from "../shared/device.js";
 import {
-  AUTO_PREVIEW_BYTES, MODELS, START_SERVER, bytesText, connectedText, disconnectNote, downloadUrl, failureText, linkSettings, placeTitle, previewPlan,
+  AUTO_PREVIEW_BYTES, MODELS, START_SERVER, bytesText, connectedText, connectionLine, disconnectNote, downloadUrl, failureText, linkSettings, placeTitle, previewPlan,
   progressText, putPlan, replaceQuestion, searchText, settingsText, stringQuestion,
 } from "../tx/flows.js";
 import { SERIAL_MODELS, slotsOf } from "../tx/kept-roms.js";
@@ -58,7 +58,9 @@ test("the connect dialog has every model, the 49G's keys quickly", () => {
   // XSERV on the 49G: typed, as its right-shift → starts either server depending on a pause.
   assert.equal(START_SERVER["49g"].steps[0], "Type XSERV and press ENTER.");
   assert.deepEqual(START_SERVER["49g"].keys, ["X", "S", "E", "R", "V", "ENTER"]);
-  assert.match(START_SERVER["49g"].keysNote, /^Alpha mode for the letters/);
+  assert.match(START_SERVER["49g"].keysNote, /^Alpha mode for the letters \(α twice/);
+  // α once types one letter on the 48SX too (flag -60 clear): SERVER needs alpha locked.
+  assert.match(START_SERVER["48sx"].keysNote, /^Alpha mode for the letters \(α twice/);
   assert.match(START_SERVER["49g"].keysNote, /ROM 1\.10 and earlier have no XSERV: type SERVER instead\./);
   assert.match(START_SERVER["49g"].shown, /Xmodem server/);
 });
@@ -102,6 +104,8 @@ test("failures read as sentences; the 49G's note after FINISH", () => {
   assert.equal(problemText(new Error('no request "pict"')), "The app's files are from different versions. Reload the page.");
   assert.equal(disconnectNote("48gx"), "The calculator has left server mode.");
   assert.equal(disconnectNote("49g", { type: "disconnected", server: "xserv", ended: true }), "XSERV has ended on the calculator.");
+  assert.equal(connectionLine("HP 48G/GX on USB serial port", { server: "kermit", settings: { baud: 2400, parity: "odd" } }), "HP 48G/GX on USB serial port, 2400 baud, odd parity");
+  assert.equal(connectionLine("HP 49G on USB serial port", { server: "xserv", settings: { baud: 9600 } }), "HP 49G on USB serial port, XSERV at 9600 baud");
   assert.match(disconnectNote("49g", { type: "disconnected", server: "xserv", ended: false }), /still runs XSERV: press ON/);
   const conn = (model, server) => ({ model, server, settings: { baud: 9600, parity: "none" } });
   assert.equal(connectedText(conn("49g", "xserv")), "Connected to XSERV at 9600 baud.");

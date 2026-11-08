@@ -956,6 +956,24 @@ test("the graphics screen goes to the other pane like a variable: PICT.hp in its
   assert.deepEqual(c.errors, []);
 });
 
+test("an empty graphics screen says so; a new connection does not show the old one's preview", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await p.idle(10_000, "the calculator listed");
+  // A fresh 49G's PICT: 0 x 0.
+  await c.ev(`tx.panes[0].place.device.pict = async () => ({ data: new Uint8Array(18), width: 0, height: 0 }); true`);
+  await c.ev(`tx.panes[0].pict().then(() => true)`);
+  await p.until(`document.querySelector(".pane[data-pane=left] .preview h2")?.textContent === "Graphics screen"`, 10_000, "the graphics screen shown");
+  assert.equal(await c.ev(`document.querySelector(".pane[data-pane=left] .preview-body").textContent`), "The graphics screen is empty: nothing was plotted or drawn on it yet.");
+  await c.ev(`tx.panes[0].close().then(() => true)`);
+  await c.ev(`__calc(0)`);
+  await p.idle(10_000, "connected again");
+  assert.equal(await c.ev(`document.querySelector(".pane[data-pane=left] .preview").hidden`), true, "no preview from before");
+  assert.deepEqual(c.errors, []);
+});
+
 test("a 48SX algebraic in a folder: without the 48SX ROM the preview says what it needs, with its names it shows the text", { timeout: 60_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;
@@ -1025,6 +1043,8 @@ test("Disconnect lets go of the port when the calculator does not answer the end
   assert.equal(await c.ev("__link.closed"), true, "the port let go of");
   assert.equal(await c.ev(title("left")), "No calculator");
   assert.match(await c.ev(`[...document.querySelectorAll(".toast")].map((e) => e.textContent).join("|")`), /did not answer the end of server mode\. If it still shows “Awaiting Server Cmd\.”, press ON on it\./);
+  // Whether the server ended is not known: the pane does not say it did.
+  assert.equal(await c.ev(`tx.panes[0].note`), "Disconnected.");
   assert.deepEqual(c.errors, []);
 });
 
