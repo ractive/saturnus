@@ -15,6 +15,8 @@ workspace = true
 [dependencies]
 kermit-proto.workspace = true
 xmodem-proto.workspace = true
+# The Filer protocol of the HP 100LX/200LX palmtops (`satx lx`).
+filer-proto.workspace = true
 # The HP character set, the stack-reply parser and the name rule (wasm-clean,
 # no I/O). Brings saturnus-core and serde_json with it, which every
 # satx-core user in this workspace already builds.

@@ -195,7 +195,7 @@ jobs:
           # Only main saves (PRs restore main's caches): PR caches filled
           # the 10 GB Actions cache and evicted main's (kb/docs/ci.md).
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      - run: cargo check --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p kermit-proto -p xmodem-proto -p satx-core
+      - run: cargo check --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p kermit-proto -p xmodem-proto -p filer-proto -p satx-core
       # satx has its own rust-version (1.95, rustyline 19 uses cfg_select!).
       - name: satx with its rust-version
         run: |
@@ -234,7 +234,7 @@ jobs:
           # manifest, never a cargo-binstall or cargo-install fallback.
           fallback: none
       - name: Core, host and protocol crates build for wasm32
-        run: cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto --target wasm32-unknown-unknown --locked
+        run: cargo check -p saturnus-core -p saturnus-host -p kermit-proto -p xmodem-proto -p filer-proto --target wasm32-unknown-unknown --locked
       # satx-core without its default features (no serial port, no TCP, no
       # in-process emulator) is the protocol core of saturnus-tx in the
       # browser: it must build for wasm32 and pass clippy on its own.
@@ -419,15 +419,15 @@ jobs:
       # Each published crate carries a copy of the licence (not a link, which
       # a checkout without symlinks would package as a stub); it must match.
       - name: Published crates carry the licence
-        run: for c in saturnus-core saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto satx-core satx-cli; do cmp LICENSE "crates/$c/LICENSE"; done
+        run: for c in saturnus-core saturnus-objects saturnus-host saturnus-drive saturnus-cli kermit-proto xmodem-proto filer-proto satx-core satx-cli; do cmp LICENSE "crates/$c/LICENSE"; done
       - name: Published crates package and verify (rehearsal)
-        run: cargo package --locked -p kermit-proto -p xmodem-proto -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p satx-core -p satx
+        run: cargo package --locked -p kermit-proto -p xmodem-proto -p filer-proto -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p saturnus -p satx-core -p satx
       # The published crates' docs as docs.rs builds them (`just doc`).
       - name: Published crates document without warnings
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
-          cargo doc --no-deps --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p satx-core -p saturnus -p satx
+          cargo doc --no-deps --locked -p saturnus-core -p saturnus-objects -p saturnus-host -p saturnus-drive -p kermit-proto -p xmodem-proto -p filer-proto -p satx-core -p saturnus -p satx
       # web/about.json is generated from the hardware wiki, which is not in
       # the repository; the committed file must name no local path or
       # e-mail address (it is shown on the public page).

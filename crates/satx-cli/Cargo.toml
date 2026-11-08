@@ -24,6 +24,9 @@ jaq-core = "3.1.2"
 jaq-json = { version = "2.0.3", features = ["serde"] }
 jaq-std = "3.0.4"
 kermit-proto.workspace = true
+# Local time for the DOS dates of `satx lx` (already in the tree through
+# jaq-std).
+jiff = "0.2.38"
 rustyline = { version = "19.0.0", default-features = false, features = ["with-file-history"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.154"

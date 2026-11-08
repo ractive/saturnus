@@ -1,14 +1,16 @@
 # satx
 
 Transfer files between an HP 48S/SX, 48G/GX or 49G and your computer over a
-serial cable, on macOS, Windows and Linux. satx uses the calculator's Kermit
+serial cable, on macOS, Windows and Linux; and between an HP 100LX or 200LX
+palmtop and your computer (`satx lx`). satx uses the calculator's Kermit
 server, XModem or the 49G's XSERV, runs RPL commands on the calculator, and backs up and
 restores HOME. Its output is text for people and JSON for scripts and AI
 agents. Files, the view for moving files in the
 [saturnus](https://ractive.ch/saturnus/) app, uses the same code.
 
 The Kermit client is `crates/kermit-proto`, the XModem one
-`crates/xmodem-proto`, and the calculator layer (serial and TCP links,
+`crates/xmodem-proto`, the HP 100LX/200LX Filer one `crates/filer-proto`,
+and the calculator layer (serial and TCP links,
 listing, get and put in binary or ASCII, commands, the graphics screen
 PICT, backup and restore) is `crates/satx-core`. They are tested against
 recorded replies and the emulated 48SX, 48GX and 49G. The end-to-end tests
@@ -161,6 +163,29 @@ Kermit commands stop at once with a hint when the calculator runs XSERV
 (satx sends XSERV's `M` while it waits for the line to go quiet; a
 Kermit server ignores it).
 
+`satx lx` reaches the files of an HP 100LX or 200LX palmtop through its
+built-in Filer in server mode, over HP's 10-pin serial cable (or TCP). On
+the palmtop: Filer, MENU, Communications, Remote Settings: Baud 19200 (or
+what you pass to `--baud`), Interface Com1, Server Mode enabled; leave
+Filer open and in front. Paths are DOS paths, with `/` or `\`; the drive
+defaults to C:.
+
+```sh
+satx lx drives                       # A: C: D: with label and free space
+satx lx ls C:/_DAT                   # a directory; also a pattern, C:/*.TXT
+satx lx get C:/_DAT/PHONE.PDB        # ./PHONE.PDB, with the palmtop's date
+satx lx put notes.txt C:/_DAT        # C:\_DAT\NOTES.TXT, with the file's date
+satx lx put notes.txt --overwrite    # replace C:\NOTES.TXT
+satx lx rm C:/OLD.TXT --dry-run
+satx lx mkdir C:/WORK && satx lx mv C:/A.TXT C:/WORK
+satx lx rmdir C:/WORK
+```
+
+The protocol is `crates/filer-proto` (sans-IO, wasm32). It is tested
+against BSD Filer v0.3, a Unix emulation of the palmtop's Filer server, in
+Docker (`tools/filer-oracle/`), and against its own test server; not yet
+on a real palmtop.
+
 Developing satx itself:
 
 ```sh
@@ -170,6 +195,8 @@ just satx-oracle-up     # build and start the emulated HP 48SX on tcp://localhos
 just satx-e2e           # end-to-end tests against it
 just satx-e2e-saturnus  # the same suite against saturnus in-process (ROMs in roms/)
 just satx-record-trace host "6 7 *"   # record a Kermit trace from the oracle
+just lx-oracle-up       # BSD Filer (HP 100LX/200LX) on tcp://localhost:4853
+just lx-e2e             # satx lx against it and the in-process server
 ```
 
 Not affiliated with HP. HP, HP48 and HP49 are trademarks of HP Inc.

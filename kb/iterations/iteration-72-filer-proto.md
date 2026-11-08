@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 72: filer-proto, a test server and satx lx for the HP 100LX/200LX"
 date: 2026-11-08
-status: planned
+status: completed
 tags:
   - iteration
   - satx
@@ -24,7 +24,7 @@ Files comes next, in [[iterations/iteration-73-files-hp100lx]].
 
 ## Tasks
 
-- [ ] **`crates/filer-proto`**, sans-IO and wasm like `kermit-proto` and
+- [x] **`crates/filer-proto`**, sans-IO and wasm like `kermit-proto` and
   `xmodem-proto`: the framing (three SYNs, DLE STX with the protocol
   revision byte, SOH, command, counter, direction, data with DLE doubling,
   DLE ETX, CRC-16/ARC low byte first and not DLE-doubled), a deframer that
@@ -36,19 +36,19 @@ Files comes next, in [[iterations/iteration-73-files-hp100lx]].
   a repeated counter answered with the previous reply, CONNECT up to six
   times). A server state machine as well, for tests. Unit tests from the
   wiki's example frames (their CRCs `10 BF` and `2D 7F`).
-- [ ] **A test server (oracle):** BSD Filer v0.3 (a 1996 server emulator,
+- [x] **A test server (oracle):** BSD Filer v0.3 (a 1996 server emulator,
   freeware for non-commercial use) in a Docker image under `tools/`, its
   serial side on TCP through socat on a new port (4853, beside the
   saturnng oracle's 4848-4852), run as a black box like saturnng; it
   serves a test folder. Plus our own `filer-proto` server as a second,
   in-process peer for the cases BSD Filer lacks.
-- [ ] **`satx lx`** (or a separate command if that reads better): `ls`,
+- [x] **`satx lx`** (or a separate command if that reads better): `ls`,
   `get`, `put`, `rm`, `mkdir`, `rmdir`, `mv`, `drives`, over a serial port
   or `tcp://`; the speed set by the user (19200 by default, the FAQ's safe
   limit) and the palmtop's settings in the help.
-- [ ] **e2e** against the oracle in Docker (a new CI job behind the `e2e`
+- [x] **e2e** against the oracle in Docker (a new CI job behind the `e2e`
   label, as the satx oracle) and the in-process server.
-- [ ] Docs: `kb/satx`, the satx README, CHANGELOG.
+- [x] Docs: `kb/satx`, the satx README, CHANGELOG.
 
 ## Acceptance
 
@@ -56,3 +56,15 @@ Files comes next, in [[iterations/iteration-73-files-hp100lx]].
   against BSD Filer and the in-process server; errors map to their
   meanings; a lost reply is resent with the same counter.
 - `filer-proto` builds for `wasm32`. `just gates`, `hyalo lint` clean.
+
+## Outcome
+
+- Everything above works against the in-process server, rmdir and the
+  error codes included. Against BSD Filer all of it but rmdir: it has no
+  0x0E (nor 0x05, 0x07, 0x19, 0x1A) and does not answer at all, and it
+  gives no error codes; what it does instead is in
+  `tools/filer-oracle/README.md`. The lost reply is tested in process,
+  over TCP and on a fake clock.
+- Beyond HP's client, for servers like BSD Filer: put without
+  `--overwrite` and rename look for the target with a listing of its
+  name first, and get takes the time from that listing.
