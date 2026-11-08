@@ -22,14 +22,15 @@
 //!
 //! Two deliberate differences from HP's client, both only more forgiving:
 //! a frame that arrives broken (bad CRC, illegal DLE) is resent at once
-//! instead of after the timeout, and a late duplicate of the previous
+//! instead of after the timeout (unless a good reply came with it or
+//! another frame is still arriving), and a late duplicate of the previous
 //! reply (same command and counter) is skipped instead of ending the
 //! session.
 
 use std::collections::VecDeque;
 use std::fmt;
 
-use crate::codec::{Deframer, Frame, REPLY, REQUEST, REVISION};
+use crate::codec::{DeframeError, Deframer, Frame, REPLY, REQUEST, REVISION};
 use crate::command::{Code, Malformed, Request, Response};
 use crate::error::{Failure, status};
 use crate::time::{Duration, Instant};
@@ -348,15 +349,28 @@ impl Client {
             p.deadline = Some(now + window);
         }
         self.deframer.push(bytes);
+        // The request awaited, to tell whether the frames answered it.
+        let awaited = |p: &Pending| (p.code, p.counter, p.sends, p.fell_back);
+        let before = self.pending.as_ref().map(awaited);
+        let mut broken = false;
+        // Every frame the bytes completed first: a good reply may follow a
+        // broken one in the same chunk, and a resend empties the input.
         while let Some(frame) = self.deframer.next_frame() {
             if self.pending.is_none() {
                 break;
             }
             match frame {
                 Ok(frame) => self.on_frame(now, frame),
-                // A broken frame: resend at once rather than wait.
-                Err(_) => self.retry(now),
+                // Cut short by the next frame, which is kept and may be
+                // the reply: wait for it.
+                Err(DeframeError::Cut) => {}
+                Err(_) => broken = true,
             }
+        }
+        // A broken frame and nothing else on its way: resend at once
+        // rather than wait.
+        if broken && !self.deframer.in_frame() && self.pending.as_ref().map(awaited) == before {
+            self.retry(now);
         }
     }
 
@@ -721,6 +735,57 @@ mod tests {
             Some(Event::Reply(Err(Failure::Fs(FsError::NOT_FOUND))))
         );
         assert!(c.is_open());
+    }
+
+    #[test]
+    fn a_good_reply_behind_a_broken_one_is_taken() {
+        let good = reply(0x09, 1, &[0, 0, 0xD0, 0]);
+        // Cut short by the reply itself, in one chunk.
+        let (mut c, t) = connected();
+        c.send(t, &Request::FindNext).unwrap();
+        c.poll_output(t).unwrap();
+        let cut = [&good[..8], &good[..]].concat();
+        c.handle_input(t, &cut);
+        assert_eq!(c.poll_output(t), None);
+        assert_eq!(
+            c.poll_event(),
+            Some(Event::Reply(Err(Failure::Fs(FsError::NOT_FOUND))))
+        );
+        // A bad CRC and then the reply, in one chunk.
+        let (mut c, t) = connected();
+        c.send(t, &Request::FindNext).unwrap();
+        c.poll_output(t).unwrap();
+        let mut bad = good.clone();
+        let n = bad.len();
+        bad[n - 1] ^= 0xFF;
+        c.handle_input(t, &[bad.clone(), good.clone()].concat());
+        assert_eq!(c.poll_output(t), None);
+        assert_eq!(
+            c.poll_event(),
+            Some(Event::Reply(Err(Failure::Fs(FsError::NOT_FOUND))))
+        );
+        // A cut frame whose successor is still arriving: no resend yet.
+        let (mut c, t) = connected();
+        c.send(t, &Request::FindNext).unwrap();
+        c.poll_output(t).unwrap();
+        c.handle_input(t, &[&good[..8], &good[..6]].concat());
+        assert_eq!(c.poll_output(t), None);
+        c.handle_input(t, &good[6..]);
+        assert_eq!(
+            c.poll_event(),
+            Some(Event::Reply(Err(Failure::Fs(FsError::NOT_FOUND))))
+        );
+        // A bad CRC with a frame still arriving behind it: no resend yet.
+        let (mut c, t) = connected();
+        c.send(t, &Request::FindNext).unwrap();
+        c.poll_output(t).unwrap();
+        c.handle_input(t, &[&bad[..], &good[..6]].concat());
+        assert_eq!(c.poll_output(t), None);
+        c.handle_input(t, &good[6..]);
+        assert_eq!(
+            c.poll_event(),
+            Some(Event::Reply(Err(Failure::Fs(FsError::NOT_FOUND))))
+        );
     }
 
     #[test]
