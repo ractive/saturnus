@@ -342,6 +342,11 @@ dialog.ai {
   --tab-mcp-mono: var(--mono);
   --tab-mcp-title-size: var(--fs-lg);
 }
+/* Its rule for the primary's hover counts less than `button:hover`
+   (tokens.css), whose grey went under the light text: it darkens as the
+   page's primary ones do. */
+:root button.tab-mcp-primary:hover:not(:disabled, [aria-disabled="true"]) { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: color-mix(in srgb, var(--accent) 88%, var(--ink)); color: var(--accent-ink); opacity: 1; }
+:root button.tab-mcp-primary:active:not(:disabled, [aria-disabled="true"]) { background: color-mix(in srgb, var(--accent) 78%, var(--ink)); }
 
 /* Why a control that is off does nothing (web/shared/components/note.js). */
 .note {
@@ -432,6 +437,8 @@ dialog.ai {
 .menu [role=menuitem] .ic { width: 16px; height: 16px; color: var(--muted); }
 .menu [role=menuitem] kbd { margin-left: auto; color: var(--muted); }
 .menu [role=menuitem].danger:not([aria-disabled=true]), .menu [role=menuitem].danger:not([aria-disabled=true]) .ic { color: var(--error); }
+/* On the hover tint the error colour is 4.4:1 in the light theme: a shade toward the ink keeps it over 4.5:1. */
+.menu [role=menuitem].danger:is(:hover, :focus-visible):not([aria-disabled=true]), .menu [role=menuitem].danger:is(:hover, :focus-visible):not([aria-disabled=true]) .ic { color: color-mix(in srgb, var(--error) 88%, var(--ink)); }
 .menu [role=separator] { height: 1px; margin: var(--s1) var(--s2); background: var(--rule-soft); }
 .menu-note { margin: 0; padding: 2px var(--s2) var(--s1); font-size: var(--fs-xs); color: var(--muted); white-space: normal; max-width: 30ch; }
 
@@ -484,7 +491,8 @@ dialog.ai {
 }
 .dlist th.col-size .dlist-sort, .dlist th.col-checksum .dlist-sort, .dlist th.col-modified .dlist-sort { justify-content: flex-end; }
 .dlist th.col-name .dlist-sort, .dlist th.col-kind .dlist-sort { justify-content: flex-start; }
-.dlist-sort:hover:not(:disabled) { background: var(--hover); border-color: transparent; }
+/* Under the pointer in the ink, as a tab: --muted on --hover is under 4.5:1. */
+.dlist-sort:hover:not(:disabled) { background: var(--hover); border-color: transparent; color: var(--ink); }
 .dlist td { padding: 0 var(--s2); height: var(--row); border-bottom: 1px solid var(--rule-soft); white-space: nowrap; }
 .dlist td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: var(--fs-sm); }
 .dlist td.col-name { width: 100%; max-width: 0; overflow: hidden; text-overflow: ellipsis; }

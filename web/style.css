@@ -717,7 +717,10 @@ body.resizing * { cursor: col-resize !important; }
 :where(#calculator-view) .crumbs .sep { color: var(--muted); }
 :where(#calculator-view) .crumb { border: 0; background: none; box-shadow: none; min-height: 0; padding: 2px 5px; font: 600 var(--fs-md)/1.4 var(--mono); border-radius: var(--r-sm); }
 :where(#calculator-view) .crumb:first-child { margin-left: -5px; }
-:where(#calculator-view) .crumb:hover { background: var(--hover); }
+/* `button:hover` (tokens.css) outranked `.crumb:hover`, whose `:where`
+   counts for nothing: `button` and `:not` lift it over. A crumb in
+   --muted takes the ink, as a tab does (--muted on --hover is under 4.5:1). */
+:where(#calculator-view) button.crumb:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 :where(#calculator-view) .crumb[aria-current] { color: var(--ink); }
 :where(#calculator-view) .crumb:not([aria-current]) { color: var(--muted); font-weight: 400; }
 :where(#calculator-view) .vars-where { padding: 0 var(--gutter) var(--s2); font-size: var(--fs-sm); color: var(--muted); }
@@ -960,6 +963,8 @@ body.resizing * { cursor: col-resize !important; }
   cursor: pointer;
 }
 :where(#calculator-view) .lamps .lamp-toggle:hover .lamp { border-color: var(--accent); }
+/* Only the ring: `button:hover` and `:active` (tokens.css) would paint a disc behind the lamp. */
+:where(#calculator-view) .lamps button.lamp-toggle:is(:hover, :active):not(:disabled) { background: none; }
 :where(#calculator-view) .lamp-grid button.cell { min-height: 0; background: none; box-shadow: none; cursor: pointer; }
 :where(#calculator-view) .lamp-grid button.cell:hover { border-color: var(--accent); color: var(--ink); }
 :where(#calculator-view) .lamp-grid button.cell.on:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: color-mix(in srgb, var(--accent) 88%, var(--ink)); color: var(--accent-ink); }

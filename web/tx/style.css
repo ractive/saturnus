@@ -66,6 +66,11 @@
   & button.bar-link { border: 0; background: transparent; box-shadow: none; font: inherit; font-size: var(--fs-md); cursor: pointer; }
   /* "Show the packets": lit while the panel is open. */
   .bar-cable.on { background: var(--accent-soft); color: var(--accent-text); }
+  /* `button:hover` (tokens.css) outranks the two rules above, whose
+     `:where` counts for nothing: the button takes the links' tint, and
+     stays lit while the panel is open. */
+  & button.bar-link:hover:not(:disabled) { background: var(--hover); }
+  & button.bar-cable.on:hover:not(:disabled) { background: var(--accent-soft); }
   @media (max-width: 520px) {
     .bar-cable span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   }
@@ -266,6 +271,8 @@
   .cable-actions button:hover:not(:disabled) { background: #0d2414; border-color: #3f8a55; }
   .cable-actions button:focus-visible { outline: 2px solid var(--cable-ink); outline-offset: 1px; }
   .cable-actions button[aria-pressed="true"] { background: #1a4a26; color: #e0ffe8; }
+  /* Pause pressed keeps its fill under the pointer (the hover above outranks it). */
+  .cable-actions button[aria-pressed="true"]:hover:not(:disabled) { background: #1a4a26; }
   .cable-actions .ic { color: var(--cable-ink); }
   .cable-key { margin: 0; padding: var(--s1) var(--s4); font: var(--fs-xs)/1.4 var(--mono); color: var(--cable-dim); border-bottom: 1px solid var(--cable-rule); }
   .cable-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }

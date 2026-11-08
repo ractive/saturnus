@@ -413,6 +413,9 @@ button.ref-more:hover:not(:disabled) { background: var(--hover); border-color: t
 .ref-empty-title { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; margin-bottom: var(--s1) !important; }
 .ref-empty .ref-wide { display: none; }
 .docs-ref a.chip { color: inherit; text-decoration: none; transition: background-color var(--t-fast), border-color var(--t-fast); }
+/* The shown model's chip in --accent-ink, as in the app (style.css
+   `.chip.current`): `color: inherit` above outranked it, the ink on the accent. */
+.docs-ref a.chip.current { color: var(--accent-ink); }
 .docs-ref a.chip:hover { border-color: var(--control-border-hover); background: var(--control-hover); }
 .docs-ref a.chip.current:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
 .docs-ref a.chip:focus-visible { outline-offset: 1px; }
