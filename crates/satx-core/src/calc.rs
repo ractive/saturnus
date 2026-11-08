@@ -30,24 +30,36 @@ use crate::transport::Transport;
 use crate::xmodem::{XmodemDirection, XmodemPlan};
 use crate::{Error, Result};
 
-/// [`Calculator::iopar`]'s command: IOPAR's items on the stack, each a
-/// short real, with their count on level 1. The list itself can be wider
+/// [`Calculator::iopar`]'s command: the user's flags saved and STD set
+/// ([`CalcOps::drop_and_restore_flags`]), IOPAR's items, each a
+/// short real, and their count on level 1. The list itself can be wider
 /// than the 49G's display, which cuts each level at 20 characters (ROM
 /// 1.18: `{ 9600. 0. 0. 0. 3. `) or 22 (2.x: `{9600.,0.,0.,0.,3.,1.}` just
 /// fits, but not in FIX 4). `LIST→` fails on anything but a list and leaves
 /// it on the stack. Every model has it.
-const IOPAR_ITEMS: &str = "IOPAR LIST\u{2192}";
+const IOPAR_ITEMS: &str = "RCLF STD IOPAR LIST\u{2192}";
+/// Drops what [`IOPAR_ITEMS`] pushed: `DROPN` takes LIST→'s count from
+/// level 1 and drops that many items, whatever satx made of the reply;
+/// `STOF` puts the flags back.
+const IOPAR_DROP: &str = "DROPN STOF";
+/// [`Calculator::mem`]'s command: the user's flags saved and STD set
+/// ([`CalcOps::drop_and_restore_flags`]), then MEM.
+const MEM_STD: &str = "RCLF STD MEM";
 /// What [`VERSION_CHUNKS`] cuts into: 10 characters, 12 displayed with the
 /// quotes, far below every model's display width.
 const CHUNK: usize = 10;
 /// With `VERSION`'s two strings on the stack (version on level 2,
-/// copyright on level 1): the version's length, the two joined cut into
+/// copyright on level 1): the user's flags saved beneath them and STD
+/// set ([`CalcOps::drop_and_restore_flags`]), the two joined cut into
 /// [`CHUNK`]-character strings (first chunk deepest), and the joined
 /// length on level 1. For the 49G, which cuts the two-line version string
 /// at its display width (`"Version HP49-C\nRevi` on ROM 1.18, of the 29
-/// characters `Version HP49-C\nRevision #1.18`). 71 bytes, one packet.
+/// characters `Version HP49-C\nRevision #1.18`). Where the two meet comes
+/// from the string that arrived whole (the copyright, 19 characters with
+/// its quotes). 70 bytes, one packet (77 at most): the version's length
+/// does not fit in too.
 const VERSION_CHUNKS: &str =
-    "OVER SIZE ROT ROT + 1 OVER SIZE FOR k DUP k k 9 + SUB SWAP 10 STEP SIZE";
+    "RCLF ROT ROT STD + 1 OVER SIZE FOR k DUP k k 9 + SUB SWAP 10 STEP SIZE";
 /// Temporary variable for [`Calculator::pict`].
 const PICT_VAR: &str = "SATXTMP";
 /// Temporary variable and port-0 object for [`Calculator::backup`].
@@ -341,9 +353,11 @@ impl CalcOps<'_> {
     }
 
     /// Run `command`, read `levels` stack levels (level 1 first) and drop
-    /// them again. Only for short values (a real, a flag, the 48S/SX's
-    /// path): the 49G cuts each level at its display width, 20 characters
-    /// on ROM 1.18, without a marker.
+    /// them again. Only for short values that every display mode shows
+    /// exactly (a flag's 0 or 1, `1.E0` in `0 SCI`; the 48S/SX's path): the
+    /// 49G cuts each level at its display width, 20 characters on ROM
+    /// 1.18, without a marker, and a real with more digits needs STD
+    /// ([`Self::drop_and_restore_flags`]).
     async fn query(&mut self, command: &str, levels: usize) -> Result<Vec<String>> {
         let reply = checked(self.host(command).await?)?;
         if reply.levels.len() < levels {
@@ -360,11 +374,26 @@ impl CalcOps<'_> {
     /// Drop `n` levels pushed by an internal query: `DROP`, `DROP2`, or
     /// `n. DROPN` (a real: a 49G in exact mode reads `7` as an integer).
     async fn drop_levels(&mut self, n: usize) -> Result<()> {
-        let command = match n {
-            0 => return Ok(()),
-            1 => "DROP".to_string(),
-            2 => "DROP2".to_string(),
-            n => format!("{n}. DROPN"),
+        match drop_command(n) {
+            Some(command) => checked(self.host(&command).await?).map(|_| ()),
+            None => Ok(()),
+        }
+    }
+
+    /// Drop `n` levels above the flags a query saved and put the flags
+    /// back, in one command (`n. DROPN STOF`).
+    ///
+    /// A query whose reply holds reals that satx reads starts with `RCLF
+    /// STD`: the user's flags saved on the stack (a list of binary
+    /// integers) and the number display set to STD, so a real arrives with
+    /// all its digits whatever the display mode (in `0 SCI` 9600 shows as
+    /// `1.E4`). The fraction mark (flag -51) stays; [`parse_real`] reads
+    /// both. `RCLF`, `STD` and `STOF` work alike on the 48S/SX, 48G/GX and
+    /// 49G (emulated, 2026-11-08).
+    async fn drop_and_restore_flags(&mut self, n: usize) -> Result<()> {
+        let command = match drop_command(n) {
+            Some(drop) => format!("{drop} STOF"),
+            None => "STOF".to_string(),
         };
         checked(self.host(&command).await?).map(|_| ())
     }
@@ -463,11 +492,13 @@ impl CalcOps<'_> {
         .map(|_| ())
     }
 
-    /// [`Calculator::mem`].
+    /// [`Calculator::mem`]: read in STD ([`MEM_STD`]), as a backup checks
+    /// it against its size (Files on the 48S/SX, whose listing lacks it).
     pub(crate) async fn mem(&mut self) -> Result<f64> {
-        let values = self.query("MEM", 1).await?;
-        let value = values.first().map(String::as_str).unwrap_or_default();
-        parse_real(value).ok_or_else(|| Error::Reply(format!("MEM: not a number: {value:?}")))
+        let reply = checked(self.host(MEM_STD).await?)?;
+        let value = reply.level(1).unwrap_or_default().to_string();
+        self.drop_and_restore_flags(1).await?;
+        parse_real(&value).ok_or_else(|| Error::Reply(format!("MEM: not a number: {value:?}")))
     }
 
     /// [`Calculator::version`].
@@ -493,63 +524,112 @@ impl CalcOps<'_> {
                 self.drop_levels(2).await?;
                 (version, copyright)
             }
+            (None, None) => {
+                // Nothing tells where the two would meet in the chunks.
+                self.drop_levels(2).await?;
+                return Err(Error::Reply(format!(
+                    "VERSION: both strings arrived cut: {:?}",
+                    reply.levels
+                )));
+            }
             // The 49G cut one at its display width.
-            _ => self.whole_version().await?,
+            (version, copyright) => {
+                let below = reply.levels.len() - 2;
+                self.whole_version(version, copyright, below).await?
+            }
         };
         let version = version.split_whitespace().collect::<Vec<_>>().join(" ");
         Ok(Some(format!("{version}, {copyright}")))
     }
 
-    /// `VERSION`'s two strings, still on the stack, whole: fetched in
-    /// chunks by [`VERSION_CHUNKS`], then dropped with the chunks.
-    async fn whole_version(&mut self) -> Result<(String, String)> {
-        let reply = checked(self.host(VERSION_CHUNKS).await?)?;
-        let bad =
-            |reply: &StackReply| Error::Reply(format!("VERSION: bad chunks: {:?}", reply.levels));
-        // Both strings are there, so the total is never 0 (a loop from 1
-        // to 0 still runs once on the 48).
-        let Some(total) = reply.level(1).and_then(parse_count).filter(|&t| t > 0) else {
-            return Err(bad(&reply));
-        };
-        let chunks = total.div_ceil(CHUNK);
-        let pushed = chunks + 2;
-        if reply.levels.len() < pushed {
-            return Err(bad(&reply));
-        }
-        let split = reply.level(pushed).and_then(parse_count);
-        let text = (2..=chunks + 1)
-            .rev()
-            .map(|n| reply.level(n).and_then(parse_whole_string))
-            .collect::<Option<String>>();
-        self.drop_levels(pushed).await?;
-        let chars: Vec<char> = text.unwrap_or_default().chars().collect();
-        match split {
-            Some(split) if chars.len() == total && split <= total => Ok((
-                chars[..split].iter().collect(),
-                chars[split..].iter().collect(),
-            )),
-            _ => Err(bad(&reply)),
-        }
-    }
-
-    /// [`Calculator::iopar`]: read item by item ([`IOPAR_ITEMS`]).
-    pub(crate) async fn iopar(&mut self) -> Result<Iopar> {
-        let reply = match checked(self.host(IOPAR_ITEMS).await?) {
+    /// `VERSION`'s two strings, still on the stack above `below` levels of
+    /// the user's, whole: fetched in chunks by [`VERSION_CHUNKS`], then
+    /// dropped with the chunks and the user's flags put back. `version` or
+    /// `copyright` is the one that arrived whole and tells where the two
+    /// meet in the joined text.
+    async fn whole_version(
+        &mut self,
+        version: Option<String>,
+        copyright: Option<String>,
+        below: usize,
+    ) -> Result<(String, String)> {
+        let reply = match checked(self.host(VERSION_CHUNKS).await?) {
             Err(e @ Error::Calculator { .. }) => {
-                // IOPAR is no list: LIST→ left it (or the undefined name)
-                // on the stack.
-                self.drop_levels(1).await?;
+                self.drop_after_failed_chunks(&e, below).await?;
                 return Err(e);
             }
             reply => reply?,
         };
+        let bad =
+            |reply: &StackReply| Error::Reply(format!("VERSION: bad chunks: {:?}", reply.levels));
+        // The saved flags are the first list from level 1 down: above them
+        // are only the chunks (strings) and the total (a real).
+        let Some(flags) = (1..=reply.levels.len()).find(|&n| reply.level(n).is_some_and(is_flags))
+        else {
+            return Err(bad(&reply));
+        };
+        self.drop_and_restore_flags(flags - 1).await?;
+        let total = reply.level(1).and_then(parse_count);
+        let joined = (2..flags)
+            .rev()
+            .map(|n| reply.level(n).and_then(parse_whole_string))
+            .collect::<Option<String>>()
+            .unwrap_or_default();
+        let split = match (&version, &copyright) {
+            (_, Some(copyright)) if joined.ends_with(copyright.as_str()) => {
+                Some(joined.len() - copyright.len())
+            }
+            (Some(version), None) if joined.starts_with(version.as_str()) => Some(version.len()),
+            _ => None,
+        };
+        match (total, split) {
+            (Some(total), Some(split))
+                if joined.chars().count() == total && flags - 2 == total.div_ceil(CHUNK) =>
+            {
+                let (version, copyright) = joined.split_at(split);
+                Ok((version.to_string(), copyright.to_string()))
+            }
+            _ => Err(bad(&reply)),
+        }
+    }
+
+    /// After [`VERSION_CHUNKS`] failed (`err`'s stack is what it left):
+    /// drop everything above the user's `below` levels and, if the flags
+    /// were saved by then (the deepest of those levels), put them back.
+    async fn drop_after_failed_chunks(&mut self, err: &Error, below: usize) -> Result<()> {
+        let Error::Calculator { stack, .. } = err else {
+            return Ok(());
+        };
+        let ours = stack.len().saturating_sub(below);
+        match ours.checked_sub(1).and_then(|deepest| stack.get(deepest)) {
+            Some(deepest) if is_flags(deepest) => self.drop_and_restore_flags(ours - 1).await,
+            _ => self.drop_levels(ours).await,
+        }
+    }
+
+    /// [`Calculator::iopar`]: read item by item, in STD ([`IOPAR_ITEMS`]).
+    pub(crate) async fn iopar(&mut self) -> Result<Iopar> {
+        let reply = match checked(self.host(IOPAR_ITEMS).await?) {
+            Err(e @ Error::Calculator { .. }) => {
+                // IOPAR is no list: LIST→ left it (or the undefined name)
+                // on the stack, above the saved flags.
+                if let Error::Calculator { stack, .. } = &e
+                    && stack.get(1).is_some_and(|l| is_flags(l))
+                {
+                    self.drop_and_restore_flags(1).await?;
+                }
+                return Err(e);
+            }
+            reply => reply?,
+        };
+        checked(self.host(IOPAR_DROP).await?)?;
         let Some(n) = reply.level(1).and_then(parse_count) else {
             return Err(Error::Reply(format!(
                 "IOPAR: no item count: {:?}",
                 reply.levels
             )));
         };
-        if reply.levels.len() <= n {
+        if reply.levels.len() < n + 2 {
             return Err(Error::Reply(format!(
                 "IOPAR: expected {n} items, got {:?}",
                 reply.levels
@@ -560,7 +640,6 @@ impl CalcOps<'_> {
             .rev()
             .map(|level| reply.level(level).unwrap_or_default())
             .collect();
-        self.drop_levels(n + 1).await?;
         Iopar::from_items(&items)
             .ok_or_else(|| Error::Reply(format!("IOPAR: bad list: {{ {} }}", items.join(" "))))
     }
@@ -1226,6 +1305,24 @@ fn check_backup(data: &[u8]) -> Result<()> {
     Ok(())
 }
 
+/// The command that drops `n` levels: `DROP`, `DROP2`, or `n. DROPN` (a
+/// real: a 49G in exact mode reads `7` as an integer); `None` for none.
+fn drop_command(n: usize) -> Option<String> {
+    match n {
+        0 => None,
+        1 => Some("DROP".to_string()),
+        2 => Some("DROP2".to_string()),
+        n => Some(format!("{n}. DROPN")),
+    }
+}
+
+/// A displayed level that is the flags `RCLF` saved: a list of binary
+/// integers (`{ # 1688849860264944d # 0d }`, the 49G's cut
+/// `{# 6000204010FF0h;# 0h`).
+fn is_flags(level: &str) -> bool {
+    level.trim_start().starts_with('{') && level.contains('#')
+}
+
 /// A displayed count or length (`7`, `7.`, `7.0000`), if it is a whole
 /// number of a sane size.
 fn parse_count(level: &str) -> Option<usize> {
@@ -1394,14 +1491,19 @@ pub(crate) mod tests {
         "{ HOME D1 } 127847\r\nX 10.5 Real Number 1234\r\nSUB 5.5 Directory 4321\r\n";
     const SX_DIR: &str = "X 10.5 Real Number 1234\r\nSUB 5.5 Directory 4321\r\n";
 
+    /// The 48SX's `RCLF` as the emulated one shows it.
+    const SX_FLAGS: &str = "{ # 1008d # 0d }";
+    /// The emulated 49G's (ROM 2.15) `RCLF`, cut at 22 characters.
+    const G49_FLAGS: &str = "{# 2000204010FF0h,# 0h";
+
     #[test]
     fn mem_drops_its_value() {
         let (mut c, log) = calc(|cmd| match cmd {
-            "MEM" => "1:              12345\r\n".into(),
+            MEM_STD => format!("2: {SX_FLAGS}\r\n1:              12345\r\n"),
             _ => EMPTY.into(),
         });
         assert_eq!(c.mem().unwrap(), 12345.0);
-        assert_eq!(sent(&log), ["MEM", "DROP"]);
+        assert_eq!(sent(&log), [MEM_STD, "DROP STOF"]);
     }
 
     #[test]
@@ -2028,12 +2130,12 @@ pub(crate) mod tests {
     }
 
     /// The stack reply to [`VERSION_CHUNKS`] with `version` and
-    /// `copyright` on the stack above `below` (deepest first): the version's
-    /// length, the chunks, the total.
+    /// `copyright` on the stack above `below` (deepest first): the saved
+    /// flags, the chunks, the total.
     fn chunk_reply(version: &str, copyright: &str, below: &[&str]) -> String {
         let joined: Vec<char> = format!("{version}{copyright}").chars().collect();
         let mut levels: Vec<String> = below.iter().map(|l| (*l).to_string()).collect();
-        levels.push(format!("{}.", version.chars().count()));
+        levels.push(G49_FLAGS.to_string());
         for chunk in joined.chunks(CHUNK) {
             let chunk: String = chunk.iter().collect();
             levels.push(format!("\"{}\"", chunk.replace('\n', "\r\n")));
@@ -2068,8 +2170,8 @@ pub(crate) mod tests {
             Some("Version HP49-C Revision #1.18, Copyright HP 2000")
         );
         assert_eq!(Model::from_version(version.as_deref()), Model::Hp49G);
-        // 46 characters: five chunks, the two lengths.
-        assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, "7. DROPN"]);
+        // 46 characters: five chunks and the total above the flags.
+        assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, "6. DROPN STOF"]);
     }
 
     /// ROM 2.15 on the emulated 49G: level 2 cut at 22 characters; the
@@ -2078,26 +2180,28 @@ pub(crate) mod tests {
     fn version_49g_2_15_cut_at_the_display_width() {
         let (mut c, log) = calc(|cmd| match cmd {
             "VERSION" => "2: \"Version HP48-C\r\nRevisi\r\n1: \"Copyright HP 2009\"\r\n".into(),
-            VERSION_CHUNKS => "7: 29.\r\n6: \"Version HP\"\r\n5: \"48-C\r\nRevis\"\r\n\
-                               4: \"ion #2.15C\"\r\n3: \"opyright H\"\r\n2: \"P 2009\"\r\n\
-                               1: 46.\r\n"
-                .into(),
+            VERSION_CHUNKS => format!(
+                "7: {G49_FLAGS}\r\n6: \"Version HP\"\r\n5: \"48-C\r\nRevis\"\r\n\
+                 4: \"ion #2.15C\"\r\n3: \"opyright H\"\r\n2: \"P 2009\"\r\n1: 46.\r\n"
+            ),
             _ => EMPTY.into(),
         });
         assert_eq!(
             c.version().unwrap().as_deref(),
             Some("Version HP48-C Revision #2.15, Copyright HP 2009")
         );
-        assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, "7. DROPN"]);
+        assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, "6. DROPN STOF"]);
     }
 
     /// Chunks that do not add up are an error, and what the command pushed
-    /// is dropped all the same.
+    /// is dropped all the same, the flags put back.
     #[test]
     fn version_chunks_that_do_not_add_up() {
         let (mut c, log) = calc(|cmd| match cmd {
             "VERSION" => "2: \"Version HP49-C\r\nRevi\r\n1: \"Copyright HP 2000\"\r\n".into(),
-            VERSION_CHUNKS => "4: 5.\r\n3: \"Version\"\r\n2: \"Copyright\"\r\n1: 20.\r\n".into(),
+            VERSION_CHUNKS => format!(
+                "4: {G49_FLAGS}\r\n3: \"Version\"\r\n2: \"Copyright HP 2000\"\r\n1: 20.\r\n"
+            ),
             _ => EMPTY.into(),
         });
         let err = c.version().unwrap_err();
@@ -2105,17 +2209,81 @@ pub(crate) mod tests {
             matches!(&err, Error::Reply(m) if m.contains("bad chunks")),
             "{err:?}"
         );
-        assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, "4. DROPN"]);
+        assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, "3. DROPN STOF"]);
+    }
+
+    /// The copyright cut and the version whole: the version tells where
+    /// the two meet.
+    #[test]
+    fn version_with_the_copyright_cut() {
+        let (mut c, log) = calc(|cmd| match cmd {
+            "VERSION" => "2: \"HP49-C\"\r\n1: \"Copyright HP 2000 and l\r\n".into(),
+            VERSION_CHUNKS => chunk_reply("HP49-C", "Copyright HP 2000 and later", &[]),
+            _ => EMPTY.into(),
+        });
+        assert_eq!(
+            c.version().unwrap().as_deref(),
+            Some("HP49-C, Copyright HP 2000 and later")
+        );
+        assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, "5. DROPN STOF"]);
+    }
+
+    /// Both strings cut: nothing tells where they meet; they are dropped.
+    #[test]
+    fn version_with_both_strings_cut() {
+        let (mut c, log) = calc(|cmd| match cmd {
+            "VERSION" => "2: \"Version HP49-C\r\nRevi\r\n1: \"Copyright HP 2000 an\r\n".into(),
+            _ => EMPTY.into(),
+        });
+        let err = c.version().unwrap_err();
+        assert!(
+            matches!(&err, Error::Reply(m) if m.contains("both")),
+            "{err:?}"
+        );
+        assert_eq!(sent(&log), ["VERSION", "DROP2"]);
+    }
+
+    /// A failed chunk command leaves what it pushed and the two strings (or
+    /// what became of them); all of it above the user's 4711 is dropped,
+    /// and the flags are put back if it got as far as saving them.
+    #[test]
+    fn version_chunks_that_fail() {
+        let cut = "3: 4711.\r\n2: \"Version HP49-C\r\nRevi\r\n1: \"Copyright HP 2000\"\r\n";
+        let after_rclf = format!(
+            "Error: Insufficient Memory\r\n5: 4711.\r\n4: {G49_FLAGS}\r\n\
+             3: \"Version HP\"\r\n2: \"49-C\r\nRevis\"\r\n1: \"Version HP49-C\r\nRevi\r\n"
+        );
+        let before_rclf = format!("Error: Insufficient Memory\r\n{cut}");
+        for (failed, cleanup) in [(after_rclf, "3. DROPN STOF"), (before_rclf, "DROP2")] {
+            let (mut c, log) = calc(move |cmd| match cmd {
+                "VERSION" => cut.into(),
+                VERSION_CHUNKS => failed.clone(),
+                _ => EMPTY.into(),
+            });
+            let err = c.version().unwrap_err();
+            assert!(
+                matches!(&err, Error::Calculator { message, .. } if message == "Insufficient Memory"),
+                "{err:?}"
+            );
+            assert_eq!(sent(&log), ["VERSION", VERSION_CHUNKS, cleanup]);
+        }
     }
 
     /// ROM 1.18 on a real 49G cuts IOPAR's list (`{ 9600. 0. 0. 0. 3. `);
     /// satx never reads the list, only its items.
     #[test]
     fn iopar_item_by_item() {
-        let items_49g = "7: 9600.\r\n6: 0.\r\n5: 0.\r\n4: 0.\r\n3: 3.\r\n2: 1.\r\n1: 6.\r\n";
-        let items_48 = "8: 4711\r\n7: 9600\r\n6: 0\r\n5: 0\r\n4: 0\r\n3: 3\r\n2: 1\r\n1: 6\r\n";
-        let items_fix = "7: 2400.0000\r\n6: -2.0000\r\n5: 1.0000\r\n4: 0.0000\r\n\
-                         3: 1.0000\r\n2: 3.0000\r\n1: 6.0000\r\n";
+        let items_49g = format!(
+            "8: {G49_FLAGS}\r\n7: 9600.\r\n6: 0.\r\n5: 0.\r\n4: 0.\r\n3: 3.\r\n2: 1.\r\n1: 6.\r\n"
+        );
+        let items_48 = format!(
+            "9: 4711\r\n8: {SX_FLAGS}\r\n7: 9600\r\n6: 0\r\n5: 0\r\n4: 0\r\n3: 3\r\n2: 1\r\n\
+             1: 6\r\n"
+        );
+        // With the fraction mark `,` (flag -51), which STD keeps.
+        let items_comma = format!(
+            "8: {G49_FLAGS}\r\n7: 2400,\r\n6: -2,\r\n5: 1,\r\n4: 0,\r\n3: 1,\r\n2: 3,\r\n1: 6,\r\n"
+        );
         let other = Iopar {
             baud: 2400,
             parity: -2,
@@ -2127,33 +2295,41 @@ pub(crate) mod tests {
         for (items, expected) in [
             (items_49g, Iopar::default()),
             (items_48, Iopar::default()),
-            (items_fix, other),
+            (items_comma, other),
         ] {
             let (mut c, log) = calc(move |cmd| match cmd {
                 "IOPAR" => "1: { 9600. 0. 0. 0. 3. \r\n".into(),
-                IOPAR_ITEMS => items.into(),
+                IOPAR_ITEMS => items.clone(),
                 _ => EMPTY.into(),
             });
             assert_eq!(c.iopar().unwrap(), expected);
-            assert_eq!(sent(&log), [IOPAR_ITEMS, "7. DROPN"]);
+            assert_eq!(sent(&log), [IOPAR_ITEMS, IOPAR_DROP]);
         }
     }
 
     /// IOPAR that is not a six-item list: LIST→ refuses anything but a list
-    /// and leaves it, which is dropped; a list of another length is dropped
-    /// with its items.
+    /// and leaves it, which is dropped, the flags put back; a list of
+    /// another length is dropped with its items. An error with no saved
+    /// flags where they belong leaves the stack alone.
     #[test]
     fn iopar_that_is_not_a_six_item_list() {
         let (mut c, log) = calc(|cmd| match cmd {
-            IOPAR_ITEMS => "Error: Bad Argument Type\r\n1: 'IOPAR'\r\n".into(),
+            IOPAR_ITEMS => format!("Error: Bad Argument Type\r\n2: {SX_FLAGS}\r\n1: 'IOPAR'\r\n"),
             _ => EMPTY.into(),
         });
         let err = c.iopar().unwrap_err();
         assert!(matches!(&err, Error::Calculator { .. }), "{err:?}");
-        assert_eq!(sent(&log), [IOPAR_ITEMS, "DROP"]);
+        assert_eq!(sent(&log), [IOPAR_ITEMS, "DROP STOF"]);
 
         let (mut c, log) = calc(|cmd| match cmd {
-            IOPAR_ITEMS => "3: 9600\r\n2: 0\r\n1: 2\r\n".into(),
+            IOPAR_ITEMS => "Error: Insufficient Memory\r\n1: 4711\r\n".into(),
+            _ => EMPTY.into(),
+        });
+        assert!(c.iopar().is_err());
+        assert_eq!(sent(&log), [IOPAR_ITEMS]);
+
+        let (mut c, log) = calc(|cmd| match cmd {
+            IOPAR_ITEMS => format!("4: {SX_FLAGS}\r\n3: 9600\r\n2: 0\r\n1: 2\r\n"),
             _ => EMPTY.into(),
         });
         let err = c.iopar().unwrap_err();
@@ -2161,7 +2337,98 @@ pub(crate) mod tests {
             matches!(&err, Error::Reply(m) if m.contains("bad list")),
             "{err:?}"
         );
-        assert_eq!(sent(&log), [IOPAR_ITEMS, "3. DROPN"]);
+        assert_eq!(sent(&log), [IOPAR_ITEMS, IOPAR_DROP]);
+    }
+
+    /// A real as `0 SCI` shows it: one digit (9600 is `1.E4`).
+    fn sci_0(x: f64) -> String {
+        if x == 0.0 {
+            return "0.E0".into();
+        }
+        let mut exp = x.abs().log10().floor() as i32;
+        let mut digit = (x / 10f64.powi(exp)).round();
+        if digit.abs() >= 10.0 {
+            digit /= 10.0;
+            exp += 1;
+        }
+        format!("{digit}.E{exp}")
+    }
+
+    /// A 49G in `0 SCI` (as on the emulated one, 2026-11-08): reals show
+    /// with one digit (`1.E4`) until a command sets STD and again after
+    /// STOF. IOPAR, MEM and VERSION read all the digits all the same, and
+    /// the mode is back afterwards.
+    #[test]
+    fn queries_in_0_sci() {
+        let std = Arc::new(Mutex::new(false));
+        let mode = Arc::clone(&std);
+        let (mut c, log) = calc(move |cmd| {
+            let mut std = mode.lock().unwrap();
+            if cmd.contains("STD") {
+                *std = true;
+            }
+            let real = |x: f64| if *std { format!("{x}.") } else { sci_0(x) };
+            let reply = match cmd {
+                "VERSION" => G49_VERSION.into(),
+                VERSION_CHUNKS => {
+                    let joined = "Version HP48-C\nRevision #2.15Copyright HP 2009";
+                    let mut levels = vec![G49_FLAGS.to_string()];
+                    let chars: Vec<char> = joined.chars().collect();
+                    for chunk in chars.chunks(CHUNK) {
+                        let chunk: String = chunk.iter().collect();
+                        levels.push(format!("\"{}\"", chunk.replace('\n', "\r\n")));
+                    }
+                    levels.push(real(chars.len() as f64));
+                    let depth = levels.len();
+                    levels
+                        .iter()
+                        .enumerate()
+                        .map(|(i, l)| format!("{}: {l}\r\n", depth - i))
+                        .collect()
+                }
+                IOPAR_ITEMS => {
+                    let items = [9600.0, 0.0, 0.0, 0.0, 3.0, 1.0, 6.0];
+                    let mut text = format!("8: {G49_FLAGS}\r\n");
+                    for (i, x) in items.iter().enumerate() {
+                        text.push_str(&format!("{}: {}\r\n", 7 - i, real(*x)));
+                    }
+                    text
+                }
+                MEM_STD => format!("2: {G49_FLAGS}\r\n1: {}\r\n", real(245_886.0)),
+                "-35 FS?" => format!("1: {}\r\n", real(1.0)),
+                _ => EMPTY.into(),
+            };
+            if cmd.ends_with("STOF") {
+                *std = false;
+            }
+            reply
+        });
+        assert_eq!(c.iopar().unwrap(), Iopar::default());
+        assert!(!*std.lock().unwrap(), "STD left on after IOPAR");
+        assert_eq!(c.mem().unwrap(), 245_886.0);
+        assert_eq!(
+            c.version().unwrap().as_deref(),
+            Some("Version HP48-C Revision #2.15, Copyright HP 2009")
+        );
+        assert!(!*std.lock().unwrap(), "STD left on after VERSION");
+        // A flag is 0 or 1 in any mode: `1.E0`.
+        assert_eq!(c.transfer_mode().unwrap(), TransferMode::Binary);
+        assert_eq!(
+            sent(&log),
+            [
+                IOPAR_ITEMS,
+                IOPAR_DROP,
+                MEM_STD,
+                "DROP STOF",
+                "VERSION",
+                VERSION_CHUNKS,
+                "6. DROPN STOF",
+                "-35 FS?",
+                "DROP",
+            ]
+        );
+        assert_eq!(sci_0(9600.0), "1.E4");
+        assert_eq!(sci_0(46.0), "5.E1");
     }
 
     #[test]
@@ -2207,7 +2474,7 @@ pub(crate) mod tests {
             [
                 "VERSION",
                 VERSION_CHUNKS,
-                "7. DROPN",
+                "6. DROPN STOF",
                 "G D",
                 "-95. FS?",
                 "DROP",

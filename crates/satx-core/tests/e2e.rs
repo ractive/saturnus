@@ -186,8 +186,9 @@ fn run() -> TestResult {
 /// The 49G sends each stack level only as wide as its display (20
 /// characters on ROM 1.18, 22 on 2.x) and cuts its two-line VERSION
 /// string; in FIX 4, IOPAR's list is far wider too. With the fraction
-/// mark `,` (flag -51), the 48 shows 9600 as `9.600,0000`. The queries read
-/// whole values all the same and leave the stack as it was (here the
+/// mark `,` (flag -51), the 48 shows 9600 as `9.600,0000`; in `0 SCI` every
+/// model shows it as `1.E4` (`1,E4`). The queries read whole values all the
+/// same, leave the display mode as it was and the stack too (here the
 /// flags saved by RCLF, put back at the end).
 #[test]
 fn queries_wider_than_the_display() -> TestResult {
@@ -196,31 +197,49 @@ fn queries_wider_than_the_display() -> TestResult {
         assert_eq!(saved.error, None);
         let flags = saved.level(1).unwrap_or_default().to_string();
         let depth = saved.levels.len();
-        let mut queries = || -> TestResult {
-            let model = calc.model()?;
-            let wide = calc.run("IOPAR")?;
-            calc.run("DROP")?;
-            if model == Model::Hp49G {
-                let list = wide.level(1).unwrap_or_default();
-                assert!(looks_cut(list), "IOPAR in FIX 4 is not cut: {list:?}");
-            }
-            assert_eq!(calc.iopar()?, Iopar::default());
-            if let Some(version) = calc.version()? {
-                eprintln!("version: {version}");
+        let queries =
+            |calc: &mut Calculator, mode: &str| -> Result<f64, Box<dyn std::error::Error>> {
+                let model = calc.model()?;
+                let wide = calc.run("IOPAR")?;
+                calc.run("DROP")?;
                 if model == Model::Hp49G {
-                    assert!(version.contains("Revision #"), "{version}");
+                    let list = wide.level(1).unwrap_or_default();
+                    assert!(looks_cut(list), "IOPAR in {mode} is not cut: {list:?}");
                 }
-            }
-            assert_eq!(Model::from_version(calc.version()?.as_deref()), model);
-            assert!(calc.mem()? > 0.0);
-            calc.transfer_mode()?;
-            let after = calc.run("DEPTH")?;
-            calc.run("DROP")?;
-            assert_eq!(after.levels.len(), depth + 1, "{after:?}");
-            assert_eq!(after.level(2), Some(flags.as_str()), "{after:?}");
+                assert_eq!(calc.iopar()?, Iopar::default(), "IOPAR in {mode}");
+                if let Some(version) = calc.version()? {
+                    eprintln!("version in {mode}: {version}");
+                    if model == Model::Hp49G {
+                        assert!(version.contains("Revision #"), "{version}");
+                    }
+                }
+                assert_eq!(Model::from_version(calc.version()?.as_deref()), model);
+                let free = calc.mem()?;
+                assert!(free > 0.0);
+                calc.transfer_mode()?;
+                // The mode is still the user's: IOPAR as the display shows it.
+                let shown = calc.run("IOPAR")?;
+                calc.run("DROP")?;
+                assert_eq!(shown.level(1), wide.level(1), "{mode} changed");
+                let after = calc.run("DEPTH")?;
+                calc.run("DROP")?;
+                assert_eq!(after.levels.len(), depth + 1, "{after:?}");
+                assert_eq!(after.level(2), Some(flags.as_str()), "{after:?}");
+                Ok(free)
+            };
+        let mut both = || -> TestResult {
+            let fix = queries(calc, "FIX 4")?;
+            calc.run("0 SCI")?;
+            let sci = queries(calc, "0 SCI")?;
+            // All the digits in 0 SCI too (only the query's own levels
+            // between the two reads).
+            assert!(
+                (fix - sci).abs() < 100.0,
+                "MEM {fix} in FIX 4, {sci} in 0 SCI"
+            );
             Ok(())
         };
-        let result = queries();
+        let result = both();
         let restored = calc.run("STOF")?;
         result?;
         assert_eq!(restored.error, None);

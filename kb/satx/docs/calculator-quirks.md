@@ -72,11 +72,22 @@ Each item must be covered by a test. Source: the calculator-knowledgebase wiki (
   3. `, VERSION `"Version HP49-C\nRevi`), 22 on 2.10 and 2.15, delimiters
   and newlines included; the 48S/SX and 48G/GX send levels whole. So no
   query reads a value that can be wider: IOPAR comes as its items (`IOPAR
-  LIST→`), VERSION in 10-character chunks when it arrives cut, and `run`
-  marks levels with unclosed delimiters as cut. Values follow the display
-  mode: FIX 4 shows `9600.0000` (the 48: `9,600.0000`), flag -51 `9.600,0000`;
-  `parse_real` reads all of these. Covered: `calc` and `reply` tests, e2e
-  `queries_wider_than_the_display` (FIX 4 and -51 cut IOPAR on 2.15 too).
+  LIST→`), VERSION in 10-character chunks when it arrives cut (where the
+  two strings meet comes from the one that arrived whole), and `run` and
+  the REPL mark levels with unclosed delimiters as maybe cut (a 48 string
+  that holds a `"` looks the same). Reals follow the display mode: FIX 4
+  shows `9600.0000` (the 48: `9,600.0000`), flag -51 `9.600,0000`, and
+  `0 SCI` rounds to one digit (`1.E4`). So IOPAR, MEM and VERSION's chunk
+  count are read in STD: the command saves the user's flags beneath its
+  results (`RCLF STD IOPAR LIST→`, `RCLF STD MEM`, `RCLF ROT ROT STD …`
+  under VERSION's strings), and the one that drops them puts the flags
+  back (`DROPN STOF`, `DROP STOF`, `n. DROPN STOF`); the fraction mark
+  stays and `parse_real` reads it. A failed read drops what it pushed
+  and puts the flags back where the reply shows them. Flags (`-35 FS?`)
+  are 0 or 1 in every mode (`1.E0`) and need no STD. Covered: `calc`
+  tests (`queries_in_0_sci`) and `reply` tests, e2e
+  `queries_wider_than_the_display` (FIX 4 with -51, then 0 SCI; FIX 4
+  cuts IOPAR on 2.15 too) and `scripts/satx-e2e-cli.sh`.
 - Evaluating an undefined name pushes it; evaluating a variable runs it.
   The 48SX has no VERSION (returns `'VERSION'`); `1 0 /` gives `∞` on the
   49G, `Infinite Result` on the 48s. Covered: `reply` and `calc` tests.

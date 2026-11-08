@@ -3,7 +3,8 @@
 # usually the emulator: SATX_E2E_ADDR=tcp://localhost:4848 scripts/satx-e2e-cli.sh
 #
 # Re-expresses the satx-core e2e scenarios through the CLI: info (also in
-# FIX 4 with fraction mark `,`, where the 49G cuts IOPAR's list), ls, a
+# FIX 4 with fraction mark `,`, where the 49G cuts IOPAR's list, and in
+# 0 SCI, where 9600 shows as 1,E4), ls, a
 # byte-exact binary put/get round trip of all 256 byte values, run, error
 # paths, pict, backup, rm, `ls --json | jq`, `repl` from a pipe (text and
 # JSON lines), the late reply of a killed REPL's command, and
@@ -229,7 +230,7 @@ jq -e '.results.free_bytes > 0' <<<"$info" >/dev/null || fail "info: free memory
 jq -e '.results.iopar.baud == 9600' <<<"$info" >/dev/null || fail "info: IOPAR: $info"
 ok "$model"
 
-step "FIX 4, fraction mark ,: info, settings, run"
+step "FIX 4, 0 SCI, mark ,: info, settings, run"
 # The 49G sends each stack level only as wide as its display (20 or 22
 # characters) and cuts VERSION's two-line string; in FIX 4 IOPAR's list is
 # far wider too, and with flag -51 the 48 shows 9600 as 9.600,0000. The
@@ -253,6 +254,21 @@ if [[ $model == "HP 49G" ]]; then
 fi
 settings=$(satx settings --json) || fail "settings in FIX 4: $settings"
 jq -e '.results.iopar.baud == 9600' <<<"$settings" >/dev/null || fail "settings in FIX 4: $settings"
+# In 0 SCI the display rounds 9600 to 1,E4; satx reads in STD and puts the
+# user's mode back.
+satx run '0 SCI' >/dev/null
+sci=$(satx info --json) || fail "info in 0 SCI: $sci"
+jq -e --argjson free "$(jq '.results.free_bytes' <<<"$wide")" \
+    '.results.iopar.baud == 9600 and .results.iopar.checksum == 3
+     and ($free - .results.free_bytes) > -100 and ($free - .results.free_bytes) < 100' \
+    <<<"$sci" >/dev/null || fail "info in 0 SCI: $sci"
+[[ $(jq -r '.results.version' <<<"$sci") == "$(jq -r '.results.version' <<<"$info")" ]] \
+    || fail "version differs in 0 SCI: $sci"
+settings=$(satx settings --json) || fail "settings in 0 SCI: $settings"
+jq -e '.results.iopar.baud == 9600' <<<"$settings" >/dev/null || fail "settings in 0 SCI: $settings"
+shown=$(satx run IOPAR --jq '.results.stack[0]')
+satx run DROP >/dev/null
+[[ $shown == *1,E4* ]] || fail "0 SCI is gone after the queries: IOPAR shows $shown"
 # `run` says which level arrived cut (the 49G) and leaves the stack alone.
 out=$(satx run IOPAR '"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"' --json)
 satx run DROP2 >/dev/null
