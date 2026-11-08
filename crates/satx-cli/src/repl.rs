@@ -26,7 +26,9 @@ macro_rules! repl_commands {
 Commands (everything else is RPL for the calculator):
   :ls [PATH]                      list a directory; PATH (from HOME) becomes current
   :cd PATH                        change directory, from HOME: HOME/GAMES or GAMES
-  :get NAME [FILE] [--force]      download NAME in binary to FILE [default: NAME.hp]
+  :get NAME [FILE] [--ascii] [--force]
+                                  download NAME to FILE, in binary or as text (--ascii)
+                                  [default: NAME.hp, NAME.txt with --ascii]
   :put FILE [NAME] [--overwrite]  upload FILE as NAME [default: the file name without extension]
   :rm NAME...                     delete variables (directories with their contents)
   :pict [FILE] [--force]          graphics screen as PNG [default: satx-pict-<time>.png]
@@ -121,6 +123,7 @@ pub enum Meta {
     Get {
         name: String,
         file: Option<PathBuf>,
+        ascii: bool,
         force: bool,
     },
     Put {
@@ -139,7 +142,7 @@ pub enum Meta {
     Quit,
 }
 
-const META_LIST: &str = "commands: :ls [PATH], :cd PATH, :get NAME [FILE], :put FILE [NAME] [--overwrite], :rm NAME..., \
+const META_LIST: &str = "commands: :ls [PATH], :cd PATH, :get NAME [FILE] [--ascii], :put FILE [NAME] [--overwrite], :rm NAME..., \
      :pict [FILE], :info, :chars, :help, :quit; ::RPL sends RPL that starts with a colon";
 
 /// Parse the text after the colon.
@@ -150,7 +153,8 @@ pub fn parse_meta(text: &str) -> std::result::Result<Meta, Hinted> {
     };
     // Each command's flags; any other `--word` is refused.
     let allowed: &[&str] = match command.as_str() {
-        "get" | "pict" => &["--force"],
+        "get" => &["--ascii", "--force"],
+        "pict" => &["--force"],
         "put" => &["--overwrite"],
         _ => &[],
     };
@@ -163,6 +167,7 @@ pub fn parse_meta(text: &str) -> std::result::Result<Meta, Hinted> {
         ));
     }
     let force = flags.iter().any(|f| *f == "--force");
+    let ascii = flags.iter().any(|f| *f == "--ascii");
     let overwrite = flags.iter().any(|f| *f == "--overwrite");
     let arity = |min: usize, max: usize| -> std::result::Result<(), Hinted> {
         if plain.len() < min || plain.len() > max {
@@ -198,6 +203,7 @@ pub fn parse_meta(text: &str) -> std::result::Result<Meta, Hinted> {
             Meta::Get {
                 name: plain[0].clone(),
                 file: plain.get(1).map(|s| file(s)).transpose()?,
+                ascii,
                 force,
             }
         }
@@ -244,7 +250,7 @@ fn usage(command: &str) -> String {
     let form = match command {
         "ls" => ":ls [PATH]",
         "cd" => ":cd PATH",
-        "get" => ":get NAME [FILE] [--force]",
+        "get" => ":get NAME [FILE] [--ascii] [--force]",
         "put" => ":put FILE [NAME] [--overwrite]",
         "rm" => ":rm NAME...",
         "pict" => ":pict [FILE] [--force]",
@@ -325,24 +331,29 @@ pub fn stack_text(levels: &[String]) -> String {
 }
 
 /// What to say about stack levels that look cut at the calculator's display
-/// width ([`satx_core::reply::cut_levels`]), e.g. `level 1 looks cut ...`;
-/// `None` when none does.
+/// width ([`satx_core::reply::cut_levels`]), e.g. `level 1 may be cut
+/// ...`; `None` when none does. The model is not named: satx does not ask for it
+/// (one more exchange per line or command), and besides the 49G's cut
+/// levels a 48 string that holds a `"` looks the same.
 pub fn cut_note(cut: &[usize]) -> Option<String> {
     let (last, rest) = cut.split_last()?;
-    let levels = match rest {
-        [] => format!("level {last} looks"),
+    let (levels, end) = match rest {
+        [] => (format!("level {last}"), "it ends"),
         _ => {
             let rest: Vec<String> = rest.iter().map(ToString::to_string).collect();
-            format!("levels {} and {last} look", rest.join(", "))
+            (format!("levels {} and {last}", rest.join(", ")), "they end")
         }
     };
     Some(format!(
-        "{levels} cut: the 49G sends each stack level only as wide as its display"
+        "{levels} may be cut at the calculator's display width: {end} inside an object"
     ))
 }
 
-/// How to see a cut level whole, in the REPL.
-const CUT_HINT: &str = "store it in a variable ('NAME' STO) and fetch it whole with :get NAME";
+/// How to see a cut level whole, in the REPL: as text, as `satx run`'s hint
+/// (`satx get NAME --ascii -o -`); the REPL holds the port, and `-` (stdout)
+/// does not work in it.
+const CUT_HINT: &str =
+    "store it in a variable ('NAME' STO) and fetch it as text with :get NAME --ascii (NAME.txt)";
 
 /// Hint after a calculator error inside the REPL.
 const CALC_ERROR_HINT: &str = "the calculator leaves the arguments of a failed command on its \
@@ -712,12 +723,17 @@ impl Ctx {
                     ..Outcome::default()
                 }
             }
-            Meta::Get { name, file, force } => {
+            Meta::Get {
+                name,
+                file,
+                ascii,
+                force,
+            } => {
                 validate_name(&name).with_context(|| format!("get {name}"))?;
                 let mut args = GetArgs {
                     name,
                     output: file,
-                    ascii: false,
+                    ascii,
                     force,
                     xmodem: kermit(),
                     dry_run: false,
@@ -1075,7 +1091,8 @@ fn repl_command(cmd: &str) -> Option<String> {
         _ => return None,
     };
     let keep: &[&str] = match command.as_str() {
-        "get" | "pict" => &["--force"],
+        "get" => &["--ascii", "--force"],
+        "pict" => &["--force"],
         "put" => &["--overwrite"],
         _ => &[],
     };
@@ -1134,6 +1151,7 @@ mod tests {
             Meta::Get {
                 name: "PRG".into(),
                 file: None,
+                ascii: false,
                 force: false
             }
         );
@@ -1142,7 +1160,17 @@ mod tests {
             Meta::Get {
                 name: "PRG".into(),
                 file: Some("prg.hp".into()),
+                ascii: false,
                 force: true
+            }
+        );
+        assert_eq!(
+            parse_meta("get PRG --ascii").unwrap(),
+            Meta::Get {
+                name: "PRG".into(),
+                file: None,
+                ascii: true,
+                force: false
             }
         );
         assert_eq!(
@@ -1240,21 +1268,35 @@ mod tests {
     }
 
     /// A 36-character string as a real 49G (ROM 1.18) sent it, cut at 20
-    /// characters.
+    /// characters. The note names no model: a 48 string that holds a `"`
+    /// looks cut too.
     #[test]
     fn cut_levels_are_flagged() {
         assert_eq!(cut_note(&[]), None);
         let note = cut_note(&[1]).unwrap();
-        assert!(note.starts_with("level 1 looks cut: the 49G"), "{note}");
+        assert_eq!(
+            note,
+            "level 1 may be cut at the calculator's display width: it ends inside an object"
+        );
         let note = cut_note(&[1, 3, 4]).unwrap();
-        assert!(note.starts_with("levels 1, 3 and 4 look cut"), "{note}");
+        assert!(
+            note.starts_with("levels 1, 3 and 4 may be cut")
+                && note.ends_with("they end inside an object"),
+            "{note}"
+        );
+        // The 48 shows the string `a "b` as `"a "b"`.
+        let quoted_48 = vec!["\"a \"b\"".to_string()];
+        let json = shown_json(&Shown::Stack(quoted_48));
+        assert_eq!(json["cut"], serde_json::json!([1]));
+        let hint = json["hint"].as_str().unwrap();
+        assert!(!hint.contains("49G"), "{hint}");
         let levels = vec!["\"ABCDEFGHIJKLMNOPQRS".to_string(), "42.".to_string()];
         let json = shown_json(&Shown::Stack(levels));
         assert_eq!(json["cut"], serde_json::json!([1]));
-        assert!(
-            json["hint"].as_str().unwrap().contains(":get NAME"),
-            "{json}"
-        );
+        // As text: --ascii, as `satx run`'s hint has it.
+        let hint = json["hint"].as_str().unwrap();
+        assert!(hint.contains(":get NAME --ascii"), "{json}");
+        assert!(parse_meta("get NAME --ascii").is_ok());
         let whole = shown_json(&Shown::Stack(vec!["\"ABC\"".to_string()]));
         assert_eq!(whole, serde_json::json!({ "stack": ["\"ABC\""] }));
     }
@@ -1632,11 +1674,13 @@ mod tests {
             repl_hint("`satx run DROP` removes one level"),
             "`DROP` removes one level"
         );
-        // get/pict keep their file and --force; CLI-only flags go.
+        // get keeps its file, --ascii and --force, pict its file and
+        // --force; CLI-only flags go.
         assert_eq!(
             repl_hint("`satx get PRG -o prg.hp --ascii --force`"),
-            "`:get PRG prg.hp --force`"
+            "`:get PRG prg.hp --ascii --force`"
         );
+
         assert_eq!(repl_hint("`satx pict -o p.png`"), "`:pict p.png`");
         assert_eq!(repl_hint("`satx rm A B --dry-run`"), "`:rm A B`");
         assert_eq!(
