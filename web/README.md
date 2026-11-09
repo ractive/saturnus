@@ -1331,7 +1331,7 @@ and checks that the code uses only these.
 `index.html`, its styles under `:where(#files-view)`): files between HP 48S/SX, 48G/GX and 49G
 calculators in server mode (the Kermit server, or XSERV on the 49G; on a
 serial cable through Web Serial in Chrome, Edge and Firefox on a
-computer, Firefox not yet tried on a cable, or emulated in the page),
+computer, or emulated in the page),
 HP 100LX/200LX palmtops (their Filer in server mode) and folders
 on the computer. Two panes, each showing a place: the left one a
 calculator, the right one a folder or a second calculator, each with

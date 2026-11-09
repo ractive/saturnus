@@ -1223,7 +1223,9 @@ source needs a rule:
   features exist; changing a working CLI's core is also a risk to `satx`,
   so its own tests and e2e suite gate the change.
 - **Web Serial exists in Chromium on the desktop, and in Firefox** (seen
-  in 159; not yet tried on a cable). Not in Safari, not on iOS; Chrome on
+  in 159; on a real 49G over its Kermit server the owner connected,
+  listed and copied both ways, with no permission prompt beyond the
+  port picker, 2026-11-09). Not in Safari, not on iOS; Chrome on
   Android is not relied on. The page
   says so plainly and points to the desktop app; the emulator still works
   everywhere.

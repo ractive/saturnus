@@ -14,7 +14,7 @@ Files is the app's second view, beside Calculator. It shows two places side by s
 | | |
 |---|---|
 | An emulated calculator | any browser |
-| A real calculator | Chrome, Edge or Firefox on a computer (Firefox not yet tried on a cable), or the desktop app |
+| A real calculator | Chrome, Edge or Firefox on a computer, or the desktop app |
 | A folder on your disk | Chrome or Edge, or the desktop app |
 | Models on a cable | 48S/SX, 48G/G+/GX and 49G as servers (the 49G's Kermit server or XSERV); 38G, 39G and 40G served a folder; the HP 100LX and 200LX palmtops through their Filer |
 | Not supported | the 42S and the other Pioneer models, which have no serial port |
