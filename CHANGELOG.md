@@ -20,6 +20,11 @@ the desktop app and the web page share one version.
   status ("Reading HOME…"), with a spinner in the list instead of a
   second "Reading the directory…" and no "…" in the tree. With reduced
   motion the spinner stands still.
+- **"Files in this browser" explains itself.** An ⓘ beside the name
+  says where the files are (the browser's own storage for the site,
+  not your disk, so Finder or Explorer does not show them), how they
+  come in and go out, how long they stay, and why there is no folder in
+  Firefox and Safari.
 
 ## 0.11.0 (2026-11-09)
 

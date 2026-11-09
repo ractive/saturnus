@@ -1136,7 +1136,7 @@ test("Show in Calculator: on Calculator's own calculator only, to its route, not
   assert.deepEqual(c.errors, []);
 });
 
-test("files in this browser: named so, not on the disk, and said once after the first copy there", { timeout: 60_000 }, async (t) => {
+test("files in this browser: named so, not on the disk, explained by its ⓘ, and said once after the first copy there", { timeout: 60_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;
   const { c, p } = f;
@@ -1146,12 +1146,33 @@ test("files in this browser: named so, not on the disk, and said once after the 
   await p.idle(10_000, "the files listed", 1);
   assert.equal(await c.ev(title("right")), "Files in this browser");
   assert.equal(await c.ev(`document.querySelector(".pane[data-pane=right] .pane-status-text").textContent`), "Not on your disk. Use ⋯ → Download to save a file.");
+  // The ⓘ beside the name says where they are, under the header; a second click closes it. A calculator has none.
+  const info = (side) => `document.querySelector(".pane[data-pane=${side}] .pane-info")`;
+  const hint = `document.querySelector(".pane[data-pane=right] .pane-hint")`;
+  assert.equal(await c.ev(`${info("left")}.hidden`), true);
+  assert.equal(await c.ev(`${info("right")}.hidden`), false);
+  await c.ev(`${info("right")}.click(); true`);
+  const shown = await c.ev(`({ hidden: ${hint}.hidden, text: ${hint}.textContent, expanded: ${info("right")}.getAttribute("aria-expanded"), controls: ${info("right")}.getAttribute("aria-controls") === ${hint}.id })`);
+  assert.equal(shown.hidden, false);
+  assert.match(shown.text, /not on your disk: the browser keeps them in its own storage for this site.*until you clear this site's data.*\n.*⋯ → Download/);
+  assert.equal(shown.expanded, "true");
+  assert.equal(shown.controls, true);
+  await c.ev(`${info("right")}.click(); true`);
+  assert.deepEqual(await c.ev(`({ hidden: ${hint}.hidden, expanded: ${info("right")}.getAttribute("aria-expanded") })`), { hidden: true, expanded: "false" });
   await c.ev(SEED_CALC(0));
   await p.idle(10_000);
   await c.ev(`tx.panes[0].copySelection([tx.entry("PRG")]).then(() => true)`);
   await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent === "PRG copied to Files in this browser. It is not on your disk: use ⋯ → Download to save a file.")`, 5_000, "the note with the first copy");
   await c.ev(`tx.panes[0].copySelection([tx.entry("X")]).then(() => true)`);
   await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent === "X copied to Files in this browser.")`, 5_000, "the second copy without it");
+  // The ⓘ's line height is the name's: the head grows by nothing.
+  const heights = await c.ev(`({ name: document.querySelector(".pane[data-pane=right] .pane-name").getBoundingClientRect().height, title: document.querySelector(".pane[data-pane=right] .pane-title").getBoundingClientRect().height })`);
+  assert.ok(Math.abs(heights.name - heights.title) < 1, `the name row ${heights.name}px, the name ${heights.title}px`);
+  // Files kept in memory (no OPFS to write): the ⓘ says they go with the tab.
+  await c.ev(`tx.panes[1].setFolder(new tx.Folder(new tx.MemoryDirectory("Files"), { kind: "memory", title: "Files" })).then(() => true)`);
+  await p.idle(10_000);
+  await c.ev(`${info("right")}.click(); true`);
+  assert.match(await c.ev(`${hint}.textContent`), /only in this tab's memory.*older Safari.*gone when you close the tab/);
   assert.deepEqual(c.errors, []);
 });
 

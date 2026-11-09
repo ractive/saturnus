@@ -1439,7 +1439,9 @@ with a switch above them.
   kept for the next visit, when "Allow" asks again before anything is
   listed) or "Files in this browser" (OPFS, or memory; the right pane's
   default where no folder can be picked; its status line and the first
-  copy into it say they are not on the disk and how to download one).
+  copy into it say they are not on the disk and how to download one;
+  the ⓘ beside its name opens `browserFilesHelp` in the hint bar: where
+  they are, how they come and go, why no folder).
 - **Seeing what happens**: a calculator preview being
   read says what, from where and how far in the preview itself
   ("Reading P from the 48SX… 412 of 1,106 bytes", a bar, on a cable at
