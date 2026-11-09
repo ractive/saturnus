@@ -9,9 +9,9 @@
 // calls".
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiTools, INSTRUCTIONS } from "../ai-tools.js";
+import { aiTools, APPROVAL, APPROVAL_NOTE, INSTRUCTIONS } from "../ai-tools.js";
 import { AiLog } from "../ai-log.js";
-import { modelContextOf, WebMcp, webMcpAnnotations, webMcpResult } from "../ai-webmcp.js";
+import { modelContextOf, WebMcp, webMcpAnnotations, webMcpResult, webMcpText } from "../ai-webmcp.js";
 import { readFileSync } from "node:fs";
 import { buildIndex } from "../reference.js";
 
@@ -154,9 +154,21 @@ test("the tools as WebMCP gets them: WebMCP's hints only, an output schema, the 
   assert.deepEqual(context.tools.get("read_stack").annotations, { readOnlyHint: true, untrustedContentHint: true });
   assert.deepEqual(context.tools.get("list_calculators").annotations, { readOnlyHint: true, untrustedContentHint: true });
   assert.deepEqual(context.tools.get("lookup_command").annotations, { readOnlyHint: true });
-  assert.ok(context.tools.get("list_calculators").description.endsWith(INSTRUCTIONS));
+  assert.ok(context.tools.get("list_calculators").description.endsWith(webMcpText(INSTRUCTIONS)));
   assert.ok(!context.tools.get("read_stack").description.includes(INSTRUCTIONS));
   assert.deepEqual(webMcpAnnotations({ readOnlyHint: true, destructiveHint: true, idempotentHint: false }), { readOnlyHint: true });
+});
+
+test("no WebMCP tool's description nor the instructions say the app approves; the agent is told to confirm", async () => {
+  const ai = access();
+  const { w, context } = webMcp(ai);
+  await w.start();
+  for (const tool of context.tools.values()) assert.doesNotMatch(tool.description, /approve|in the app first/i, tool.name);
+  for (const name of ["store_variable", "purge_variable"]) assert.match(context.tools.get(name).description, /confirm with the user first\.$/, name);
+  assert.match(context.tools.get("list_calculators").description, /confirm with the user before calling them/);
+  // The texts WebMCP replaces are there to replace; tab-mcp and the desktop app keep them.
+  assert.ok(INSTRUCTIONS.includes(APPROVAL_NOTE));
+  for (const name of ["store_variable", "purge_variable"]) assert.ok(ai.tools.find((t) => t.name === name).description.endsWith(APPROVAL), name);
 });
 
 test("withdrawn when the page is hidden, back when it shows again", async () => {

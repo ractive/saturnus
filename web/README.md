@@ -1215,8 +1215,10 @@ through the relay while the tab is open. Nothing is installed.
   `AbortSignal` that withdraws it alone when no family wants it, all on
   `pagehide`; a refused registration is tried again at the next change. The call path: the arguments
   checked (as for the desktop app), no confirmation in the page (the
-  browser's agent confirms; `store_variable` and `purge_variable` keep
-  `consequentialHint` for it; the log's entries say `asks: false`),
+  browser's agent decides; `store_variable` and `purge_variable` keep
+  `consequentialHint` for it, and their descriptions and the
+  instructions tell the agent to confirm, `webMcpText`; the log's
+  entries say `asks: false`),
   `toolcall`/`toolcallend` on the `AiAccess` for the log. A result is the tool's JSON, a failure
   `{error}` (Chrome hides a rejection's message); the display comes as
   text unless the call asks for an image (`display`/`format`), then as

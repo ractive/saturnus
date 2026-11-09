@@ -38,7 +38,7 @@
 // `format` "image" or "both"; then the `image` data URL): a PNG in base64
 // costs a text-only agent its context.
 
-import { FAMILY_TOOLS, familyOf, INSTRUCTIONS } from "./ai-tools.js";
+import { APPROVAL, APPROVAL_NOTE, FAMILY_TOOLS, familyOf, INSTRUCTIONS } from "./ai-tools.js";
 import { invalidArguments, toCallToolResult } from "./ai-local.js";
 
 /**
@@ -61,6 +61,17 @@ const NONE = ["list_calculators", "lookup_command"];
 
 /** What `list_calculators` tells the agent of WebMCP's own ways, before the instructions. */
 export const WEBMCP_NOTE = "Here (WebMCP) the tools of a calculator's family are offered while it is shown or once list_calculators has named it: call list_calculators first, and again when the user opens another calculator. The display comes as text unless you ask for an image (display or format \"image\" or \"both\": a PNG as a data: URL).";
+
+/** What WebMCP's agent reads in place of APPROVAL_NOTE: the app asks nothing here, so the agent confirms. */
+export const WEBMCP_APPROVAL_NOTE = "store_variable and purge_variable change the calculator's memory, and the app does not ask the user about them here: confirm with the user before calling them. press_keys and run_rpl can store and purge too, so take the same care as at the user's keyboard.";
+
+/** What WebMCP's agent reads in place of APPROVAL in store_variable's and purge_variable's descriptions. */
+export const WEBMCP_APPROVAL = "It changes the calculator's memory, and the app does not ask the user: confirm with the user first.";
+
+/** `text` (a description or the instructions) as WebMCP's agent reads it: no promise that the app asks. */
+export function webMcpText(text) {
+  return String(text ?? "").replace(APPROVAL_NOTE, WEBMCP_APPROVAL_NOTE).replace(APPROVAL, WEBMCP_APPROVAL);
+}
 
 /** Tool call ids of WebMCP's calls, apart from tab-mcp's (its own) and the desktop app's. */
 let lastCallId = 0;
@@ -220,9 +231,9 @@ export class WebMcp {
 
   /** `tool` as WebMCP takes it: its own fields, and an `execute` that checks, runs and logs. */
   wrap(tool) {
-    const out = { name: tool.name, title: tool.title, description: tool.description, inputSchema: textByDefaultSchema(tool.inputSchema), annotations: webMcpAnnotations(tool.annotations), execute: (input, options) => this.call(tool, input, options?.signal) };
+    const out = { name: tool.name, title: tool.title, description: webMcpText(tool.description), inputSchema: textByDefaultSchema(tool.inputSchema), annotations: webMcpAnnotations(tool.annotations), execute: (input, options) => this.call(tool, input, options?.signal) };
     // WebMCP has no server instructions: the agent reads them with the first tool it should call.
-    if (tool.name === "list_calculators") out.description = `${tool.description}\n\n${WEBMCP_NOTE}\n\nHow to use these tools:\n${INSTRUCTIONS}`;
+    if (tool.name === "list_calculators") out.description = `${out.description}\n\n${WEBMCP_NOTE}\n\nHow to use these tools:\n${webMcpText(INSTRUCTIONS)}`;
     if (tool.outputSchema) out.outputSchema = tool.outputSchema;
     return out;
   }
