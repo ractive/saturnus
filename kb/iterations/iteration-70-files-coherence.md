@@ -44,7 +44,7 @@ the UI can be simplified." After [[iterations/iteration-69-files-over-xserv]].
   works (a short list with screenshots); fix wording and plain
   inconsistencies directly.
 - [x] Implement what the owner agrees to; tests and docs.
-- [-] Owner: Files in Firefox over Web Serial on a real 48SX/49G, and the
+- [x] Owner: Files in Firefox over Web Serial on a real 48SX/49G, and the
   49G in XSERV.
 
 ## Acceptance
