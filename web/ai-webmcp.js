@@ -23,22 +23,23 @@
 // for good or put in the back/forward cache (`pagehide`), registered
 // again on `pageshow`.
 //
-// Around each call, as tab-mcp's client does for tab-mcp (and
-// web/ai-local.js for the desktop app): the arguments checked against
-// the tool's schema (WebMCP does not check them), a consequential tool
-// (`consequentialHint`: store_variable, purge_variable) confirmed in
-// tab-mcp's own dialog (its vendored `confirmInPage`, so it looks the
-// same and "The AI's calls" sees it), no "Always allow" (the agent does
-// not say who it is), and the `toolcall`/`toolcallend` events on the AI
-// access that feed "The AI's calls" (web/ai-log.js). WebMCP turns a
-// tool's result into JSON for the agent and a rejected `execute` into an
-// error without its message, so a failure comes back as `{error}`. The
+// Around each call: the arguments checked against the tool's schema
+// (WebMCP does not check them), as web/ai-local.js does for the desktop
+// app, and the `toolcall`/`toolcallend` events on the AI access that
+// feed "The AI's calls" (web/ai-log.js). No confirmation in the page
+// (owner, 2026-11-09): the browser or its agent asks before a call (Brave's
+// Leo before every one), so a consequential tool (`consequentialHint`:
+// store_variable, purge_variable) keeps the hint for the browser and runs
+// without the in-app question tab-mcp's calls and the desktop app's get.
+// WebMCP turns a tool's result into JSON for the agent and a rejected
+// `execute` into an error without its message, so a failure comes back
+// as `{error}`. The
 // display comes as text unless the call asks for an image (`display` or
 // `format` "image" or "both"; then the `image` data URL): a PNG in base64
 // costs a text-only agent its context.
 
 import { FAMILY_TOOLS, familyOf, INSTRUCTIONS } from "./ai-tools.js";
-import { CONFIRM_MODULE, ConfirmHost, invalidArguments, toCallToolResult } from "./ai-local.js";
+import { invalidArguments, toCallToolResult } from "./ai-local.js";
 
 /**
  * The page's WebMCP, or null where the browser has none.
@@ -52,7 +53,7 @@ export function modelContextOf(doc = globalThis.document, nav = globalThis.navig
   return context && typeof context.registerTool === "function" ? context : null;
 }
 
-/** Who calls through WebMCP, for the confirmation ("Your browser's AI (WebMCP) wants to run …") and the log. */
+/** Who calls through WebMCP, for the log ("Your browser's AI") and the tools. */
 export const WEBMCP_CLIENT = Object.freeze({ grantId: "webmcp", id: "webmcp", name: "Your browser's AI", host: "WebMCP" });
 
 /** The tools registered with no calculator shown. */
@@ -91,20 +92,14 @@ export function webMcpResult(value) {
 /**
  * The tools of AI access `ai` (web/ai.js `AiAccess`: its `tools`, its
  * `view()`, its events) registered with `context` (a WebMCP
- * `ModelContext`). `confirm` loads tab-mcp's confirmation (tests give a
- * fake); `allowDelayMs` its delay before Allow works.
+ * `ModelContext`).
  */
 export class WebMcp {
-  constructor({ ai, context = modelContextOf(), doc = globalThis.document, win = globalThis.window, confirm = () => import(CONFIRM_MODULE), now = () => Date.now(), allowDelayMs = undefined } = {}) {
+  constructor({ ai, context = modelContextOf(), win = globalThis.window, now = () => Date.now() } = {}) {
     this.ai = ai;
     this.context = context;
-    this.doc = doc;
     this.win = win;
-    this.confirmModule = confirm;
     this.now = now;
-    this.allowDelayMs = allowDelayMs;
-    /** No "Always allow", so it never holds a grant; confirmInPage wants a host. */
-    this.confirmHost = new ConfirmHost();
     /** The tools registered (or being registered) now, by name, each with the controller that withdraws it. */
     this.registered = new Map();
     /** The shown calculator's family, "none" with none shown; undefined before `start`. */
@@ -223,7 +218,7 @@ export class WebMcp {
     if (had) this.ai.changed?.();
   }
 
-  /** `tool` as WebMCP takes it: its own fields, and an `execute` that checks, confirms, runs and logs. */
+  /** `tool` as WebMCP takes it: its own fields, and an `execute` that checks, runs and logs. */
   wrap(tool) {
     const out = { name: tool.name, title: tool.title, description: tool.description, inputSchema: textByDefaultSchema(tool.inputSchema), annotations: webMcpAnnotations(tool.annotations), execute: (input, options) => this.call(tool, input, options?.signal) };
     // WebMCP has no server instructions: the agent reads them with the first tool it should call.
@@ -232,17 +227,17 @@ export class WebMcp {
     return out;
   }
 
-  /** One call from the agent: logged, checked, confirmed where the tool asks, run; resolves to what WebMCP gives the agent. */
+  /** One call from the agent: logged, checked, run with no question in the page; resolves to what WebMCP gives the agent. */
   async call(tool, input, signal = new AbortController().signal) {
     const raw = input && typeof input === "object" ? input : {};
-    const call = { id: `webmcp-${++lastCallId}`, tool: tool.name, title: tool.title, arguments: copy(raw), client: { ...WEBMCP_CLIENT } };
+    const call = { id: `webmcp-${++lastCallId}`, tool: tool.name, title: tool.title, arguments: copy(raw), client: { ...WEBMCP_CLIENT }, asks: false };
     const started = this.now();
     if (!this.called) {
       this.called = true;
       this.ai.changed?.();
     }
     this.ai.dispatchEvent(new CustomEvent("toolcall", { detail: call }));
-    const [outcome, result] = await this.decideAndRun(tool, raw, signal);
+    const [outcome, result] = await this.run(tool, raw, signal);
     this.ai.dispatchEvent(new CustomEvent("toolcallend", { detail: { id: call.id, tool: tool.name, client: { ...WEBMCP_CLIENT }, outcome, result: copy(result), durationMs: this.now() - started } }));
     if (result.isError) return { error: result.content?.find((c) => c?.type === "text")?.text ?? "The tool failed." };
     const out = webMcpResult(result);
@@ -252,19 +247,10 @@ export class WebMcp {
   }
 
   /** `[outcome, MCP result]` of a call (the log's form; `call` makes WebMCP's of it). */
-  async decideAndRun(tool, raw, signal) {
+  async run(tool, raw, signal) {
     const failed = (message) => ({ content: [{ type: "text", text: message }], isError: true });
     const invalid = invalidArguments(tool, raw);
     if (invalid !== undefined) return ["error", failed(invalid)];
-    if (tool.annotations?.consequentialHint === true) {
-      let allowed = false;
-      try {
-        allowed = await this.confirm(tool, raw, signal);
-      } catch {
-        allowed = false;
-      }
-      if (!allowed) return [signal.aborted ? "cancelled" : "declined", failed("The user declined.")];
-    }
     if (signal.aborted) return ["cancelled", failed("Cancelled")];
     let res;
     try {
@@ -274,16 +260,6 @@ export class WebMcp {
     }
     if (signal.aborted) return ["cancelled", res];
     return [res.isError === true ? "error" : "ok", res];
-  }
-
-  /** Ask the user in tab-mcp's confirmation, every time (no "Always allow"). */
-  async confirm(tool, args, signal) {
-    if (!this.doc) return false;
-    const { confirmInPage } = await this.confirmModule();
-    const question = { tool: { name: tool.name, title: tool.title, description: tool.description }, arguments: args, client: { ...WEBMCP_CLIENT }, signal };
-    const options = { alwaysAllow: false };
-    if (this.allowDelayMs !== undefined) options.allowDelayMs = this.allowDelayMs;
-    return confirmInPage(this.confirmHost, question, this.doc, options);
   }
 }
 

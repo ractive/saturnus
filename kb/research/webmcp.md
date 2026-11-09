@@ -92,7 +92,11 @@ the rest from the sources listed at the end.
   the hint "allows agents and browsers to enforce mandatory user
   confirmation prompts", and the example extension "always trusts
   WebMCP annotations" ([Imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api)).
-  So the page confirms consequential calls itself.
+  Brave's Leo asks before every tool call (`Brave AI möchte run_rpl auf
+  https://ractive.ch ausführen`: Allow once, Allow for this session,
+  Deny; seen by the owner, 2026-11-09). The page confirmed consequential
+  calls itself until 2026-11-09; since then the browser's agent does
+  (decision log, 2026-11-09).
 - Chrome's docs show tools returning strings; the agent gets no image
   type. saturnus returns its JSON fields and a display image as a
   `data:image/png;base64,…` string in `image`.

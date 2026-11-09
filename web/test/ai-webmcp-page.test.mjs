@@ -7,10 +7,10 @@
 //   none) and the sidebar offers no Connect: list_calculators and
 //   lookup_command;
 // - AI access over a fake calculator: a read tool answers, store_variable
-//   waits for Allow in tab-mcp's dialog, purge_variable declined there
-//   runs nothing, all in the log;
+//   and purge_variable run with no question in the page (the browser
+//   asks), all in the log;
 // - with the ROMs (SATURNUS_ROM_DIR: gxrom-r): the 48GX booted, its
-//   family's tools, read_display, run_rpl, store_variable allowed.
+//   family's tools, read_display, run_rpl, store_variable.
 // Skipped without Chrome, the wasm package (`just web`), or a Chrome
 // whose switch gives no `document.modelContext`.
 import { test } from "node:test";
@@ -57,20 +57,8 @@ const run = (name, input = {}) => `(async () => {
 /** The names getTools gives, sorted. */
 const NAMES = "document.modelContext.getTools().then((ts) => ts.map((t) => t.name).sort().join(' '))";
 
-/** Answer tab-mcp's confirmation: Allow once it is enabled, or Don't allow; resolves to its text. */
-function answer(ev, allow) {
-  return ev(`new Promise((resolve) => {
-    const look = () => {
-      const d = document.querySelector('dialog.tab-mcp-confirm');
-      if (!d) return setTimeout(look, 20);
-      const b = [...d.querySelectorAll('button')].find((x) => x.textContent === ${JSON.stringify(allow ? "Allow" : "Don't allow")});
-      const click = () => { const text = d.textContent; b.click(); resolve(text); };
-      if (!b.disabled) return click();
-      new MutationObserver((_, o) => { if (!b.disabled) { o.disconnect(); click(); } }).observe(b, { attributes: true });
-    };
-    look();
-  })`);
-}
+/** Whether the page shows a confirmation (tab-mcp's dialog) now. */
+const ASKING = "!!document.querySelector('dialog.tab-mcp-confirm')";
 
 test("the app registers its tools with WebMCP on load, without a relay", { timeout: 60_000 }, async (t) => {
   const c = await webMcpSession(t);
@@ -94,7 +82,7 @@ test("the app registers its tools with WebMCP on load, without a relay", { timeo
   assert.equal(await ev("document.getElementById('ai-connect').hidden"), true);
 });
 
-test("a read tool answers; store_variable waits for Allow in the page; purge_variable declined runs nothing", { timeout: 60_000 }, async (t) => {
+test("a read tool answers; store_variable and purge_variable run without asking in the page", { timeout: 60_000 }, async (t) => {
   const c = await webMcpSession(t);
   if (!c) return;
   const { ev } = c;
@@ -115,7 +103,7 @@ test("a read tool answers; store_variable waits for Allow in the page; purge_var
     const { AiAccess } = await import("/ai.js");
     const { WebMcp } = await import("/ai-webmcp.js");
     t.ai = new AiAccess({ calculatorView: async () => ({ ai: async () => ({ backend, store, reference: null }) }), relay: null });
-    t.webmcp = new WebMcp({ ai: t.ai, allowDelayMs: 500 });
+    t.webmcp = new WebMcp({ ai: t.ai });
     t.ai.webmcp = t.webmcp;
     await t.webmcp.start();
     window.t = t;
@@ -125,24 +113,23 @@ test("a read tool answers; store_variable waits for Allow in the page; purge_var
   const stack = await ev(run("read_stack"));
   assert.deepEqual(stack.levels, [{ level: 1, type: "real", text: "42" }]);
 
-  await ev(`window.t.store = ${run("store_variable", { name: "AIT", text: "« 2 * »" })}, true`);
-  const asked = await answer(ev, true);
-  assert.match(asked, /Allow Store a variable\?/);
-  assert.match(asked, /Your browser's AI \(WebMCP\) wants to run Store a variable\./);
-  assert.match(asked, /"name": "AIT"/);
-  assert.doesNotMatch(asked, /Always allow/);
-  const stored = await ev("window.t.store");
+  // The browser asks before a call (Chrome's testing switch does not); the page adds no question.
+  const tools = await ev("document.modelContext.getTools().then((ts) => Object.fromEntries(ts.map((x) => [x.name, x.annotations])))");
+  assert.equal(tools.store_variable.consequentialHint, true);
+  assert.equal(tools.purge_variable.consequentialHint, true);
+  const stored = await ev(run("store_variable", { name: "AIT", text: "« 2 * »" }));
   assert.equal(stored.stored, true);
+  assert.equal(await ev(ASKING), false);
   assert.deepEqual(await ev("window.t.stored"), ["AIT"]);
 
-  await ev(`window.t.purge = ${run("purge_variable", { name: "AIT" })}, true`);
-  await answer(ev, false);
-  assert.deepEqual(await ev("window.t.purge"), { error: "The user declined." });
-  assert.deepEqual(await ev("window.t.purged"), []);
-  assert.deepEqual(await ev("window.t.ai.log.entries.filter((e) => e.kind === 'call').map((e) => [e.tool, e.outcome, e.app])"), [
-    ["read_stack", "ok", "Your browser's AI"],
-    ["store_variable", "ok", "Your browser's AI"],
-    ["purge_variable", "declined", "Your browser's AI"],
+  const purged = await ev(run("purge_variable", { name: "AIT" }));
+  assert.equal(purged.error, undefined, JSON.stringify(purged));
+  assert.equal(await ev(ASKING), false);
+  assert.deepEqual(await ev("window.t.purged"), ["AIT"]);
+  assert.deepEqual(await ev("window.t.ai.log.entries.filter((e) => e.kind === 'call').map((e) => [e.tool, e.outcome, e.app, e.asks])"), [
+    ["read_stack", "ok", "Your browser's AI", false],
+    ["store_variable", "ok", "Your browser's AI", false],
+    ["purge_variable", "ok", "Your browser's AI", false],
   ]);
   // "Connect your AI app" says the browser's AI has the tools too.
   await ev(`import("/ai-dialog.js").then((d) => { d.openAiDialog(window.t.ai); return true; })`);
@@ -154,7 +141,7 @@ test("a read tool answers; store_variable waits for Allow in the page; purge_var
   assert.equal(await ev(NAMES), "");
 });
 
-test("an agent in Chrome reads the 48GX's display, runs RPL and stores after Allow", { timeout: 180_000 }, async (t) => {
+test("an agent in Chrome reads the 48GX's display, runs RPL and stores", { timeout: 180_000 }, async (t) => {
   if (!dir || !existsSync(join(dir, "gxrom-r"))) {
     t.skip("needs SATURNUS_ROM_DIR with gxrom-r");
     return;
@@ -187,9 +174,8 @@ test("an agent in Chrome reads the 48GX's display, runs RPL and stores after All
   assert.equal(shown.stack[0].text, "5");
   assert.match(shown.image, /^data:image\/png;base64,.{100}/);
 
-  await ev(`window.__store = ${run("store_variable", { name: "AIT", text: "« 2 * »" })}, true`);
-  assert.match(await answer(ev, true), /AIT/);
-  assert.equal((await ev("window.__store")).stored, true);
+  assert.equal((await ev(run("store_variable", { name: "AIT", text: "« 2 * »" }))).stored, true);
+  assert.equal(await ev(ASKING), false);
   assert.equal((await ev(run("read_variable", { name: "AIT" }))).text.replace(/\s+/g, " "), "« 2 * »");
   // The calls are in the log, and the sidebar offers it.
   assert.ok(await ev("window.saturnusApp.ai.then((a) => a.log.entries.filter((e) => e.kind === 'call').length >= 5)"));

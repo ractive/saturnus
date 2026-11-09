@@ -137,7 +137,7 @@ export async function openAiDialog(ai, doc = document) {
       el("p", { class: "ai-note ai-phone", hidden: !matchMedia("(pointer: coarse) and (max-width: 999px)").matches, text: "On a phone, keep this tab in front while your AI app uses it: the phone pauses tabs in the background. Open both apps in split screen, or use your AI app on another device." }),
       el("p", { class: "ai-note" }, "What passes through the relay, and what it keeps: ", externalLink("https://ractive.ch/tab-mcp/", "privacy notice"), "."),
       // WebMCP (web/ai-webmcp.js): the tools registered with this browser as well.
-      el("p", { class: "ai-note ai-webmcp", hidden: !ai.webmcp?.active, text: "This browser also offers the calculators to its own AI (WebMCP), with no address or code. Storing or purging a variable through its store and purge tools asks you in the app first, and its calls show in The AI's calls." })),
+      el("p", { class: "ai-note ai-webmcp", hidden: !ai.webmcp?.active, text: "This browser also offers the calculators to its own AI (WebMCP), with no address or code. The browser or its AI asks you before it uses them, not the app, and its calls show in The AI's calls." })),
     keepRow,
     el("div", { class: "ai-actions" }, off, connect, done),
     doneNote,

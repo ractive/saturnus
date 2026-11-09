@@ -5039,3 +5039,19 @@ saturnus".
   `wasm` succeeded, artifact not expired), else the workflow builds it
   as before. Only pushes to `main`: a PR run builds a merge ref, and its
   code is not main's.
+
+## 2026-11-09 (WebMCP: the browser confirms, not the page)
+
+- **No confirmation in the page for WebMCP calls** (owner, 2026-11-09):
+  "When a tool call is done via WebMCP, saturnus should not guard it
+  with an 'allow' question anymore. The browser or AI agent already
+  did." Brave's Leo, for one, asks before every tool call (Allow once,
+  Allow for this session, Deny). `store_variable` and `purge_variable`
+  run without tab-mcp's dialog when the call comes through WebMCP and
+  keep `consequentialHint`, so the browser knows which calls need care.
+  Replaces "Consequential calls confirmed in the page" of 2026-11-08
+  (iteration 71). Every WebMCP call is still recorded in "The AI's
+  calls", never as waiting for the user (`asks: false`).
+- **tab-mcp and the desktop app unchanged**: AI apps outside the
+  browser (through the relay) and the desktop app's local AI access
+  still ask in the page before `store_variable` and `purge_variable`.

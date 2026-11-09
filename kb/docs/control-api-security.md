@@ -140,19 +140,21 @@ the web app registers the same tools with the browser
 | --- | --- | --- |
 | No tool names another origin in `exposedTo`; the permissions policy feature `tools` (default `'self'`) is left as it is | Only the browser's agent and the page's own origin reach the tools; a cross-origin frame or opener gets none | (by construction; spec "Permissions policy integration") |
 | The arguments are checked against the tool's input schema before anything runs (`invalidArguments`, as for the desktop app) | Chrome passes the agent's input through unchecked | web `ai-webmcp.test.mjs` |
-| `store_variable` and `purge_variable` (`consequentialHint`) ask the user in the page every time, in tab-mcp's dialog; no "Always allow" (the agent does not say who it is); a call the agent cancels closes the question | The same consequences need the same consent; Chrome documents no confirmation of its own | web `ai-webmcp.test.mjs`, `ai-webmcp-page.test.mjs` |
+| `store_variable` and `purge_variable` keep `consequentialHint`, and the page adds no confirmation of its own (owner, 2026-11-09): the browser's agent confirms (Brave's Leo asks before every call: Allow once, Allow for this session, Deny). tab-mcp's calls and the desktop app's still ask in the page | The browser or agent already asks; a second question in the page repeats it | web `ai-webmcp.test.mjs`, `ai-webmcp-page.test.mjs` (WebMCP runs them without asking); `ai-page.test.mjs`, `ai-local-page.test.mjs` (tab-mcp and the desktop app ask) |
 | Results that carry the calculator's or the user's text (`list_calculators`' ROM names, the display, the stack, variables) say `untrustedContentHint` | Text from the calculator is data, not instructions for the agent | web `ai-webmcp.test.mjs`, `ai-tools.test.mjs` |
 | Every WebMCP call goes to "The AI's calls" as "Your browser's AI" | The user sees what the agent did | web `ai-webmcp.test.mjs`, `ai-webmcp-page.test.mjs` |
 | The tools are withdrawn on `pagehide` and registered again on `pageshow` | A page in the back/forward cache offers nothing | web `ai-webmcp.test.mjs` |
 
-Key presses and runs are not confirmed, as for tab-mcp (decision log,
-2026-10-19): an agent in the browser can already press the page's keys.
-So `run_rpl` and `press_keys` can store and purge variables without a
-question (`STO`, `PURGE`); only `store_variable` and `purge_variable`
-ask. The confirmation in the page guards against a mistaken call, not
-against an agent that drives the page: one that can click in the page
-can press Allow itself (the dialog's delay before Allow works does not
-stop it).
+Who confirms a WebMCP call is the browser's agent, not the page: it
+sees `consequentialHint` on `store_variable` and `purge_variable`, and
+an agent such as Brave's Leo asks before every call anyway. An agent
+that asks nothing runs them unasked; so do `run_rpl` and `press_keys`,
+which can store and purge (`STO`, `PURGE`) through tab-mcp too
+(decision log, 2026-10-19). A confirmation in the page never stopped an
+agent that drives the page: one that can click in it can press Allow
+itself. tab-mcp's calls (AI apps outside the browser, through the
+relay) and the desktop app's local AI access keep the page's
+confirmation as before.
 
 ## Known limits
 

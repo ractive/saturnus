@@ -109,6 +109,7 @@ export class AiLog extends EventTarget {
     this.seq = 0;
     /** The calls not ended yet, by id. */
     this.pending = new Map();
+    /** Whether a call of `tool` asks the user first; a call's own `asks` (WebMCP's: false) wins. */
     this.asks = (tool) => Boolean(ai.consequential?.has(tool));
     ai.addEventListener("toolcall", (e) => this.call(e.detail));
     ai.addEventListener("toolcallend", (e) => this.end(e.detail));
@@ -131,7 +132,7 @@ export class AiLog extends EventTarget {
   }
 
   call(d) {
-    const entry = { kind: "call", id: d.id, tool: d.tool, title: d.title || d.tool, app: appLabel(d.client), args: argPairs(d.arguments), asks: this.asks(d.tool), outcome: null };
+    const entry = { kind: "call", id: d.id, tool: d.tool, title: d.title || d.tool, app: appLabel(d.client), args: argPairs(d.arguments), asks: d.asks ?? this.asks(d.tool), outcome: null };
     this.pending.set(d.id, entry);
     this.add(entry);
   }
