@@ -526,11 +526,110 @@ fn a_silent_palmtop_is_not_answering_until_it_answers_a_connect() {
         Ok(PalmtopOutcome::Connected(_))
     ));
     assert!(!r.palmtop.not_answering());
-    // One that left server mode answers a request with a CONNECT refusal.
+}
+
+#[test]
+fn a_palmtop_that_ended_its_session_is_connected_again() {
+    let mut r = Rig::connected();
+    // Ended on the palmtop: it answers the listing with a CONNECT refusal.
+    r.server.break_session();
+    let from = r.commands.len();
+    let opens = r.trace.steps.len();
+    assert_eq!(
+        names(r.run(PalmtopRequest::List { dir: dir(&["C:"]) })),
+        ["BIG.BIN", "HELLO.TXT", "SUB"]
+    );
+    assert_eq!(
+        r.commands[from..from + 3],
+        [0x12, 0x40, 0x12],
+        "the listing, CONNECT, the listing again; no DISCONNECT"
+    );
+    assert!(!r.commands[from..].contains(&0x41));
+    assert!(
+        r.trace.steps[opens..]
+            .iter()
+            .any(|(_, s)| matches!(s, Step::Open(LinkSettings { baud: 19200, .. })))
+    );
+    assert_eq!(
+        r.palmtop.connection(),
+        Some(PalmtopConnection {
+            baud: 19200,
+            revision: 2
+        })
+    );
+    assert!(!r.palmtop.not_answering());
+    // A put, the same way: stored once.
     r.server.break_session();
     assert_eq!(
-        r.run(PalmtopRequest::List { dir: dir(&["C:"]) }),
-        Err(PalmtopError::NotAnswering)
+        r.run(put(&["C:"], "NEW.TXT", b"one", false)),
+        Ok(PalmtopOutcome::Stored("NEW.TXT".into()))
+    );
+    assert_eq!(r.server.fs().file(b"C:\\NEW.TXT"), Some(&b"one"[..]));
+}
+
+#[test]
+fn a_second_refusal_or_one_inside_a_request_ends_the_connection() {
+    // The session ends again between the new CONNECT and the rerun.
+    let mut r = Rig::connected();
+    r.server.break_session();
+    let connects = r.commands.iter().filter(|&&c| c == 0x40).count();
+    let mut broken = false;
+    let e = r.run_with(PalmtopRequest::List { dir: dir(&["C:"]) }, |r| {
+        let now = r.commands.iter().filter(|&&c| c == 0x40).count();
+        if now > connects && r.server.in_session() && !broken {
+            broken = true;
+            r.server.break_session();
+        }
+    });
+    assert!(broken);
+    assert_eq!(e, Err(PalmtopError::NotAnswering));
+    assert_eq!(r.palmtop.connection(), None);
+    assert!(r.palmtop.not_answering());
+    assert_eq!(
+        r.commands.iter().filter(|&&c| c == 0x40).count(),
+        connects + 1,
+        "one CONNECT only"
+    );
+
+    // Ended halfway through a get: not sent again.
+    let mut r = Rig::connected();
+    let connects = r.commands.iter().filter(|&&c| c == 0x40).count();
+    let mut broken = false;
+    let got = r.run_with(
+        PalmtopRequest::Get {
+            dir: dir(&["C:"]),
+            name: "BIG.BIN".into(),
+        },
+        |r| {
+            if !r.progress.is_empty() && !broken {
+                broken = true;
+                r.server.break_session();
+            }
+        },
+    );
+    assert_eq!(got, Err(PalmtopError::NotAnswering));
+    assert_eq!(r.commands.iter().filter(|&&c| c == 0x40).count(), connects);
+}
+
+#[test]
+fn stop_during_the_new_connect_ends_it() {
+    let mut r = Rig::connected();
+    r.server.break_session();
+    r.palmtop
+        .start(r.now, PalmtopRequest::List { dir: dir(&["C:"]) })
+        .unwrap();
+    // The listing goes out and comes back refused; CONNECT is queued.
+    r.exchange_once();
+    assert!(r.palmtop.is_busy());
+    r.palmtop.stop(r.now);
+    assert_eq!(r.palmtop.poll_result(), Some(Err(PalmtopError::Stopped)));
+    assert!(!r.palmtop.is_busy());
+    r.exchange();
+    // Still connected: the next request connects first.
+    assert!(r.palmtop.connection().is_some());
+    assert_eq!(
+        names(r.run(PalmtopRequest::List { dir: dir(&["C:"]) })),
+        ["BIG.BIN", "HELLO.TXT", "SUB"]
     );
 }
 
