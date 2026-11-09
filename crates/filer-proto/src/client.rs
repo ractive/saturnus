@@ -14,10 +14,12 @@
 //!   within a window that depends on the speed ([`frame_window`]).
 //! - The counter starts at 1 after CONNECT and advances only after a
 //!   matching reply; after 0xFF comes 0x00.
-//! - A reply with the wrong counter or direction byte, a CONNECT refusal
-//!   to an ordinary request (the server left the session) or no reply
-//!   after all sends ends the session: the client sends one DISCONNECT and
-//!   reports [`Error`].
+//! - A reply with the wrong counter or direction byte or no reply after
+//!   all sends ends the session: the client sends one DISCONNECT and
+//!   reports [`Error`]. A CONNECT refusal to an ordinary request (the
+//!   server left the session) ends it too, but without the DISCONNECT: the
+//!   server has no session to end and would only answer with another
+//!   refusal, which the next CONNECT could take for its own.
 //! - DISCONNECT (0x41, counter 0) is sent once; its reply is not awaited.
 //!
 //! Two deliberate differences from HP's client, both only more forgiving:
@@ -199,7 +201,8 @@ pub enum Event {
     Reply(Result<Response, Failure>),
     /// The session ended by [`Client::disconnect`].
     Disconnected,
-    /// The session ended on a link failure; a DISCONNECT is queued.
+    /// The session ended on a link failure; a DISCONNECT is queued,
+    /// except after [`Error::NotConnected`].
     Error(Error),
 }
 
@@ -471,20 +474,30 @@ impl Client {
         self.fail(error);
     }
 
-    /// End the session on a link failure.
+    /// End the session on a link failure. A server that said it has no
+    /// session gets no DISCONNECT.
     fn fail(&mut self, error: Error) {
-        self.close();
+        if error == Error::NotConnected {
+            self.close_quietly();
+        } else {
+            self.close();
+        }
         self.events.push_back(Event::Error(error));
     }
 
     fn close(&mut self) {
+        self.close_quietly();
+        self.out.push_back(
+            Frame::request(Code::Disconnect.byte(), 0, self.revision, Vec::new()).encode(),
+        );
+    }
+
+    /// Close without a DISCONNECT.
+    fn close_quietly(&mut self) {
         self.pending = None;
         self.state = State::Closed;
         self.deframer.clear();
         self.out.clear();
-        self.out.push_back(
-            Frame::request(Code::Disconnect.byte(), 0, self.revision, Vec::new()).encode(),
-        );
         self.counter = 0;
         self.last = None;
     }
@@ -805,6 +818,31 @@ mod tests {
         c.poll_output(t).unwrap();
         c.handle_input(t, &reply(0x40, 0, &[0x3B, 0xFF]));
         assert_eq!(c.poll_event(), Some(Event::Error(Error::NotConnected)));
+    }
+
+    #[test]
+    fn a_lost_session_gets_no_disconnect() {
+        let (mut c, t) = connected();
+        c.send(t, &Request::FindNext).unwrap();
+        c.poll_output(t).unwrap();
+        c.handle_input(t, &reply(0x40, 0, &[0x3B, 0xFF]));
+        assert_eq!(c.poll_event(), Some(Event::Error(Error::NotConnected)));
+        assert!(!c.is_open() && !c.is_busy());
+        assert_eq!(c.poll_output(t), None);
+        assert_eq!(c.next_timeout(), None);
+        // A disconnect now has nothing to end either.
+        c.disconnect(t);
+        assert_eq!(c.poll_output(t), None);
+        assert!(c.poll_event().is_none());
+        // The next CONNECT is the only frame out.
+        c.connect(t).unwrap();
+        assert_eq!(
+            c.poll_output(t).unwrap()[5..10],
+            [0x01, 0x40, 0x00, 0x01, 0x02]
+        );
+        assert_eq!(c.poll_output(t), None);
+        c.handle_input(t, &reply(0x40, 0, &[0, 0]));
+        assert_eq!(c.poll_event(), Some(Event::Connected { revision: 2 }));
     }
 
     #[test]
