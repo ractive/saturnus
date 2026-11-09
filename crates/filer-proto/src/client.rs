@@ -14,10 +14,12 @@
 //!   within a window that depends on the speed ([`frame_window`]).
 //! - The counter starts at 1 after CONNECT and advances only after a
 //!   matching reply; after 0xFF comes 0x00.
-//! - A reply with the wrong counter or direction byte, a CONNECT refusal
-//!   to an ordinary request (the server left the session) or no reply
-//!   after all sends ends the session: the client sends one DISCONNECT and
-//!   reports [`Error`].
+//! - A reply with the wrong counter or direction byte or no reply after
+//!   all sends ends the session: the client sends one DISCONNECT and
+//!   reports [`Error`]. A CONNECT refusal to an ordinary request (the
+//!   server left the session) ends it too, but without the DISCONNECT: the
+//!   server has no session to end and would only answer with another
+//!   refusal, which the next CONNECT could take for its own.
 //! - DISCONNECT (0x41, counter 0) is sent once; its reply is not awaited.
 //!
 //! Two deliberate differences from HP's client, both only more forgiving:
@@ -127,7 +129,13 @@ pub enum Error {
     },
     /// The server answered an ordinary request with a CONNECT refusal: it
     /// has no session open (it left it, or was restarted).
-    NotConnected,
+    NotConnected {
+        /// How many times the request had been sent when the refusal
+        /// came. 1: the refusal answered the first send, so the server ran
+        /// nothing of it; more: an earlier send may have run before the
+        /// session ended, its reply lost.
+        sends: u32,
+    },
     /// CONNECT was refused with this status.
     Refused(u16),
     /// A reply that does not fit its command's layout.
@@ -150,7 +158,7 @@ impl fmt::Display for Error {
                 f,
                 "reply out of step: sent {code:?} with counter {counter}, got command {got_command:#04x} counter {got_counter} direction {got_direction:#04x}"
             ),
-            Error::NotConnected => f.write_str("the server has no session open"),
+            Error::NotConnected { .. } => f.write_str("the server has no session open"),
             Error::Refused(code) => match crate::error::status_meaning(*code) {
                 Some(m) => write!(f, "connect refused: {m} (status {code:#06x})"),
                 None => write!(f, "connect refused with status {code:#06x}"),
@@ -199,7 +207,8 @@ pub enum Event {
     Reply(Result<Response, Failure>),
     /// The session ended by [`Client::disconnect`].
     Disconnected,
-    /// The session ended on a link failure; a DISCONNECT is queued.
+    /// The session ended on a link failure; a DISCONNECT is queued,
+    /// except after [`Error::NotConnected`].
     Error(Error),
 }
 
@@ -471,20 +480,30 @@ impl Client {
         self.fail(error);
     }
 
-    /// End the session on a link failure.
+    /// End the session on a link failure. A server that said it has no
+    /// session gets no DISCONNECT.
     fn fail(&mut self, error: Error) {
-        self.close();
+        if matches!(error, Error::NotConnected { .. }) {
+            self.close_quietly();
+        } else {
+            self.close();
+        }
         self.events.push_back(Event::Error(error));
     }
 
     fn close(&mut self) {
+        self.close_quietly();
+        self.out.push_back(
+            Frame::request(Code::Disconnect.byte(), 0, self.revision, Vec::new()).encode(),
+        );
+    }
+
+    /// Close without a DISCONNECT.
+    fn close_quietly(&mut self) {
         self.pending = None;
         self.state = State::Closed;
         self.deframer.clear();
         self.out.clear();
-        self.out.push_back(
-            Frame::request(Code::Disconnect.byte(), 0, self.revision, Vec::new()).encode(),
-        );
         self.counter = 0;
         self.last = None;
     }
@@ -493,7 +512,7 @@ impl Client {
         let Some(p) = self.pending.as_ref() else {
             return;
         };
-        let (code, counter, fell_back) = (p.code, p.counter, p.fell_back);
+        let (code, counter, sends, fell_back) = (p.code, p.counter, p.sends, p.fell_back);
         if frame.direction == REQUEST {
             // Our own frame echoed (an infrared link); not a reply.
             return;
@@ -539,7 +558,7 @@ impl Client {
                 && frame.counter == 0
                 && status_word == Some(status::NOT_CONNECTED)
             {
-                return self.fail(Error::NotConnected);
+                return self.fail(Error::NotConnected { sends });
             }
             if self.last == Some((frame.command, frame.counter)) {
                 // A late duplicate of the previous reply.
@@ -804,7 +823,50 @@ mod tests {
         c.send(t, &Request::FindNext).unwrap();
         c.poll_output(t).unwrap();
         c.handle_input(t, &reply(0x40, 0, &[0x3B, 0xFF]));
-        assert_eq!(c.poll_event(), Some(Event::Error(Error::NotConnected)));
+        assert_eq!(
+            c.poll_event(),
+            Some(Event::Error(Error::NotConnected { sends: 1 }))
+        );
+        // A refusal to a resend says so.
+        let (mut c, t) = connected();
+        c.send(t, &Request::FindNext).unwrap();
+        c.poll_output(t).unwrap();
+        let d = c.next_timeout().unwrap();
+        c.handle_timeout(d);
+        c.poll_output(d).unwrap();
+        c.handle_input(d, &reply(0x40, 0, &[0x3B, 0xFF]));
+        assert_eq!(
+            c.poll_event(),
+            Some(Event::Error(Error::NotConnected { sends: 2 }))
+        );
+    }
+
+    #[test]
+    fn a_lost_session_gets_no_disconnect() {
+        let (mut c, t) = connected();
+        c.send(t, &Request::FindNext).unwrap();
+        c.poll_output(t).unwrap();
+        c.handle_input(t, &reply(0x40, 0, &[0x3B, 0xFF]));
+        assert_eq!(
+            c.poll_event(),
+            Some(Event::Error(Error::NotConnected { sends: 1 }))
+        );
+        assert!(!c.is_open() && !c.is_busy());
+        assert_eq!(c.poll_output(t), None);
+        assert_eq!(c.next_timeout(), None);
+        // A disconnect now has nothing to end either.
+        c.disconnect(t);
+        assert_eq!(c.poll_output(t), None);
+        assert!(c.poll_event().is_none());
+        // The next CONNECT is the only frame out.
+        c.connect(t).unwrap();
+        assert_eq!(
+            c.poll_output(t).unwrap()[5..10],
+            [0x01, 0x40, 0x00, 0x01, 0x02]
+        );
+        assert_eq!(c.poll_output(t), None);
+        c.handle_input(t, &reply(0x40, 0, &[0, 0]));
+        assert_eq!(c.poll_event(), Some(Event::Connected { revision: 2 }));
     }
 
     #[test]

@@ -30,6 +30,13 @@ the desktop app and the web page share one version.
   the new listing replaces them, instead of a spinner in between. The
   tree keeps its folders while it reads a directory again. A directory
   you open for the first time still shows the spinner.
+- **Files connects to the palmtop again after its session ended
+  there.** When you end the session on an HP 100LX or 200LX and come
+  back to Filer later, the next step in Files, such as Refresh, used to
+  fail with "The palmtop stopped answering" and you had to reconnect.
+  Files now connects again by itself and carries on. The palmtop's
+  setup steps also say not to press Remote (F6): in server mode Filer
+  waits for Files by itself.
 
 ## 0.11.0 (2026-11-09)
 

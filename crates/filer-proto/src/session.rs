@@ -485,7 +485,9 @@ impl Session {
             // Not reachable while a job runs on an open session; report it
             // rather than hang.
             let _ = e;
-            self.finish(Err(JobError::Link(client::Error::NotConnected)));
+            self.finish(Err(JobError::Link(client::Error::NotConnected {
+                sends: 0,
+            })));
         }
     }
 

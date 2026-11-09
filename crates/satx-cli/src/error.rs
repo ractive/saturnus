@@ -247,7 +247,7 @@ fn filer_hint(err: &satx_core::filer_proto::JobError) -> String {
             ..
         })
         | JobError::Link(LinkError::Refused(_)) => format!("no connection: {SETUP}"),
-        JobError::Link(LinkError::NotConnected) => {
+        JobError::Link(LinkError::NotConnected { .. }) => {
             "the palmtop left server mode or was switched off; start the command again".into()
         }
         JobError::Link(LinkError::NoReply { .. }) => format!(

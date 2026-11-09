@@ -910,7 +910,7 @@ test("an HP 100LX or 200LX through \"Add a calculator\": its Filer settings, the
   })()`);
   assert.deepEqual(step, {
     shown: true, cable: false, ask: false,
-    steps: ["Open Filer.", "Press MENU, then choose Communications, Remote Settings.", "Set Baud to 19200, Interface to COM1 and Server Mode on. Press OK.", "Leave Filer open and in front while Files works with it."],
+    steps: ["Open Filer.", "Press MENU, then choose Communications, Remote Settings.", "Set Baud to 19200, Interface to COM1 and Server Mode on. Press OK.", "Leave Filer open and in front while Files works with it.", "Do not press Remote (F6) on the palmtop. In server mode Filer waits for Files by itself; Remote makes it look for a server of its own, and Files is not one."],
     warning: "Use the palmtop's own cable. Never plug the palmtop's cable into an HP 48 or 49G, and never use a 38G cable or adapter on the palmtop: the plugs fit, but the wiring differs and can damage the device.",
     fixed: false, baud: true, fast: false, go: "Choose the port",
   });

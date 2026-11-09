@@ -811,7 +811,8 @@ as for the 48's Kermit server.
 - **Connect.** "Add a calculator…", "An HP 100LX or 200LX palmtop": one
   step with the palmtop's settings (Filer, MENU, Communications, Remote
   Settings: Baud 19200, Interface COM1, Server Mode on, OK; Filer left in
-  front), the cable warning (the palmtop's cable never on a 48 or 49G, a
+  front; Remote (F6) not pressed, since it makes the palmtop look for a
+  server of its own and Files is not one), the cable warning (the palmtop's cable never on a 48 or 49G, a
   38G cable or adapter never on the palmtop) and "Trouble with the
   cable?" (the adapter straight into HP's cable, which has the null modem
   built in; the logo up at the palmtop; `dialout`). Then "Choose the
@@ -878,14 +879,31 @@ as for the 48's Kermit server.
   palmtop stopped answering" with what to check (Filer open in front,
   server mode on, auto-off, the cable) and Reconnect, which connects at
   the speed it was connected at (kept on the place, not the dialog's
-  current one). A palmtop whose session ended (Ctrl+Break there)
-  answers a request with a CONNECT refusal, which ends it the same way.
+  current one).
+- **Session ended on the palmtop.** A palmtop whose session ended there
+  (Ctrl+Break, or Filer left and opened again) is back to waiting in
+  server mode and answers any request with a CONNECT refusal (status
+  0xFF3B), running nothing. When that refusal answers the first send of
+  the request's first frame, the device connects again at the
+  connection's speed (the port reopened, one CONNECT) and sends the
+  request once more, so Refresh after such a break just works. A refusal
+  to a resend is not rerun: the first send may have run (a delete, a new
+  directory) and its reply been lost before the session ended, and a
+  rerun would then report the file missing or the name in use
+  (`filer-proto`'s `Error::NotConnected` carries the send count). That
+  refusal, one after the request had begun (a copy broken off on the
+  palmtop), a failed CONNECT or a second refusal ends the connection as
+  "Not answering" does. After Stop a refusal ends the request as
+  stopped; the connection stays and the next request connects first.
+  `filer-proto`'s client sends no DISCONNECT after such a refusal: the
+  palmtop has no session to end and would answer with another refusal,
+  which could land on the next CONNECT.
 - **Progress.** Each 2 KB block of a get or put; the listing's size gives
   a get its total. About 1.7 KB/s at 19200 baud, so a palmtop file is
   previewed on selection only up to 2 KB, larger ones when asked.
 - **Tests.** `saturnus-tx`'s `palmtop_tests.rs` against `filer-proto`'s
   server over its `MemoryFs` on a fake clock (every request, Stop, abort,
-  silence, a revision-1 Filer) and its recorded session,
+  silence, a session ended on the palmtop, a revision-1 Filer) and its recorded session,
   `traces/100lx-session.trace` (`SATURNUS_BLESS=1` rewrites it), which
   `web/test/tx-driver.test.mjs` replays through the page's protocol
   stack; `web/test/tx-palmtop.test.mjs` runs `PalmtopFolder` and the

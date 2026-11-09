@@ -31,6 +31,17 @@
 //!   [`PalmtopError::NotAnswering`], no connection, every request but
 //!   [`PalmtopRequest::Connect`] refused until it answers again
 //!   ([`Palmtop::not_answering`]).
+//! - **Session ended on the palmtop.** A palmtop whose session was ended
+//!   there (it went back to waiting in server mode) answers a request with
+//!   a CONNECT refusal and runs nothing (wiki: protocols/filer-hplx,
+//!   "Connect and disconnect"). When that refusal answers the first send
+//!   of the request's first frame, the [`Palmtop`] connects again at the
+//!   same speed and sends the request once more. A refusal to a resend
+//!   (the first send may have run, its reply lost, before the session
+//!   ended), one after the request had begun, a failed CONNECT or a
+//!   second refusal ends the connection as a palmtop not answering does.
+//!   A refusal after [`Palmtop::stop`] ends the request as stopped, and
+//!   the next request connects first.
 //!
 //! No I/O, no threads, no clock: builds for `wasm32-unknown-unknown`.
 
@@ -500,6 +511,13 @@ pub struct Palmtop {
     reconnect: bool,
     /// The request waiting for that reconnect.
     after_reconnect: Option<PalmtopRequest>,
+    /// The running request until its first job ends, for a rerun after
+    /// the palmtop's session ended.
+    current: Option<PalmtopRequest>,
+    /// A reply of the running request came.
+    answered: bool,
+    /// The running request is already the rerun.
+    rerun: bool,
     /// The wait for a reply's first byte, when not HP's 5.9 s (tests).
     reply_wait: Option<Duration>,
 }
@@ -569,6 +587,9 @@ impl Palmtop {
             stopping: false,
             reconnect: false,
             after_reconnect: None,
+            current: None,
+            answered: false,
+            rerun: false,
             reply_wait: None,
         }
     }
@@ -630,6 +651,8 @@ impl Palmtop {
         }
         self.result = None;
         self.stopping = false;
+        self.current = None;
+        self.rerun = false;
         if let Err(e) = self.begin(now, request) {
             self.result = Some(Err(e));
         }
@@ -698,6 +721,7 @@ impl Palmtop {
     /// Send the first job of `request` on the open session.
     fn request(&mut self, now: Instant, request: PalmtopRequest) -> Result<()> {
         check(&request)?;
+        self.answered = false;
         let bad = || PalmtopError::NotFound(request.describe());
         let (running, job) = match &request {
             PalmtopRequest::List { dir } if dir.is_empty() => (
@@ -793,6 +817,7 @@ impl Palmtop {
                 return Err(PalmtopError::AlreadyConnected);
             }
         };
+        self.current = Some(request);
         self.send(now, running, job)
     }
 
@@ -808,7 +833,13 @@ impl Palmtop {
     /// Feed bytes read from the link at `now`.
     pub fn handle_input(&mut self, now: Instant, bytes: &[u8]) {
         if let Some(session) = self.session.as_mut() {
+            // One reply at most per call: the next request goes out only
+            // after it.
+            let counter = session.client().counter();
             session.handle_input(now, bytes);
+            if session.is_open() && session.client().counter() != counter {
+                self.answered = true;
+            }
         }
         self.pump(now);
     }
@@ -829,6 +860,7 @@ impl Palmtop {
         self.connection = None;
         self.reconnect = false;
         self.after_reconnect = None;
+        self.current = None;
         if self.running.take().is_some() {
             self.result = Some(Err(PalmtopError::Link(message.to_string())));
         }
@@ -867,6 +899,7 @@ impl Palmtop {
         self.events.clear();
         self.result = None;
         self.after_reconnect = None;
+        self.current = None;
         if let Some(session) = self.session.as_mut() {
             session.disconnect(now);
         }
@@ -907,10 +940,11 @@ impl Palmtop {
             return;
         };
         if let Err(JobError::Link(e)) = &result {
-            // The session is over: CONNECT failed, or a request went
-            // unanswered.
+            // The session is over: CONNECT failed, a request went
+            // unanswered, or the palmtop had ended its session.
             self.session = None;
             self.after_reconnect = None;
+            let current = self.current.take();
             match running {
                 Running::Connect { baud } => {
                     let reconnecting = self.connection.is_some();
@@ -926,7 +960,33 @@ impl Palmtop {
                         _ => PalmtopError::NoAnswer { baud },
                     }));
                 }
+                _ if self.stopping && matches!(e, filer_proto::Error::NotConnected { .. }) => {
+                    // Stopped, and the palmtop had ended its session: the
+                    // next request connects first.
+                    self.reconnect = true;
+                    self.result = Some(Err(PalmtopError::Stopped));
+                }
                 _ => {
+                    // The refusal answered the request's first send: the
+                    // palmtop ran nothing of it. Connect again and send it
+                    // once more.
+                    if matches!(e, filer_proto::Error::NotConnected { sends: 1 })
+                        && !self.answered
+                        && !self.rerun
+                        && let (Some(connection), Some(request)) = (self.connection, current)
+                    {
+                        self.rerun = true;
+                        self.after_reconnect = Some(request);
+                        match self.connect(now, connection.baud) {
+                            Ok(()) => return,
+                            Err(err) => {
+                                self.after_reconnect = None;
+                                self.connection = None;
+                                self.result = Some(Err(err));
+                                return;
+                            }
+                        }
+                    }
                     self.connection = None;
                     self.not_answering = true;
                     self.result = Some(Err(PalmtopError::NotAnswering));
@@ -934,6 +994,7 @@ impl Palmtop {
             }
             return;
         }
+        self.current = None;
         if self.stopping && matches!(result, Err(JobError::Cancelled)) {
             self.result = Some(Err(PalmtopError::Stopped));
             return;
