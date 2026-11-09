@@ -89,7 +89,7 @@ it". After [[iterations/iteration-68a-aplet-folder-and-add-calculator]] and [[it
   emulated 49G if it runs XSERV; page tests; traces.
 - [x] kb: `kb/docs/saturnus-tx.md` (Files over XSERV), the satx docs, the
   wiki's XSERV page (hardware facts above).
-- [-] Owner check on the real 49G: connect in XSERV, list, download,
+- [x] Owner check on the real 49G: connect in XSERV, list, download,
   upload, rename, purge, a directory, PICT and a backup (through the
   Kermit nesting).
 
