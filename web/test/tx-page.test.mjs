@@ -1125,9 +1125,8 @@ test("a preview being read says what, from where and how far, in the preview and
   })()`);
   // The size from the listing: a bar at 0 from the start.
   assert.deepEqual(at, { line: "Reading P from the 48GX…", unknown: false, row: true });
-  // A packet's progress: the amount, the bar, the row's bar.
-  await c.ev(`tx.panes[0].place.device.progress({ sent: 10, total: 40 }); true`);
-  await p.until(`document.querySelector(".pane[data-pane=left] .reading-amount")?.textContent === "10 of 40 bytes"`, 5_000, "the amount");
+  // A packet's progress: the amount, the bar, the row's bar. Said until it shows: the preview can say "Reading" before the device runs the get (a listing first), and progress then goes to the listing.
+  await p.until(`(tx.panes[0].place.device.progress({ sent: 10, total: 40 }), document.querySelector(".pane[data-pane=left] .reading-amount")?.textContent === "10 of 40 bytes")`, 5_000, "the amount");
   const bars = await c.ev(`({ bar: document.querySelector(".pane[data-pane=left] .reading-bar").getAttribute("aria-valuenow"), row: tx.panes[0].ui.list.querySelector('tr[data-name="P"] .dlist-busy > span').style.width })`);
   assert.deepEqual(bars, { bar: "25", row: "25%" });
   // Done: the content in its place, the row's mark gone.
