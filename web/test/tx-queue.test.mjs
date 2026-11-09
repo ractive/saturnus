@@ -267,3 +267,19 @@ test("failures are kept until dismissed, one or all, each a change", () => {
   assert.deepEqual(q.failures, []);
   assert.equal(changes, 4);
 });
+
+test("jobs awaited one after another: the finished one has left before the next is added (never two at once, each its own run)", async () => {
+  const q = new JobQueue();
+  let most = 0;
+  q.addEventListener("change", () => { most = Math.max(most, q.jobs.length); });
+  const counts = [];
+  for (const n of ["A", "B", "C"]) {
+    await q.add({ label: n, places: ["calc"], run: async () => { await tick(); counts.push(q.progressOf("calc").count); } });
+  }
+  assert.equal(most, 1, "the Transfers list has no reason to come up");
+  assert.deepEqual(counts, [1, 1, 1], "no 2 of 2, 3 of 3");
+  // Added at once, they count: 1 of 3, 2 of 3, 3 of 3.
+  const seen = [];
+  await Promise.all(["A", "B", "C"].map((n) => q.add({ label: n, places: ["calc"], run: async () => { const at = q.progressOf("calc"); seen.push(`${at.index} of ${at.count}`); await tick(); } })));
+  assert.deepEqual(seen, ["1 of 3", "2 of 3", "3 of 3"]);
+});

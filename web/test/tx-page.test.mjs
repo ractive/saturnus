@@ -507,6 +507,72 @@ test("a single job is said once, in its calculator's head, with Stop where it ca
   assert.deepEqual(c.errors, []);
 });
 
+test("review of #272: one head per job (the source's; the pane shown on a narrow screen), a batch counted, the focus kept, folding reset, a failure seen from another view", { timeout: 90_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0, "48gx", { delay: (r) => (r.type === "get" ? 600 : 10) })`);
+  await c.ev(`__calc(1, "49g")`);
+  await p.idle(10_000);
+  await p.idle(10_000, "the second calculator", 1);
+  const status = (side) => `document.querySelector(".pane[data-pane=${side}] .pane-status-text").textContent`;
+  const stops = `[...document.querySelectorAll(".pane-stop")].filter((b) => !b.hidden).length`;
+  // A job between two calculators: said in one head only, its first place's (the source).
+  await c.ev(`tx.queue.add({ label: "Copy A to the 48GX", doing: "Copying A…", places: [tx.panes[1].place.id, tx.panes[0].place.id], stop: () => {}, run: () => new Promise((r) => { window.__end = r; }) }).catch(() => {}); true`);
+  await p.until(`${status("right")} === "Copying A…"`, 5_000, "in the source's head");
+  assert.notEqual(await c.ev(status("left")), "Copying A…");
+  assert.equal(await c.ev(stops), 1, "one Stop");
+  // Stop going away with the focus on it: the focus goes to the head's ⋯.
+  await c.ev(`document.querySelector(".pane[data-pane=right] .pane-stop").focus(); __end(); true`);
+  await p.until(`document.querySelector(".pane[data-pane=right] .pane-stop").hidden`, 5_000, "the job over");
+  assert.equal(await c.ev(`document.activeElement === document.querySelector(".pane[data-pane=right] .pane-more")`), true, "the focus kept in the head");
+  // Two downloads: queued at once, so counted.
+  await c.ev(SEED_CALC(0));
+  await p.idle(10_000);
+  await c.ev(`window.__dl = tx.panes[0].download([tx.entry("PRG"), tx.entry("X")]); true`);
+  await p.until(`/^Downloading (PRG|X)… [12] of 2$/.test(${status("left")})`, 5_000, "the batch counted");
+  await c.ev(`__dl`);
+  // Folded, then a failure: the list comes back unfolded with it; the last one dismissed with the focus on it keeps the focus in a pane's head.
+  await c.ev(`tx.app.failed("A was not copied: one."); true`);
+  await p.until(`!document.getElementById("queue").hidden`, 5_000, "listed");
+  await c.ev(`document.getElementById("queue-fold").click(); true`);
+  assert.equal(await c.ev(`document.getElementById("queue-list").hidden`), true);
+  await c.ev(`tx.app.failed("B was not copied: two."); true`);
+  await p.until(`!document.getElementById("queue-list").hidden`, 5_000, "unfolded by the new failure");
+  await c.ev(`document.getElementById("dismiss-failures").focus(); document.getElementById("dismiss-failures").click(); true`);
+  await p.until(`document.getElementById("queue").hidden`, 5_000, "all dismissed");
+  assert.equal(await c.ev(`document.activeElement?.closest(".pane-head") !== null`), true, "the focus in a pane's head, not lost");
+  await c.ev(`tx.app.failed("C was not copied: three."); true`);
+  await p.until(`!document.getElementById("queue").hidden`, 5_000, "listed again");
+  await c.ev(`document.querySelector("#queue-list .queue-dismiss").focus(); document.querySelector("#queue-list .queue-dismiss").click(); true`);
+  await p.until(`document.getElementById("queue").hidden`, 5_000, "dismissed");
+  assert.equal(await c.ev(`document.activeElement?.closest(".pane-head") !== null`), true, "the focus in a pane's head");
+  // A failure while Files is not shown: a toast in the view shown, too.
+  await c.ev(`location.hash = "#/"; true`);
+  await p.until(`document.getElementById("files-view").hidden`, 5_000, "Home shown");
+  await c.ev(`tx.app.failed("D was not copied: four."); true`);
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent.includes("D was not copied: four.") && !e.closest("#files-view"))`, 5_000, "said in the view shown");
+  assert.deepEqual(c.errors, []);
+});
+
+test("a narrow screen says a job in the pane shown", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t, 600);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000);
+  const status = (side) => `document.querySelector(".pane[data-pane=${side}] .pane-status-text").textContent`;
+  await c.ev(`tx.setActive("right"); tx.queue.add({ label: "Copy A to hp-files", doing: "Copying A…", places: [tx.panes[0].place.id, tx.panes[1].place.id], run: () => new Promise((r) => { window.__end = r; }) }).catch(() => {}); true`);
+  await p.until(`${status("right")} === "Copying A…"`, 5_000, "in the folder's pane, the one shown");
+  assert.notEqual(await c.ev(status("left")), "Copying A…");
+  await c.ev(`tx.setActive("left"); true`);
+  assert.equal(await c.ev(status("left")), "Copying A…", "it follows the switch");
+  assert.notEqual(await c.ev(status("right")), "Copying A…");
+  await c.ev(`__end(); true`);
+  assert.deepEqual(c.errors, []);
+});
+
 test("reading a directory is said once: the head's status with a spinner, a named spinner in the list, a faint folder in the tree", { timeout: 60_000 }, async (t) => {
   const f = await fakePage(t);
   if (!f) return;

@@ -275,17 +275,20 @@ per place at a time, in the order asked. A running job is shown once
 (owner, 2026-11-09: not a modal dialog, since other panes, previews,
 more drags, Calculator and a second device stay usable while a job takes
 minutes): the rows it reads and writes get their thin bar (source and
-target), and the head of the pane whose calculator or palmtop does the
-work says it, "Copying ZPAR… 2 of 3" (the count while the place has more
-jobs in its run), its bytes beside the live region, a spinner, and Stop
-where the job can be stopped; a folder's head says a job only when no
-calculator or palmtop works on it. The list under the panes
+target), and one pane's head says it, "Copying ZPAR… 2 of 3" (the count
+while the place has more jobs in its run; a batch is queued at once so
+it counts), its bytes beside the live region, a spinner, and Stop where
+the job can be stopped. That pane is the first of the job's places shown
+with a calculator or palmtop (a copy's source first), else its folder's;
+on a narrow screen the pane shown. The list under the panes
 ("Transfers") is up only while two or more jobs are under way or a job
 failed: the running and waiting jobs, the waiting ones cancellable one by
 one or all at once, the failures (the sentence an error toast said
 before) until dismissed, one by one or all; it folds away to its head and
 counts ("1 running, 2 waiting, 1 failed"). A failure is announced once,
-by an alert outside the list. A drop lands in the directory whose row it is on,
+by an alert outside the list, and with Files not shown (Calculator or
+Home in front) also by an error toast in the view shown. A new failure
+unfolds the list; it comes back unfolded each time it appears. A drop lands in the directory whose row it is on,
 else the one shown. `DownloadURL` drags out only rows already previewed
 (the bytes must be in the page when the drag starts).
 

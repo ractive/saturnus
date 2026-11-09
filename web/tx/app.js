@@ -158,6 +158,10 @@ export function mountFiles(root, { shown = () => true } = {}) {
 
   const say = (text, { error = false } = {}) => toast(text, { error });
 
+  /** One pane at a time: below 760 px (style.css). */
+  const narrowQuery = matchMedia("(max-width: 759px)");
+  const narrow = () => narrowQuery.matches;
+
   const queue = new JobQueue();
 
   /**
@@ -210,14 +214,36 @@ export function mountFiles(root, { shown = () => true } = {}) {
     helpers,
     fileNames,
     say,
-    /** A job's failure: kept in the Transfers list until dismissed, and said once (an alert, as an error toast was). */
+    /**
+     * A job's failure: kept in the Transfers list until dismissed (the list
+     * unfolded), and said once by its alert, as an error toast was. With
+     * Files not shown (Calculator or Home in front) also an error toast,
+     * which goes to the view shown.
+     */
     failed: (text) => {
+      folded = false;
       queue.fail(text);
+      if (!shown()) {
+        say(text, { error: true });
+        return;
+      }
       ui.queueAlert.textContent = "";
       app.frame(() => { ui.queueAlert.textContent = text; });
     },
-    /** Whether place `id` is a calculator or a palmtop shown in a pane (its jobs are said in its head). */
-    isDevicePlace: (id) => panes.some((p) => p.place?.id === id && (p.place.kind === "device" || p.place.palmtop)),
+    /**
+     * The pane whose head says `job`: of the panes that show its places,
+     * the pane shown on a narrow screen (one pane at a time), then the first
+     * one with a calculator or palmtop, in the job's order of places (a
+     * copy's source first), else the first one; null when none shows them.
+     */
+    ownerOf: (job) => {
+      let showing = job.places.map((id) => panes.find((p) => p.place?.id === id)).filter(Boolean);
+      if (narrow()) {
+        const seen = showing.filter((p) => p.id === active);
+        if (seen.length) showing = seen;
+      }
+      return showing.find((p) => p.place.kind === "device" || p.place.palmtop) ?? showing[0] ?? null;
+    },
     ask: (q) => ask(q),
     askName: (q) => askName(q),
     now: () => new Date(),
@@ -270,6 +296,14 @@ export function mountFiles(root, { shown = () => true } = {}) {
     active = id;
     ui.panes.dataset.active = id;
     renderSwitch();
+    // A job is said in the pane shown (app.ownerOf).
+    for (const p of panes) p.renderJob();
+  }
+  narrowQuery.addEventListener?.("change", () => { for (const p of panes) p.renderJob(); });
+
+  /** Where the focus goes when what had it in the list went: the head of the pane shown (the left one when both are). */
+  function focusFallback() {
+    (panes.find((p) => narrow() && p.id === active) ?? panes[0])?.focusHead();
   }
 
   /**
@@ -334,6 +368,8 @@ export function mountFiles(root, { shown = () => true } = {}) {
     if (jobs.length > 1) listed = true;
     else if (jobs.length === 0) listed = false;
     ui.queue.hidden = !(listed || failures.length);
+    // Folded for this showing only: it comes back unfolded.
+    if (ui.queue.hidden) folded = false;
     ui.cancelWaiting.hidden = queue.waiting.length < 2;
     ui.dismissFailures.hidden = failures.length < 2;
     const summary = queueSummary();
@@ -392,7 +428,9 @@ export function mountFiles(root, { shown = () => true } = {}) {
     if (focusedKey !== null) {
       const [kind, id] = focusedKey.split(":");
       const again = ui.queueList.querySelector(`[data-${kind}="${id}"] .queue-cancel`) ?? ui.queueList.querySelector(".queue-cancel");
-      (again ?? (ui.cancelWaiting.hidden ? null : ui.cancelWaiting) ?? (ui.queue.hidden ? null : ui.queueFold))?.focus();
+      const next = again ?? (ui.cancelWaiting.hidden ? null : ui.cancelWaiting) ?? (ui.queue.hidden ? null : ui.queueFold);
+      if (next) next.focus();
+      else focusFallback();
     }
   }
 
@@ -401,6 +439,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
   ui.dismissFailures.addEventListener("click", () => {
     queue.dismiss();
     if (!ui.queue.hidden) ui.queueFold.focus();
+    else focusFallback();
   });
   ui.queueFold.addEventListener("click", () => {
     folded = !folded;

@@ -134,17 +134,27 @@ export class JobQueue extends EventTarget {
       job.note = note;
       this.changed();
     };
+    // The job leaves the list before its promise settles: a caller that
+    // awaits it and then adds the next one sees one job, not two.
     Promise.resolve()
       .then(() => job.run({ report, job }))
-      .then(job.resolve, job.reject)
-      .finally(() => {
-        this.jobs = this.jobs.filter((j) => j !== job);
-        job.state = "done";
-        for (const p of job.places) this.ended.set(p, (this.ended.get(p) ?? 0) + 1);
-        this.settle(job.places);
-        this.changed();
-        this.pump();
+      .then((value) => {
+        this.finish(job);
+        job.resolve(value);
+      }, (err) => {
+        this.finish(job);
+        job.reject(err);
       });
+  }
+
+  /** Job `job` ended: out of the list, counted in its places' runs, the next ones started. */
+  finish(job) {
+    this.jobs = this.jobs.filter((j) => j !== job);
+    job.state = "done";
+    for (const p of job.places) this.ended.set(p, (this.ended.get(p) ?? 0) + 1);
+    this.settle(job.places);
+    this.changed();
+    this.pump();
   }
 
   /** Cancel job `id` if it has not started; whether it was. */

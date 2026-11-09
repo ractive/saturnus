@@ -1547,15 +1547,17 @@ with a switch above them.
   says the calculator restarted and offers "Reconnect" (which types
   SERVER again on an emulated one).
 - **The queue**: every operation is a job on the places it uses; one per
-  place at a time. The running job is said once, in the head of its
-  calculator's or palmtop's pane (a folder's only when no calculator or
-  palmtop works on it: `Pane.shownJob`): its words (`doing`, "Copying
+  place at a time. The running job is said once, in one pane's head
+  (`app.ownerOf`: the first of its places shown with a calculator or
+  palmtop, a copy's source first, else its folder's; on a narrow screen
+  the pane shown): its words (`doing`, "Copying
   ZPAR…"), "2 of 3" while the place has more in its run
   (`JobQueue.progressOf`), the bytes beside the live region, a spinner,
   and Stop where the job can be stopped (a palmtop's). The Transfers list
   under the panes is up only while two or more jobs are under way or a
-  failure waits (`JobQueue.fail`, said once by `#queue-alert`, dismissed
-  one by one or all at once); it folds away, and its waiting jobs are
+  failure waits (`JobQueue.fail`, said once by `#queue-alert`, or by an
+  error toast while Files is not shown; dismissed one by one or all at
+  once); it folds away until it next appears or a failure comes, and its waiting jobs are
   cancellable one by one or all at once.
 - **Preview**: on selection, small objects at once and larger ones on a
   click (above 2 KB): programs, algebraics and units as the

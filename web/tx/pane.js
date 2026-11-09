@@ -147,18 +147,22 @@ export class Pane {
 
   /**
    * The job this pane's head shows: the one its place runs, with where it
-   * is in the place's run (`{job, index, count}`), or null. A calculator or
-   * palmtop shows its jobs; a folder only those no calculator or palmtop
-   * works on (a copy from a calculator is shown in the calculator's head).
-   * Nothing while the card shows a step (a reconnect says its own).
+   * is in the place's run (`{job, index, count}`), or null. One pane says
+   * a job (app.js `ownerOf`): the first of its places a calculator or
+   * palmtop is shown in (a copy's source first), else its folder's; on a
+   * narrow screen the pane shown. Nothing while the card shows a step (a
+   * reconnect says its own).
    */
   get shownJob() {
     const p = this.place;
     if (!p || this.step) return null;
     const at = this.app.queue.progressOf(p.id);
-    if (!at) return null;
-    if (isDevicePlace(p)) return at;
-    return at.job.places.some((id) => this.app.isDevicePlace(id)) ? null : at;
+    return at && this.app.ownerOf(at.job) === this ? at : null;
+  }
+
+  /** The focus somewhere that stays, when what had it went (Stop, a dismissed failure): the head's "⋯", else "Change". */
+  focusHead() {
+    (this.ui.more.hidden ? this.ui.change : this.ui.more).focus();
   }
 
   /** The queue changed: the head's job line at the next frame. */
@@ -186,6 +190,10 @@ export class Pane {
       const amount = job.done ? this.app.progressText(job.done, job.total) : "";
       if (this.ui.progress.textContent !== amount) this.ui.progress.textContent = amount;
       const can = this.app.queue.canStop(job);
+      if (!can && document.activeElement === stop) {
+        stop.hidden = true;
+        this.focusHead();
+      }
       stop.hidden = !can;
       if (can) {
         stop.disabled = this.stopFor === job.id;
@@ -193,6 +201,10 @@ export class Pane {
       }
       this.jobShown = true;
     } else {
+      if (document.activeElement === stop) {
+        stop.hidden = true;
+        this.focusHead();
+      }
       stop.hidden = true;
       if (this.jobShown) {
         this.jobShown = false;
@@ -1220,13 +1232,22 @@ export class Pane {
         this.say(r.collisions.length ? `${r.name} saved to your downloads. Some names in it differ only in case: unzipped on macOS or Windows, one of each pair is lost.` : `${r.name} saved to your downloads.`);
         return;
       }
-      for (const e of entries) {
-        const file = await this.app.queue.add({ label: `Download ${e.name}`, doing: `Downloading ${e.name}…`, places: [p.id], total: e.size, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.read(path, e.name, { size: e.size })) });
-        this.app.download(file.fileName, file.data);
-        this.say(`${file.fileName} saved to your downloads.`);
-      }
     } catch (err) {
       if (!quiet(err)) this.fail(`Not downloaded: ${problemText(err)}`);
+      return;
+    }
+    // All queued at once, so the pane's head counts them ("2 of 3"); each saved as it comes, in order.
+    const jobs = entries.map((e) => this.app.queue.add({ label: `Download ${e.name}`, doing: `Downloading ${e.name}…`, places: [p.id], total: e.size, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.read(path, e.name, { size: e.size })) }));
+    // Each one's failure is handled in turn below, not as an unhandled rejection meanwhile.
+    for (const job of jobs) job.catch(() => {});
+    for (const job of jobs) {
+      try {
+        const file = await job;
+        this.app.download(file.fileName, file.data);
+        this.say(`${file.fileName} saved to your downloads.`);
+      } catch (err) {
+        if (!quiet(err)) this.fail(`Not downloaded: ${problemText(err)}`);
+      }
     }
   }
 
@@ -1302,9 +1323,12 @@ export class Pane {
     const total = [...counts.values()].reduce((n, c) => n + c, 0);
     if (!(await this.app.ask(removeQuestion(entries.map((e) => e.name), { device, count: total, where: device ? "the calculator" : p.title })))) return;
     const gone = [];
-    for (const e of entries) {
+    // All queued at once, so the pane's head counts them ("2 of 3").
+    const jobs = entries.map((e) => this.app.queue.add({ label: `${device ? "Purge" : "Delete"} ${e.name}`, doing: `${device ? "Purging" : "Deleting"} ${e.name}…`, places: [p.id], ...palmtopStop(p), run: ({ job }) => (device ? p.device.purge(path, e.name, { count: e.directory ? counts.get(e.name) ?? 0 : null }) : p.folder.purge(path, e.name, { recursive: e.directory, owner: job })) }));
+    for (const job of jobs) job.catch(() => {});
+    for (const [i, e] of entries.entries()) {
       try {
-        await this.app.queue.add({ label: `${device ? "Purge" : "Delete"} ${e.name}`, doing: `${device ? "Purging" : "Deleting"} ${e.name}…`, places: [p.id], ...palmtopStop(p), run: ({ job }) => (device ? p.device.purge(path, e.name, { count: e.directory ? counts.get(e.name) ?? 0 : null }) : p.folder.purge(path, e.name, { recursive: e.directory, owner: job })) });
+        await jobs[i];
         gone.push(e.name);
       } catch (err) {
         if (quiet(err)) continue;
