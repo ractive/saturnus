@@ -129,7 +129,13 @@ pub enum Error {
     },
     /// The server answered an ordinary request with a CONNECT refusal: it
     /// has no session open (it left it, or was restarted).
-    NotConnected,
+    NotConnected {
+        /// How many times the request had been sent when the refusal
+        /// came. 1: the refusal answered the first send, so the server ran
+        /// nothing of it; more: an earlier send may have run before the
+        /// session ended, its reply lost.
+        sends: u32,
+    },
     /// CONNECT was refused with this status.
     Refused(u16),
     /// A reply that does not fit its command's layout.
@@ -152,7 +158,7 @@ impl fmt::Display for Error {
                 f,
                 "reply out of step: sent {code:?} with counter {counter}, got command {got_command:#04x} counter {got_counter} direction {got_direction:#04x}"
             ),
-            Error::NotConnected => f.write_str("the server has no session open"),
+            Error::NotConnected { .. } => f.write_str("the server has no session open"),
             Error::Refused(code) => match crate::error::status_meaning(*code) {
                 Some(m) => write!(f, "connect refused: {m} (status {code:#06x})"),
                 None => write!(f, "connect refused with status {code:#06x}"),
@@ -477,7 +483,7 @@ impl Client {
     /// End the session on a link failure. A server that said it has no
     /// session gets no DISCONNECT.
     fn fail(&mut self, error: Error) {
-        if error == Error::NotConnected {
+        if matches!(error, Error::NotConnected { .. }) {
             self.close_quietly();
         } else {
             self.close();
@@ -506,7 +512,7 @@ impl Client {
         let Some(p) = self.pending.as_ref() else {
             return;
         };
-        let (code, counter, fell_back) = (p.code, p.counter, p.fell_back);
+        let (code, counter, sends, fell_back) = (p.code, p.counter, p.sends, p.fell_back);
         if frame.direction == REQUEST {
             // Our own frame echoed (an infrared link); not a reply.
             return;
@@ -552,7 +558,7 @@ impl Client {
                 && frame.counter == 0
                 && status_word == Some(status::NOT_CONNECTED)
             {
-                return self.fail(Error::NotConnected);
+                return self.fail(Error::NotConnected { sends });
             }
             if self.last == Some((frame.command, frame.counter)) {
                 // A late duplicate of the previous reply.
@@ -817,7 +823,22 @@ mod tests {
         c.send(t, &Request::FindNext).unwrap();
         c.poll_output(t).unwrap();
         c.handle_input(t, &reply(0x40, 0, &[0x3B, 0xFF]));
-        assert_eq!(c.poll_event(), Some(Event::Error(Error::NotConnected)));
+        assert_eq!(
+            c.poll_event(),
+            Some(Event::Error(Error::NotConnected { sends: 1 }))
+        );
+        // A refusal to a resend says so.
+        let (mut c, t) = connected();
+        c.send(t, &Request::FindNext).unwrap();
+        c.poll_output(t).unwrap();
+        let d = c.next_timeout().unwrap();
+        c.handle_timeout(d);
+        c.poll_output(d).unwrap();
+        c.handle_input(d, &reply(0x40, 0, &[0x3B, 0xFF]));
+        assert_eq!(
+            c.poll_event(),
+            Some(Event::Error(Error::NotConnected { sends: 2 }))
+        );
     }
 
     #[test]
@@ -826,7 +847,10 @@ mod tests {
         c.send(t, &Request::FindNext).unwrap();
         c.poll_output(t).unwrap();
         c.handle_input(t, &reply(0x40, 0, &[0x3B, 0xFF]));
-        assert_eq!(c.poll_event(), Some(Event::Error(Error::NotConnected)));
+        assert_eq!(
+            c.poll_event(),
+            Some(Event::Error(Error::NotConnected { sends: 1 }))
+        );
         assert!(!c.is_open() && !c.is_busy());
         assert_eq!(c.poll_output(t), None);
         assert_eq!(c.next_timeout(), None);

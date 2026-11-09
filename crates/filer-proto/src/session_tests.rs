@@ -326,7 +326,7 @@ fn a_server_that_left_the_session_ends_it() {
     r.server.break_session();
     assert_eq!(
         r.run(Job::Kind(b"C:\\".to_vec())),
-        Err(JobError::Link(client::Error::NotConnected))
+        Err(JobError::Link(client::Error::NotConnected { sends: 1 }))
     );
     assert!(!r.session.is_open());
     // A new connect works.
