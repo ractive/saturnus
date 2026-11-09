@@ -17,7 +17,7 @@ archive. One tag releases both:
 - `release-saturnus`: `bin-name` and `version-package` `saturnus`,
   checksums in `saturnus-SHA256SUMS`, the .deb/.rpm of the package
   `saturnus` (with the musl swap, "Linux packages", as satx's), and the crates.io
-  publish of all nine crates, satx's included ("crates.io");
+  publish of all ten crates, satx's included ("crates.io");
 - `release-satx`: `bin-name` and `version-package` `satx`, checksums in
   `satx-SHA256SUMS`, the shell completions in the archives and in the
   .deb/.rpm of the package `satx`, no crates (`publish-crates: ""`), and
@@ -194,7 +194,7 @@ needed for this caller, but it is when deb/rpm are turned off again.
 
 ## crates.io
 
-Nine crates are published, in this order (each needs the ones before it
+Ten crates are published, in this order (each needs the ones before it
 on the index):
 
 1. `saturnus-core` (the core, no dependencies);
@@ -206,10 +206,11 @@ on the index):
 6. `saturnus` (the CLI in `crates/saturnus-cli`, so `cargo install
    saturnus` works);
 7. `xmodem-proto` (the XModem protocol);
-8. `satx-core` (satx's library);
-9. `satx` (the transfer tool in `crates/satx-cli`, `cargo install satx`).
+8. `filer-proto` (the HP 100LX/200LX Filer protocol; since 0.11.0);
+9. `satx-core` (satx's library);
+10. `satx` (the transfer tool in `crates/satx-cli`, `cargo install satx`).
 
-`release-saturnus` publishes all nine (`publish-crates`), and
+`release-saturnus` publishes all ten (`publish-crates`), and
 `release-satx` none, so one job owns the order. The list is in
 `release.yml` and as the default of `publish-crates.yml`'s `crates`
 input, and `just package` uses the same crates in the same order; keep the
@@ -246,7 +247,7 @@ their goldens are screen dumps of HP's ROMs. Each published crate's
 README is its crates.io page and compiles as a doctest
 (`ReadmeDoctests` in its `lib.rs`).
 
-The rehearsal, `just package`: `cargo package --locked` for the nine
+The rehearsal, `just package`: `cargo package --locked` for the ten
 crates in one call. Cargo (1.90 and later) packages them in dependency
 order and verifies each package by building it against the packages
 before it, through a temporary local registry in
@@ -275,7 +276,7 @@ first release `V=0.1.0`. Every step says what to check before the next.
    only, never values).
    For each crate of the publish list ("crates.io": `saturnus-core
    kermit-proto saturnus-objects saturnus-host saturnus-drive saturnus
-   xmodem-proto satx-core satx`), `cargo owner --list NAME` names the
+   xmodem-proto filer-proto satx-core satx`), `cargo owner --list NAME` names the
    owner; a name not on crates.io yet is free instead:
    `curl -s -o /dev/null -w '%{http_code}\n' -A saturnus-release-check https://crates.io/api/v1/crates/NAME`
    prints `404`.
@@ -375,7 +376,7 @@ first release `V=0.1.0`. Every step says what to check before the next.
    calculator" lists the ROM just loaded in Calculator and connects to
    it (its HOME listed).
 10. **docs.rs**: `https://docs.rs/crate/NAME/V` shows a successful build
-    for each of the nine crates of the publish list ("crates.io"), minutes
+    for each of the ten crates of the publish list ("crates.io"), minutes
     after step 7.
 
 Recovery:

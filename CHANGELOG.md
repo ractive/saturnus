@@ -5,7 +5,7 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `filer-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## Unreleased
+## 0.11.0 (2026-11-09)
 
 - **Files reaches an HP 100LX or 200LX palmtop.** "Add a calculator…"
   has a third choice, "An HP 100LX or 200LX palmtop": it says how to
@@ -119,7 +119,26 @@ the desktop app and the web page share one version.
 - **Disconnect lets go of the serial port.** When the calculator did not
   answer the end of server mode (its server had stopped, or another
   server ran), Disconnect held the port for over two minutes of retries.
-  It now waits 10 seconds, then lets go of it.
+  It now waits 30 seconds (room for one resend), then lets go of it.
+- **A 38G, 39G or 40G sees new files at once.** Files reads the served
+  folder again each time the calculator asks for its list (every RECV),
+  so a file put into the folder while serving is offered without
+  serving again.
+- **The reference knows the 49G's EVAL.** `saturnus ref EVAL` and Search
+  give right-shift, SYMB on the 49G, which has no EVAL key of its own.
+- **The Reference tab names search's key.** "Click a command to see its
+  details. ⌘K searches from anywhere" (Ctrl+K off the Mac, or the key
+  you chose).
+- **Pressed buttons keep their look under the pointer.** Set only, a set
+  flag's cell, the packets button, Pause and others no longer turn grey
+  under white text on hover; the docs' current model chip is readable in
+  the dark theme.
+- **The home page says which is which.** "Add an emulated calculator"
+  and "Connect a real calculator" instead of "New calculator" and
+  "Connect a calculator".
+- **Firefox has Web Serial.** Files offers a calculator on a cable in
+  Firefox too (seen in 159), and the notes for a browser without it name
+  Chrome, Edge and Firefox.
 
 ## 0.10.3 (2026-11-05)
 
