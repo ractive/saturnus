@@ -14,14 +14,14 @@
  * (`nameClash`, ...), the name it is about as `varName`, and what a
  * question needs (`count` of `notEmpty`, `names` of `namesInUse`, `needed`
  * and `free` of `noRoom`, `directories`, `variables`, `rootMade` and
- * `source` of `partial`).
+ * `source` of `partial`; a palmtop's `baud` of `noAnswer`, its `code`).
  */
 export class TxFailure extends Error {
   constructor({ kind = "calculator", message = "failed", name = null, ...rest } = {}) {
     super(message);
     this.kind = kind;
     this.varName = name;
-    for (const key of ["count", "names", "needed", "free", "directories", "variables", "rootMade", "source"]) {
+    for (const key of ["count", "names", "needed", "free", "directories", "variables", "rootMade", "source", "baud", "code"]) {
       if (rest[key] !== undefined) this[key] = rest[key];
     }
   }
@@ -35,9 +35,10 @@ export class ProtocolClient extends EventTarget {
    * `link` a Link; `worker()` makes the Worker (tests pass one that runs
    * the driver in the page); `seed` fixes the device's seed (tests; a
    * random one otherwise); `listenMs` the speed search's time per speed;
-   * `silenceMs` how long the calculator may say nothing (tests).
+   * `silenceMs` how long the calculator may say nothing (tests); `kind`
+   * "palmtop" for an HP 100LX/200LX (saturnus-tx's palmtop device).
    */
-  constructor(link, { worker = protocolWorker, seed = null, listenMs = undefined, silenceMs = undefined } = {}) {
+  constructor(link, { worker = protocolWorker, seed = null, listenMs = undefined, silenceMs = undefined, kind = "calculator" } = {}) {
     super();
     this.link = link;
     this.worker = worker();
@@ -62,7 +63,7 @@ export class ProtocolClient extends EventTarget {
     };
     link.addEventListener("data", this.onData);
     link.addEventListener("lost", this.onLost);
-    this.worker.postMessage({ cmd: "init", seed, listenMs, silenceMs });
+    this.worker.postMessage({ cmd: "init", seed, listenMs, silenceMs, kind });
   }
 
   failAll(message, kind = "failed") {
@@ -141,6 +142,9 @@ export class ProtocolClient extends EventTarget {
 
   /** Drop the running request (its promise rejects with kind `aborted`). */
   abort() { this.worker.postMessage({ cmd: "abort" }); }
+
+  /** The palmtop: end the running request at its next reply (it rejects with kind `stopped`). */
+  stop() { this.worker.postMessage({ cmd: "stop" }); }
 
   /** Stop the Worker and close the link. */
   async close() {

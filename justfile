@@ -98,6 +98,7 @@ vendor-tab-mcp-local dir=env("TAB_MCP_DIR", env("HOME", "") + "/devel/tab-mcp"):
 # web/pkg/ (needs wasm-pack).
 web:
     web/build.sh -- --locked
+    web/test/build-filer.sh -- --locked
 
 # The transfer page against the emulated 48SX, 48GX and 49G in headless
 # Chrome (web/test/tx-e2e.test.mjs): connect, detect, list, get, put,
@@ -268,9 +269,11 @@ lx-oracle-down:
     -docker rm -f lx
 
 # satx lx end to end: the in-process server always, the oracle at FILER_E2E_ADDR
-# (`just lx-oracle-up` first), then the CLI script against the oracle.
+# (`just lx-oracle-up` first), Files' palmtop device against it, then the
+# CLI script against the oracle.
 lx-e2e addr=filer_e2e_addr:
     FILER_E2E_ADDR="{{addr}}" cargo test --locked -p satx-core --test e2e lx:: -- --nocapture
+    FILER_E2E_ADDR="{{addr}}" cargo test --locked -p saturnus-tx --test palmtop_oracle -- --nocapture
     FILER_E2E_ADDR="{{addr}}" scripts/satx-lx-e2e.sh
 
 # Record a Kermit trace from the running oracle to stdout,

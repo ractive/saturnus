@@ -338,6 +338,9 @@
   .connect-help ul { margin-top: var(--s2); font-size: var(--fs-md); }
   .connect-help[open] { display: flex; flex-direction: column; gap: var(--s2); }
   .connect-help select:disabled { opacity: 0.6; }
+  .palmtop-steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: var(--s1); }
+  .connect-warning { padding: var(--s2) var(--s3); border: 1px solid color-mix(in srgb, var(--error) 55%, transparent); border-radius: var(--r-md); }
+  .connect-warning strong { color: var(--error); }
   /* The connect step: one row per model, its keys drawn. */
   .connect-table { width: 100%; border-collapse: collapse; }
   .connect-table th { text-align: left; vertical-align: top; font-weight: 600; padding: var(--s2) var(--s3) var(--s2) 0; white-space: nowrap; }

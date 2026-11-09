@@ -4,9 +4,11 @@
 // wake-up a second, and after five minutes hidden to one a minute; a
 // dedicated Worker's are not: kb/docs/saturnus-tx.md, "Timing in the
 // browser"). The page holds the link and relays its bytes (protocol.js);
-// this file only starts the driver (driver.js) on the first message.
+// this file only starts the driver (driver.js) on the first message:
+// over saturnus-tx's calculator device, or with `kind: "palmtop"` its
+// HP 100LX/200LX palmtop (TxPalmtop, the same calls).
 
-import init, { TxDevice } from "../pkg/saturnus_web.js";
+import init, { TxDevice, TxPalmtop } from "../pkg/saturnus_web.js";
 import { DeviceDriver } from "./driver.js";
 
 let driver = null;
@@ -21,7 +23,7 @@ self.onmessage = (e) => {
   queue = queue.then(() => {
     if (m.cmd === "init") {
       driver = new DeviceDriver({
-        TxDevice,
+        TxDevice: m.kind === "palmtop" ? TxPalmtop : TxDevice,
         now: () => performance.now(),
         setTimer: (fn, ms) => setTimeout(fn, ms),
         clearTimer: (t) => clearTimeout(t),

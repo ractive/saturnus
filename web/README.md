@@ -1328,8 +1328,8 @@ and checks that the code uses only these.
 `index.html`, its styles under `:where(#files-view)`): files between HP 48S/SX, 48G/GX and 49G
 calculators in server mode (the Kermit server, or XSERV on the 49G; on a
 serial cable through Web Serial in Chrome, Edge and Firefox on a
-computer, Firefox not yet tried on a cable, or emulated in the page)
-and folders
+computer, Firefox not yet tried on a cable, or emulated in the page),
+HP 100LX/200LX palmtops (their Filer in server mode) and folders
 on the computer. Two panes, each showing a place: the left one a
 calculator, the right one a folder or a second calculator, each with
 its directory tree (`<device-tree>`), the list of the shown directory
@@ -1354,6 +1354,14 @@ with a switch above them.
   `kermit-device.js` is the calculator: list, get, put, mkdir, rename,
   purge, a directory's tree got and put, memory, backup, restore, the
   graphics screen, one request at a time, listings kept until a change;
+  `palmtop.js` is the HP 100LX/200LX palmtop (`PalmtopFolder`, the same
+  protocol Worker started with `kind: "palmtop"` over the wasm
+  `TxPalmtop`): a folder's shape for the pane and the copies (the drives
+  at the top, 8.3 names checked before anything is sent, case ignored as
+  DOS ignores it) with a device's life (connect at 19200 or a fixed
+  speed, busy and progress, Stop at the next reply, not answering,
+  disconnect), in either pane; its place is `{kind: "folder", palmtop:
+  true, folder, device}` (one object);
   `folder.js` is the folder (a picked one, or the files in this browser:
   OPFS or memory); `emulator.js` and `emulator-worker.js` are the private
   emulated calculator (saturnus's core booted from a ROM file chosen in
@@ -1553,13 +1561,21 @@ with a switch above them.
   `tx-transfers.test.mjs` (the copies over the fake calculator and a
   folder in memory, with the wasm), `tx-folder.test.mjs`,
   `tx-driver.test.mjs` and `tx-bindings.test.mjs` (the protocol stack in
-  Node over saturnus-tx's recorded traces), `tx-page.test.mjs` (headless
+  Node over saturnus-tx's recorded traces, the palmtop's
+  `100lx-session.trace` too), `tx-palmtop.test.mjs` (the palmtop in Node:
+  `PalmtopFolder` against filer-proto's server, the test package's
+  `TxFilerServer` (`crates/filer-test-server`, built by
+  `test/build-filer.sh` into `test/pkg-filer/`, never in `pkg/`), on
+  `tx-fake-palmtop.js`'s link: listings, get and put
+  byte for byte, 8.3 names, delete with the count, a tree copied in, Stop,
+  not answering), `tx-page.test.mjs` (headless
   Chrome: the page with the recorded fake link of
   `fixtures/tx-page.trace`, re-recorded by `just tx-page-trace DIR`; the
   two panes with `tx-fake-calc.js` in place of the protocol Worker and a
   folder in memory: drags, drops, replace, purge, rename, the plan's
   warning, the queue, backup and restore; overflow at five widths in both
-  themes; no Web Serial), `tx-e2e.test.mjs` (`just tx-e2e DIR`: the
+  themes; no Web Serial; the palmtop through "Add a calculator" with the
+  server behind a fake Web Serial port), `tx-e2e.test.mjs` (`just tx-e2e DIR`: the
   emulated 48SX, 48GX and 49G with a folder: round trips byte for byte,
   directories, rename, purge, PICT, the folder copy of HOME and back,
   backup and restore onto a fresh calculator; an emulated 48GX to an

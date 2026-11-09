@@ -59,14 +59,26 @@ export function rowActions({ kind, entries, other = null, otherFolders = true, x
 export const HUB_RESTORE = "To go back to an earlier state, use Load state in Calculator.";
 
 /**
- * The pane's own "⋯": for a calculator (`connected` false after a
+ * The pane's own "⋯": for a palmtop (`palmtop`; `connected` false once
+ * it stopped answering), for a calculator (`connected` false after a
  * restore, `emulated` the page's own emulated one, `hub` the emulator's,
  * which has no restore, graphics screen or fast transfer: a line says
  * where its restore is), or a folder (`picked` one the user chose,
  * `fallback` the page's own files). `other`, `otherFolders` and `xmodem`
  * as in `rowActions`.
  */
-export function paneActions({ kind, connected = true, emulated = false, hub = false, picked = false, other = null, otherFolders = true, xmodem = false }) {
+export function paneActions({ kind, palmtop = false, connected = true, emulated = false, hub = false, picked = false, other = null, otherFolders = true, xmodem = false }) {
+  if (palmtop) {
+    const off = !connected;
+    return [
+      { id: "mkdir", text: "New directory…", icon: "folder", disabled: off },
+      { id: "upload", text: "Add files from this computer…", icon: "load", disabled: off },
+      { id: "zipAll", text: "Download everything here as .zip", icon: "save", disabled: off },
+      { id: "refresh", text: "Read the palmtop again", icon: "refresh", disabled: off },
+      "-",
+      { id: "close", text: "Disconnect", icon: "disconnect" },
+    ];
+  }
   if (kind === "device") {
     const off = !connected;
     return [

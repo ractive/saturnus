@@ -182,3 +182,33 @@ test("the pane's own menu: a calculator's and a folder's", () => {
   assert.equal(folder.find((i) => i.id === "close").text, "Close this folder");
   assert.equal(paneActions({ kind: "folder", picked: false }).find((i) => i.id === "close").text, "Close the files");
 });
+
+test("Stop: offered on a running job that has one, while its `stoppable` says so; it gets the job", async () => {
+  const q = new JobQueue();
+  let busy = false;
+  const stopped = [];
+  let release;
+  let seen = null;
+  const p = q.add({
+    label: "Copy X", places: ["p"],
+    stop: (job) => stopped.push(job),
+    stoppable: () => busy,
+    run: ({ job }) => {
+      seen = job;
+      return new Promise((r) => { release = r; });
+    },
+  });
+  const plain = q.add({ label: "Copy Y", places: ["q"], run: () => new Promise(() => {}) });
+  await Promise.resolve();
+  await Promise.resolve();
+  const [job, other] = q.running;
+  assert.equal(q.canStop(job), false, "not while its palmtop work is not running");
+  busy = true;
+  assert.equal(q.canStop(job), true);
+  assert.equal(q.canStop(other), false, "no stop, no Stop");
+  job.stop(job);
+  assert.deepEqual(stopped, [seen]);
+  release("done");
+  assert.equal(await p, "done");
+  void plain;
+});

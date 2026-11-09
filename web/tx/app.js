@@ -41,7 +41,8 @@ import { CableLog } from "./cable.js";
 import { CableView } from "./cable-view.js";
 import { connectRefusal, refusalText } from "../shared/site-links.js";
 import { nativeHub } from "../native-hub.js";
-import { EMULATED_NAMES, MODELS, START_SERVER, bytesText, linkSettings, modelTitle, progressText } from "./flows.js";
+import { EMULATED_NAMES, MODELS, START_SERVER, bytesText, linkSettings, modelTitle, palmtopSettings, progressText } from "./flows.js";
+import { PALMTOP_BAUD } from "./palmtop.js";
 
 // ------------------------------------------------------------ preferences
 
@@ -97,6 +98,8 @@ export function mountFiles(root, { shown = () => true } = {}) {
     connectDialog: $("connect-dialog"), connectSteps: $("connect-steps"),
     connectGo: $("connect-go"), connectOther: $("connect-other"), connectKnown: $("connect-known"),
     connectAsk: $("connect-ask"), connectKind: $("connect-kind"), connectCable: $("connect-cable"), connectBack: $("connect-back"),
+    connectPalmtop: $("connect-palmtop"), palmtopFixed: $("palmtop-fixed"), palmtopBaud: $("palmtop-baud"), palmtopFast: $("palmtop-fast"),
+    palmtopBaudText: $("palmtop-baud-text"), palmtopKnown: $("palmtop-known"),
     portDialog: $("port-dialog"), portSelect: $("port-select"), portNone: $("port-none"), portAgain: $("port-again"), portGo: $("port-go"),
     emulatedDialog: $("emulated-dialog"), emulatedRoms: $("emulated-roms"), emulatedNone: $("emulated-none"), emulatedFile: $("emulated-file"),
     setFixed: $("set-fixed"), setBaud: $("set-baud"), setParity: $("set-parity"),
@@ -175,6 +178,8 @@ export function mountFiles(root, { shown = () => true } = {}) {
     /** This tab's token: rows dragged carry it, so a drop from another tab is told apart. */
     pageToken: Math.random().toString(36).slice(2) + Date.now().toString(36),
     settings: linkSettings(store.get(TRANSFER_KEYS.link)),
+    /** The palmtop's speed: `{fixed, baud}`, 19200 unless fixed. */
+    palmtop: palmtopSettings(store.get(TRANSFER_KEYS.palmtop)),
     /** Options for the next calculator's protocol client (the tests: a fixed seed, a fake Worker). */
     deviceOptions: {},
     /** Wraps the next link (the tests: a RecordingLink). */
@@ -222,7 +227,8 @@ export function mountFiles(root, { shown = () => true } = {}) {
   const serve = new ServeView($("serve"), {
     stage: ui.stage,
     app,
-    folders: () => panes.map((p) => (p.place?.kind === "folder" ? p.place.folder : null)).filter(Boolean),
+    // A palmtop is no folder to serve: it is on a cable of its own.
+    folders: () => panes.map((p) => (p.place?.kind === "folder" && !p.place.palmtop ? p.place.folder : null)).filter(Boolean),
   });
   /** The serve screen; `calc` chosen already (`{key: "serial"}`, a kept ROM's). */
   app.openServe = (calc = null) => serve.show({ calc });
@@ -300,7 +306,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
     const jobs = queue.jobs;
     ui.queue.hidden = jobs.length === 0;
     ui.cancelWaiting.hidden = queue.waiting.length < 2;
-    const shape = jobs.map((j) => `${j.id}:${j.state}:${j.total ? 1 : 0}`).join(",");
+    const shape = jobs.map((j) => `${j.id}:${j.state}:${j.total ? 1 : 0}:${queue.canStop(j) ? 1 : 0}`).join(",");
     if (shape === queueShape) {
       // Progress only: the rows stay, and with them a focused Cancel button.
       for (const j of queue.running) {
@@ -328,6 +334,15 @@ export function mountFiles(root, { shown = () => true } = {}) {
         el("span", { class: "queue-state muted", text: running ? amount || "Running…" : "Waiting" }),
       );
       if (running && j.total) li.append(el("progress", { class: "queue-bar", max: String(j.total), value: String(Math.min(j.done, j.total)), "aria-label": `${j.label}: ${amount || "started"}` }));
+      // A running job that can be stopped (on a palmtop): Stop ends it at the device's next reply.
+      if (queue.canStop(j)) {
+        const b = el("button", { type: "button", class: "icon queue-cancel queue-stop", title: `Stop: ${j.label}`, "aria-label": `Stop ${j.label}` }, iconEl("close"));
+        b.addEventListener("click", () => {
+          b.disabled = true;
+          j.stop(j);
+        });
+        li.append(b);
+      }
       if (!running) {
         const b = el("button", { type: "button", class: "icon queue-cancel", title: `Cancel: ${j.label}`, "aria-label": `Cancel ${j.label}` }, iconEl("close"));
         b.addEventListener("click", () => queue.cancel(j.id));
@@ -347,7 +362,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
   /** Whether leaving the page now would cut something short: a transfer running or waiting, a calculator working, or one on a cable (its port and server mode are not got back by a reload). */
   function busyToLeave() {
     if (queue.running.length + queue.waiting.length > 0) return true;
-    return panes.some((p) => p.place?.kind === "device" && (p.place.device.running || (!p.place.emulated && p.place.device.connection)));
+    return panes.some((p) => (p.place?.kind === "device" || p.place?.palmtop) && (p.place.device.running || (!p.place.emulated && p.place.device.connection)));
   }
 
   // Leaving mid-transfer or with a calculator on a cable (closing, reloading,
@@ -534,7 +549,9 @@ export function mountFiles(root, { shown = () => true } = {}) {
   /**
    * The connect dialog's first step: which kind of calculator is on the
    * cable. An HP 48 or 49 goes on to its model and the port; a 38G, 39G
-   * or 40G starts every transfer itself, so it goes to "Serve a folder".
+   * or 40G starts every transfer itself, so it goes to "Serve a folder";
+   * an HP 100LX or 200LX palmtop goes on to its Filer's settings and the
+   * port.
    */
   function askConnectKind() {
     const kind = (key, label, sub, icon, run) => {
@@ -543,26 +560,33 @@ export function mountFiles(root, { shown = () => true } = {}) {
       return b;
     };
     ui.connectKind.replaceChildren(
-      kind("48-49", "An HP 48 or 49", "48SX, 48GX or 49G: you start its server, Files shows its memory", "plug", () => connectCableStep(true)),
+      kind("48-49", "An HP 48 or 49", "48SX, 48GX or 49G: you start its server, Files shows its memory", "plug", () => connectStep("cable")),
       kind("38-40", "An HP 38G, 39G or 40G", "These start every transfer themselves: Files serves them a folder", "calculator", () => {
         ui.connectDialog.close();
         serve.show({ calc: { key: "serial" } });
       }),
+      kind("palmtop", "An HP 100LX or 200LX palmtop", "Its Filer in server mode: Files shows its drives and files", "folder", () => connectStep("palmtop")),
     );
-    connectCableStep(false);
+    connectStep(null);
   }
 
-  /** Show the connect dialog's model and port step (`cable`), or the first step again. */
-  function connectCableStep(cable) {
-    ui.connectAsk.hidden = cable;
-    ui.connectCable.hidden = !cable;
-    ui.connectBack.hidden = !cable;
-    ui.connectGo.hidden = !cable;
-    ui.connectOther.hidden = !cable || !connectHasKnown;
-    if (cable) ui.connectGo.focus();
+  /** What the connect dialog connects once the port is chosen: "cable" (an HP 48 or 49) or "palmtop". */
+  let connectMode = "cable";
+
+  /** Show the connect dialog's step: "cable" (an HP 48 or 49), "palmtop", or the first (null). */
+  function connectStep(step) {
+    if (step) connectMode = step;
+    ui.connectAsk.hidden = step !== null;
+    ui.connectCable.hidden = step !== "cable";
+    ui.connectPalmtop.hidden = step !== "palmtop";
+    ui.connectBack.hidden = step === null;
+    ui.connectGo.hidden = step === null;
+    ui.connectOther.hidden = step === null || !connectHasKnown;
+    if (step === "palmtop") renderPalmtopSettings();
+    if (step) ui.connectGo.focus();
     else ui.connectKind.querySelector("button")?.focus();
   }
-  ui.connectBack.addEventListener("click", () => connectCableStep(false));
+  ui.connectBack.addEventListener("click", () => connectStep(null));
 
   /** A port the page was given before (Chrome remembers it) that no pane holds, or null. */
   async function knownPort() {
@@ -625,8 +649,10 @@ export function mountFiles(root, { shown = () => true } = {}) {
     target = pane;
     renderConnectDialog();
     const known = await lastNativePort();
-    ui.connectKnown.hidden = !known;
-    ui.connectKnown.textContent = known ? `The port used last: ${known.label}.` : "";
+    for (const k of [ui.connectKnown, ui.palmtopKnown]) {
+      k.hidden = !known;
+      k.textContent = known ? `The port used last: ${known.label}.` : "";
+    }
     connectHasKnown = Boolean(known);
     ui.connectGo.textContent = known ? "Connect" : "Choose the port";
     const go = (choosing) => connectPort(choosing, (port) => new TauriSerialLink(port));
@@ -645,8 +671,10 @@ export function mountFiles(root, { shown = () => true } = {}) {
     target = pane;
     renderConnectDialog();
     const known = await knownPort();
-    ui.connectKnown.hidden = !known;
-    ui.connectKnown.textContent = known ? "This browser remembers the port from last time." : "";
+    for (const k of [ui.connectKnown, ui.palmtopKnown]) {
+      k.hidden = !known;
+      k.textContent = known ? "This browser remembers the port from last time." : "";
+    }
     connectHasKnown = Boolean(known);
     ui.connectGo.textContent = known ? "Connect" : "Choose the port";
     ui.connectGo.onclick = () => connectPort(known ? Promise.resolve(known) : navigator.serial.requestPort());
@@ -664,6 +692,10 @@ export function mountFiles(root, { shown = () => true } = {}) {
     }
     if (!port) return; // the app's chooser was cancelled
     ui.connectDialog.close();
+    if (connectMode === "palmtop") {
+      await target.connectPalmtop(makeLink(port), { baud: palmtopBaud() });
+      return;
+    }
     // The model is read from the calculator.
     await target.connectLink(makeLink(port), { model: null, settings: app.settings });
   }
@@ -811,6 +843,31 @@ export function mountFiles(root, { shown = () => true } = {}) {
 
   for (const input of [ui.setFixed, ui.setBaud, ui.setParity]) input.addEventListener("change", saveSettings);
 
+  // ------------------------------------------------------------ the palmtop's speed
+
+  /** The speed the palmtop is connected at: 19200, or the fixed one. */
+  function palmtopBaud() {
+    return app.palmtop.fixed ? app.palmtop.baud : PALMTOP_BAUD;
+  }
+  app.palmtopBaud = palmtopBaud;
+
+  /** The palmtop step's speed: 19200 unless "Use a fixed speed", and the warning above 19200. */
+  function renderPalmtopSettings() {
+    ui.palmtopFixed.checked = app.palmtop.fixed;
+    ui.palmtopBaud.value = String(app.palmtop.baud);
+    ui.palmtopBaud.disabled = !app.palmtop.fixed;
+    ui.palmtopFast.hidden = palmtopBaud() <= PALMTOP_BAUD;
+    ui.palmtopBaudText.textContent = String(palmtopBaud());
+  }
+
+  function savePalmtopSettings() {
+    app.palmtop = { fixed: ui.palmtopFixed.checked, baud: Number(ui.palmtopBaud.value) };
+    store.set(TRANSFER_KEYS.palmtop, JSON.stringify(app.palmtop));
+    renderPalmtopSettings();
+  }
+
+  for (const input of [ui.palmtopFixed, ui.palmtopBaud]) input.addEventListener("change", savePalmtopSettings);
+
   // ------------------------------------------------------------ start
 
   async function start() {
@@ -860,7 +917,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
       const p = panes[i];
       const place = p.place;
       if (!place || p.step) return false;
-      if (place.kind === "device" && (!place.device.connection || place.device.running || place.device.queued)) return false;
+      if ((place.kind === "device" || place.palmtop) && (!place.device.connection || place.device.running || place.device.queued)) return false;
       return !queue.uses(place.id) && Boolean(p.ui.list.listing);
     },
     /** The names in pane `i`'s list. */

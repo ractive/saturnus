@@ -17,6 +17,7 @@ saturnus-host.workspace = true
 saturnus-tx = { path = "../saturnus-tx" }
 satx-core.workspace = true
 kermit-proto.workspace = true
+filer-proto.workspace = true
 saturnus-objects.workspace = true
 anyhow = "1"
 serde = "1"

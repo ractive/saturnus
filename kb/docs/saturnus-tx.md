@@ -103,10 +103,12 @@ one); the right pane shows a folder or a device (owner, 2026-10-11).
 | 38G | Kermit, calculator as client | the calculator (SEND, RECEIVE) | send aplets to a folder, receive aplets from a folder |
 | 39G, 40G | Kermit as the 38G; XModem for binary aplets | the calculator | as the 38G; binary aplets by XModem (HPGComm's README: RECV, "HP39/40 (Wire)") |
 | 42S | none | | not offered |
+| HP 100LX, 200LX (palmtops) | the Filer protocol (`filer-proto`), Filer in server mode | the computer | the drives, list, get, put, rename, delete (a directory with everything in it), new directory, 8.3 names ("The HP 100LX and 200LX") |
 
 Facts: wiki `protocols/kermit-hp`, `protocols/server-commands`,
 `protocols/xmodem-hp`, `protocols/xserv`, `protocols/iopar`,
-`questions/hp38g-39g-transfer-protocol`, `hardware/hp39g-40g`.
+`questions/hp38g-39g-transfer-protocol`, `hardware/hp39g-40g`,
+`protocols/filer-hplx`, `hardware/hp100lx-200lx`.
 
 Three kinds of link carry the bytes, all behind one JavaScript interface
 (`Link`: `open(settings)`, `write(bytes)`, a stream of received bytes,
@@ -783,6 +785,105 @@ drive" it expects (wiki `protocols/aplet-transfer`, which answers
   aplet saved as XYZ, deleted, sent back by wire and sent to the folder
   again byte for byte.
 
+### The HP 100LX and 200LX
+
+Iteration [[iterations/iteration-73-files-hp100lx]], after the protocol
+crate and `satx lx` of [[iterations/iteration-72-filer-proto]]. The
+palmtop's built-in Filer serves its disks over the serial cable (wiki
+`protocols/filer-hplx`, `hardware/hp100lx-200lx`); Files is the client,
+as for the 48's Kermit server.
+
+- **Connect.** "Add a calculator…", "An HP 100LX or 200LX palmtop": one
+  step with the palmtop's settings (Filer, MENU, Communications, Remote
+  Settings: Baud 19200, Interface COM1, Server Mode on, OK; Filer left in
+  front), the cable warning (the palmtop's cable never on a 48 or 49G, a
+  38G cable or adapter never on the palmtop) and "Trouble with the
+  cable?" (the adapter straight into HP's cable, which has the null modem
+  built in; the logo up at the palmtop; `dialout`). Then "Choose the
+  port". The port opens at 19200 baud 8N1, no flow control, and one
+  CONNECT goes out (HP's timing: 2 s, up to six sends). No speed search:
+  both sides must be set alike, and the palmtop does not answer at
+  another speed. "Use a fixed speed" offers the Filer's other speeds
+  (1200 to 115200), with the warning that the stock UART (an 8250
+  without FIFO) may lose bytes above 19200; stored as
+  `saturnus.transfer.palmtop`. Nothing answering says what to check and,
+  at another speed, to set 19200 on both sides.
+- **The place.** A folder with a device's life: `web/tx/palmtop.js`'s
+  `PalmtopFolder` has a Folder's calls (list, read, write, existing,
+  rename, count, purge, mkdir, files, zip), so the pane and the copies
+  treat it as a folder (the folder's columns: name, type, size, the DOS
+  date; tree copies through the folder code), and a calculator device's
+  (connect, busy, progress, notAnswering, lost, disconnect). Its place is
+  `{kind: "folder", palmtop: true, folder, device}`, the one object
+  twice; unlike a folder it goes in either pane. Its top directory,
+  "Palmtop", lists the drives (the drive-list request; a revision-1 Filer
+  has C: only); D: is the ROM disk, whose writes fail as write-protected.
+  The Type column says Drive, Folder or File, with read-only, hidden and
+  system. A palmtop is not offered to the serve screen as a folder.
+- **Names.** DOS 8.3, upper case, case ignored as DOS ignores it: a
+  write of `notes.txt` is the same file as `NOTES.TXT` (so "Replace?"
+  asks), and a copy's plan leaves out a name the palmtop cannot make,
+  with the reason, before anything is sent (saturnus-tx's `dos_name`;
+  printable ASCII without spaces and `"*+,./:;<=>?[\]|`, 1 to 8
+  characters, optionally a dot and 1 to 3 more; never one of DOS's
+  device names, `CON`, `PRN`, `AUX` (the serial port the session runs
+  on), `NUL`, `COM1`-`4`, `LPT1`-`3`, `CLOCK$`, `CONFIG$`, whatever the
+  extension). A folder or calculator directory with such a name
+  anywhere inside is left out whole, naming the path (its copy would
+  stop part way). Listings and change events go by the palmtop's
+  spelling (capitals), whatever case a path is given in. A calculator's
+  variable goes over as its `.hp` file. Not offered: shortening a name.
+- **The device.** `saturnus-tx`'s `palmtop::Palmtop`, sans I/O like the
+  Kermit device, over `filer-proto`'s `Session`; the wasm binds it as
+  `TxPalmtop` with `TxDevice`'s calls, so the protocol Worker's driver
+  runs either (the Worker is started with `kind: "palmtop"`). satx-core's
+  `filer::Palmtop` is blocking on the system clock, so it is not used
+  here. Requests: connect, list (the top: the drives), get, put (with
+  `replace`: create, and on "file already exists" create-or-replace),
+  rename (refused over another name), remove (a file; or a directory:
+  every level listed, its files deleted, its directories removed
+  deepest first; the count it held; refused before anything is deleted
+  when the walk saw a read-only file, named; a directory still not
+  empty at the end holds hidden or system files, which listings do not
+  show, and says so), mkdir, disconnect (one DISCONNECT,
+  not awaited; Filer stays in server mode).
+- **Stop.** A copy, download or delete on a palmtop can be stopped while
+  its palmtop work runs: the queue's running row gets a Stop button
+  (`queue.js` jobs with `stop` and `stoppable`). The palmtop's
+  operations carry the job as their owner (`PalmtopFolder.stopOwner`,
+  `busyFor`, `scoped`): Stop ends that job's running operation, drops
+  its waiting ones and refuses its later ones; a preview or another
+  job's work goes on, and listings, shared and short, are never cut.
+  The device ends the request at the palmtop's next reply
+  (`filer-proto`'s `Session::cancel`): a get closes its file, a put
+  closes and deletes the part written, a removal stops after the file or
+  directory it is at. The session stays.
+- **Not answering.** A request the palmtop does not answer after three
+  sends (5.9 s each, about 18 s) ends the session: the pane shows "The
+  palmtop stopped answering" with what to check (Filer open in front,
+  server mode on, auto-off, the cable) and Reconnect, which connects at
+  the speed it was connected at (kept on the place, not the dialog's
+  current one). A palmtop whose session ended (Ctrl+Break there)
+  answers a request with a CONNECT refusal, which ends it the same way.
+- **Progress.** Each 2 KB block of a get or put; the listing's size gives
+  a get its total. About 1.7 KB/s at 19200 baud, so a palmtop file is
+  previewed on selection only up to 2 KB, larger ones when asked.
+- **Tests.** `saturnus-tx`'s `palmtop_tests.rs` against `filer-proto`'s
+  server over its `MemoryFs` on a fake clock (every request, Stop, abort,
+  silence, a revision-1 Filer) and its recorded session,
+  `traces/100lx-session.trace` (`SATURNUS_BLESS=1` rewrites it), which
+  `web/test/tx-driver.test.mjs` replays through the page's protocol
+  stack; `web/test/tx-palmtop.test.mjs` runs `PalmtopFolder` and the
+  copies in Node against the same server through `TxFilerServer`
+  (`web/test/tx-fake-palmtop.js`), which is a wasm package of its own
+  (`crates/filer-test-server`, `web/test/build-filer.sh`, built by
+  `just web` and CI's wasm job beside `web/pkg`), so the app's wasm
+  holds no test server; `tx-page.test.mjs`
+  goes through "Add a calculator" with the server behind a fake Web
+  Serial port. The real palmtop is the owner's session (the iteration's
+  last task): the error codes it really sends, the fastest speed that
+  holds, auto-off while serving.
+
 ### Preview
 
 - **GROBs** as pictures: decoded by `saturnus-objects` (`graphic`) and
@@ -1089,7 +1190,8 @@ hardware by the owner.
    Linux and macOS) to saturnus-drive's runner with its serial bridge.
 6. **Real hardware, the owner**: the owner has a 48SX, a 49G and a 38G
    (no 48GX, 39G or 40G), and the 38G's 10-pin cable, so the 38G is
-   tested on hardware too. Each iteration ends with an owner checklist on
+   tested on hardware too; and an HP 100LX with its own cable (the
+   palmtop, iteration 73). Each iteration ends with an owner checklist on
    them in Chrome and in the desktop app. The 48GX, 39G and 40G stay
    "tested on the emulator only" until someone with one reports.
 

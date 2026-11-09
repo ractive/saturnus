@@ -923,6 +923,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "filer-test-server"
+version = "0.10.3"
+dependencies = [
+ "filer-proto",
+ "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2995,6 +3004,7 @@ dependencies = [
 name = "saturnus-tx"
 version = "0.10.3"
 dependencies = [
+ "filer-proto",
  "kermit-proto",
  "saturnus-core",
  "saturnus-drive",
@@ -3008,6 +3018,7 @@ name = "saturnus-web"
 version = "0.10.3"
 dependencies = [
  "anyhow",
+ "filer-proto",
  "js-sys",
  "kermit-proto",
  "saturnus-core",

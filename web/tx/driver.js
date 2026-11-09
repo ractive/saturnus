@@ -7,14 +7,15 @@
 //
 // Messages from the page: `{cmd: "start", id, request, data?}`,
 // `{cmd: "input", bytes}`, `{cmd: "linkError", message}`,
-// `{cmd: "abort"}`. To the page: `{type: "open", baud, parity,
+// `{cmd: "abort"}`, `{cmd: "stop"}` (the palmtop: the running request
+// ends at the next reply, its result follows). To the page: `{type: "open", baud, parity,
 // dataBits}`, `{type: "write", bytes}`, `{type: "event", event}`,
 // `{type: "result", id, ok, outcome, data?, error?}`, each after
 // `{type: "connection", connection}`, the calculator connected then.
 
 export class DeviceDriver {
   /**
-   * `TxDevice` the wasm class; `now()` the clock in ms; `setTimer(fn,
+   * `TxDevice` the wasm class (or `TxPalmtop`, which has the same calls); `now()` the clock in ms; `setTimer(fn,
    * ms)` / `clearTimer(handle)` one timer; `post(message)` to the page;
    * `seed` the device's seed (random by default); `listenMs` the speed
    * search's listening time per speed (the device's default when absent);
@@ -50,6 +51,9 @@ export class DeviceDriver {
         break;
       case "linkError":
         this.device.linkError(now, String(m.message ?? "the link failed"));
+        break;
+      case "stop":
+        this.device.stop?.(now);
         break;
       case "abort":
         if (this.running !== null) {

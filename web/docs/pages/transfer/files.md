@@ -1,6 +1,6 @@
 ---
 title: Files in the app
-description: Files, the app's view for moving variables between a computer, an emulated calculator and a real one on a serial cable, in a browser with Web Serial or in the desktop app; aplets for the 38G, 39G and 40G.
+description: Files, the app's view for moving variables between a computer, an emulated calculator and a real one on a serial cable, in a browser with Web Serial or in the desktop app; aplets for the 38G, 39G and 40G; files on an HP 100LX or 200LX palmtop.
 section: transfer
 order: 4
 ---
@@ -16,14 +16,14 @@ Files is the app's second view, beside Calculator. It shows two places side by s
 | An emulated calculator | any browser |
 | A real calculator | Chrome, Edge or Firefox on a computer (Firefox not yet tried on a cable), or the desktop app |
 | A folder on your disk | Chrome or Edge, or the desktop app |
-| Models on a cable | 48S/SX, 48G/G+/GX and 49G as servers (the 49G's Kermit server or XSERV); 38G, 39G and 40G served a folder |
+| Models on a cable | 48S/SX, 48G/G+/GX and 49G as servers (the 49G's Kermit server or XSERV); 38G, 39G and 40G served a folder; the HP 100LX and 200LX palmtops through their Filer |
 | Not supported | the 42S and the other Pioneer models, which have no serial port |
 
 Chrome and Edge reach the serial port through [Web Serial](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API) and a folder through the [File System Access API](https://developer.chrome.com/docs/capabilities/web-apis/file-system-access). Firefox has Web Serial too (seen in version 159), so Files offers "Add a calculator…" there; it has not been tried with a real calculator yet. Firefox and Safari have no folder picker: there Files keeps its files in the page ("Files in this browser"), which you add from your computer and download again. Safari has no Web Serial either, so it works with emulated calculators only. A real calculator then needs the desktop app, which has native serial ports and folders.
 
 ## The two panes
 
-The left pane always shows a calculator; the right pane shows a folder on your computer or a second calculator. On a narrow screen one pane shows at a time, with a switch above them.
+The left pane always shows a calculator (or a palmtop); the right pane shows a folder on your computer or a second calculator. On a narrow screen one pane shows at a time, with a switch above them.
 
 Each pane has a tree of directories and a list of the variables in the current one, with their type, size and checksum as the calculator reports them. Selecting a variable shows a preview under the list: numbers, strings, lists and the other data objects as text, GROBs as pictures. Programs show as text when the calculator sends its text form.
 
@@ -80,10 +80,27 @@ On the calculator, choose SEND or RECV in the Aplet Library (LIB on the 38G, APL
 
 "Stop serving" ends it.
 
+## An HP 100LX or 200LX palmtop
+
+The [HP 100LX and 200LX](https://en.wikipedia.org/wiki/HP_200LX) are palmtop PCs, not calculators, but their built-in Filer can serve its disks over the serial cable, and Files shows them like a folder: the drives at the top (C: the internal disk, A: the memory card, D: the ROM disk, which is read-only), then directories and files with their size and date. Copy, rename, delete and make directories as in a folder, in either pane.
+
+1. On the palmtop, open Filer, press MENU and choose Communications, Remote Settings. Set Baud to 19200, Interface to COM1 and Server Mode on, then OK. Leave Filer open and in front.
+2. Plug in the palmtop's own serial cable and a USB serial adapter. HP's palmtop cable has the null modem built in, so the adapter goes straight into it. At the palmtop the plug goes in with the HP logo up.
+3. In Files, choose "Add a calculator…", then "An HP 100LX or 200LX palmtop", then "Choose the port".
+
+Never plug the palmtop's cable into an HP 48 or 49G, and never use a 38G cable or adapter on the palmtop: the plugs fit, but the wiring differs and can damage the device.
+
+Files talks at 19200 baud, the speed the palmtop's serial chip handles safely according to the [palmtops FAQ](https://ftp.lip6.fr/pub/doc/faqs/hp/palmtops-faq). A faster one can be set under "Trouble with the cable?", "Use a fixed speed", with the same speed on the palmtop; above 19200 the chip may lose bytes, and a copy can fail part way. When nothing answers at another speed, Files says to go back to 19200.
+
+The palmtop takes DOS names only: up to 8 letters or digits, a dot and up to 3 more, in capitals (`NOTES.TXT`). A file with a longer name is left out of a copy with the reason, so rename it first; a calculator's variable goes over as its `.hp` file, so `PRG` becomes `PRG.HP`. A copy moves about 1.7 KB a second at 19200 baud: the queue shows its progress, and Stop ends it at the palmtop's next reply (a file half written is deleted again). If the palmtop says nothing for about 18 seconds, the pane says "The palmtop stopped answering": check that Filer is still open in front with server mode on, that the palmtop has not turned itself off, and the cable, then choose "Reconnect". Disconnect leaves Filer in server mode for the next time.
+
+This works against a test server here; on a real palmtop it is still to be tried out.
+
 ## Sources
 
-- The app's Files view and its design notes in this repository: the panes, the queue, the dialogs and their labels, the speed search, the connection checks, the aplet server.
+- The app's Files view and its design notes in this repository: the panes, the queue, the dialogs and their labels, the speed search, the connection checks, the aplet server, the palmtop's Filer settings, drives, names and timing.
 - [HP-48 Kermit Hints and Tips, the Kermit Project](https://www.columbia.edu/kermit/hp48.html): the server's default speed and parity.
 - [HP 48G Series User's Guide](https://literature.hpcalc.org/community/hp48g-ug-en.pdf): ARCHIVE and RESTORE (27-12).
 - [HP 38G User's Guide](https://literature.hpcalc.org/official/hp38g-ug-en.pdf) and [HP 39G/40G User's Guide](https://literature.hpcalc.org/official/hp39g40g-ug-en.pdf): sending and receiving aplets to a disk drive (1-26, 16-5).
+- [comp.sys.palmtops HP100LX FAQ](https://ftp.lip6.fr/pub/doc/faqs/hp/palmtops-faq): the palmtop's serial chip and its safe speed.
 - [MDN: Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API) and [File System API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API): which browsers have them.

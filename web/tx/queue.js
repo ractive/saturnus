@@ -4,7 +4,7 @@
 // starts once none of them runs another job and no job asked for earlier
 // waits for one of them, so each place does its jobs in the order asked.
 // Jobs that have not started can be cancelled; a running one reports its
-// progress in bytes. The page shows the list (app.js); pure, no DOM:
+// progress in bytes, and one given a `stop` (a palmtop's) can be stopped. The page shows the list (app.js); pure, no DOM:
 // web/test/tx-queue.test.mjs.
 //
 // Events: `change` (the jobs, a job's state or progress changed).
@@ -32,17 +32,19 @@ export class JobQueue extends EventTarget {
   /**
    * Queue `run(job)` on `places` (ids; a place is busy while one of its
    * jobs runs). `label` says what it is ("Copy PRG to hp-files"), `total`
-   * the bytes expected (null: unknown). Resolves or rejects as `run` does;
+   * the bytes expected (null: unknown), `stop(job)` ends it while it runs
+   * (null: it cannot be stopped) and `stoppable(job)` says whether that
+   * would act now (null: whenever it runs). Resolves or rejects as `run` does;
    * rejects with `Cancelled` when cancelled before it starts.
    */
-  add({ label, places, run, total = null }) {
+  add({ label, places, run, total = null, stop = null, stoppable = null }) {
     let resolve;
     let reject;
     const promise = new Promise((res, rej) => {
       resolve = res;
       reject = rej;
     });
-    const job = { id: this.nextId++, label, places: [...new Set(places)], state: "queued", done: 0, total, note: "", run, resolve, reject };
+    const job = { id: this.nextId++, label, places: [...new Set(places)], state: "queued", done: 0, total, note: "", run, stop, stoppable, resolve, reject };
     this.jobs.push(job);
     this.changed();
     this.pump();
@@ -57,6 +59,11 @@ export class JobQueue extends EventTarget {
 
   /** Whether `place` has a job running or waiting. */
   uses(place) { return this.jobs.some((j) => j.places.includes(place)); }
+
+  /** Whether running job `j` offers Stop now. */
+  canStop(j) {
+    return j.state === "running" && Boolean(j.stop) && (!j.stoppable || j.stoppable(j));
+  }
 
   /** Whether `place` runs a job now. */
   busy(place) { return this.running.some((j) => j.places.includes(place)); }

@@ -10,8 +10,9 @@ name: satx e2e
 #   its protocol crates, the saturnus crates of its `saturnus` feature,
 #   the oracle image, the CLI script, the Cargo files, this workflow
 #   (`cargo tree -p satx-core -p satx --all-features` lists the crates).
-#   The web app's Files (crates/saturnus-tx*, web/tx/) is not among them:
-#   nothing here builds it; its emulated-calculator e2e is local
+#   The web app's Files (crates/saturnus-tx*, web/tx/) is not among them,
+#   but for its palmtop device (saturnus-tx's palmtop.rs and its oracle
+#   test, run in lx-e2e); its emulated-calculator e2e is local
 #   (`just tx-e2e`);
 # - on a pull request carrying the label `e2e` (adding it starts a run;
 #   later pushes to the PR run it again while the label is on);
@@ -39,6 +40,8 @@ on:
       - 'crates/kermit-proto/**'
       - 'crates/xmodem-proto/**'
       - 'crates/filer-proto/**'
+      - 'crates/saturnus-tx/src/palmtop.rs'
+      - 'crates/saturnus-tx/tests/palmtop_oracle.rs'
       - 'crates/saturnus-core/**'
       - 'crates/saturnus-objects/**'
       - 'crates/saturnus-host/**'
@@ -248,6 +251,10 @@ jobs:
           FILER_E2E_ADDR: tcp://localhost:4853
         run: |
           cargo test --locked -p satx-core --test e2e lx:: -- --nocapture
+      - name: Files' palmtop device against the oracle
+        env:
+          FILER_E2E_ADDR: tcp://localhost:4853
+        run: cargo test --locked -p saturnus-tx --test palmtop_oracle -- --nocapture
       - name: CLI end-to-end script
         env:
           FILER_E2E_ADDR: tcp://localhost:4853
