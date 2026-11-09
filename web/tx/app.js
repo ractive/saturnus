@@ -5,8 +5,10 @@
 // (folder.js; the page's own files where no folder can be picked), the
 // left never. The calculator left and a folder right by default; below 760 px one pane at a time, with a
 // switch above them. Copies between the panes and from the file manager
-// (transfers.js) go through one queue (queue.js), shown under the panes:
-// one job per place at a time, the waiting ones cancellable. The
+// (transfers.js) go through one queue (queue.js): one job per place at a
+// time, the running one said in the head of its pane (pane.js), the list
+// under the panes ("Transfers") only while several jobs are under way or
+// a failure waits to be dismissed; the waiting ones cancellable. The
 // protocol runs in a dedicated Worker per calculator (protocol-worker.js);
 // this page holds the links and the dialogs. Every link is tapped for the
 // cable console (cable.js, cable-view.js: "Show the packets"). `window.tx`
@@ -94,6 +96,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
   const ui = {
     stage: $("files-stage"), panes: $("panes"), switch: $("pane-switch"), template: $("pane-template"),
     queue: $("queue"), queueList: $("queue-list"), cancelWaiting: $("cancel-waiting"),
+    queueFold: $("queue-fold"), queueSummary: $("queue-summary"), queueAlert: $("queue-alert"), dismissFailures: $("dismiss-failures"),
     fileInput: $("file-input"), restoreInput: $("restore-input"), romInput: $("rom-input"),
     connectDialog: $("connect-dialog"), connectSteps: $("connect-steps"),
     connectGo: $("connect-go"), connectOther: $("connect-other"), connectKnown: $("connect-known"),
@@ -155,6 +158,10 @@ export function mountFiles(root, { shown = () => true } = {}) {
 
   const say = (text, { error = false } = {}) => toast(text, { error });
 
+  /** One pane at a time: below 760 px (style.css). */
+  const narrowQuery = matchMedia("(max-width: 759px)");
+  const narrow = () => narrowQuery.matches;
+
   const queue = new JobQueue();
 
   /**
@@ -207,6 +214,36 @@ export function mountFiles(root, { shown = () => true } = {}) {
     helpers,
     fileNames,
     say,
+    /**
+     * A job's failure: kept in the Transfers list until dismissed (the list
+     * unfolded), and said once by its alert, as an error toast was. With
+     * Files not shown (Calculator or Home in front) also an error toast,
+     * which goes to the view shown.
+     */
+    failed: (text) => {
+      folded = false;
+      queue.fail(text);
+      if (!shown()) {
+        say(text, { error: true });
+        return;
+      }
+      ui.queueAlert.textContent = "";
+      app.frame(() => { ui.queueAlert.textContent = text; });
+    },
+    /**
+     * The pane whose head says `job`: of the panes that show its places,
+     * the pane shown on a narrow screen (one pane at a time), then the first
+     * one with a calculator or palmtop, in the job's order of places (a
+     * copy's source first), else the first one; null when none shows them.
+     */
+    ownerOf: (job) => {
+      let showing = job.places.map((id) => panes.find((p) => p.place?.id === id)).filter(Boolean);
+      if (narrow()) {
+        const seen = showing.filter((p) => p.id === active);
+        if (seen.length) showing = seen;
+      }
+      return showing.find((p) => p.place.kind === "device" || p.place.palmtop) ?? showing[0] ?? null;
+    },
     ask: (q) => ask(q),
     askName: (q) => askName(q),
     now: () => new Date(),
@@ -235,7 +272,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
   // The desktop app saves downloads through its save dialog.
   if (isTauri()) app.downloadDeps = { save: saveFile };
   app.transfers = new Transfers({
-    queue, helpers, ask: app.ask, askName: app.askName, say,
+    queue, helpers, ask: app.ask, askName: app.askName, say, failed: app.failed,
     frame: (fn) => app.frame(fn),
     mark: (place, path, name, value) => {
       for (const p of panes) if (p.place === place) p.ui.list.setBusy(path, name, value);
@@ -259,6 +296,14 @@ export function mountFiles(root, { shown = () => true } = {}) {
     active = id;
     ui.panes.dataset.active = id;
     renderSwitch();
+    // A job is said in the pane shown (app.ownerOf).
+    for (const p of panes) p.renderJob();
+  }
+  narrowQuery.addEventListener?.("change", () => { for (const p of panes) p.renderJob(); });
+
+  /** Where the focus goes when what had it in the list went: the head of the pane shown (the left one when both are). */
+  function focusFallback() {
+    (panes.find((p) => narrow() && p.id === active) ?? panes[0])?.focusHead();
   }
 
   /**
@@ -296,17 +341,44 @@ export function mountFiles(root, { shown = () => true } = {}) {
 
   // ------------------------------------------------------------ the queue
 
-  /** The jobs and their states the list shows: when only progress changed, the rows are updated in place. */
+  /** The jobs, their states and the failures the list shows: when only progress changed, the rows are updated in place. */
   let queueShape = "";
+  /** Whether the list is up: from the moment two jobs are under way until none is (a single job is said in its pane's head only). */
+  let listed = false;
+  /** Whether the list is folded away (the head with its counts stays). */
+  let folded = false;
 
   /** A running job's amount: `1.2 KB of 3.4 KB`, or "Running…". */
   const jobAmount = (j) => (j.done ? progressText({ label: "", done: j.done, total: j.total }).trim() : "");
 
+  /** "1 running, 2 waiting, 1 failed". */
+  function queueSummary() {
+    const parts = [];
+    const running = queue.running.length;
+    const waiting = queue.waiting.length;
+    if (running) parts.push(`${running} running`);
+    if (waiting) parts.push(`${waiting} waiting`);
+    if (queue.failures.length) parts.push(`${queue.failures.length} failed`);
+    return parts.join(", ");
+  }
+
   function renderQueue() {
     const jobs = queue.jobs;
-    ui.queue.hidden = jobs.length === 0;
+    const failures = queue.failures;
+    if (jobs.length > 1) listed = true;
+    else if (jobs.length === 0) listed = false;
+    ui.queue.hidden = !(listed || failures.length);
+    // Folded for this showing only: it comes back unfolded.
+    if (ui.queue.hidden) folded = false;
     ui.cancelWaiting.hidden = queue.waiting.length < 2;
-    const shape = jobs.map((j) => `${j.id}:${j.state}:${j.total ? 1 : 0}:${queue.canStop(j) ? 1 : 0}`).join(",");
+    ui.dismissFailures.hidden = failures.length < 2;
+    const summary = queueSummary();
+    if (ui.queueSummary.textContent !== summary) ui.queueSummary.textContent = summary;
+    ui.queueFold.setAttribute("aria-expanded", String(!folded));
+    ui.queueFold.title = folded ? "Show the list" : "Fold the list away";
+    ui.queueFold.querySelector("use")?.setAttribute("href", folded ? "#ic-chevron-right" : "#ic-chevron-down");
+    ui.queueList.hidden = folded;
+    const shape = [...failures.map((f) => `f${f.id}`), ...jobs.map((j) => `${j.id}:${j.state}:${j.total ? 1 : 0}`)].join(",");
     if (shape === queueShape) {
       // Progress only: the rows stay, and with them a focused Cancel button.
       for (const j of queue.running) {
@@ -324,8 +396,18 @@ export function mountFiles(root, { shown = () => true } = {}) {
       return;
     }
     queueShape = shape;
-    const focused = document.activeElement?.closest?.("#queue-list [data-job]")?.dataset.job ?? null;
-    ui.queueList.replaceChildren(...jobs.map((j) => {
+    const focused = document.activeElement?.closest?.("#queue-list [data-job], #queue-list [data-failure]") ?? null;
+    const focusedKey = focused ? (focused.dataset.job ? `job:${focused.dataset.job}` : `failure:${focused.dataset.failure}`) : null;
+    // Failures first, oldest first: what needs looking at; then the jobs in the order asked.
+    const failed = failures.map((f) => {
+      const li = el("li", { class: "queue-job failed", "data-failure": String(f.id) },
+        el("span", { class: "queue-label error", text: f.text }));
+      const b = el("button", { type: "button", class: "icon queue-cancel queue-dismiss", title: "Dismiss", "aria-label": `Dismiss: ${f.text}` }, iconEl("close"));
+      b.addEventListener("click", () => queue.dismiss(f.id));
+      li.append(b);
+      return li;
+    });
+    ui.queueList.replaceChildren(...failed, ...jobs.map((j) => {
       const running = j.state === "running";
       const li = el("li", { class: `queue-job ${j.state}`, "data-job": String(j.id) });
       const amount = running ? jobAmount(j) : "";
@@ -334,15 +416,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
         el("span", { class: "queue-state muted", text: running ? amount || "Running…" : "Waiting" }),
       );
       if (running && j.total) li.append(el("progress", { class: "queue-bar", max: String(j.total), value: String(Math.min(j.done, j.total)), "aria-label": `${j.label}: ${amount || "started"}` }));
-      // A running job that can be stopped (on a palmtop): Stop ends it at the device's next reply.
-      if (queue.canStop(j)) {
-        const b = el("button", { type: "button", class: "icon queue-cancel queue-stop", title: `Stop: ${j.label}`, "aria-label": `Stop ${j.label}` }, iconEl("close"));
-        b.addEventListener("click", () => {
-          b.disabled = true;
-          j.stop(j);
-        });
-        li.append(b);
-      }
+      // A running job's Stop (a palmtop's) is in the head of its pane (pane.js).
       if (!running) {
         const b = el("button", { type: "button", class: "icon queue-cancel", title: `Cancel: ${j.label}`, "aria-label": `Cancel ${j.label}` }, iconEl("close"));
         b.addEventListener("click", () => queue.cancel(j.id));
@@ -350,15 +424,27 @@ export function mountFiles(root, { shown = () => true } = {}) {
       }
       return li;
     }));
-    // A Cancel that had the focus keeps it while its job still waits; else the next one, or the list's head.
-    if (focused !== null) {
-      const again = ui.queueList.querySelector(`[data-job="${focused}"] .queue-cancel`) ?? ui.queueList.querySelector(".queue-cancel");
-      (again ?? (ui.cancelWaiting.hidden ? null : ui.cancelWaiting))?.focus();
+    // A Cancel or Dismiss that had the focus keeps it while its row stays; else the next one, the list's head, or the fold button.
+    if (focusedKey !== null) {
+      const [kind, id] = focusedKey.split(":");
+      const again = ui.queueList.querySelector(`[data-${kind}="${id}"] .queue-cancel`) ?? ui.queueList.querySelector(".queue-cancel");
+      const next = again ?? (ui.cancelWaiting.hidden ? null : ui.cancelWaiting) ?? (ui.queue.hidden ? null : ui.queueFold);
+      if (next) next.focus();
+      else focusFallback();
     }
   }
 
   queue.addEventListener("change", renderQueue);
   ui.cancelWaiting.addEventListener("click", () => queue.cancelWaiting());
+  ui.dismissFailures.addEventListener("click", () => {
+    queue.dismiss();
+    if (!ui.queue.hidden) ui.queueFold.focus();
+    else focusFallback();
+  });
+  ui.queueFold.addEventListener("click", () => {
+    folded = !folded;
+    renderQueue();
+  });
   /** Whether leaving the page now would cut something short: a transfer running or waiting, a calculator working, or one on a cable (its port and server mode are not got back by a reload). */
   function busyToLeave() {
     if (queue.running.length + queue.waiting.length > 0) return true;

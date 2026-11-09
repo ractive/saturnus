@@ -239,12 +239,13 @@ export class DeviceList extends HTMLElement {
       return;
     }
     if (!this.listing) {
-      this.replaceChildren(el("p", { class: "dlist-state muted", text: "Reading the directory…" }));
+      // A spinner, named for a screen reader; not a live region: the pane's status says what is read.
+      this.replaceChildren(el("p", { class: "dlist-state loading" }, el("span", { class: "spinner", role: "img", "aria-label": "Reading the directory" })));
       return;
     }
     // WebKit drops a scroller to the top when its content is replaced (a
     // sort): put it back. A new directory starts at the top anyway: its
-    // "Reading the directory…" came first.
+    // spinner came first.
     const top = this.scrollTop;
     const head = el("tr", {});
     for (const [key, title] of this.columns) {

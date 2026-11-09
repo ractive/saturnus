@@ -345,7 +345,12 @@ test("purge and delete ask with the count; rename and new directory on both side
   await p.until(`document.getElementById("name-dialog").open`, 5_000, "the rename dialog");
   assert.equal(await c.ev(`document.getElementById("name-title").textContent`), "Rename PRG");
   await c.ev(`(() => { document.getElementById("name-input").value = "X"; document.getElementById("name-ok").click(); return true; })()`);
-  await p.until(`[...document.querySelectorAll(".toast")].some((e) => /X is already there/.test(e.textContent))`, 5_000, "the clash said");
+  // A failed job stays in the Transfers list until dismissed, said once by its alert (no toast).
+  await p.until(`!document.getElementById("queue").hidden && /X is already there/.test(document.querySelector("#queue-list .queue-job.failed")?.textContent ?? "")`, 5_000, "the clash said");
+  assert.match(await c.ev(`document.getElementById("queue-alert").textContent`), /X is already there/);
+  assert.equal(await c.ev(`[...document.querySelectorAll(".toast")].some((e) => /X is already there/.test(e.textContent))`), false, "not also a toast");
+  await c.ev(`document.querySelector("#queue-list .queue-job.failed .queue-dismiss").click(); true`);
+  await p.until(`document.getElementById("queue").hidden`, 5_000, "dismissed: the list goes");
   assert.ok(await c.ev(`!!tx.entry("PRG") && !!tx.entry("X")`));
   await c.ev(`tx.panes[0].rename(tx.entry("PRG")); true`);
   await p.until(`document.getElementById("name-dialog").open`, 5_000, "the rename dialog again");
@@ -442,6 +447,14 @@ test("the queue: one job per place at a time, the waiting ones shown and cancell
   await p.until(`/ of /.test(document.querySelector("#queue-list .queue-job.running .queue-state")?.textContent ?? "")`, 5_000, "the progress in bytes");
   assert.match(await c.ev(`document.querySelector("#queue-list .queue-job.running .queue-state").textContent`), /\d+ bytes of \d+ bytes/);
   assert.equal(await c.ev(`!!document.querySelector("#queue-list .queue-job.running progress")`), true);
+  // The calculator's head says the running job and where it is in the run; the folder's head says nothing of it.
+  assert.match(await c.ev(`document.querySelector(".pane[data-pane=left] .pane-status-text").textContent`), /^Copying A\.txt… 1 of 3$/);
+  assert.doesNotMatch(await c.ev(`document.querySelector(".pane[data-pane=right] .pane-status-text").textContent`), /Copying/);
+  assert.equal(await c.ev(`document.querySelector(".pane[data-pane=left] .pane-spinner").hidden`), false, "the spinner beside it");
+  // Folded away: the head with its counts stays.
+  await c.ev(`document.getElementById("queue-fold").click(); true`);
+  assert.deepEqual(await c.ev(`({ list: document.getElementById("queue-list").hidden, expanded: document.getElementById("queue-fold").getAttribute("aria-expanded"), summary: document.getElementById("queue-summary").textContent })`), { list: true, expanded: "false", summary: "1 running, 2 waiting" });
+  await c.ev(`document.getElementById("queue-fold").click(); true`);
   // Cancel the last one before it starts.
   await c.ev(`document.querySelector('#queue-list .queue-job.queued:last-child .queue-cancel').click(); true`);
   const r = await c.ev(`__q`);
@@ -449,6 +462,144 @@ test("the queue: one job per place at a time, the waiting ones shown and cancell
   assert.deepEqual(r.skipped, ["C.txt"]);
   assert.deepEqual(await c.ev(`__calcs[0].requests.filter((r) => r.type === "put").map((r) => r.name)`), ["A", "B"]);
   await p.until(`document.getElementById("queue").hidden`, 5_000, "the queue hides when empty");
+  assert.deepEqual(c.errors, []);
+});
+
+test("a single job is said once, in its calculator's head, with Stop where it can be stopped; a failure stays in Transfers until dismissed", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000);
+  const head = (side) => `document.querySelector(".pane[data-pane=${side}] .pane-status")`;
+  await c.ev(`(() => {
+    const id = tx.panes[0].place.id;
+    window.__stopped = 0;
+    tx.queue.add({ label: "Copy ZPAR to hp-files", doing: "Copying ZPAR…", places: [id, tx.panes[1].place.id], total: 1000, stop: () => { __stopped++; }, run: ({ report }) => { report(250, 1000); return new Promise((r) => { window.__end = r; }); } }).catch(() => {});
+    return true;
+  })()`);
+  await p.until(`${head("left")}.querySelector(".pane-status-text").textContent === "Copying ZPAR…"`, 5_000, "the job in the head");
+  const shown = await c.ev(`({
+    queue: document.getElementById("queue").hidden,
+    progress: ${head("left")}.querySelector(".pane-progress").textContent,
+    spinner: ${head("left")}.querySelector(".pane-spinner").hidden,
+    spinnerHidden: ${head("left")}.querySelector(".pane-spinner").getAttribute("aria-hidden"),
+    stop: ${head("left")}.querySelector(".pane-stop").hidden,
+    stopLabel: ${head("left")}.querySelector(".pane-stop").getAttribute("aria-label"),
+    right: ${head("right")}.querySelector(".pane-status-text").textContent,
+    rightStop: ${head("right")}.querySelector(".pane-stop").hidden,
+  })`);
+  assert.deepEqual(shown, { queue: true, progress: "250 bytes of 1.0 KB", spinner: false, spinnerHidden: "true", stop: false, stopLabel: "Stop: Copy ZPAR to hp-files", right: await c.ev(`tx.panes[1].idleStatus()`), rightStop: true });
+  await c.ev(`${head("left")}.querySelector(".pane-stop").click(); true`);
+  assert.equal(await c.ev(`__stopped`), 1);
+  assert.equal(await c.ev(`${head("left")}.querySelector(".pane-stop").disabled`), true, "pressed once");
+  await c.ev(`__end(); true`);
+  await p.until(`${head("left")}.querySelector(".pane-status-text").textContent === tx.panes[0].idleStatus()`, 5_000, "back to the idle status");
+  assert.deepEqual(await c.ev(`({ spinner: ${head("left")}.querySelector(".pane-spinner").hidden, stop: ${head("left")}.querySelector(".pane-stop").hidden, queue: document.getElementById("queue").hidden })`), { spinner: true, stop: true, queue: true });
+  // A copy that fails: its sentence in Transfers, until dismissed.
+  await c.ev(`(() => { tx.app.failed("ZPAR was not copied: the calculator stopped answering."); return true; })()`);
+  await p.until(`!document.getElementById("queue").hidden`, 5_000, "the failure listed");
+  assert.deepEqual(await c.ev(`({ rows: [...document.querySelectorAll("#queue-list .queue-job")].map((e) => e.className + ": " + e.textContent), summary: document.getElementById("queue-summary").textContent, all: document.getElementById("dismiss-failures").hidden })`), { rows: ["queue-job failed: ZPAR was not copied: the calculator stopped answering."], summary: "1 failed", all: true });
+  await p.until(`document.getElementById("queue-alert").textContent === "ZPAR was not copied: the calculator stopped answering."`, 5_000, "said once");
+  await c.ev(`document.querySelector("#queue-list .queue-dismiss").click(); true`);
+  await p.until(`document.getElementById("queue").hidden`, 5_000, "dismissed");
+  assert.deepEqual(c.errors, []);
+});
+
+test("review of #272: one head per job (the source's; the pane shown on a narrow screen), a batch counted, the focus kept, folding reset, a failure seen from another view", { timeout: 90_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0, "48gx", { delay: (r) => (r.type === "get" ? 600 : 10) })`);
+  await c.ev(`__calc(1, "49g")`);
+  await p.idle(10_000);
+  await p.idle(10_000, "the second calculator", 1);
+  const status = (side) => `document.querySelector(".pane[data-pane=${side}] .pane-status-text").textContent`;
+  const stops = `[...document.querySelectorAll(".pane-stop")].filter((b) => !b.hidden).length`;
+  // A job between two calculators: said in one head only, its first place's (the source).
+  await c.ev(`tx.queue.add({ label: "Copy A to the 48GX", doing: "Copying A…", places: [tx.panes[1].place.id, tx.panes[0].place.id], stop: () => {}, run: () => new Promise((r) => { window.__end = r; }) }).catch(() => {}); true`);
+  await p.until(`${status("right")} === "Copying A…"`, 5_000, "in the source's head");
+  assert.notEqual(await c.ev(status("left")), "Copying A…");
+  assert.equal(await c.ev(stops), 1, "one Stop");
+  // Stop going away with the focus on it: the focus goes to the head's ⋯.
+  await c.ev(`document.querySelector(".pane[data-pane=right] .pane-stop").focus(); __end(); true`);
+  await p.until(`document.querySelector(".pane[data-pane=right] .pane-stop").hidden`, 5_000, "the job over");
+  assert.equal(await c.ev(`document.activeElement === document.querySelector(".pane[data-pane=right] .pane-more")`), true, "the focus kept in the head");
+  // Two downloads: queued at once, so counted.
+  await c.ev(SEED_CALC(0));
+  await p.idle(10_000);
+  await c.ev(`window.__dl = tx.panes[0].download([tx.entry("PRG"), tx.entry("X")]); true`);
+  await p.until(`/^Downloading (PRG|X)… [12] of 2$/.test(${status("left")})`, 5_000, "the batch counted");
+  await c.ev(`__dl`);
+  // Folded, then a failure: the list comes back unfolded with it; the last one dismissed with the focus on it keeps the focus in a pane's head.
+  await c.ev(`tx.app.failed("A was not copied: one."); true`);
+  await p.until(`!document.getElementById("queue").hidden`, 5_000, "listed");
+  await c.ev(`document.getElementById("queue-fold").click(); true`);
+  assert.equal(await c.ev(`document.getElementById("queue-list").hidden`), true);
+  await c.ev(`tx.app.failed("B was not copied: two."); true`);
+  await p.until(`!document.getElementById("queue-list").hidden`, 5_000, "unfolded by the new failure");
+  await c.ev(`document.getElementById("dismiss-failures").focus(); document.getElementById("dismiss-failures").click(); true`);
+  await p.until(`document.getElementById("queue").hidden`, 5_000, "all dismissed");
+  assert.equal(await c.ev(`document.activeElement?.closest(".pane-head") !== null`), true, "the focus in a pane's head, not lost");
+  await c.ev(`tx.app.failed("C was not copied: three."); true`);
+  await p.until(`!document.getElementById("queue").hidden`, 5_000, "listed again");
+  await c.ev(`document.querySelector("#queue-list .queue-dismiss").focus(); document.querySelector("#queue-list .queue-dismiss").click(); true`);
+  await p.until(`document.getElementById("queue").hidden`, 5_000, "dismissed");
+  assert.equal(await c.ev(`document.activeElement?.closest(".pane-head") !== null`), true, "the focus in a pane's head");
+  // A failure while Files is not shown: a toast in the view shown, too.
+  await c.ev(`location.hash = "#/"; true`);
+  await p.until(`document.getElementById("files-view").hidden`, 5_000, "Home shown");
+  await c.ev(`tx.app.failed("D was not copied: four."); true`);
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent.includes("D was not copied: four.") && !e.closest("#files-view"))`, 5_000, "said in the view shown");
+  assert.deepEqual(c.errors, []);
+});
+
+test("a narrow screen says a job in the pane shown", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t, 600);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0)`);
+  await c.ev(`__folder(1)`);
+  await p.idle(10_000);
+  const status = (side) => `document.querySelector(".pane[data-pane=${side}] .pane-status-text").textContent`;
+  await c.ev(`tx.setActive("right"); tx.queue.add({ label: "Copy A to hp-files", doing: "Copying A…", places: [tx.panes[0].place.id, tx.panes[1].place.id], run: () => new Promise((r) => { window.__end = r; }) }).catch(() => {}); true`);
+  await p.until(`${status("right")} === "Copying A…"`, 5_000, "in the folder's pane, the one shown");
+  assert.notEqual(await c.ev(status("left")), "Copying A…");
+  await c.ev(`tx.setActive("left"); true`);
+  assert.equal(await c.ev(status("left")), "Copying A…", "it follows the switch");
+  assert.notEqual(await c.ev(status("right")), "Copying A…");
+  await c.ev(`__end(); true`);
+  assert.deepEqual(c.errors, []);
+});
+
+test("reading a directory is said once: the head's status with a spinner, a named spinner in the list, a faint folder in the tree", { timeout: 60_000 }, async (t) => {
+  const f = await fakePage(t);
+  if (!f) return;
+  const { c, p } = f;
+  await c.ev(`__calc(0, "48gx", { delay: (r) => (r.type === "list" ? 1500 : 10) })`);
+  await p.idle(15_000);
+  await c.ev(`tx.panes[0].refresh(); true`);
+  const pane = `document.querySelector(".pane[data-pane=left]")`;
+  await p.until(`!!${pane}.querySelector("device-list .dlist-state.loading")`, 5_000, "reading");
+  const r = await c.ev(`({
+    status: ${pane}.querySelector(".pane-status-text").textContent,
+    spinner: ${pane}.querySelector(".pane-spinner").hidden,
+    list: ${pane}.querySelector("device-list").textContent,
+    named: ${pane}.querySelector("device-list .spinner").getAttribute("aria-label"),
+    role: ${pane}.querySelector("device-list .spinner").getAttribute("role"),
+    live: !!${pane}.querySelector("device-list [aria-live], device-list [role=status]"),
+    tree: ${pane}.querySelector("device-tree").textContent,
+  })`);
+  assert.match(r.status, /^Reading HOME…/);
+  assert.equal(r.spinner, false);
+  assert.equal(r.list, "", "no second text");
+  assert.equal(r.named, "Reading the directory");
+  assert.equal(r.role, "img");
+  assert.equal(r.live, false, "only the head's status is live");
+  assert.doesNotMatch(r.tree, /…/, "no third one in the tree");
+  await p.idle(15_000);
+  assert.equal(await c.ev(`${pane}.querySelector(".pane-spinner").hidden`), true, "gone once read");
   assert.deepEqual(c.errors, []);
 });
 
@@ -1213,6 +1364,7 @@ test("Disconnect lets go of the port when the calculator does not answer the end
   await p.until("__closed", 5_000, "closed after the wait");
   assert.equal(await c.ev("__link.closed"), true, "the port let go of");
   assert.equal(await c.ev(title("left")), "No calculator");
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent)`, 5_000, "the toast's text");
   assert.match(await c.ev(`[...document.querySelectorAll(".toast")].map((e) => e.textContent).join("|")`), /did not answer the end of server mode\. If it still shows “Awaiting Server Cmd\.”, press ON on it\./);
   // Whether the server ended is not known: the pane does not say it did.
   assert.equal(await c.ev(`tx.panes[0].note`), "Disconnected.");
@@ -1394,7 +1546,7 @@ test("the directory tree keeps its scroll position: a click selects or opens, a 
   }
   // Open D23 by its toggle: "loading" first, then its two folders; the tree stays.
   await click("D23", true);
-  await p.until(`!!${tree}.querySelector('[data-path$="/D23"] .dtree-note')`, 5_000, "D23 loading");
+  await p.until(`!!${tree}.querySelector('[data-path$="/D23"].loading[aria-busy=true]')`, 5_000, "D23 loading");
   assert.equal(await top(), 600, "opening D23 keeps the tree where it was");
   await p.until(`!!${tree}.querySelector('[data-path$="/D23/B"]')`, 5_000, "D23's folders arrived");
   assert.equal(await top(), 600, "D23's listing arriving keeps the tree where it was");

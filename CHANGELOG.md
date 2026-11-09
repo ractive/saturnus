@@ -5,6 +5,22 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `filer-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **Files shows a running transfer once.** The rows being copied keep
+  their thin bar, and the head of the calculator's (or palmtop's) pane
+  says the job beside a spinner, for example "Copying ZPAR… 2 of 3",
+  with Stop there where the job can be stopped. "Putting ZPAR…" in the
+  head and the Transfers bar for a single job are gone.
+- **The Transfers list appears only when it has something to add:**
+  several jobs under way, or a failed one. It folds away, and a failed
+  job stays there, with what went wrong, until you dismiss it, instead
+  of an error message at the bottom of the window.
+- **Reading a directory is said once, with a spinner:** in the pane's
+  status ("Reading HOME…"), with a spinner in the list instead of a
+  second "Reading the directory…" and no "…" in the tree. With reduced
+  motion the spinner stands still.
+
 ## 0.11.0 (2026-11-09)
 
 - **Files reaches an HP 100LX or 200LX palmtop.** "Add a calculator…"

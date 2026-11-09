@@ -157,10 +157,13 @@
   <h1 class="visually-hidden">Files: move files between calculators and this computer</h1>
   <div id="pane-switch" class="pane-switch segmented" role="radiogroup" aria-label="The pane shown"></div>
   <div id="panes" class="panes" data-active="left"></div>
+  <p id="queue-alert" class="visually-hidden" role="alert"></p>
   <section id="queue" class="queue" aria-labelledby="queue-title" hidden>
     <div class="queue-head">
-      <h2 id="queue-title">Transfers</h2>
+      <h2><button id="queue-fold" class="queue-fold" type="button" aria-expanded="true" aria-controls="queue-list" title="Fold the list away"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-chevron-down"/></svg><span id="queue-title">Transfers</span></button></h2>
+      <span id="queue-summary" class="queue-summary muted"></span>
       <button id="cancel-waiting" class="link" type="button" hidden>Cancel waiting transfers</button>
+      <button id="dismiss-failures" class="link" type="button" hidden>Dismiss all failures</button>
     </div>
     <ol id="queue-list" class="queue-list"></ol>
   </section>
@@ -186,7 +189,7 @@
     <div class="pane-head">
       <div class="pane-place">
         <h2 class="pane-title"></h2>
-        <p class="pane-status"><span class="pane-status-text" role="status" aria-live="polite"></span> <span class="pane-progress"></span></p>
+        <p class="pane-status"><span class="pane-spinner spinner" aria-hidden="true" hidden></span><span class="pane-status-text" role="status" aria-live="polite"></span> <span class="pane-progress"></span><button class="pane-stop small" type="button" hidden>Stop</button></p>
       </div>
       <div class="pane-actions">
         <button class="pane-emulator" type="button" hidden title="Also show it in Calculator: both views use the same calculator"><svg class="ic ic-sm" aria-hidden="true"><use href="#ic-calculator"/></svg><span>Show in Calculator</span></button>
