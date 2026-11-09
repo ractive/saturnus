@@ -28,10 +28,10 @@ the desktop app and the web page share one version.
   the app offers its AI tools to the browser's AI as well, with no
   address or code: the tools for the calculator Calculator shows and
   for every calculator the AI has listed. The display comes as text
-  unless the AI asks for a picture. Storing or purging a variable
-  through its store and purge tools asks you in the app first; the AI
-  can still press keys and run commands that store or purge without
-  asking, as through the dialog. The calls show in The AI's calls.
+  unless the AI asks for a picture. The app adds no question of its
+  own; it marks the store and purge tools as needing care, and the
+  browser or its AI decides whether to ask you (Brave's Leo asks before
+  every call). The calls show in The AI's calls.
   Connecting an AI app through the dialog works as before, beside it.
 - **A cancelled AI call stops at once.** When an AI app gives up on a
   call, the tool stops waiting for the calculator, presses no more keys

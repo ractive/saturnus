@@ -92,9 +92,9 @@ the rest from the sources listed at the end.
   the hint "allows agents and browsers to enforce mandatory user
   confirmation prompts", and the example extension "always trusts
   WebMCP annotations" ([Imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api)).
-  Brave's Leo asks before every call (below); since 2026-11-09 the page
-  adds no confirmation of its own (owner: the browser or its agent
-  already asks).
+  Brave's Leo asks before every call (below). The page confirmed
+  consequential calls itself until 2026-11-09; since then the browser's
+  agent does (owner: it already asks; decision log, 2026-11-09).
 - Chrome's docs show tools returning strings; the agent gets no image
   type. saturnus returns its JSON fields and a display image as a
   `data:image/png;base64,…` string in `image`.

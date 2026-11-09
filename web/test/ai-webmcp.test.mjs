@@ -4,13 +4,14 @@
 // registered for the shown calculator and again when its family changes,
 // withdrawn on page hide and back on show, what a call gives the agent
 // (its fields, an image as a data URL, a failure as `{error}`), the
-// arguments checked, a consequential tool confirmed (declined, allowed,
-// cancelled), and the calls in "The AI's calls".
+// arguments checked, a consequential tool run with no question in the
+// page (the browser asks), a cancelled call, and the calls in "The AI's
+// calls".
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiTools, INSTRUCTIONS } from "../ai-tools.js";
+import { aiTools, APPROVAL, APPROVAL_NOTE, INSTRUCTIONS } from "../ai-tools.js";
 import { AiLog } from "../ai-log.js";
-import { modelContextOf, WebMcp, webMcpAnnotations, webMcpResult } from "../ai-webmcp.js";
+import { modelContextOf, WebMcp, webMcpAnnotations, webMcpResult, webMcpText } from "../ai-webmcp.js";
 import { readFileSync } from "node:fs";
 import { buildIndex } from "../reference.js";
 
@@ -97,17 +98,10 @@ function access(c = calculator()) {
   return ai;
 }
 
-/** A WebMcp on `context` for `ai`, with a fake confirmation answering `answer` (recording its questions). */
-function webMcp(ai, { context = new FakeContext(), answer = async () => true, win = new EventTarget() } = {}) {
-  const asked = [];
-  const w = new WebMcp({
-    ai,
-    context,
-    win,
-    doc: {},
-    confirm: async () => ({ confirmInPage: (host, question, doc, options) => { asked.push({ host, question, options }); return answer(question); } }),
-  });
-  return { w, context, asked, win };
+/** A WebMcp on `context` for `ai`. */
+function webMcp(ai, { context = new FakeContext(), win = new EventTarget() } = {}) {
+  const w = new WebMcp({ ai, context, win });
+  return { w, context, win };
 }
 
 const RPL = ["list_calculators", "list_keys", "list_variables", "lookup_command", "press_keys", "purge_variable", "read_display", "read_stack", "read_variable", "run_rpl", "store_variable", "to_stack"];
@@ -160,9 +154,21 @@ test("the tools as WebMCP gets them: WebMCP's hints only, an output schema, the 
   assert.deepEqual(context.tools.get("read_stack").annotations, { readOnlyHint: true, untrustedContentHint: true });
   assert.deepEqual(context.tools.get("list_calculators").annotations, { readOnlyHint: true, untrustedContentHint: true });
   assert.deepEqual(context.tools.get("lookup_command").annotations, { readOnlyHint: true });
-  assert.ok(context.tools.get("list_calculators").description.endsWith(INSTRUCTIONS));
+  assert.ok(context.tools.get("list_calculators").description.endsWith(webMcpText(INSTRUCTIONS)));
   assert.ok(!context.tools.get("read_stack").description.includes(INSTRUCTIONS));
   assert.deepEqual(webMcpAnnotations({ readOnlyHint: true, destructiveHint: true, idempotentHint: false }), { readOnlyHint: true });
+});
+
+test("no WebMCP tool's description nor the instructions say the app approves; the agent is told to confirm", async () => {
+  const ai = access();
+  const { w, context } = webMcp(ai);
+  await w.start();
+  for (const tool of context.tools.values()) assert.doesNotMatch(tool.description, /approve|in the app first/i, tool.name);
+  for (const name of ["store_variable", "purge_variable"]) assert.match(context.tools.get(name).description, /confirm with the user first\.$/, name);
+  assert.match(context.tools.get("list_calculators").description, /confirm with the user before calling them/);
+  // The texts WebMCP replaces are there to replace; tab-mcp and the desktop app keep them.
+  assert.ok(INSTRUCTIONS.includes(APPROVAL_NOTE));
+  for (const name of ["store_variable", "purge_variable"]) assert.ok(ai.tools.find((t) => t.name === name).description.endsWith(APPROVAL), name);
 });
 
 test("withdrawn when the page is hidden, back when it shows again", async () => {
@@ -219,43 +225,31 @@ test("a call gives the agent the tool's fields; an image as a data URL; a failur
   assert.deepEqual(webMcpResult({ content: [{ type: "text", text: "hi" }] }), { text: "hi" });
 });
 
-test("a consequential call asks the user first, every time: declined runs nothing, allowed runs", async () => {
+test("a consequential call runs without a question in the page: the browser asks; the hint stays for it", async () => {
   const c = calculator();
   const ai = access(c);
-  const answers = [false, true];
-  const { w, context, asked } = webMcp(ai, { answer: async () => answers.shift() });
+  const { w, context } = webMcp(ai);
   await w.start();
-  const declined = await context.run("store_variable", { name: "X", text: "1" });
-  assert.deepEqual(declined, { error: "The user declined." });
-  assert.ok(!c.calls.some(([cmd]) => cmd === "storeText"));
+  assert.equal(context.tools.get("store_variable").annotations.consequentialHint, true);
   const stored = await context.run("store_variable", { name: "X", text: "1" });
   assert.equal(stored.stored, true);
   assert.deepEqual(c.calls.filter(([cmd]) => cmd === "storeText").map(([, a]) => a.name), ["X"]);
-  assert.equal(asked.length, 2);
-  assert.deepEqual(asked[0].options, { alwaysAllow: false });
-  assert.equal(asked[0].question.client.name, "Your browser's AI");
-  assert.equal(asked[0].question.client.host, "WebMCP");
-  assert.equal(asked[0].question.tool.title, "Store a variable");
-  assert.deepEqual(asked[0].question.arguments, { name: "X", text: "1" });
-  // Read tools never ask.
-  await context.run("read_stack", {});
-  assert.equal(asked.length, 2);
+  const purged = await context.run("purge_variable", { name: "X" });
+  assert.equal(purged.error, undefined, JSON.stringify(purged));
+  assert.deepEqual(c.calls.filter(([cmd]) => cmd === "purge").map(([, , name]) => name), ["X"]);
+  // In the log, and never "waiting for you": the page asks nothing.
   const calls = ai.log.entries.filter((e) => e.kind === "call");
-  assert.deepEqual(calls.map((e) => [e.tool, e.outcome, e.asks]), [["store_variable", "declined", true], ["store_variable", "ok", true], ["read_stack", "ok", false]]);
+  assert.deepEqual(calls.map((e) => [e.tool, e.outcome, e.app, e.asks]), [["store_variable", "ok", "Your browser's AI", false], ["purge_variable", "ok", "Your browser's AI", false]]);
 });
 
-test("a call the agent cancels: while it is asked the question closes; while it waits it stops", async () => {
+test("a call the agent cancels: before it runs nothing is sent; while it waits it stops", async () => {
   const c = calculator();
   const ai = access(c);
-  const { w, context } = webMcp(ai, {
-    answer: (q) => new Promise((resolve) => q.signal.addEventListener("abort", () => resolve(false), { once: true })),
-  });
+  const { w, context } = webMcp(ai);
   await w.start();
   const abort = new AbortController();
-  const asking = context.run("purge_variable", { name: "X" }, abort.signal);
-  await turn();
   abort.abort();
-  assert.deepEqual(await asking, { error: "The user declined." });
+  assert.deepEqual(await context.run("purge_variable", { name: "X" }, abort.signal), { error: "Cancelled" });
   assert.ok(!c.calls.some(([cmd]) => cmd === "purge"));
   assert.equal(ai.log.entries.at(-1).outcome, "cancelled");
   // Keys pressed, then cancelled while the calculator still runs: no endless wait.

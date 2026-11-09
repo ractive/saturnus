@@ -56,13 +56,19 @@ export function titleOf(model) {
   return globalThis.SATURNUS_MODEL_TITLES?.[model] ?? model;
 }
 
+/** The instructions' sentence on who approves store_variable and purge_variable: the app, for tab-mcp and the desktop app (WebMCP says its own, web/ai-webmcp.js). */
+export const APPROVAL_NOTE = "The user approves each store_variable and purge_variable in the app; press_keys and run_rpl are not confirmed, so take the same care as at the user's keyboard (they can store and purge too).";
+
+/** The store_variable and purge_variable descriptions' last sentence, as APPROVAL_NOTE. */
+export const APPROVAL = "The user approves it in the app first.";
+
 /** What the MCP server tells the AI app before it uses the tools (tab-mcp `server.instructions`; the desktop app's endpoint gives the same, web/ai-local.js). */
 export const INSTRUCTIONS = `saturnus runs emulated HP calculators in the saturnus app, in the user's browser or the desktop app; the user watches the calculator while you use it. Each calculator runs its real ROM, so results are what the real calculator gives.
 
 Calculators: list_calculators names the running ones. Every other tool takes an optional "calculator" (an id from list_calculators); without it, the tool works on the one shown in the app's Calculator view. Nothing here starts or stops a calculator: ask the user to open one in the app.
 
 The models fall into three families:
-- 48SX, 48GX, 49G (RPL): run_rpl types RPL text and presses ENTER, then gives the calculator's error (if any) and the stack. read_stack, list_variables and read_variable read memory directly (no keys pressed). store_variable compiles RPL text on the calculator and stores it; purge_variable deletes. The user approves each store_variable and purge_variable in the app; press_keys and run_rpl are not confirmed, so take the same care as at the user's keyboard (they can store and purge too).
+- 48SX, 48GX, 49G (RPL): run_rpl types RPL text and presses ENTER, then gives the calculator's error (if any) and the stack. read_stack, list_variables and read_variable read memory directly (no keys pressed). store_variable compiles RPL text on the calculator and stores it; purge_variable deletes. ${APPROVAL_NOTE}
 - 28S: RPL too, but run_rpl types through its keys, and of its memory only the command line is read (run_rpl refuses while one is open, as on the 48): check results with read_display.
 - 42S, 27S, 17BII, 17B, 19BII, 38G, 39G, 40G (key-driven): run_function presses a function's keys by its name, from lookup_command's reference (on the 42S also XEQ "NAME"). On the 38G, 39G and 40G it puts the function on HOME's edit line, which is algebraic (SIN(45)); type the arguments and ENTER with press_keys.
 
@@ -444,7 +450,7 @@ export function aiTools(deps) {
     {
       name: "store_variable",
       title: "Store a variable",
-      description: "48SX, 48GX, 49G: compiles the RPL text on the calculator and stores the one object it gives in a variable, created or replaced (the calculator's own compiler: a syntax error comes back as its message and nothing changes). dir is a path from HOME; without it the current directory. The user approves it in the app first.",
+      description: "48SX, 48GX, 49G: compiles the RPL text on the calculator and stores the one object it gives in a variable, created or replaced (the calculator's own compiler: a syntax error comes back as its message and nothing changes). dir is a path from HOME; without it the current directory. " + APPROVAL,
       inputSchema: {
         type: "object",
         properties: {
@@ -469,7 +475,7 @@ export function aiTools(deps) {
     {
       name: "purge_variable",
       title: "Purge a variable",
-      description: "48SX, 48GX, 49G: deletes a variable (a directory with everything in it). dir is a path from HOME; without it the current directory. The user approves it in the app first.",
+      description: "48SX, 48GX, 49G: deletes a variable (a directory with everything in it). dir is a path from HOME; without it the current directory. " + APPROVAL,
       inputSchema: {
         type: "object",
         properties: { calculator: CALCULATOR, name: { type: "string", minLength: 1, maxLength: 64 }, dir: dirSchema() },
