@@ -92,19 +92,46 @@ the rest from the sources listed at the end.
   the hint "allows agents and browsers to enforce mandatory user
   confirmation prompts", and the example extension "always trusts
   WebMCP annotations" ([Imperative API](https://developer.chrome.com/docs/ai/webmcp/imperative-api)).
-  So the page confirms consequential calls itself.
+  Brave's Leo asks before every call (below); since 2026-11-09 the page
+  adds no confirmation of its own (owner: the browser or its agent
+  already asks).
 - Chrome's docs show tools returning strings; the agent gets no image
   type. saturnus returns its JSON fields and a display image as a
   `data:image/png;base64,…` string in `image`.
 
+## Observed with Brave's Leo (owner, 2026-11-09)
+
+Brave 1.99.55 on macOS, the deployed app on ractive.ch:
+
+- Leo sees the page's tools and calls them; their names carry the site
+  as a prefix (`web_ractive_ch_run_rpl`, `web_ractive_ch_lookup_command`).
+- Brave asks before every tool call ("Brave AI möchte run_rpl auf
+  https://ractive.ch ausführen", with the arguments behind a fold):
+  Allow once, Allow for this session, or Deny.
+- Whether a conversation gets the browser tools depends on the chosen
+  model: after switching to some models the tools were gone, and back
+  with another model they were there again; one model then saw only
+  `run_rpl`.
+- The default models (GPT Luna, Qwen 3.6 35B, Qwen 3.8 Flash Next) ran
+  out of context ("Conversation length exceeded") after a few
+  `lookup_command` calls, whose results carry the whole reference entry;
+  they also wrote RPL that does not compile (`IFTRUE`, `\"` inside
+  strings, a trailing `'NAME' STO` given to `store_variable`), which the
+  calculator refused with its message.
+- The free quota ran out within the session.
+
+## Verified on the deployed page (2026-11-09)
+
+- The origin trial works: plain headless Chrome 156 (no test switch) on
+  `https://ractive.ch/saturnus/app/` has `document.modelContext`, and
+  `getTools()` lists `list_calculators` and `lookup_command` before a
+  calculator shows. Chrome's DevTools have a WebMCP panel (Application,
+  WebMCP) listing the page's tools and their calls.
+
 ## Not verified
 
-- A real agent (Gemini in Chrome, an extension, Edge's Copilot)
-  calling the tools: no agent was available headless. The page tests
-  call through `executeTool`, the in-page path the draft gives.
+- Gemini in Chrome or Edge's agent calling the tools.
 - Edge 150's behaviour: not run here.
-- The origin trial on ractive.ch: needs the deployed page in a Chrome
-  149+ without the flag.
 
 ## Sources
 
