@@ -1706,9 +1706,12 @@ export class Pane {
     if (!p) return;
     this.previews.clear();
     this.dropDragUrls();
+    // The tree and the list read everything again, their rows shown until then: a device says so with a change, a folder is told.
     if (p.kind === "device" || p.palmtop) p.device.refresh(null);
-    else this.ui.list.reload();
-    this.ui.tree.device = this.ui.tree.device;
+    else {
+      this.ui.list.reload();
+      this.ui.tree.refresh();
+    }
     this.ui.tree.current = this.path;
   }
 

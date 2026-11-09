@@ -606,11 +606,14 @@ test("reading a directory is said once: the head's status with a spinner, a name
   // The same directory again (a file put there): its rows stay until the new listing replaces them, and the tree keeps its folders.
   const rows = `[...${pane}.querySelectorAll("device-list tr[data-name]")].map((e) => e.dataset.name).sort()`;
   assert.deepEqual(await c.ev(rows), ["SNAKE", "TETRIS"]);
+  await c.ev(`${pane}.querySelector('device-list tr[data-name="TETRIS"]').focus(); true`);
   await c.ev(`tx.panes[0].place.device.write(["HOME", "GAMES"], "NEW", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n7\\r\\n")).then(() => true)`);
   await p.until(`/^Reading /.test(${pane}.querySelector(".pane-status-text").textContent)`, 5_000, "read again");
-  const during = await c.ev(`({ rows: ${rows}, spinner: !!${pane}.querySelector("device-list .dlist-state.loading"), games: !!${pane}.querySelector('device-tree [data-path$="/GAMES"]') })`);
-  assert.deepEqual(during, { rows: ["SNAKE", "TETRIS"], spinner: false, games: true });
+  const during = await c.ev(`({ rows: ${rows}, spinner: !!${pane}.querySelector("device-list .dlist-state.loading"), busy: ${pane}.querySelector("device-list").getAttribute("aria-busy"), games: !!${pane}.querySelector('device-tree [data-path$="/GAMES"]') })`);
+  assert.deepEqual(during, { rows: ["SNAKE", "TETRIS"], spinner: false, busy: "true", games: true });
   await p.until(`${rows}.includes("NEW")`, 10_000, "the new listing");
+  // Read: not busy, and the focused row keeps the focus.
+  assert.deepEqual(await c.ev(`({ busy: ${pane}.querySelector("device-list").hasAttribute("aria-busy"), focus: document.activeElement?.dataset?.name ?? null })`), { busy: false, focus: "TETRIS" });
   // A file put in HOME: GAMES stays in the tree while HOME is read again.
   await p.idle(15_000);
   await c.ev(`window.__tree = []; new MutationObserver(() => __tree.push(!!${pane}.querySelector('device-tree [data-path$="/GAMES"]'))).observe(${pane}.querySelector("device-tree"), { childList: true, subtree: true }); true`);
@@ -618,6 +621,12 @@ test("reading a directory is said once: the head's status with a spinner, a name
   await p.idle(15_000);
   assert.equal(await c.ev(`!!${pane}.querySelector('device-tree [data-path$="/GAMES"]')`), true);
   assert.equal(await c.ev(`__tree.includes(false)`), false, "GAMES never left the tree");
+  // Refresh: the same, the list's rows and the tree's folders kept while everything is read again.
+  await c.ev(`__tree.length = 0; tx.panes[0].refresh(); true`);
+  await p.until(`/^Reading /.test(${pane}.querySelector(".pane-status-text").textContent)`, 5_000, "refreshing");
+  assert.equal(await c.ev(`!!${pane}.querySelector("device-list .dlist-state.loading")`), false, "no spinner in the list");
+  await p.idle(15_000);
+  assert.equal(await c.ev(`__tree.length > 0 && !__tree.includes(false)`), true, "GAMES stayed through Refresh");
   assert.deepEqual(c.errors, []);
 });
 

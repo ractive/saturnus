@@ -25,15 +25,7 @@ export class DeviceTree extends HTMLElement {
     this.stale = new Set();
     /** Keys being read. */
     this.reading = new Set();
-    this.onChange = (e) => {
-      const key = e.detail?.path ? pathKey(e.detail.path) : null;
-      for (const k of key ? [key] : [...this.listings.keys()]) {
-        // A listing shown stays until the new one replaces it (no rows folding away and back), one being read is read once more after; an error goes.
-        if (this.listings.get(k)?.error) this.listings.delete(k);
-        else this.stale.add(k);
-      }
-      this.render();
-    };
+    this.onChange = (e) => this.changed(e.detail?.path ?? null);
     this.addEventListener("click", (e) => this.click(e));
     this.addEventListener("keydown", (e) => this.key(e));
   }
@@ -58,6 +50,23 @@ export class DeviceTree extends HTMLElement {
     this._current = [...homeOf(d)];
     this.render();
   }
+
+  /**
+   * Directory `path` changed (null: all of them): read again, each listing
+   * shown until the new one replaces it (no rows folding away and back),
+   * one being read read once more after; an error goes.
+   */
+  changed(path) {
+    const key = path ? pathKey(path) : null;
+    for (const k of key ? [key] : [...this.listings.keys()]) {
+      if (this.listings.get(k)?.error) this.listings.delete(k);
+      else this.stale.add(k);
+    }
+    this.render();
+  }
+
+  /** Read everything again (Refresh on a folder, which sends no change). */
+  refresh() { this.changed(null); }
 
   /** The shown directory: its row is selected, its parents open. */
   get current() { return this._current; }
@@ -114,7 +123,12 @@ export class DeviceTree extends HTMLElement {
     for (const { path, depth } of this.rows()) {
       const key = pathKey(path);
       const isOpen = this.open.has(key);
-      if (isOpen && (!this.listings.has(key) || this.stale.has(key))) this.load(path);
+      // A stale directory waits for its parents read again first: one gone from them is never asked for.
+      const parentsRead = path.slice(0, -1).every((_, i) => {
+        const k = pathKey(path.slice(0, i + 1));
+        return !this.stale.has(k) && !this.reading.has(k);
+      });
+      if (isOpen && (!this.listings.has(key) || (this.stale.has(key) && parentsRead))) this.load(path);
       // `load` marks the listing "loading" at once: this row says so.
       const listing = this.listings.get(key);
       const known = listing && listing !== "loading" && !listing.error;
@@ -134,11 +148,9 @@ export class DeviceTree extends HTMLElement {
       if (hasChildren) toggle.append(iconEl(isOpen ? "chevron-down" : "chevron-right", "ic-sm"));
       const name = el("span", { class: "dtree-name", text: path[path.length - 1] });
       row.append(toggle, iconEl(isOpen ? "folder-open" : "folder", "ic-sm ic-dir"), name);
-      // Being read: a faint folder and aria-busy; the spinner is the list's and the pane's head's.
-      if (isOpen && listing === "loading") {
-        row.classList.add("loading");
-        row.setAttribute("aria-busy", "true");
-      }
+      // Being read: a faint folder and aria-busy, read again: aria-busy alone; the spinner is the list's and the pane's head's.
+      if (isOpen && listing === "loading") row.classList.add("loading");
+      if (isOpen && (listing === "loading" || this.reading.has(key))) row.setAttribute("aria-busy", "true");
       if (listing?.error) {
         row.append(el("span", { class: "dtree-note error", text: "not read" }));
         row.title = listing.error;

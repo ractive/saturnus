@@ -964,8 +964,10 @@ under the list for several seconds.
   the list's spinner: the one shown, read again after a change (a copy
   into it, a rename, Refresh), keeps its rows until the new listing
   replaces them, and the tree keeps a changed directory's folders while
-  it is read again (owner, 2026-11-09: the list flashed after every
-  upload).
+  it is read again, parents before their subdirectories (owner,
+  2026-11-09: the list flashed after every upload). Read again, the list
+  and the tree's row are `aria-busy` without the faint look, and the
+  focused row keeps the focus when the new rows are drawn.
 - **The cable console.** "Show the packets" in the page's header (gone
   while there is nothing to show: every calculator in the panes is the
   emulator's, whose link has no packets, nothing is served and no packet

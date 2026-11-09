@@ -133,11 +133,15 @@ export class DeviceList extends HTMLElement {
     const serial = ++this.reloads;
     if (!this._device) {
       this.listing = null;
+      this.loading = false;
+      this.removeAttribute("aria-busy");
       this.render();
       return;
     }
     this.loading = true;
-    if (!again) this.render();
+    // The rows kept are being read again: busy for a screen reader (the pane's status says what is read).
+    if (again) this.setAttribute("aria-busy", "true");
+    else this.render();
     try {
       const listing = await this._device.list(path);
       if (serial !== this.reloads) return;
@@ -152,6 +156,7 @@ export class DeviceList extends HTMLElement {
       this.error = String(err?.message ?? err);
     }
     this.loading = false;
+    this.removeAttribute("aria-busy");
     this.render();
     this.dispatchEvent(new CustomEvent("listed", { detail: { path: [...path], listing: this.listing, error: this.error } }));
   }
@@ -262,6 +267,10 @@ export class DeviceList extends HTMLElement {
     // sort): put it back. A new directory starts at the top anyway: its
     // spinner came first.
     const top = this.scrollTop;
+    // The focused row keeps the focus when the rows are drawn again (a sort, a listing read again).
+    const focused = this.querySelector("tbody tr:focus");
+    const focusedName = focused?.dataset.name ?? null;
+    const focusedUp = focused?.hasAttribute("data-up") ?? false;
     const head = el("tr", {});
     for (const [key, title] of this.columns) {
       const sorted = this.sortKey === key;
@@ -304,6 +313,8 @@ export class DeviceList extends HTMLElement {
     if (!body.querySelector('tr[tabindex="0"]')) body.querySelector("tr")?.setAttribute("tabindex", "0");
     this.replaceChildren(...nodes);
     if (this.scrollTop !== top) this.scrollTop = top;
+    if (focusedName !== null) this.querySelector(`tr[data-name="${CSS.escape(focusedName)}"]`)?.focus({ preventScroll: true });
+    else if (focusedUp) this.querySelector("tr[data-up]")?.focus({ preventScroll: true });
   }
 
   rowOf(target) { return target.closest?.("tr[data-name], tr[data-up]") ?? null; }
