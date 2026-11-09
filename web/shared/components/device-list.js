@@ -40,6 +40,10 @@ export class DeviceList extends HTMLElement {
     this._device = null;
     this._path = [...homeOf(null)];
     this.listing = null;
+    /** The directory `listing` is of: a refresh of it keeps the rows until the new listing replaces them. */
+    this.listedPath = null;
+    /** The latest reload's number: an older one's answer is dropped. */
+    this.reloads = 0;
     this.error = null;
     this.loading = false;
     this.sortKey = "name";
@@ -89,6 +93,7 @@ export class DeviceList extends HTMLElement {
     this.busy = new Map();
     d?.addEventListener("change", this.onChange);
     this._path = [...homeOf(d)];
+    this.listing = null;
     this.selected = null;
     this.marked = new Set();
     this.reload();
@@ -115,25 +120,35 @@ export class DeviceList extends HTMLElement {
     return sortEntries(this.listing.entries, this.sortKey, this.ascending).filter((e) => this.marked.has(e.name));
   }
 
+  /**
+   * Read the directory shown. Another directory starts with the spinner;
+   * the same one again (a copy into it, a rename) keeps its rows until
+   * the new listing replaces them, so the list does not flash.
+   */
   async reload() {
-    this.listing = null;
+    const path = this._path;
+    const again = Boolean(this.listing && this.listedPath && samePath(this.listedPath, path));
+    if (!again) this.listing = null;
     this.error = null;
+    const serial = ++this.reloads;
     if (!this._device) {
+      this.listing = null;
       this.render();
       return;
     }
-    const path = this._path;
     this.loading = true;
-    this.render();
+    if (!again) this.render();
     try {
       const listing = await this._device.list(path);
-      if (!samePath(path, this._path)) return;
+      if (serial !== this.reloads) return;
       this.listing = listing;
+      this.listedPath = [...path];
       const names = new Set(listing.entries.map((e) => e.name));
       if (this.selected && !names.has(this.selected)) this.selected = null;
       this.marked = new Set([...this.marked].filter((n) => names.has(n)));
     } catch (err) {
-      if (!samePath(path, this._path)) return;
+      if (serial !== this.reloads) return;
+      this.listing = null;
       this.error = String(err?.message ?? err);
     }
     this.loading = false;

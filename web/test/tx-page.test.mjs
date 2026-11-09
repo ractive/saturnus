@@ -579,7 +579,10 @@ test("reading a directory is said once: the head's status with a spinner, a name
   const { c, p } = f;
   await c.ev(`__calc(0, "48gx", { delay: (r) => (r.type === "list" ? 1500 : 10) })`);
   await p.idle(15_000);
-  await c.ev(`tx.panes[0].refresh(); true`);
+  await c.ev(SEED_CALC(0));
+  await p.idle(15_000);
+  // Another directory: the spinner in the list until it is read.
+  await c.ev(`tx.panes[0].navigate(["HOME", "GAMES"]); true`);
   const pane = `document.querySelector(".pane[data-pane=left]")`;
   await p.until(`!!${pane}.querySelector("device-list .dlist-state.loading")`, 5_000, "reading");
   const r = await c.ev(`({
@@ -591,7 +594,7 @@ test("reading a directory is said once: the head's status with a spinner, a name
     live: !!${pane}.querySelector("device-list [aria-live], device-list [role=status]"),
     tree: ${pane}.querySelector("device-tree").textContent,
   })`);
-  assert.match(r.status, /^Reading HOME…/);
+  assert.match(r.status, /^Reading .*GAMES…/);
   assert.equal(r.spinner, false);
   assert.equal(r.list, "", "no second text");
   assert.equal(r.named, "Reading the directory");
@@ -600,6 +603,21 @@ test("reading a directory is said once: the head's status with a spinner, a name
   assert.doesNotMatch(r.tree, /…/, "no third one in the tree");
   await p.idle(15_000);
   assert.equal(await c.ev(`${pane}.querySelector(".pane-spinner").hidden`), true, "gone once read");
+  // The same directory again (a file put there): its rows stay until the new listing replaces them, and the tree keeps its folders.
+  const rows = `[...${pane}.querySelectorAll("device-list tr[data-name]")].map((e) => e.dataset.name).sort()`;
+  assert.deepEqual(await c.ev(rows), ["SNAKE", "TETRIS"]);
+  await c.ev(`tx.panes[0].place.device.write(["HOME", "GAMES"], "NEW", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n7\\r\\n")).then(() => true)`);
+  await p.until(`/^Reading /.test(${pane}.querySelector(".pane-status-text").textContent)`, 5_000, "read again");
+  const during = await c.ev(`({ rows: ${rows}, spinner: !!${pane}.querySelector("device-list .dlist-state.loading"), games: !!${pane}.querySelector('device-tree [data-path$="/GAMES"]') })`);
+  assert.deepEqual(during, { rows: ["SNAKE", "TETRIS"], spinner: false, games: true });
+  await p.until(`${rows}.includes("NEW")`, 10_000, "the new listing");
+  // A file put in HOME: GAMES stays in the tree while HOME is read again.
+  await p.idle(15_000);
+  await c.ev(`window.__tree = []; new MutationObserver(() => __tree.push(!!${pane}.querySelector('device-tree [data-path$="/GAMES"]'))).observe(${pane}.querySelector("device-tree"), { childList: true, subtree: true }); true`);
+  await c.ev(`tx.panes[0].place.device.write(["HOME"], "Y", new TextEncoder().encode("%%HP: T(3)A(R)F(.);\\r\\n8\\r\\n")).then(() => true)`);
+  await p.idle(15_000);
+  assert.equal(await c.ev(`!!${pane}.querySelector('device-tree [data-path$="/GAMES"]')`), true);
+  assert.equal(await c.ev(`__tree.includes(false)`), false, "GAMES never left the tree");
   assert.deepEqual(c.errors, []);
 });
 

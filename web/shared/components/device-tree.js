@@ -21,10 +21,17 @@ export class DeviceTree extends HTMLElement {
     this.open = new Set([pathKey(HOME)]);
     /** Listings by key: a listing, or `{error}`, or `"loading"`. */
     this.listings = new Map();
+    /** Keys whose directory changed: read again, their listing shown until then. */
+    this.stale = new Set();
+    /** Keys being read. */
+    this.reading = new Set();
     this.onChange = (e) => {
       const key = e.detail?.path ? pathKey(e.detail.path) : null;
-      if (key) this.listings.delete(key);
-      else this.listings.clear();
+      for (const k of key ? [key] : [...this.listings.keys()]) {
+        // A listing shown stays until the new one replaces it (no rows folding away and back), one being read is read once more after; an error goes.
+        if (this.listings.get(k)?.error) this.listings.delete(k);
+        else this.stale.add(k);
+      }
       this.render();
     };
     this.addEventListener("click", (e) => this.click(e));
@@ -46,6 +53,8 @@ export class DeviceTree extends HTMLElement {
     d?.addEventListener("change", this.onChange);
     this.open = new Set([pathKey(homeOf(d))]);
     this.listings.clear();
+    this.stale.clear();
+    this.reading.clear();
     this._current = [...homeOf(d)];
     this.render();
   }
@@ -58,16 +67,24 @@ export class DeviceTree extends HTMLElement {
     this.render();
   }
 
-  /** The listing of `path`, from the device (it caches). */
+  /** The listing of `path`, from the device (it caches); a stale one is read again while it stays shown. */
   async load(path) {
     const key = pathKey(path);
-    if (this.listings.has(key) || !this._device) return;
-    this.listings.set(key, "loading");
+    const device = this._device;
+    if (!device || this.reading.has(key) || (this.listings.has(key) && !this.stale.has(key))) return;
+    this.stale.delete(key);
+    this.reading.add(key);
+    if (!this.listings.has(key)) this.listings.set(key, "loading");
+    let listing;
     try {
-      this.listings.set(key, await this._device.list(path));
+      listing = await device.list(path);
     } catch (err) {
-      this.listings.set(key, { error: String(err?.message ?? err) });
+      listing = { error: String(err?.message ?? err) };
     }
+    // Another device since: its own listings, not this one.
+    if (device !== this._device) return;
+    this.reading.delete(key);
+    this.listings.set(key, listing);
     this.render();
   }
 
@@ -97,7 +114,7 @@ export class DeviceTree extends HTMLElement {
     for (const { path, depth } of this.rows()) {
       const key = pathKey(path);
       const isOpen = this.open.has(key);
-      if (isOpen && !this.listings.has(key)) this.load(path);
+      if (isOpen && (!this.listings.has(key) || this.stale.has(key))) this.load(path);
       // `load` marks the listing "loading" at once: this row says so.
       const listing = this.listings.get(key);
       const known = listing && listing !== "loading" && !listing.error;

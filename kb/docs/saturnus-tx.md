@@ -960,7 +960,12 @@ under the list for several seconds.
   list shows only a spinner named "Reading the directory" for a screen
   reader, not live; the tree marks the directory faint and `aria-busy`,
   no text. The same spinner stands beside the status while a job runs
-  there or a connect is under way.
+  there or a connect is under way. Only a directory not shown yet gets
+  the list's spinner: the one shown, read again after a change (a copy
+  into it, a rename, Refresh), keeps its rows until the new listing
+  replaces them, and the tree keeps a changed directory's folders while
+  it is read again (owner, 2026-11-09: the list flashed after every
+  upload).
 - **The cable console.** "Show the packets" in the page's header (gone
   while there is nothing to show: every calculator in the panes is the
   emulator's, whose link has no packets, nothing is served and no packet
