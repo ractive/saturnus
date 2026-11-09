@@ -50,6 +50,23 @@ export const MAX_DRAG_URLS = 20;
 export const BROWSER_FILES = "Files in this browser";
 export const BROWSER_FILES_NOTE = "Not on your disk. Use ⋯ → Download to save a file.";
 
+/**
+ * What the ⓘ beside "Files in this browser" says: where the files are
+ * (`kind` "opfs": the browser's storage for the site; "memory": the
+ * tab), how they come in and go out, and why (`pick` false: no folder
+ * picker, as in Firefox and Safari); one line each.
+ */
+export function browserFilesHelp(kind, { pick = canPickFolder() } = {}) {
+  const where = kind === "memory"
+    ? "These files are only in this tab's memory: this browser does not let the page keep files (a private window, or site data switched off). They are gone when you close the tab."
+    : "These files are not on your disk: the browser keeps them in its own storage for this site, so Finder or Explorer does not show them. They stay until you clear this site's data in the browser.";
+  const how = "To bring a file in, drop it here or use Add files from this computer… in the ⋯ menu at the top. To keep a copy on your disk, use the file's ⋯ → Download.";
+  const why = pick
+    ? "To work in a folder on your computer instead, choose Open a folder… under Change."
+    : "This browser cannot open a folder on your computer, so the app keeps the files here. Chrome and Edge can open a folder, and the desktop app uses your files directly.";
+  return [where, how, why].join("\n");
+}
+
 /** Below this width "Open in the emulator" moves into the pane's ⋯ menu, so the header's buttons stay on one row. */
 export const NARROW_HEAD = "(max-width: 479px)";
 
@@ -80,13 +97,15 @@ export class Pane {
     const q = (s) => root.querySelector(s);
     this.ui = {
       title: q(".pane-title"), status: q(".pane-status-text"), progress: q(".pane-progress"),
-      spinner: q(".pane-spinner"), stop: q(".pane-stop"),
+      spinner: q(".pane-spinner"), stop: q(".pane-stop"), info: q(".pane-info"),
       change: q(".pane-change"), refresh: q(".pane-refresh"), more: q(".pane-more"), emulator: q(".pane-emulator"),
       empty: q(".pane-empty"), body: q(".pane-body"), tree: q("device-tree"), list: q("device-list"),
       crumbs: q(".crumbs"), preview: q(".preview"),
       hint: q(".pane-hint"), hintText: q(".pane-hint-text"), hintClose: q(".pane-hint-close"),
     };
     this.ui.title.id = `pane-title-${id}`;
+    this.ui.hint.id = `pane-hint-${id}`;
+    this.ui.info.setAttribute("aria-controls", this.ui.hint.id);
     root.setAttribute("aria-labelledby", this.ui.title.id);
     root.dataset.pane = id;
     /**
@@ -230,9 +249,17 @@ export class Pane {
   setProgress(text) { this.ui.progress.textContent = text; }
 
   /** The hint under the head (`text`, null: none), until its button closes it. */
-  setHint(text) {
+  setHint(text, { info = false } = {}) {
     this.ui.hint.hidden = !text;
     this.ui.hintText.textContent = text ?? "";
+    // The ⓘ's text is open (only that one: another hint replaces it).
+    this.ui.info.setAttribute("aria-expanded", String(Boolean(text) && info));
+  }
+
+  /** The ⓘ beside "Files in this browser": its text under the header, or closed again. */
+  toggleInfo() {
+    const open = this.ui.info.getAttribute("aria-expanded") === "true";
+    this.setHint(open || !this.place?.browser ? null : browserFilesHelp(this.place.folder.kind), { info: true });
   }
 
   /** A connection made: its hint, once (the 49G's XSERV, kb/docs/saturnus-tx.md). */
@@ -311,6 +338,7 @@ export class Pane {
     // The emulator's own calculator is shown there too (not one from a ROM file, nor in the desktop app).
     this.ui.emulator.hidden = !(p?.kind === "device" && p.hub && this.app.emulatorUrl?.(p.model));
     this.ui.title.textContent = this.heading;
+    this.ui.info.hidden = !p?.browser;
     if (!shown) this.renderCard();
     if (this.shownJob) this.renderJob();
     else {
@@ -1714,6 +1742,7 @@ export class Pane {
     });
     tree.addEventListener("navigate", (e) => this.navigate(e.detail.path));
     this.ui.hintClose.addEventListener("click", () => this.setHint(null));
+    this.ui.info.addEventListener("click", () => this.toggleInfo());
     this.app.queue.addEventListener("change", () => this.scheduleJob());
     // Stop (a palmtop's job): that job's work ends at the palmtop's next reply.
     this.ui.stop.addEventListener("click", () => {
