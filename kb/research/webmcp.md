@@ -106,7 +106,7 @@ Brave 1.99.55 on macOS, the deployed app on ractive.ch:
 - Leo sees the page's tools and calls them; their names carry the site
   as a prefix (`web_ractive_ch_run_rpl`, `web_ractive_ch_lookup_command`).
 - Brave asks before every tool call ("Brave AI möchte run_rpl auf
-  https://ractive.ch ausführen", with the arguments behind a fold):
+  `https://ractive.ch` ausführen", with the arguments behind a fold):
   Allow once, Allow for this session, or Deny.
 - Whether a conversation gets the browser tools depends on the chosen
   model: after switching to some models the tools were gone, and back
