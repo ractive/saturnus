@@ -17,7 +17,10 @@ fn fs() -> MemoryFs {
     let mut fs = MemoryFs::new(b"ACD");
     fs.set_read_only(b'D');
     fs.insert_file(b"C:\\HELLO.TXT", b"Hello\r\n".to_vec());
-    fs.insert_file(b"C:\\BIG.BIN", (0..5000u32).map(|i| (i % 251) as u8).collect());
+    fs.insert_file(
+        b"C:\\BIG.BIN",
+        (0..5000u32).map(|i| (i % 251) as u8).collect(),
+    );
     fs.insert_file(b"C:\\SUB\\NOTE.TXT", b"note".to_vec());
     fs.insert_file(b"C:\\SUB\\DEEP\\A.TXT", b"a".to_vec());
     fs.insert_file(b"D:\\ROM.TXT", b"rom".to_vec());
@@ -148,7 +151,9 @@ fn dir(parts: &[&str]) -> Vec<String> {
 
 fn names(outcome: Result<PalmtopOutcome>) -> Vec<String> {
     match outcome {
-        Ok(PalmtopOutcome::Listing { entries, .. }) => entries.into_iter().map(|e| e.name).collect(),
+        Ok(PalmtopOutcome::Listing { entries, .. }) => {
+            entries.into_iter().map(|e| e.name).collect()
+        }
         other => panic!("{other:?}"),
     }
 }
@@ -199,25 +204,52 @@ fn dos_names() {
 #[test]
 fn drives_listings_get_and_progress() {
     let mut r = Rig::connected();
-    assert_eq!(names(r.run(PalmtopRequest::List { dir: vec![] })), ["A:", "C:", "D:"]);
-    let Ok(PalmtopOutcome::Listing { entries, .. }) = r.run(PalmtopRequest::List { dir: dir(&["C:"]) })
+    assert_eq!(
+        names(r.run(PalmtopRequest::List { dir: vec![] })),
+        ["A:", "C:", "D:"]
+    );
+    let Ok(PalmtopOutcome::Listing { entries, .. }) =
+        r.run(PalmtopRequest::List { dir: dir(&["C:"]) })
     else {
         panic!()
     };
-    let shown: Vec<_> = entries.iter().map(|e| (e.name.as_str(), e.directory, e.size)).collect();
-    assert_eq!(shown, [("BIG.BIN", false, 5000), ("HELLO.TXT", false, 7), ("SUB", true, 0)]);
+    let shown: Vec<_> = entries
+        .iter()
+        .map(|e| (e.name.as_str(), e.directory, e.size))
+        .collect();
+    assert_eq!(
+        shown,
+        [
+            ("BIG.BIN", false, 5000),
+            ("HELLO.TXT", false, 7),
+            ("SUB", true, 0)
+        ]
+    );
     assert_eq!(entries[1].modified, DosDateTime::new(2026, 1, 1, 12, 0, 0));
-    assert_eq!(names(r.run(PalmtopRequest::List { dir: dir(&["C:", "SUB"]) })), ["DEEP", "NOTE.TXT"]);
+    assert_eq!(
+        names(r.run(PalmtopRequest::List {
+            dir: dir(&["C:", "SUB"])
+        })),
+        ["DEEP", "NOTE.TXT"]
+    );
     let got = r.run(PalmtopRequest::Get {
         dir: dir(&["C:"]),
         name: "BIG.BIN".into(),
     });
-    let Ok(PalmtopOutcome::File { name, data, modified }) = got else {
+    let Ok(PalmtopOutcome::File {
+        name,
+        data,
+        modified,
+    }) = got
+    else {
         panic!("{got:?}")
     };
     assert_eq!((name.as_str(), data.len()), ("BIG.BIN", 5000));
     assert_eq!(modified, DosDateTime::new(2026, 1, 1, 12, 0, 0));
-    assert_eq!(r.progress, [(2048, Some(5000)), (4096, Some(5000)), (5000, Some(5000))]);
+    assert_eq!(
+        r.progress,
+        [(2048, Some(5000)), (4096, Some(5000)), (5000, Some(5000))]
+    );
     assert_eq!(
         r.run(PalmtopRequest::Get {
             dir: dir(&["C:"]),
@@ -225,29 +257,39 @@ fn drives_listings_get_and_progress() {
         }),
         Err(PalmtopError::NotFound("NONE.TXT".into()))
     );
+    let e = r
+        .run(PalmtopRequest::List {
+            dir: dir(&["C:", "NONE"]),
+        })
+        .unwrap_err();
     assert_eq!(
-        names(r.run(PalmtopRequest::List { dir: dir(&["C:", "NONE"]) }).map_err(|e| {
-            assert_eq!(e.to_string(), "C:\\NONE: that directory or drive is not there");
-            e
-        }).or_else(|_| Ok(PalmtopOutcome::Listing { dir: vec![], entries: vec![] }))),
-        Vec::<String>::new()
+        e.to_string(),
+        "C:\\NONE: that directory or drive is not there"
     );
 }
 
 #[test]
 fn put_replace_rename_mkdir_and_errors() {
     let mut r = Rig::connected();
-    assert_eq!(r.run(put(&["C:"], "new.txt", b"one", false)), Ok(PalmtopOutcome::Stored("NEW.TXT".into())));
+    assert_eq!(
+        r.run(put(&["C:"], "new.txt", b"one", false)),
+        Ok(PalmtopOutcome::Stored("NEW.TXT".into()))
+    );
     assert_eq!(r.server.fs().file(b"C:\\NEW.TXT"), Some(&b"one"[..]));
     assert_eq!(
         r.run(put(&["C:"], "NEW.TXT", b"two", false)),
         Err(PalmtopError::Exists("NEW.TXT".into()))
     );
-    assert_eq!(r.run(put(&["C:"], "NEW.TXT", b"two", true)), Ok(PalmtopOutcome::Stored("NEW.TXT".into())));
+    assert_eq!(
+        r.run(put(&["C:"], "NEW.TXT", b"two", true)),
+        Ok(PalmtopOutcome::Stored("NEW.TXT".into()))
+    );
     assert_eq!(r.server.fs().file(b"C:\\NEW.TXT"), Some(&b"two"[..]));
     // A long name is refused before anything is sent.
     let sent = r.commands.len();
-    let e = r.run(put(&["C:"], "LONGNAME1.TXT", b"x", false)).unwrap_err();
+    let e = r
+        .run(put(&["C:"], "LONGNAME1.TXT", b"x", false))
+        .unwrap_err();
     assert_eq!(r.commands.len(), sent);
     assert_eq!(
         e.to_string(),
@@ -296,9 +338,15 @@ fn put_replace_rename_mkdir_and_errors() {
             error: FsError::WRITE_PROTECTED
         }
     );
-    assert_eq!(e.to_string(), "X.TXT: the drive is write-protected (D: is the palmtop's ROM disk)");
+    assert_eq!(
+        e.to_string(),
+        "X.TXT: the drive is write-protected (D: is the palmtop's ROM disk)"
+    );
     // The session goes on after every refusal.
-    assert_eq!(names(r.run(PalmtopRequest::List { dir: dir(&["D:"]) })), ["ROM.TXT"]);
+    assert_eq!(
+        names(r.run(PalmtopRequest::List { dir: dir(&["D:"]) })),
+        ["ROM.TXT"]
+    );
 }
 
 #[test]
@@ -326,7 +374,10 @@ fn remove_a_file_and_a_tree() {
             count: 3
         })
     );
-    assert_eq!(names(r.run(PalmtopRequest::List { dir: dir(&["C:"]) })), ["BIG.BIN"]);
+    assert_eq!(
+        names(r.run(PalmtopRequest::List { dir: dir(&["C:"]) })),
+        ["BIG.BIN"]
+    );
     assert_eq!(
         r.run(PalmtopRequest::Remove {
             dir: dir(&["C:"]),
@@ -369,7 +420,11 @@ fn stop_closes_the_file_and_keeps_the_session() {
         }
     });
     assert_eq!(put, Err(PalmtopError::Stopped));
-    assert_eq!(r.server.fs().file(b"C:\\PART.BIN"), None, "the part written is deleted");
+    assert_eq!(
+        r.server.fs().file(b"C:\\PART.BIN"),
+        None,
+        "the part written is deleted"
+    );
     let mut stopped = false;
     let removed = r.run_with(
         PalmtopRequest::Remove {
@@ -385,23 +440,44 @@ fn stop_closes_the_file_and_keeps_the_session() {
         },
     );
     assert_eq!(removed, Err(PalmtopError::Stopped));
-    assert!(r.server.fs().file(b"C:\\SUB\\NOTE.TXT").is_some(), "stopped before any delete");
+    assert!(
+        r.server.fs().file(b"C:\\SUB\\NOTE.TXT").is_some(),
+        "stopped before any delete"
+    );
     assert!(r.palmtop.connection().is_some());
-    assert_eq!(names(r.run(PalmtopRequest::List { dir: dir(&["C:"]) })), ["BIG.BIN", "HELLO.TXT", "SUB"]);
+    assert_eq!(
+        names(r.run(PalmtopRequest::List { dir: dir(&["C:"]) })),
+        ["BIG.BIN", "HELLO.TXT", "SUB"]
+    );
 }
 
 #[test]
 fn abort_reconnects_before_the_next_request() {
     let mut r = Rig::connected();
-    r.palmtop.start(r.now, PalmtopRequest::Get { dir: dir(&["C:"]), name: "BIG.BIN".into() }).unwrap();
+    r.palmtop
+        .start(
+            r.now,
+            PalmtopRequest::Get {
+                dir: dir(&["C:"]),
+                name: "BIG.BIN".into(),
+            },
+        )
+        .unwrap();
     r.exchange_once();
     r.palmtop.abort(r.now);
     assert!(!r.palmtop.is_busy());
     r.exchange();
     assert_eq!(r.commands.last(), Some(&0x41), "a DISCONNECT went out");
-    assert_eq!(names(r.run(PalmtopRequest::List { dir: dir(&["C:"]) })), ["BIG.BIN", "HELLO.TXT", "SUB"]);
+    assert_eq!(
+        names(r.run(PalmtopRequest::List { dir: dir(&["C:"]) })),
+        ["BIG.BIN", "HELLO.TXT", "SUB"]
+    );
     let gone = r.commands.iter().rposition(|&c| c == 0x41).unwrap();
-    assert_eq!(r.commands[gone + 1..gone + 3], [0x40, 0x12], "CONNECT first, then the listing");
+    assert_eq!(
+        r.commands[gone + 1..gone + 3],
+        [0x40, 0x12],
+        "CONNECT first, then the listing"
+    );
 }
 
 #[test]
@@ -415,7 +491,10 @@ fn a_silent_palmtop_is_not_answering_until_it_answers_a_connect() {
     );
     // Three sends, 5.9 s each.
     let waited = r.now.saturating_duration_since(started);
-    assert!(waited > Duration::from_secs(17) && waited < Duration::from_secs(19), "{waited:?}");
+    assert!(
+        waited > Duration::from_secs(17) && waited < Duration::from_secs(19),
+        "{waited:?}"
+    );
     assert!(r.palmtop.not_answering());
     assert_eq!(r.palmtop.connection(), None);
     assert_eq!(
@@ -424,7 +503,10 @@ fn a_silent_palmtop_is_not_answering_until_it_answers_a_connect() {
     );
     r.silent = false;
     // The server still thinks the old session is open: CONNECT resets it.
-    assert!(matches!(r.run(PalmtopRequest::Connect { baud: 19200 }), Ok(PalmtopOutcome::Connected(_))));
+    assert!(matches!(
+        r.run(PalmtopRequest::Connect { baud: 19200 }),
+        Ok(PalmtopOutcome::Connected(_))
+    ));
     assert!(!r.palmtop.not_answering());
     // One that left server mode answers a request with a CONNECT refusal.
     r.server.break_session();
@@ -517,6 +599,8 @@ fn the_recorded_session_is_current() {
         std::fs::write(file, &text).unwrap();
     }
     let kept = std::fs::read_to_string(file).unwrap_or_default();
-    assert!(kept == text, "{file} is out of date: run the test with SATURNUS_BLESS=1");
+    assert!(
+        kept == text,
+        "{file} is out of date: run the test with SATURNUS_BLESS=1"
+    );
 }
-

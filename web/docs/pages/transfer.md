@@ -13,7 +13,7 @@ You need a serial cable for your model, a USB serial adapter on most computers, 
 - [Cables](transfer/cables.md): which cable fits which model, the 48's wiring, the 49G's and 38G's connector, USB serial adapters and building a cable yourself.
 - [Kermit and XModem](transfer/kermit-xmodem.md): which calculator speaks which, binary and ASCII transfers, the settings that matter, what to check when a transfer fails, and the programs on the computer.
 - [satx](transfer/satx.md): the project's command-line tool, with the commands that list, copy, run, back up and restore.
-- [Files in the app](transfer/files.md): moving variables in the browser between a folder, an emulated calculator and a real one.
+- [Files in the app](transfer/files.md): moving variables in the browser between a folder, an emulated calculator and a real one, and files to and from an HP 100LX or 200LX palmtop.
 
 ## Which models
 
@@ -25,6 +25,7 @@ You need a serial cable for your model, a USB serial adapter on most computers, 
 | HP 38G | yes | Kermit, started on the calculator: Files serves it a folder |
 | HP 39G, 40G | yes | Kermit and XModem, started on the calculator: Files serves it a folder |
 | HP 42S, 27S, 17B, 17BII, 19BII, 28S | no | none: their infrared port only prints |
+| HP 100LX, 200LX palmtops | yes | their Filer in server mode: satx and Files show their drives and files |
 
 The calculator's side of a transfer is built in: on the 48 and the 49G a Kermit server that the computer drives, on the 38G, 39G and 40G the SEND and RECV menus of the Aplet Library. How the port works inside is on [The serial port and infrared](saturn/serial.md).
 

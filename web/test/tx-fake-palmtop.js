@@ -52,3 +52,42 @@ export function palmtopLink(TxFilerServer, files = PALMTOP_FILES(), { label = "t
   link.unplug = (reason = "the device has been lost") => link.emitLost(reason);
   return link;
 }
+
+/**
+ * A Web Serial port (`navigator.serial.requestPort()`'s) with the same
+ * server behind it, for the page's real WebSerialLink: `opened` the
+ * speeds opened at, `server`, `silence()`, `answer()`.
+ */
+export function fakeSerialPort(TxFilerServer, files = PALMTOP_FILES()) {
+  const server = new TxFilerServer(files);
+  let silent = false;
+  let feed = null;
+  const port = {
+    server,
+    opened: [],
+    readable: null,
+    writable: null,
+    getInfo: () => ({ usbVendorId: 0x0403, usbProductId: 0x6001 }),
+    async open({ baudRate }) {
+      if (port.readable) throw Object.assign(new Error("already open"), { name: "InvalidStateError" });
+      port.opened.push(baudRate);
+      port.readable = new ReadableStream({ start: (c) => { feed = c; } });
+      port.writable = new WritableStream({
+        write: (bytes) => {
+          if (silent) return;
+          server.input(bytes);
+          const out = [...server.output()];
+          setTimeout(() => out.forEach((b) => feed?.enqueue(b)), 1);
+        },
+      });
+    },
+    async close() {
+      port.readable = null;
+      port.writable = null;
+      feed = null;
+    },
+    silence: () => { silent = true; },
+    answer: () => { silent = false; },
+  };
+  return port;
+}

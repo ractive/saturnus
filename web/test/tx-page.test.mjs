@@ -19,6 +19,13 @@
 //   themes on every view (the panes, the stacked switch, the menus, the
 //   dialogs, the copy plan's warning, the queue, the restore question).
 // - A browser without Web Serial gets the plain message.
+// - "Add a calculator", "An HP 100LX or 200LX palmtop": the Filer's
+//   settings, the cable warning, 19200 unless "Use a fixed speed" (and
+//   the warning above 19200); the port chosen, the palmtop (filer-proto's
+//   server behind a fake Web Serial port, web/test/tx-fake-palmtop.js)
+//   shows its drives, a file dropped goes on as a DOS name, a long name is
+//   left out with the reason, the not-answering card and its Reconnect,
+//   and Disconnect.
 // - Folders only in the right pane: the left's "Change" menu and card
 //   offer calculators only, the right's a folder and a calculator, and a
 //   kept folder comes back on the right only.
@@ -656,10 +663,10 @@ test("\"Add a calculator\" asks the kind first: an HP 48 or 49 goes on to one co
   })()`;
   await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-serial"]').click(); true`);
   await p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog");
-  assert.deepEqual(await c.ev(step), { open: true, ask: true, cable: false, go: false, back: false, kinds: ["An HP 48 or 49", "An HP 38G, 39G or 40G"] });
+  assert.deepEqual(await c.ev(step), { open: true, ask: true, cable: false, go: false, back: false, kinds: ["An HP 48 or 49", "An HP 38G, 39G or 40G", "An HP 100LX or 200LX palmtop"] });
   assert.equal(await c.ev(`document.getElementById("connect-ask-text").textContent`), "Which calculator?");
   await c.ev(`document.querySelector('#connect-kind [data-kind="48-49"]').click(); true`);
-  assert.deepEqual(await c.ev(step), { open: true, ask: false, cable: true, go: true, back: true, kinds: ["An HP 48 or 49", "An HP 38G, 39G or 40G"] });
+  assert.deepEqual(await c.ev(step), { open: true, ask: false, cable: true, go: true, back: true, kinds: ["An HP 48 or 49", "An HP 38G, 39G or 40G", "An HP 100LX or 200LX palmtop"] });
   // No model to pick: one row per model with its keys; Files reads the model and the server from the calculator.
   const rows = await c.ev(`[...document.querySelectorAll("#connect-steps tr")].map((r) => [r.dataset.model, r.querySelector("th").textContent, r.querySelector("td p").textContent, [...r.querySelectorAll("kbd")].map((k) => k.textContent).join(" ")])`);
   assert.deepEqual(rows, [
@@ -685,6 +692,88 @@ test("\"Add a calculator\" asks the kind first: an HP 48 or 49 goes on to one co
   assert.equal(await c.ev(`document.querySelector('#serve [data-calc="serial"]').getAttribute("aria-checked")`), "true");
   // The left pane's card has no separate serve link where a port can be reached.
   assert.equal(await c.ev(`!!document.querySelector('.pane[data-pane=left] [data-action="serve-aplets"], #serve-aplets')`), false);
+  assert.deepEqual(c.errors, []);
+});
+
+// ---------------------------------------------------------------- the palmtop
+
+test("an HP 100LX or 200LX through \"Add a calculator\": its Filer settings, the cable warning, the speed; its drives and files; a long name refused; not answering; Disconnect", { timeout: 120_000 }, async (t) => {
+  const c = await open(t);
+  if (!c) return;
+  await c.send("Page.enable");
+  await c.send("Runtime.enable");
+  const p = txPage(c);
+  await p.open(c.port);
+  // A Web Serial port with filer-proto's server behind it; replies wait 300 ms, not 5.9 s, before a resend.
+  await c.ev(`Promise.all([import("./test/tx-fake-palmtop.js"), tx.helpers()]).then(([m, h]) => {
+    window.__port = m.fakeSerialPort(h.TxFilerServer);
+    navigator.serial.requestPort = async () => __port;
+    navigator.serial.getPorts = async () => [];
+    tx.app.deviceOptions = { silenceMs: 300 };
+    return true;
+  })`);
+  await c.ev(`document.querySelector('.pane[data-pane=left] [data-action="add-serial"]').click(); true`);
+  await p.until(`document.getElementById("connect-dialog").open`, 5_000, "the connect dialog");
+  await c.ev(`document.querySelector('#connect-kind [data-kind="palmtop"]').click(); true`);
+  const step = await c.ev(`(() => {
+    const part = document.getElementById("connect-palmtop");
+    return {
+      shown: !part.hidden, cable: !document.getElementById("connect-cable").hidden, ask: !document.getElementById("connect-ask").hidden,
+      steps: [...part.querySelectorAll(".palmtop-steps li")].map((li) => li.textContent),
+      warning: part.querySelector(".connect-warning").textContent,
+      fixed: document.getElementById("palmtop-fixed").checked, baud: document.getElementById("palmtop-baud").disabled,
+      fast: !document.getElementById("palmtop-fast").hidden, go: document.getElementById("connect-go").textContent,
+    };
+  })()`);
+  assert.deepEqual(step, {
+    shown: true, cable: false, ask: false,
+    steps: ["Open Filer.", "Press MENU, then choose Communications, Remote Settings.", "Set Baud to 19200, Interface to COM1 and Server Mode on. Press OK.", "Leave Filer open and in front while Files works with it."],
+    warning: "Use the palmtop's own cable. Never plug the palmtop's cable into an HP 48 or 49G, and never use a 38G cable or adapter on the palmtop: the plugs fit, but the wiring differs and can damage the device.",
+    fixed: false, baud: true, fast: false, go: "Choose the port",
+  });
+  // A fixed speed above 19200: the warning, the step's speed, kept; then back to 19200.
+  await c.ev(`document.getElementById("palmtop-fixed").click(); const b = document.getElementById("palmtop-baud"); b.value = "57600"; b.dispatchEvent(new Event("change")); true`);
+  assert.deepEqual(await c.ev(`({ settings: tx.app.palmtop, baud: tx.app.palmtopBaud(), fast: !document.getElementById("palmtop-fast").hidden, text: document.getElementById("palmtop-baud-text").textContent, kept: JSON.parse(localStorage.getItem("saturnus.transfer.palmtop")) })`),
+    { settings: { fixed: true, baud: 57600 }, baud: 57600, fast: true, text: "57600", kept: { fixed: true, baud: 57600 } });
+  await c.ev(`document.getElementById("palmtop-fixed").click(); true`);
+  assert.deepEqual(await c.ev(`({ baud: tx.app.palmtopBaud(), fast: !document.getElementById("palmtop-fast").hidden, text: document.getElementById("palmtop-baud-text").textContent })`), { baud: 19200, fast: false, text: "19200" });
+  // The port: the palmtop's drives.
+  await c.ev(`document.getElementById("connect-go").click(); true`);
+  await p.idle(30_000, "the drives listed");
+  assert.deepEqual(await c.ev(`__port.opened`), [19200]);
+  assert.equal(await c.ev(`document.getElementById("connect-dialog").open`), false);
+  assert.equal(await c.ev(title("left")), "HP 100LX/200LX on USB serial port");
+  assert.equal(await c.ev(`tx.panes[0].ui.status.textContent`), "Connected at 19200 baud.");
+  assert.deepEqual(await p.names(), ["A:", "C:", "D:"]);
+  await c.ev(`tx.panes[0].navigate(["Palmtop", "C:"]); true`);
+  await p.idle(30_000, "C: listed");
+  assert.deepEqual(await p.names(), ["SUB", "BIG.BIN", "HELLO.TXT"]);
+  assert.deepEqual(await c.ev(`[...document.querySelectorAll(".pane[data-pane=left] thead th")].map((th) => th.textContent.trim())`).then((h) => h.slice(0, 4).map((x) => x.replace(/[▲▼↑↓]/g, "").trim())), ["Name", "Type", "Size", "Modified"]);
+  // A file dropped: a DOS name on the palmtop.
+  await p.drop({ "notes.txt": "hello, palmtop" });
+  await p.idle(30_000, "notes.txt put");
+  assert.deepEqual(await p.names(), ["SUB", "BIG.BIN", "HELLO.TXT", "NOTES.TXT"]);
+  assert.equal(await c.ev(`new TextDecoder().decode(__port.server.file("C:\\\\NOTES.TXT"))`), "hello, palmtop");
+  // A long name: nothing sent, the reason said.
+  await p.drop({ "a long name.txt": "x" });
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent.includes("the palmtop takes DOS names only"))`, 10_000, "the refusal");
+  assert.ok(!(await c.ev(`__port.server.paths()`)).some((x) => /LONG/i.test(x)));
+  // Silent: the card says what to check; Reconnect once it answers.
+  await c.ev(`__port.silence(); tx.panes[0].refresh(); true`);
+  await p.until(`document.querySelector(".pane[data-pane=left] .start h2")?.textContent === "The palmtop stopped answering"`, 20_000, "the not-answering card");
+  const card = await c.ev(`(() => {
+    const pane = document.querySelector(".pane[data-pane=left]");
+    return { status: pane.querySelector(".pane-status-text").textContent, text: pane.querySelector(".start p").textContent, actions: [...pane.querySelectorAll(".start [data-action]")].map((b) => b.dataset.action) };
+  })()`);
+  assert.equal(card.status, "Not answering.");
+  assert.match(card.text, /Filer is still open and in front with server mode on/);
+  assert.deepEqual(card.actions, ["reconnect", "close"]);
+  await c.ev(`__port.answer(); document.querySelector('.pane[data-pane=left] [data-action="reconnect"]').click(); true`);
+  await p.idle(30_000, "connected again");
+  assert.equal(await c.ev(`tx.panes[0].ui.status.textContent`), "Connected at 19200 baud.");
+  await c.ev(`tx.panes[0].close()`);
+  await p.until(`!tx.panes[0].place`, 10_000, "disconnected");
+  assert.equal(await c.ev(`tx.panes[0].note`), "Disconnected. Filer on the palmtop stays in server mode for the next connect.");
   assert.deepEqual(c.errors, []);
 });
 

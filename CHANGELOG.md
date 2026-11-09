@@ -7,6 +7,22 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **Files reaches an HP 100LX or 200LX palmtop.** "Add a calculator…"
+  has a third choice, "An HP 100LX or 200LX palmtop": it says how to
+  put the palmtop's Filer in server mode, warns that the palmtop's cable
+  must never go on an HP 48 or 49G (nor a 38G cable on the palmtop), and
+  connects at 19200 baud (a faster speed under "Use a fixed speed", with
+  the warning that the palmtop may lose bytes above 19200). The pane
+  shows the drives, then directories and files with their size and DOS
+  date; copy both ways, rename, delete (a directory with everything in
+  it, after the question), make directories and download, in the web app
+  and the desktop app. Names are DOS 8.3: a longer one is left out with
+  the reason. A copy can be stopped while it runs; a palmtop that stops
+  answering gets its own card with Reconnect. Tested against
+  filer-proto's own server; not yet tried on a real palmtop.
+- **filer-proto: `Session::cancel`.** A running job stops at its next
+  reply with `JobError::Cancelled`, the session kept: a get closes its
+  file, a put closes it and deletes the part written.
 - **The calculators for your browser's own AI (WebMCP).** In a browser
   with WebMCP (Chrome 149 and Edge 150 try it out on saturnus's site),
   the app offers its AI tools to the browser's AI as well, with no

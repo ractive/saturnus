@@ -457,7 +457,9 @@ fn a_cancelled_put_deletes_the_part_written() {
     assert_eq!(r.server.fs().file(b"C:\\NEW.BIN"), None);
     assert_eq!(r.sent.last().unwrap()[6], 0x04);
     // A listing cancelled before it starts ends at its first reply.
-    r.session.start(r.now, Job::List(b"C:\\*.*".to_vec())).unwrap();
+    r.session
+        .start(r.now, Job::List(b"C:\\*.*".to_vec()))
+        .unwrap();
     r.session.cancel();
     let frame = r.session.poll_output(r.now).unwrap();
     r.server.handle_input(&frame);

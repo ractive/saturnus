@@ -38,7 +38,7 @@ use std::collections::VecDeque;
 use std::fmt;
 
 use filer_proto::path;
-use filer_proto::time::Instant;
+use filer_proto::time::{Duration, Instant};
 use filer_proto::{
     Config, DirEntry, DosDateTime, Failure, FsError, Job, JobError, Output, Session, SessionEvent,
     attr,
@@ -403,7 +403,9 @@ fn fs_text(e: FsError) -> String {
         FsError::NOT_READY => "the drive is not ready: is there a card in the slot?".into(),
         FsError::OTHER_DRIVE => "a file moves only within one drive".into(),
         FsError::EXISTS => "the name is in use".into(),
-        FsError::CANNOT_MKDIR => "the palmtop could not make the directory (the name in use?)".into(),
+        FsError::CANNOT_MKDIR => {
+            "the palmtop could not make the directory (the name in use?)".into()
+        }
         e => format!("the palmtop refused it: {e}"),
     }
 }
@@ -413,25 +415,12 @@ pub type Result<T> = std::result::Result<T, PalmtopError>;
 
 #[derive(Debug)]
 enum Running {
-    Connect {
-        baud: u32,
-    },
-    List {
-        dir: Vec<String>,
-    },
-    Get {
-        name: String,
-    },
-    Put {
-        name: String,
-    },
-    Rename {
-        from: String,
-        to: String,
-    },
-    MakeDir {
-        name: String,
-    },
+    Connect { baud: u32 },
+    List { dir: Vec<String> },
+    Get { name: String },
+    Put { name: String },
+    Rename { from: String, to: String },
+    MakeDir { name: String },
     Remove(Box<Remove>),
 }
 
@@ -476,6 +465,8 @@ pub struct Palmtop {
     reconnect: bool,
     /// The request waiting for that reconnect.
     after_reconnect: Option<PalmtopRequest>,
+    /// The wait for a reply's first byte, when not HP's 5.9 s (tests).
+    reply_wait: Option<Duration>,
 }
 
 impl fmt::Debug for Palmtop {
@@ -537,6 +528,17 @@ impl Palmtop {
             stopping: false,
             reconnect: false,
             after_reconnect: None,
+            reply_wait: None,
+        }
+    }
+
+    /// A palmtop that waits `wait` (instead of HP's 5.9 s) for the first
+    /// byte of each reply but CONNECT's, so it counts as not answering
+    /// after three of them (tests).
+    pub fn with_reply_wait(wait: Duration) -> Self {
+        Palmtop {
+            reply_wait: Some(wait),
+            ..Self::new()
         }
     }
 
@@ -636,6 +638,9 @@ impl Palmtop {
     fn connect(&mut self, now: Instant, baud: u32) -> Result<()> {
         let mut config = Config::default();
         config.baud = baud;
+        if let Some(wait) = self.reply_wait {
+            config.reply_wait = wait;
+        }
         let mut session = Session::new(config);
         self.actions.push_back(Action::Open(LinkSettings {
             baud,
@@ -807,7 +812,7 @@ impl Palmtop {
                 }
             }
         }
-        self.flush(now);
+        self.drain_session(now);
     }
 
     /// Drop the running request at once, without waiting for the palmtop:
@@ -836,25 +841,22 @@ impl Palmtop {
         }
     }
 
-    fn flush(&mut self, now: Instant) {
-        self.drain_session(now);
-    }
-
     fn pump(&mut self, now: Instant) {
-        loop {
-            let Some(event) = self.session.as_mut().and_then(Session::poll_event) else {
-                break;
-            };
+        while let Some(event) = self.session.as_mut().and_then(Session::poll_event) {
             match event {
                 SessionEvent::Progress { done, total } => {
-                    if matches!(self.running, Some(Running::Get { .. } | Running::Put { .. })) {
-                        self.events.push_back(PalmtopEvent::Progress { done, total });
+                    if matches!(
+                        self.running,
+                        Some(Running::Get { .. } | Running::Put { .. })
+                    ) {
+                        self.events
+                            .push_back(PalmtopEvent::Progress { done, total });
                     }
                 }
                 SessionEvent::Finished(result) => self.finished(now, result),
             }
         }
-        self.flush(now);
+        self.drain_session(now);
     }
 
     /// The session's job ended.
@@ -872,9 +874,9 @@ impl Palmtop {
                     let reconnecting = self.connection.is_some();
                     self.connection = None;
                     self.result = Some(Err(match e {
-                        filer_proto::Error::Refused(code) => PalmtopError::Refused(format!(
-                            "status {code:#06x}"
-                        )),
+                        filer_proto::Error::Refused(code) => {
+                            PalmtopError::Refused(format!("status {code:#06x}"))
+                        }
                         _ if reconnecting => {
                             self.not_answering = true;
                             PalmtopError::NotAnswering
@@ -905,7 +907,10 @@ impl Palmtop {
                         }
                         return;
                     }
-                    Ok(PalmtopOutcome::Connected(PalmtopConnection { baud, revision }))
+                    Ok(PalmtopOutcome::Connected(PalmtopConnection {
+                        baud,
+                        revision,
+                    }))
                 }
                 Ok(_) => Err(PalmtopError::Refused("an unexpected reply".into())),
                 Err(e) => Err(PalmtopError::Refused(e.to_string())),
@@ -1048,10 +1053,12 @@ fn check(request: &PalmtopRequest) -> Result<()> {
         PalmtopRequest::Rename { to, .. } => to,
         _ => return Ok(()),
     };
-    dos_name(made).map(|_| ()).map_err(|problem| PalmtopError::BadName {
-        name: made.clone(),
-        problem,
-    })
+    dos_name(made)
+        .map(|_| ())
+        .map_err(|problem| PalmtopError::BadName {
+            name: made.clone(),
+            problem,
+        })
 }
 
 fn unexpected(name: &str) -> PalmtopError {

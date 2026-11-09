@@ -80,7 +80,10 @@ pub fn parse_palmtop_request(msg: &Value, data: Option<Vec<u8>>) -> Result<Palmt
         "remove" => PalmtopRequest::Remove {
             dir: dir_of(msg)?,
             name: text(msg, "name")?,
-            directory: msg.get("directory").and_then(Value::as_bool).unwrap_or(false),
+            directory: msg
+                .get("directory")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
         },
         "mkdir" => PalmtopRequest::MakeDir {
             dir: dir_of(msg)?,
@@ -152,9 +155,10 @@ pub fn palmtop_outcome_json(o: PalmtopOutcome) -> (Value, Option<Vec<u8>>) {
         PalmtopOutcome::Renamed { from, to } => {
             (json!({"type": "renamed", "from": from, "to": to}), None)
         }
-        PalmtopOutcome::Removed { name, count } => {
-            (json!({"type": "removed", "name": name, "count": count}), None)
-        }
+        PalmtopOutcome::Removed { name, count } => (
+            json!({"type": "removed", "name": name, "count": count}),
+            None,
+        ),
         PalmtopOutcome::Created(name) => (json!({"type": "created", "name": name}), None),
         PalmtopOutcome::Disconnected => (json!({"type": "disconnected"}), None),
     }
@@ -248,13 +252,23 @@ impl TxPalmtop {
 
 #[wasm_bindgen]
 impl TxPalmtop {
-    /// A palmtop for one link. The other arguments are the calculator
-    /// device's (a seed, the search's and the silence's times) and unused
-    /// here: the Filer's own timing decides.
+    /// A palmtop for one link, with the calculator device's arguments:
+    /// the seed and the search's time are unused here; `silence_ms`, when
+    /// given, is the wait for each reply in place of HP's 5.9 s, so a
+    /// silent palmtop counts as not answering after three of them (tests).
     #[wasm_bindgen(constructor)]
-    pub fn new(now_ms: f64, _seed: Option<f64>, _listen_ms: Option<f64>, _silence_ms: Option<f64>) -> TxPalmtop {
+    pub fn new(
+        now_ms: f64,
+        _seed: Option<f64>,
+        _listen_ms: Option<f64>,
+        silence_ms: Option<f64>,
+    ) -> TxPalmtop {
+        let palmtop = match silence_ms.filter(|ms| *ms > 0.0) {
+            Some(ms) => Palmtop::with_reply_wait(Duration::from_millis(ms as u64)),
+            None => Palmtop::new(),
+        };
         TxPalmtop {
-            palmtop: Palmtop::new(),
+            palmtop,
             base: Instant::now(),
             base_ms: now_ms,
         }
@@ -382,7 +396,9 @@ impl TxPalmtop {
                     }
                     v
                 }
-                Err(e) => to_js(&json!({"type": "result", "ok": false, "error": palmtop_error_json(&e)}))?,
+                Err(e) => {
+                    to_js(&json!({"type": "result", "ok": false, "error": palmtop_error_json(&e)}))?
+                }
             };
             out.push(&v);
         }
@@ -502,7 +518,9 @@ mod tests {
                 replace: true
             }
         );
-        assert!(parse_palmtop_request(&json!({"type": "put", "dir": [], "name": "A"}), None).is_err());
+        assert!(
+            parse_palmtop_request(&json!({"type": "put", "dir": [], "name": "A"}), None).is_err()
+        );
         assert!(parse_palmtop_request(&json!({"type": "backup"}), None).is_err());
         let e = palmtop_error_json(&PalmtopError::Fs {
             name: "X.TXT".into(),
@@ -510,17 +528,25 @@ mod tests {
         });
         assert_eq!(e["kind"], "readOnly");
         assert_eq!(e["code"], 214);
-        assert_eq!(palmtop_error_json(&PalmtopError::NoAnswer { baud: 38400 })["baud"], 38400);
+        assert_eq!(
+            palmtop_error_json(&PalmtopError::NoAnswer { baud: 38400 })["baud"],
+            38400
+        );
         let (o, data) = palmtop_outcome_json(PalmtopOutcome::File {
             name: "A.TXT".into(),
             data: vec![1],
             modified: DosDateTime::new(2026, 11, 9, 13, 5, 30),
         });
-        assert_eq!(o["modified"], json!({"year": 2026, "month": 11, "day": 9, "hour": 13, "minute": 5, "second": 30}));
+        assert_eq!(
+            o["modified"],
+            json!({"year": 2026, "month": 11, "day": 9, "hour": 13, "minute": 5, "second": 30})
+        );
         assert_eq!(data, Some(vec![1]));
         assert_eq!(
             palmtop_name_problem("LONGNAME1.TXT").as_deref(),
-            Some("The palmtop takes DOS names: up to 8 letters or digits, a dot and up to 3 more (like NOTES.TXT).")
+            Some(
+                "The palmtop takes DOS names: up to 8 letters or digits, a dot and up to 3 more (like NOTES.TXT)."
+            )
         );
         assert_eq!(palmtop_name_problem("ok.txt"), None);
     }
