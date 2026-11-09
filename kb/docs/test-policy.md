@@ -67,6 +67,13 @@ protocol in `web/test/chrome.mjs`):
   `settled`), not a fixed sleep, where the page offers one; the sleeps
   left wait out the page's own timers (a message's 4 s, the autosave's
   delay).
+- Every page of the shared Chrome is visible: it starts with
+  `--disable-backgrounding-occluded-windows`. Without it, headless
+  Chrome (156, macOS) hides all windows but one while tests run side by
+  side, and a hidden page draws no frames: no `requestAnimationFrame`,
+  no CSS animation, and no dialog `close` event, so the answer to a
+  dialog waits until the page is shown (tx-e2e's 49G timed out at
+  "D1 made", 2026-11-09).
 
 When to run what:
 

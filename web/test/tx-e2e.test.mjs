@@ -78,6 +78,8 @@ async function boot({ c, p }, i, model) {
 /** Fill the name dialog with `value` and press its button. */
 async function name({ c, p }, value) {
   await p.until(`document.getElementById("name-dialog").open`, 10_000, "the name dialog");
+  // A hidden page fires the dialog's `close`, and so takes the name, only once it is shown (chrome.mjs).
+  assert.equal(await c.ev("document.visibilityState"), "visible", "the page is visible");
   await c.ev(`(() => { document.getElementById("name-input").value = ${JSON.stringify(value)}; document.getElementById("name-ok").click(); return true; })()`);
 }
 

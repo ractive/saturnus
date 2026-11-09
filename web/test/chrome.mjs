@@ -78,9 +78,15 @@ class NotStarted extends Error {}
 async function launch(binary, extra = []) {
   const dir = mkdtempSync(join(tmpdir(), "saturnus-chrome-"));
   const group = process.platform !== "win32";
+  // Every window visible: a file's tests run side by side, a window each
+  // at the same place, and headless Chrome (156, macOS) counts all but
+  // one as occluded and hides them. A hidden page draws no frames, and
+  // Chrome fires a dialog's `close` with the frames: the name dialog's
+  // answer waited for the visible test to end (tx-e2e's 49G, "D1 made",
+  // 2026-11-09).
   const proc = spawn(binary, [
     "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${dir}`, "--no-first-run", "--hide-scrollbars",
-    "--window-size=1280,900", ...(process.env.CI ? ["--no-sandbox"] : []), ...extra, "about:blank",
+    "--window-size=1280,900", "--disable-backgrounding-occluded-windows", ...(process.env.CI ? ["--no-sandbox"] : []), ...extra, "about:blank",
   ], { stdio: ["ignore", "ignore", "pipe"], detached: group });
   let exited = null;
   let stderr = "";
