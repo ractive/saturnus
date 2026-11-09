@@ -612,6 +612,58 @@ fn a_second_refusal_or_one_inside_a_request_ends_the_connection() {
 }
 
 #[test]
+fn a_refusal_to_a_resend_is_not_sent_again() {
+    // The delete runs, its reply is lost, and the session ends on the
+    // palmtop before the resend: sending it again would say not found.
+    let mut r = Rig::connected();
+    r.server.drop_replies(1);
+    let ran = r.server.executed();
+    let connects = r.commands.iter().filter(|&&c| c == 0x40).count();
+    let mut broken = false;
+    let e = r.run_with(
+        PalmtopRequest::Remove {
+            dir: dir(&["C:"]),
+            name: "HELLO.TXT".into(),
+            directory: false,
+        },
+        |r| {
+            if !broken && r.server.executed() > ran {
+                broken = true;
+                r.server.break_session();
+            }
+        },
+    );
+    assert!(broken);
+    assert_eq!(e, Err(PalmtopError::NotAnswering));
+    assert_eq!(r.server.fs().file(b"C:\\HELLO.TXT"), None, "deleted once");
+    assert_eq!(r.commands.iter().filter(|&&c| c == 0x40).count(), connects);
+    assert_eq!(r.palmtop.connection(), None);
+}
+
+#[test]
+fn stop_then_a_refusal_ends_as_stopped() {
+    let mut r = Rig::connected();
+    r.server.break_session();
+    r.palmtop
+        .start(r.now, PalmtopRequest::List { dir: dir(&["C:"]) })
+        .unwrap();
+    r.palmtop.stop(r.now);
+    let from = r.commands.len();
+    r.exchange();
+    assert_eq!(r.palmtop.poll_result(), Some(Err(PalmtopError::Stopped)));
+    assert!(!r.palmtop.is_busy());
+    assert!(!r.palmtop.not_answering());
+    assert!(r.palmtop.connection().is_some());
+    assert_eq!(r.commands[from..], [0x12], "no CONNECT, no DISCONNECT");
+    // The next request connects first.
+    assert_eq!(
+        names(r.run(PalmtopRequest::List { dir: dir(&["C:"]) })),
+        ["BIG.BIN", "HELLO.TXT", "SUB"]
+    );
+    assert_eq!(r.commands[from..from + 3], [0x12, 0x40, 0x12]);
+}
+
+#[test]
 fn stop_during_the_new_connect_ends_it() {
     let mut r = Rig::connected();
     r.server.break_session();

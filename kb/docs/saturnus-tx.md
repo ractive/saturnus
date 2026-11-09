@@ -883,15 +883,21 @@ as for the 48's Kermit server.
 - **Session ended on the palmtop.** A palmtop whose session ended there
   (Ctrl+Break, or Filer left and opened again) is back to waiting in
   server mode and answers any request with a CONNECT refusal (status
-  0xFF3B), running nothing. When that refusal is the request's first
-  reply, the device connects again at the connection's speed (the port
-  reopened, one CONNECT) and sends the request once more, so Refresh
-  after such a break just works. A refusal after the request had begun
-  (a copy broken off on the palmtop) or after Stop, a failed CONNECT or
-  a second refusal ends the connection as "Not answering" does. `filer-proto`'s
-  client sends no DISCONNECT after such a refusal: the palmtop has no
-  session to end and would answer with another refusal, which could
-  land on the next CONNECT.
+  0xFF3B), running nothing. When that refusal answers the first send of
+  the request's first frame, the device connects again at the
+  connection's speed (the port reopened, one CONNECT) and sends the
+  request once more, so Refresh after such a break just works. A refusal
+  to a resend is not rerun: the first send may have run (a delete, a new
+  directory) and its reply been lost before the session ended, and a
+  rerun would then report the file missing or the name in use
+  (`filer-proto`'s `Error::NotConnected` carries the send count). That
+  refusal, one after the request had begun (a copy broken off on the
+  palmtop), a failed CONNECT or a second refusal ends the connection as
+  "Not answering" does. After Stop a refusal ends the request as
+  stopped; the connection stays and the next request connects first.
+  `filer-proto`'s client sends no DISCONNECT after such a refusal: the
+  palmtop has no session to end and would answer with another refusal,
+  which could land on the next CONNECT.
 - **Progress.** Each 2 KB block of a get or put; the listing's size gives
   a get its total. About 1.7 KB/s at 19200 baud, so a palmtop file is
   previewed on selection only up to 2 KB, larger ones when asked.
