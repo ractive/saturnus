@@ -290,6 +290,7 @@ export class PalmtopFolder extends EventTarget {
   /** Write `bytes` as file `name` of `path`; an existing file only with `replace`. Resolves to the name made (upper case). */
   async write(path, name, bytes, { replace = false } = {}) {
     const dir = this.dirOf(path);
+    if (dir.length === 0) throw new FolderError("refused", "Files go on a drive: open C: or A: first.");
     await this.checkName(name);
     try {
       return await this.run(`Putting ${name.toUpperCase()}…`, async () => {

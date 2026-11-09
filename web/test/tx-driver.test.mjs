@@ -7,7 +7,10 @@
 // 49G). The session is the traces' own (crates/saturnus-tx/tests/
 // scenario): connect, list, put text, string and binary, get binary and
 // text, a put to a name in use refused, then replaced, list, disconnect.
-// Every byte the device writes must be the trace's.
+// And the HP 100LX palmtop's recorded session (`100lx-session.trace`,
+// saturnus-tx's palmtop_tests.rs against filer-proto's server) through
+// the same driver over the wasm TxPalmtop. Every byte the device writes
+// must be the trace's.
 
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";

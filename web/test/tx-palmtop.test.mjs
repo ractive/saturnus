@@ -144,6 +144,7 @@ test("drives, listings, get and put byte for byte, 8.3 names, rename, new direct
   await assert.rejects(palmtop.rename(["Palmtop", "C:"], "NOTES.TXT", "HELLO.TXT"), (err) => err.kind === "exists");
   assert.equal(await palmtop.mkdir(["Palmtop", "C:"], "docs"), "DOCS");
   await assert.rejects(palmtop.mkdir(["Palmtop"], "X"), (err) => err.kind === "refused");
+  await assert.rejects(palmtop.write(["Palmtop"], "X.TXT", bytes), (err) => err.kind === "refused" && err.message === "Files go on a drive: open C: or A: first.");
   assert.deepEqual(names(await palmtop.list(["Palmtop", "C:"])), ["DOCS", "SUB", "BIG.BIN", "HELLO.TXT", "NOTES.TXT"]);
 
   // A directory: its count first, refused without `recursive`, then all of it.
