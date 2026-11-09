@@ -40,6 +40,10 @@ export class DeviceList extends HTMLElement {
     this._device = null;
     this._path = [...homeOf(null)];
     this.listing = null;
+    /** The directory `listing` is of: a refresh of it keeps the rows until the new listing replaces them. */
+    this.listedPath = null;
+    /** The latest reload's number: an older one's answer is dropped. */
+    this.reloads = 0;
     this.error = null;
     this.loading = false;
     this.sortKey = "name";
@@ -89,6 +93,7 @@ export class DeviceList extends HTMLElement {
     this.busy = new Map();
     d?.addEventListener("change", this.onChange);
     this._path = [...homeOf(d)];
+    this.listing = null;
     this.selected = null;
     this.marked = new Set();
     this.reload();
@@ -115,28 +120,43 @@ export class DeviceList extends HTMLElement {
     return sortEntries(this.listing.entries, this.sortKey, this.ascending).filter((e) => this.marked.has(e.name));
   }
 
+  /**
+   * Read the directory shown. Another directory starts with the spinner;
+   * the same one again (a copy into it, a rename) keeps its rows until
+   * the new listing replaces them, so the list does not flash.
+   */
   async reload() {
-    this.listing = null;
+    const path = this._path;
+    const again = Boolean(this.listing && this.listedPath && samePath(this.listedPath, path));
+    if (!again) this.listing = null;
     this.error = null;
+    const serial = ++this.reloads;
     if (!this._device) {
+      this.listing = null;
+      this.loading = false;
+      this.removeAttribute("aria-busy");
       this.render();
       return;
     }
-    const path = this._path;
     this.loading = true;
-    this.render();
+    // The rows kept are being read again: busy for a screen reader (the pane's status says what is read).
+    if (again) this.setAttribute("aria-busy", "true");
+    else this.render();
     try {
       const listing = await this._device.list(path);
-      if (!samePath(path, this._path)) return;
+      if (serial !== this.reloads) return;
       this.listing = listing;
+      this.listedPath = [...path];
       const names = new Set(listing.entries.map((e) => e.name));
       if (this.selected && !names.has(this.selected)) this.selected = null;
       this.marked = new Set([...this.marked].filter((n) => names.has(n)));
     } catch (err) {
-      if (!samePath(path, this._path)) return;
+      if (serial !== this.reloads) return;
+      this.listing = null;
       this.error = String(err?.message ?? err);
     }
     this.loading = false;
+    this.removeAttribute("aria-busy");
     this.render();
     this.dispatchEvent(new CustomEvent("listed", { detail: { path: [...path], listing: this.listing, error: this.error } }));
   }
@@ -247,6 +267,10 @@ export class DeviceList extends HTMLElement {
     // sort): put it back. A new directory starts at the top anyway: its
     // spinner came first.
     const top = this.scrollTop;
+    // The focused row keeps the focus when the rows are drawn again (a sort, a listing read again).
+    const focused = this.querySelector("tbody tr:focus");
+    const focusedName = focused?.dataset.name ?? null;
+    const focusedUp = focused?.hasAttribute("data-up") ?? false;
     const head = el("tr", {});
     for (const [key, title] of this.columns) {
       const sorted = this.sortKey === key;
@@ -289,6 +313,8 @@ export class DeviceList extends HTMLElement {
     if (!body.querySelector('tr[tabindex="0"]')) body.querySelector("tr")?.setAttribute("tabindex", "0");
     this.replaceChildren(...nodes);
     if (this.scrollTop !== top) this.scrollTop = top;
+    if (focusedName !== null) this.querySelector(`tr[data-name="${CSS.escape(focusedName)}"]`)?.focus({ preventScroll: true });
+    else if (focusedUp) this.querySelector("tr[data-up]")?.focus({ preventScroll: true });
   }
 
   rowOf(target) { return target.closest?.("tr[data-name], tr[data-up]") ?? null; }

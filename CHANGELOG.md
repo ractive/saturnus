@@ -25,6 +25,11 @@ the desktop app and the web page share one version.
   not your disk, so Finder or Explorer does not show them), how they
   come in and go out, how long they stay, and why there is no folder in
   Firefox and Safari.
+- **The list no longer flashes after a copy.** When a file arrives in
+  the directory shown, or you rename or refresh it, the rows stay until
+  the new listing replaces them, instead of a spinner in between. The
+  tree keeps its folders while it reads a directory again. A directory
+  you open for the first time still shows the spinner.
 
 ## 0.11.0 (2026-11-09)
 

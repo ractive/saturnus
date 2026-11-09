@@ -1004,7 +1004,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
       const place = p.place;
       if (!place || p.step) return false;
       if ((place.kind === "device" || place.palmtop) && (!place.device.connection || place.device.running || place.device.queued)) return false;
-      return !queue.uses(place.id) && Boolean(p.ui.list.listing);
+      return !queue.uses(place.id) && Boolean(p.ui.list.listing) && !p.ui.list.loading;
     },
     /** The names in pane `i`'s list. */
     names: (i = 0) => (panes[i].ui.list.listing?.entries ?? []).map((e) => e.name),
