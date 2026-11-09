@@ -1224,8 +1224,10 @@ source needs a rule:
   so its own tests and e2e suite gate the change.
 - **Web Serial exists in Chromium on the desktop, and in Firefox** (seen
   in 159; on a real 49G over its Kermit server the owner connected,
-  listed and copied both ways, with no permission prompt beyond the
-  port picker, 2026-11-09). Not in Safari, not on iOS; Chrome on
+  listed and copied both ways, 2026-11-09; Firefox asks once, in one
+  prompt that is permission and port picker together: "ractive.ch
+  erlauben, auf die seriellen Ports zuzugreifen?" with the port list,
+  Blockieren, Erlauben). Not in Safari, not on iOS; Chrome on
   Android is not relied on. The page
   says so plainly and points to the desktop app; the emulator still works
   everywhere.
