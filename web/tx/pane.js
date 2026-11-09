@@ -3,7 +3,8 @@
 // HP 100LX/200LX palmtop on a cable (palmtop.js: a folder with a device's
 // life, in either pane) or, in the right pane only, a folder on the
 // computer (folder.js), with its head (the place's name,
-// its status, "Change", "⋯"), its directory tree, its list and its
+// its status or the job it runs, with a spinner and, where it can be
+// stopped, Stop; "Change", "⋯"), its directory tree, its list and its
 // preview. What crosses panes (copies, the queue, the dialogs) is the
 // page's (app.js), reached through `app`.
 //
@@ -60,6 +61,9 @@ let placeSerial = 0;
 /** A queue job's Stop on a palmtop place: that job's palmtop work only, offered while it runs (nothing for other places). */
 const palmtopStop = (place) => (place.palmtop ? { stop: (job) => place.device.stopOwner(job), stoppable: (job) => place.device.busyFor(job) } : {});
 
+/** Whether `place` is a calculator or a palmtop: a device whose head shows its jobs. */
+const isDevicePlace = (place) => place?.kind === "device" || Boolean(place?.palmtop);
+
 /** Whether `place` shows its tree and list: a folder, or a calculator or palmtop while connected. */
 const usable = (place) => Boolean(place && (place.palmtop ? place.device.connection && !place.device.notAnswering : place.kind === "folder" || place.device.connection));
 
@@ -76,6 +80,7 @@ export class Pane {
     const q = (s) => root.querySelector(s);
     this.ui = {
       title: q(".pane-title"), status: q(".pane-status-text"), progress: q(".pane-progress"),
+      spinner: q(".pane-spinner"), stop: q(".pane-stop"),
       change: q(".pane-change"), refresh: q(".pane-refresh"), more: q(".pane-more"), emulator: q(".pane-emulator"),
       empty: q(".pane-empty"), body: q(".pane-body"), tree: q("device-tree"), list: q("device-list"),
       crumbs: q(".crumbs"), preview: q(".preview"),
@@ -108,6 +113,9 @@ export class Pane {
      */
     this.readings = new Map();
     this.readingFrame = false;
+    /** The running job's line is drawn at most once per animation frame; `stopFor` the job whose Stop was pressed. */
+    this.jobFrame = false;
+    this.stopFor = null;
     this.wire();
   }
 
@@ -134,9 +142,77 @@ export class Pane {
 
   say(text, opts) { this.app.say(text, opts); }
 
+  /** A job that failed: its sentence stays in the Transfers list until dismissed (app.js). */
+  fail(text) { this.app.failed(text); }
+
+  /**
+   * The job this pane's head shows: the one its place runs, with where it
+   * is in the place's run (`{job, index, count}`), or null. A calculator or
+   * palmtop shows its jobs; a folder only those no calculator or palmtop
+   * works on (a copy from a calculator is shown in the calculator's head).
+   * Nothing while the card shows a step (a reconnect says its own).
+   */
+  get shownJob() {
+    const p = this.place;
+    if (!p || this.step) return null;
+    const at = this.app.queue.progressOf(p.id);
+    if (!at) return null;
+    if (isDevicePlace(p)) return at;
+    return at.job.places.some((id) => this.app.isDevicePlace(id)) ? null : at;
+  }
+
+  /** The queue changed: the head's job line at the next frame. */
+  scheduleJob() {
+    if (this.jobFrame) return;
+    this.jobFrame = true;
+    this.app.frame(() => {
+      this.jobFrame = false;
+      this.renderJob();
+    });
+  }
+
+  /**
+   * The head's status: the running job ("Copying B… 2 of 3", its bytes
+   * beside the live region, Stop where it can be stopped), else what the
+   * device does or the idle status.
+   */
+  renderJob() {
+    const at = this.shownJob;
+    const stop = this.ui.stop;
+    if (at) {
+      const { job, index, count } = at;
+      const text = count > 1 ? `${job.doing} ${index} of ${count}` : job.doing;
+      if (this.ui.status.textContent !== text) this.ui.status.textContent = text;
+      const amount = job.done ? this.app.progressText(job.done, job.total) : "";
+      if (this.ui.progress.textContent !== amount) this.ui.progress.textContent = amount;
+      const can = this.app.queue.canStop(job);
+      stop.hidden = !can;
+      if (can) {
+        stop.disabled = this.stopFor === job.id;
+        stop.setAttribute("aria-label", `Stop: ${job.label}`);
+      }
+      this.jobShown = true;
+    } else {
+      stop.hidden = true;
+      if (this.jobShown) {
+        this.jobShown = false;
+        this.setStatus(this.busyLabel ?? this.step?.status ?? this.idleStatus());
+      }
+    }
+    this.renderBusy();
+  }
+
+  /** The spinner beside the status: while a job runs here, the device works, or a step is under way. */
+  renderBusy() {
+    const p = this.place;
+    const busy = Boolean(this.jobShown || this.step?.busy || (p && isDevicePlace(p) && p.device.running));
+    if (this.ui.spinner.hidden === busy) this.ui.spinner.hidden = !busy;
+  }
+
   setStatus(text) {
     if (this.ui.status.textContent !== text) this.ui.status.textContent = text;
     this.ui.progress.textContent = "";
+    this.renderBusy();
   }
 
   setProgress(text) { this.ui.progress.textContent = text; }
@@ -224,7 +300,13 @@ export class Pane {
     this.ui.emulator.hidden = !(p?.kind === "device" && p.hub && this.app.emulatorUrl?.(p.model));
     this.ui.title.textContent = this.heading;
     if (!shown) this.renderCard();
-    if (!this.busyLabel) this.setStatus(this.step?.status ?? this.idleStatus());
+    if (this.shownJob) this.renderJob();
+    else {
+      this.jobShown = false;
+      this.ui.stop.hidden = true;
+      if (!this.busyLabel) this.setStatus(this.step?.status ?? this.idleStatus());
+      this.renderBusy();
+    }
     this.renderCrumbs();
     this.app.placesChanged();
   }
@@ -396,15 +478,21 @@ export class Pane {
       if (this.place !== place) return;
       const { label, queued } = e.detail;
       this.busyLabel = label;
-      if (label) this.setStatus(queued ? `${label} (${queued} more waiting)` : label);
-      else this.setStatus(this.idleStatus());
+      // A job of the queue says itself (renderJob); the device's own steps are previews and listings.
+      if (!this.shownJob) {
+        if (label) this.setStatus(queued ? `${label} (${queued} more waiting)` : label);
+        else this.setStatus(this.idleStatus());
+      }
+      this.renderBusy();
       this.readingBusy(place);
     });
     device.addEventListener("progress", (e) => {
       if (this.place !== place) return;
       const { label, done, total } = e.detail;
-      if (this.ui.status.textContent !== label) this.ui.status.textContent = label;
-      this.setProgress(this.app.progressText(done, total));
+      if (!this.shownJob) {
+        if (this.ui.status.textContent !== label) this.ui.status.textContent = label;
+        this.setProgress(this.app.progressText(done, total));
+      }
       const r = this.runningRead(device);
       if (r) {
         r.done = done;
@@ -628,7 +716,7 @@ export class Pane {
     this.renderCard();
     try {
       if (p.emulator) await p.emulator.startServer();
-      const conn = await this.app.queue.add({ label: `Reconnect to ${p.title}`, places: [p.id], run: () => p.device.connect(p.emulated ? { find: true } : this.app.settings) });
+      const conn = await this.app.queue.add({ label: `Reconnect to ${p.title}`, doing: "Reconnecting…", places: [p.id], run: () => p.device.connect(p.emulated ? { find: true } : this.app.settings) });
       p.model = conn.model;
       p.server = conn.server;
       p.version = conn.version;
@@ -649,7 +737,7 @@ export class Pane {
     this.step = { title: p.heading, status: "Connecting to the palmtop…", busy: true };
     this.renderCard();
     try {
-      await this.app.queue.add({ label: `Reconnect to ${p.title}`, places: [p.id], run: () => p.device.connect({ baud: p.baud ?? PALMTOP_BAUD }) });
+      await this.app.queue.add({ label: `Reconnect to ${p.title}`, doing: "Reconnecting…", places: [p.id], run: () => p.device.connect({ baud: p.baud ?? PALMTOP_BAUD }) });
     } catch (err) {
       this.step = null;
       this.render();
@@ -1128,17 +1216,17 @@ export class Pane {
     const path = [...this.path];
     try {
       if (p.kind === "folder") {
-        const r = await this.app.queue.add({ label: `Download from ${p.title}`, places: [p.id], ...palmtopStop(p), run: ({ job }) => downloadFolder(p.palmtop ? p.folder.scoped(job) : p.folder, path, entries.map((e) => e.name), this.app.downloadDeps) });
+        const r = await this.app.queue.add({ label: `Download from ${p.title}`, doing: `Downloading from ${p.title}…`, places: [p.id], ...palmtopStop(p), run: ({ job }) => downloadFolder(p.palmtop ? p.folder.scoped(job) : p.folder, path, entries.map((e) => e.name), this.app.downloadDeps) });
         this.say(r.collisions.length ? `${r.name} saved to your downloads. Some names in it differ only in case: unzipped on macOS or Windows, one of each pair is lost.` : `${r.name} saved to your downloads.`);
         return;
       }
       for (const e of entries) {
-        const file = await this.app.queue.add({ label: `Download ${e.name}`, places: [p.id], total: e.size, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.read(path, e.name, { size: e.size })) });
+        const file = await this.app.queue.add({ label: `Download ${e.name}`, doing: `Downloading ${e.name}…`, places: [p.id], total: e.size, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.read(path, e.name, { size: e.size })) });
         this.app.download(file.fileName, file.data);
         this.say(`${file.fileName} saved to your downloads.`);
       }
     } catch (err) {
-      if (!quiet(err)) this.say(`Not downloaded: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.fail(`Not downloaded: ${problemText(err)}`);
     }
   }
 
@@ -1147,11 +1235,11 @@ export class Pane {
     const p = this.place;
     const path = [...this.path];
     try {
-      const file = await this.app.queue.add({ label: `Download ${entry.name} as text`, places: [p.id], total: entry.size, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.read(path, entry.name, { text: true, size: entry.size })) });
+      const file = await this.app.queue.add({ label: `Download ${entry.name} as text`, doing: `Downloading ${entry.name} as text…`, places: [p.id], total: entry.size, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.read(path, entry.name, { text: true, size: entry.size })) });
       this.app.download(file.fileName, file.data);
       this.say(`${file.fileName} saved to your downloads.`);
     } catch (err) {
-      if (!quiet(err)) this.say(`Could not download ${entry.name} as text: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.fail(`Could not download ${entry.name} as text: ${problemText(err)}`);
     }
   }
 
@@ -1169,12 +1257,12 @@ export class Pane {
     if (!to || to === entry.name) return;
     const path = [...this.path];
     try {
-      await this.app.queue.add({ label: `Rename ${entry.name}`, places: [p.id], run: () => (p.kind === "folder" ? p.folder.rename(path, entry.name, to) : p.device.rename(path, entry.name, to)) });
+      await this.app.queue.add({ label: `Rename ${entry.name}`, doing: `Renaming ${entry.name}…`, places: [p.id], run: () => (p.kind === "folder" ? p.folder.rename(path, entry.name, to) : p.device.rename(path, entry.name, to)) });
       this.say(`${entry.name} is now ${to}.`);
     } catch (err) {
       if (quiet(err)) return;
-      if (err?.kind === "nameClash" || err?.kind === "exists") this.say(`${to} is already there: rename or remove that first.`, { error: true });
-      else this.say(`${entry.name} was not renamed: ${problemText(err)}`, { error: true });
+      if (err?.kind === "nameClash" || err?.kind === "exists") this.fail(`${to} is already there: rename or remove that first.`);
+      else this.fail(`${entry.name} was not renamed: ${problemText(err)}`);
     }
   }
 
@@ -1185,9 +1273,9 @@ export class Pane {
     if (!name) return;
     const path = [...this.path];
     try {
-      await this.app.queue.add({ label: `Make ${name}`, places: [p.id], run: () => (p.kind === "folder" ? p.folder.mkdir(path, name) : p.device.mkdir(path, name)) });
+      await this.app.queue.add({ label: `Make ${name}`, doing: `Creating ${name}…`, places: [p.id], run: () => (p.kind === "folder" ? p.folder.mkdir(path, name) : p.device.mkdir(path, name)) });
     } catch (err) {
-      if (!quiet(err)) this.say(`${name} was not created: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.fail(`${name} was not created: ${problemText(err)}`);
     }
   }
 
@@ -1216,12 +1304,12 @@ export class Pane {
     const gone = [];
     for (const e of entries) {
       try {
-        await this.app.queue.add({ label: `${device ? "Purge" : "Delete"} ${e.name}`, places: [p.id], ...palmtopStop(p), run: ({ job }) => (device ? p.device.purge(path, e.name, { count: e.directory ? counts.get(e.name) ?? 0 : null }) : p.folder.purge(path, e.name, { recursive: e.directory, owner: job })) });
+        await this.app.queue.add({ label: `${device ? "Purge" : "Delete"} ${e.name}`, doing: `${device ? "Purging" : "Deleting"} ${e.name}…`, places: [p.id], ...palmtopStop(p), run: ({ job }) => (device ? p.device.purge(path, e.name, { count: e.directory ? counts.get(e.name) ?? 0 : null }) : p.folder.purge(path, e.name, { recursive: e.directory, owner: job })) });
         gone.push(e.name);
       } catch (err) {
         if (quiet(err)) continue;
-        if (err?.kind === "notEmpty" || err?.kind === "not-empty") this.say(`${e.name} changed since you were asked: it holds ${err.count} now. Nothing was removed.`, { error: true });
-        else this.say(`${e.name} was not removed: ${problemText(err)}`, { error: true });
+        if (err?.kind === "notEmpty" || err?.kind === "not-empty") this.fail(`${e.name} changed since you were asked: it holds ${err.count} now. Nothing was removed.`);
+        else this.fail(`${e.name} was not removed: ${problemText(err)}`);
       }
     }
     if (gone.length) this.say(gone.length === 1 ? `${gone[0]} ${device ? "purged" : "deleted"}.` : `${gone.length} ${device ? "purged" : "deleted"}.`);
@@ -1234,9 +1322,9 @@ export class Pane {
     const p = this.place;
     let memory = null;
     try {
-      if (!p.hub) memory = await this.app.queue.add({ label: `Check the memory of ${p.title}`, places: [p.id], run: () => p.device.memory() });
+      if (!p.hub) memory = await this.app.queue.add({ label: `Check the memory of ${p.title}`, doing: "Checking the free memory…", places: [p.id], run: () => p.device.memory() });
     } catch (err) {
-      if (!quiet(err)) this.say(`The free memory could not be read: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.fail(`The free memory could not be read: ${problemText(err)}`);
       return;
     }
     const choice = await this.app.backupDialog({ memory, hub: Boolean(p.hub), model: p.model, folder: this.other.ready === "folder" ? this.other.place.title : null, otherFolders: this.other.folders });
@@ -1251,18 +1339,18 @@ export class Pane {
     const h = await this.app.helpers();
     let got;
     try {
-      got = await this.app.queue.add({ label: `Back up ${p.title}`, places: [p.id], run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.backup()) });
+      got = await this.app.queue.add({ label: `Back up ${p.title}`, doing: "Backing up…", places: [p.id], run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.backup()) });
     } catch (err) {
       if (quiet(err)) return;
-      if (err?.kind === "noRoom") this.say(`Not enough room for a backup: it needs ${this.app.bytesText(err.needed)} free, the calculator has ${this.app.bytesText(err.free)}. "Copy everything to a folder" needs no free memory.`, { error: true });
-      else this.say(`No backup: ${problemText(err)}`, { error: true });
+      if (err?.kind === "noRoom") this.fail(`Not enough room for a backup: it needs ${this.app.bytesText(err.needed)} free, the calculator has ${this.app.bytesText(err.free)}. "Copy everything to a folder" needs no free memory.`);
+      else this.fail(`No backup: ${problemText(err)}`);
       return;
     }
     const d = this.app.now();
     const name = h.backup_file_name(got.model, d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes());
     if (dest) {
       try {
-        await this.app.queue.add({ label: `Save ${name}`, places: [dest.place.id], run: async () => {
+        await this.app.queue.add({ label: `Save ${name}`, doing: `Saving ${name}…`, places: [dest.place.id], run: async () => {
           const there = await dest.place.folder.existing(dest.path, name);
           let replace = false;
           if (there) {
@@ -1273,7 +1361,7 @@ export class Pane {
         } });
         this.say(`The backup is ${name} in ${dest.place.title}.`);
       } catch (err) {
-        if (!quiet(err)) this.say(`The backup was not saved: ${problemText(err)}`, { error: true });
+        if (!quiet(err)) this.fail(`The backup was not saved: ${problemText(err)}`);
       }
     } else {
       this.app.download(name, got.data);
@@ -1296,7 +1384,7 @@ export class Pane {
     const h = await this.app.helpers();
     const root = h.backup_file_name(p.model, d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes()).replace(/-backup-/, "-HOME-").replace(/\.hp$/, "");
     try {
-      await this.app.queue.add({ label: `Copy everything to ${to.title}`, places: [p.id, to.id], run: ({ report }) => this.app.transfers.watch([p], report, async () => {
+      await this.app.queue.add({ label: `Copy everything to ${to.title}`, doing: `Copying everything to ${to.title}…`, places: [p.id, to.id], run: ({ report }) => this.app.transfers.watch([p], report, async () => {
         const tree = await p.device.getTree(["HOME"]);
         const files = tree.items.map((i) => (i.directory ? { path: i.fsPath } : { path: i.fsPath, data: i.data }));
         await this.app.transfers.writeTree(to, toPath, root, files);
@@ -1304,7 +1392,7 @@ export class Pane {
       this.say(`Everything is in the folder ${root} of ${to.title}.`);
       return root;
     } catch (err) {
-      if (!quiet(err)) this.say(`Not copied: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.fail(`Not copied: ${problemText(err)}`);
       return null;
     }
   }
@@ -1332,9 +1420,9 @@ export class Pane {
     }
     if (!(await this.app.ask(restoreQuestion(fileName, p.title)))) return false;
     try {
-      await this.app.queue.add({ label: `Restore ${p.title}`, places: [p.id], total: bytes.length, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.restore(bytes)) });
+      await this.app.queue.add({ label: `Restore ${p.title}`, doing: "Restoring…", places: [p.id], total: bytes.length, run: ({ report }) => this.app.transfers.watch([p], report, () => p.device.restore(bytes)) });
     } catch (err) {
-      if (!quiet(err)) this.say(`Not restored: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.fail(`Not restored: ${problemText(err)}`);
       return false;
     }
     this.show(p);
@@ -1375,6 +1463,7 @@ export class Pane {
     try {
       job = this.app.queue.add({
         label: `Fast transfer of ${name} ${put ? "to" : "from"} ${p.title}`,
+        doing: `${put ? "Sending" : "Getting"} ${name} (fast)…`,
         places: [p.id],
         total: bytes?.length ?? size,
         run: ({ report }) => {
@@ -1433,7 +1522,7 @@ export class Pane {
 
   /** Save `bytes` as `name` in `dest` (`{place, path}`), asking before a replace; resolves to where it went. */
   async saveTo(dest, name, bytes) {
-    await this.app.queue.add({ label: `Save ${name}`, places: [dest.place.id], run: async () => {
+    await this.app.queue.add({ label: `Save ${name}`, doing: `Saving ${name}…`, places: [dest.place.id], run: async () => {
       const there = await dest.place.folder.existing(dest.path, name);
       let replace = false;
       if (there) {
@@ -1502,9 +1591,9 @@ export class Pane {
     const h = await this.app.helpers();
     let got;
     try {
-      got = await this.app.queue.add({ label: `Graphics screen of ${p.title}`, places: [p.id], run: () => p.device.pict() });
+      got = await this.app.queue.add({ label: `Graphics screen of ${p.title}`, doing: "Getting the graphics screen…", places: [p.id], run: () => p.device.pict() });
     } catch (err) {
-      if (!quiet(err)) this.say(`Could not get the graphics screen: ${problemText(err)}`, { error: true });
+      if (!quiet(err)) this.fail(`Could not get the graphics screen: ${problemText(err)}`);
       return;
     }
     let state;
@@ -1601,6 +1690,15 @@ export class Pane {
     });
     tree.addEventListener("navigate", (e) => this.navigate(e.detail.path));
     this.ui.hintClose.addEventListener("click", () => this.setHint(null));
+    this.app.queue.addEventListener("change", () => this.scheduleJob());
+    // Stop (a palmtop's job): that job's work ends at the palmtop's next reply.
+    this.ui.stop.addEventListener("click", () => {
+      const at = this.shownJob;
+      if (!at || !this.app.queue.canStop(at.job)) return;
+      this.stopFor = at.job.id;
+      this.ui.stop.disabled = true;
+      at.job.stop(at.job);
+    });
     this.ui.refresh.addEventListener("click", () => this.refresh());
     this.ui.change.addEventListener("click", () => this.openSwitcher());
     this.ui.emulator.addEventListener("click", async () => {

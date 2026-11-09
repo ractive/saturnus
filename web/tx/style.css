@@ -122,6 +122,9 @@
   /* The status line: what the place does now, in the body size (iteration 45: it was easy to miss). */
   .pane-status { margin: 2px 0 0; min-height: 1.4em; font-size: var(--fs-md); color: var(--ink); overflow-wrap: anywhere; }
   .pane-status-text:empty + .pane-progress:empty { display: none; }
+  .pane-spinner { margin-right: var(--s2); }
+  /* Stop (a palmtop's job) beside the job it stops. */
+  .pane-stop { margin-left: var(--s2); vertical-align: baseline; }
   .pane-actions { display: flex; align-items: center; gap: var(--s1); flex-wrap: wrap; }
   .pane-change, .pane-emulator { gap: var(--s1); }
   /* A phone: the place's name and the buttons on one row, the name wrapping;
@@ -176,8 +179,11 @@
 
   .queue { flex: none; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: var(--s2) var(--s3) var(--s3) var(--s4); max-height: 30vh; overflow: auto; }
   .queue-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
-  .queue-head h2 { margin: 0 auto 0 0; font-size: var(--fs-md); font-weight: 600; }
+  .queue-head h2 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
+  .queue-fold { gap: var(--s1); padding: 0 var(--s1); margin-left: calc(-1 * var(--s1)); min-height: 32px; font: inherit; background: none; border-color: transparent; box-shadow: none; }
+  .queue-summary { margin-right: auto; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
   .queue-head button.link { font-size: var(--fs-sm); }
+  .queue-job.failed .queue-label { color: var(--error); }
   .queue-list { list-style: none; margin: var(--s1) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
   .queue-job { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "label state cancel" "bar bar bar"; align-items: center; gap: 2px var(--s2); min-height: 32px; font-size: var(--fs-md); }
   .queue-label { grid-area: label; min-width: 0; overflow-wrap: anywhere; }

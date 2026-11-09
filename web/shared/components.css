@@ -464,6 +464,8 @@ dialog.ai {
 .dtree-name { font-family: var(--mono); }
 .dtree-note { font-size: var(--fs-xs); }
 .dtree-note.error { color: var(--error); }
+/* A directory being read: its folder icon faint (the list and the pane's head have the spinner). */
+.dtree-row.loading .ic-dir { opacity: 0.45; }
 
 /* A directory's variables (shared/components/device-list.js): a table,
    directories first, sortable columns, a "⋯" a row; a file dragged over
@@ -525,6 +527,29 @@ dialog.ai {
 }
 .dlist-state { margin: 0; padding: var(--s4) var(--s3); }
 .dlist-state.error { color: var(--error); }
+.dlist-state.loading { display: flex; align-items: center; }
+
+/* Something under way (the palette's notice draws the same ring): an
+   accent ring with a gap, turning; shown after 0.2 s, so a quick step
+   does not flash it. Reduced motion: the ring stands still, faint. */
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 0.75em;
+  height: 0.75em;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  vertical-align: -0.05em;
+  animation: spinner-turn 0.8s linear infinite, spinner-show 0s 0.2s both;
+}
+.spinner[hidden] { display: none; }
+.dlist-state .spinner { width: 1.1em; height: 1.1em; }
+@keyframes spinner-turn { to { transform: rotate(360deg); } }
+@keyframes spinner-show { from { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: spinner-show 0s 0.2s both; border-right-color: var(--accent); opacity: 0.6; }
+}
 /* Narrow: the type under the name, the checksum left out. */
 @media (max-width: 559px) {
   .dlist .col-kind, .dlist .col-checksum, .dlist .col-modified { display: none; }

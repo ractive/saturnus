@@ -1546,9 +1546,17 @@ with a switch above them.
   folder) asks "Replace everything on the calculator?"; the pane then
   says the calculator restarted and offers "Reconnect" (which types
   SERVER again on an emulated one).
-- **The queue**: every operation is a job on the places it uses, listed
-  under the panes with its progress in bytes; one per place at a time,
-  the waiting ones cancellable one by one or all at once.
+- **The queue**: every operation is a job on the places it uses; one per
+  place at a time. The running job is said once, in the head of its
+  calculator's or palmtop's pane (a folder's only when no calculator or
+  palmtop works on it: `Pane.shownJob`): its words (`doing`, "Copying
+  ZPAR…"), "2 of 3" while the place has more in its run
+  (`JobQueue.progressOf`), the bytes beside the live region, a spinner,
+  and Stop where the job can be stopped (a palmtop's). The Transfers list
+  under the panes is up only while two or more jobs are under way or a
+  failure waits (`JobQueue.fail`, said once by `#queue-alert`, dismissed
+  one by one or all at once); it folds away, and its waiting jobs are
+  cancellable one by one or all at once.
 - **Preview**: on selection, small objects at once and larger ones on a
   click (above 2 KB): programs, algebraics and units as the
   calculator's text (one text transfer, no ROM needed here), data

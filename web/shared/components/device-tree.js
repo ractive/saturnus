@@ -117,7 +117,11 @@ export class DeviceTree extends HTMLElement {
       if (hasChildren) toggle.append(iconEl(isOpen ? "chevron-down" : "chevron-right", "ic-sm"));
       const name = el("span", { class: "dtree-name", text: path[path.length - 1] });
       row.append(toggle, iconEl(isOpen ? "folder-open" : "folder", "ic-sm ic-dir"), name);
-      if (isOpen && listing === "loading") row.append(el("span", { class: "dtree-note muted", text: "…" }));
+      // Being read: a faint folder and aria-busy; the spinner is the list's and the pane's head's.
+      if (isOpen && listing === "loading") {
+        row.classList.add("loading");
+        row.setAttribute("aria-busy", "true");
+      }
       if (listing?.error) {
         row.append(el("span", { class: "dtree-note error", text: "not read" }));
         row.title = listing.error;

@@ -150,7 +150,9 @@ test("a fast get into the folder and a fast put from it: the keys to press, the 
   assert.match(await ev(dialogText("xmodem-status")), /Waiting for the calculator/);
   assert.equal(await ev(shown("cancel")), true);
   assert.equal(await ev(shown("type")), false, "no key presses for a calculator on a cable");
-  assert.match(await ev(`document.querySelector("#queue-list").textContent`), /Fast transfer of PRG from/);
+  // One job: said in the calculator's head, not in a Transfers list.
+  assert.equal(await ev(`document.querySelector(".pane[data-pane=left] .pane-status-text").textContent`), "Getting PRG (fast)…");
+  assert.equal(await ev(`document.getElementById("queue").hidden`), true);
   // The user pressed EVAL: it comes over, into the folder.
   await ev(`__calcs[0].release(); true`);
   await p.until(shown("reconnect"), 5_000, "done, with the reconnect");

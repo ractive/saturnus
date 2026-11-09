@@ -27,7 +27,9 @@ The left pane always shows a calculator (or a palmtop); the right pane shows a f
 
 Each pane has a tree of directories and a list of the variables in the current one, with their type, size and checksum as the calculator reports them. Selecting a variable shows a preview under the list: numbers, strings, lists and the other data objects as text, GROBs as pictures. Programs show as text when the calculator sends its text form.
 
-To copy, drag rows to the other pane, or choose "Copy to the other pane" in a row's menu or press F5. F2 renames and Delete purges. Every copy is a job in the queue under the panes, with its progress in bytes; the jobs that wait can be cancelled.
+To copy, drag rows to the other pane, or choose "Copy to the other pane" in a row's menu or press F5. F2 renames and Delete purges. The rows being copied, in both panes, get a thin bar under their name, and the calculator's pane says what it does beside a spinner, for example "Copying ZPAR… 2 of 3", with the bytes so far. Files and the other pane stay usable while a copy runs, and you can queue more.
+
+The Transfers list under the panes appears only when more than one job is under way or a job failed. It lists the running job and the waiting ones, which can be cancelled one by one or all at once, and folds away with the arrow beside its name. A failed job stays there, with what went wrong, until you dismiss it.
 
 Nothing is replaced without asking. Before a copy starts, one question lists what it would change: files with the same name, a binary file of the other family (a 48 file going to a 49G is stored as a string, so Files sends its text form instead), anything with no text form. A purge or a restore asks first as well.
 
@@ -92,7 +94,7 @@ Never plug the palmtop's cable into an HP 48 or 49G, and never use a 38G cable o
 
 Files talks at 19200 baud, the speed the palmtop's serial chip handles safely according to the [palmtops FAQ](https://ftp.lip6.fr/pub/doc/faqs/hp/palmtops-faq). A faster one can be set under "Trouble with the cable?", "Use a fixed speed", with the same speed on the palmtop; above 19200 the chip may lose bytes, and a copy can fail part way. When nothing answers at another speed, Files says to go back to 19200.
 
-The palmtop takes DOS names only: up to 8 letters or digits, a dot and up to 3 more, in capitals (`NOTES.TXT`). A file with a longer name is left out of a copy with the reason, so rename it first; a calculator's variable goes over as its `.hp` file, so `PRG` becomes `PRG.HP`. A copy moves about 1.7 KB a second at 19200 baud: the queue shows its progress, and Stop ends it at the palmtop's next reply (a file half written is deleted again). If the palmtop says nothing for about 18 seconds, the pane says "The palmtop stopped answering": check that Filer is still open in front with server mode on, that the palmtop has not turned itself off, and the cable, then choose "Reconnect". Disconnect leaves Filer in server mode for the next time.
+The palmtop takes DOS names only: up to 8 letters or digits, a dot and up to 3 more, in capitals (`NOTES.TXT`). A file with a longer name is left out of a copy with the reason, so rename it first; a calculator's variable goes over as its `.hp` file, so `PRG` becomes `PRG.HP`. A copy moves about 1.7 KB a second at 19200 baud: the palmtop's pane shows its progress, and Stop there ends it at the palmtop's next reply (a file half written is deleted again). If the palmtop says nothing for about 18 seconds, the pane says "The palmtop stopped answering": check that Filer is still open in front with server mode on, that the palmtop has not turned itself off, and the cable, then choose "Reconnect". Disconnect leaves Filer in server mode for the next time.
 
 This works against a test server here; on a real palmtop it is still to be tried out.
 

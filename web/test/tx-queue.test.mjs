@@ -212,3 +212,58 @@ test("Stop: offered on a running job that has one, while its `stoppable` says so
   assert.equal(await p, "done");
   void plain;
 });
+
+test("a place's run: the running job's words and where it is (2 of 3), from one again once the place is free", async () => {
+  const q = new JobQueue();
+  const log = [];
+  const a = gate(log, "a");
+  const b = gate(log, "b");
+  const c = gate(log, "c");
+  const other = gate(log, "other");
+  q.add({ label: "Copy A to hp-files", doing: "Copying A…", places: ["calc", "folder"], run: a.run });
+  q.add({ label: "Copy B to hp-files", places: ["calc", "folder"], run: b.run });
+  const pc = q.add({ label: "C", places: ["calc"], run: c.run });
+  q.add({ label: "Other", places: ["palmtop"], run: other.run });
+  await tick();
+  assert.equal(q.progressOf("nowhere"), null);
+  let at = q.progressOf("calc");
+  assert.deepEqual([at.job.doing, at.index, at.count], ["Copying A…", 1, 3]);
+  assert.deepEqual([q.progressOf("folder").index, q.progressOf("folder").count], [1, 2]);
+  assert.deepEqual([q.progressOf("palmtop").index, q.progressOf("palmtop").count], [1, 1]);
+  a.release();
+  await tick();
+  at = q.progressOf("calc");
+  // Without its own words: the label and "…".
+  assert.deepEqual([at.job.doing, at.index, at.count], ["Copy B to hp-files…", 2, 3]);
+  // A cancelled one leaves the count.
+  q.cancel(pc.id);
+  await pc.catch(() => {});
+  assert.deepEqual([q.progressOf("calc").index, q.progressOf("calc").count], [2, 2]);
+  b.release();
+  await tick();
+  assert.equal(q.progressOf("calc"), null);
+  // The next run counts from one.
+  const d = gate(log, "d");
+  q.add({ label: "D", places: ["calc"], run: d.run });
+  await tick();
+  assert.deepEqual([q.progressOf("calc").index, q.progressOf("calc").count], [1, 1]);
+  d.release();
+  other.release();
+});
+
+test("failures are kept until dismissed, one or all, each a change", () => {
+  const q = new JobQueue();
+  let changes = 0;
+  q.addEventListener("change", () => changes++);
+  const one = q.fail("A was not copied: the calculator stopped answering.");
+  q.fail("B was not copied: no room.");
+  assert.deepEqual(q.failures.map((f) => f.text), ["A was not copied: the calculator stopped answering.", "B was not copied: no room."]);
+  assert.equal(changes, 2);
+  q.dismiss(one);
+  assert.deepEqual(q.failures.map((f) => f.text), ["B was not copied: no room."]);
+  q.dismiss(12345);
+  assert.equal(changes, 3, "dismissing nothing is no change");
+  q.dismiss();
+  assert.deepEqual(q.failures, []);
+  assert.equal(changes, 4);
+});

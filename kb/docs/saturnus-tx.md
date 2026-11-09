@@ -270,10 +270,22 @@ file (a directory), Download or Download as `.zip` (a folder's), Restore
 the calculator from this file (a folder's `.hp`, with a calculator in the
 other pane), Rename (F2), Purge or Delete (Delete). Ctrl or Cmd and
 Shift with a click select more than one row, Ctrl/Cmd+A all of them.
-Everything that runs is a job of one queue (`web/tx/queue.js`), listed
-under the panes ("Transfers") with its progress in bytes; one job per
-place at a time, in the order asked, the waiting ones cancellable one by
-one or all at once. A drop lands in the directory whose row it is on,
+Everything that runs is a job of one queue (`web/tx/queue.js`); one job
+per place at a time, in the order asked. A running job is shown once
+(owner, 2026-11-09: not a modal dialog, since other panes, previews,
+more drags, Calculator and a second device stay usable while a job takes
+minutes): the rows it reads and writes get their thin bar (source and
+target), and the head of the pane whose calculator or palmtop does the
+work says it, "Copying ZPAR… 2 of 3" (the count while the place has more
+jobs in its run), its bytes beside the live region, a spinner, and Stop
+where the job can be stopped; a folder's head says a job only when no
+calculator or palmtop works on it. The list under the panes
+("Transfers") is up only while two or more jobs are under way or a job
+failed: the running and waiting jobs, the waiting ones cancellable one by
+one or all at once, the failures (the sentence an error toast said
+before) until dismissed, one by one or all; it folds away to its head and
+counts ("1 running, 2 waiting, 1 failed"). A failure is announced once,
+by an alert outside the list. A drop lands in the directory whose row it is on,
 else the one shown. `DownloadURL` drags out only rows already previewed
 (the bytes must be in the page when the drag starts).
 
@@ -848,7 +860,7 @@ as for the 48's Kermit server.
   show, and says so), mkdir, disconnect (one DISCONNECT,
   not awaited; Filer stays in server mode).
 - **Stop.** A copy, download or delete on a palmtop can be stopped while
-  its palmtop work runs: the queue's running row gets a Stop button
+  its palmtop work runs: the palmtop's pane head gets a Stop button
   (`queue.js` jobs with `stop` and `stoppable`). The palmtop's
   operations carry the job as their owner (`PalmtopFolder.stopOwner`,
   `busyFor`, `scoped`): Stop ends that job's running operation, drops
@@ -938,6 +950,14 @@ under the list for several seconds.
   target rows of a copy, show a thin bar under the name; the pane's
   status line is the body size. Progress is drawn at most once per
   animation frame.
+- **Busy, once** (owner, 2026-11-09). A directory being read is said in
+  the pane's status ("Reading HOME…", the live region) with a spinner
+  beside it (the palette notice's ring: an accent ring with a gap,
+  turning, shown after 0.2 s; still and faint under reduced motion); the
+  list shows only a spinner named "Reading the directory" for a screen
+  reader, not live; the tree marks the directory faint and `aria-busy`,
+  no text. The same spinner stands beside the status while a job runs
+  there or a connect is under way.
 - **The cable console.** "Show the packets" in the page's header (gone
   while there is nothing to show: every calculator in the panes is the
   emulator's, whose link has no packets, nothing is served and no packet

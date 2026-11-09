@@ -115,17 +115,20 @@ export class Transfers {
    * (saturnus-web's tx module); `ask(question)` confirm.js's question, resolves to
    * true for the action; `askName({title, why, suggested, action,
    * check})` resolves to a name or null; `say(text, {error})` a toast;
+   * `failed(text)` keeps a copy's failure in the Transfers list (app.js;
+   * an error toast when not given);
    * `mark(place, path, name, value)` shows a row's progress where a pane
    * shows it (`<device-list>`'s `setBusy`: a fraction, null not known yet,
    * undefined done); `frame(fn)` the next animation frame (the marks are
    * painted at most once per frame).
    */
-  constructor({ queue, helpers, ask, askName, say, mark = () => {}, frame = (fn) => fn() }) {
+  constructor({ queue, helpers, ask, askName, say, failed = null, mark = () => {}, frame = (fn) => fn() }) {
     this.queue = queue;
     this.helpers = helpers;
     this.ask = ask;
     this.askName = askName;
     this.say = say;
+    this.failed = failed ?? ((text) => say(text, { error: true }));
     this.mark = mark;
     this.frame = frame;
     /** Whether the files in this browser were said not to be on the disk (once a visit). */
@@ -174,7 +177,7 @@ export class Transfers {
     const stop = palmtops.length ? (job) => palmtops.forEach((p) => p.device.stopOwner(job)) : null;
     const stoppable = palmtops.length ? (job) => palmtops.some((p) => p.device.busyFor(job)) : null;
     await Promise.all(plan.steps.map((step) => this.queue
-      .add({ label: `Copy ${step.name} to ${to.title}`, places, total: step.size ?? null, stop, stoppable, run: ({ report, job }) => this.marked(step, { from, fromPath, to, toPath }, report, job) })
+      .add({ label: `Copy ${step.name} to ${to.title}`, doing: `Copying ${step.name}…`, places, total: step.size ?? null, stop, stoppable, run: ({ report, job }) => this.marked(step, { from, fromPath, to, toPath }, report, job) })
       .then((note) => {
         result.copied.push(step.name);
         if (note) this.say(note);
@@ -182,7 +185,7 @@ export class Transfers {
         if (err?.kind === "cancelled") result.skipped.push(step.name);
         else {
           result.failed.push(step.name);
-          if (err?.kind !== "declined") this.say(`${step.name} was not copied: ${problemText(err)}`, { error: true });
+          if (err?.kind !== "declined") this.failed(`${step.name} was not copied: ${problemText(err)}`);
         }
       })));
     if (result.copied.length) {
