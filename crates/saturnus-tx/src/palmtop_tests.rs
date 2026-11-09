@@ -193,6 +193,24 @@ fn dos_names() {
     );
     assert_eq!(dos_path(&dir(&["C:"]), None), Some(b"C:\\".to_vec()));
     assert_eq!(dos_path(&dir(&["CC"]), None), None);
+    for bad in [".", "..", "A:B", "*.*", "?"] {
+        assert_eq!(dos_path(&dir(&["C:", bad]), None), None, "{bad}");
+        assert_eq!(dos_path(&dir(&["C:"]), Some(bad)), None, "{bad}");
+    }
+    // DOS's device names, whatever the case and the extension.
+    assert_eq!(dos_name("aux"), Err(NameProblem::Device("AUX".into())));
+    assert_eq!(dos_name("Con.txt"), Err(NameProblem::Device("CON".into())));
+    assert_eq!(dos_name("COM1.HP"), Err(NameProblem::Device("COM1".into())));
+    assert_eq!(
+        dos_name("clock$"),
+        Err(NameProblem::Device("CLOCK$".into()))
+    );
+    assert_eq!(dos_name("COM5"), Ok("COM5".into()));
+    assert_eq!(dos_name("CONS.TXT"), Ok("CONS.TXT".into()));
+    assert_eq!(
+        NameProblem::Device("AUX".into()).to_string(),
+        "AUX is the name of a device on the palmtop (DOS keeps it), so no file can have it: choose another"
+    );
     assert_eq!(dos_path(&dir(&["C:", "A\\B"]), None), None);
     // Latin-1 names read from the palmtop go back byte for byte.
     assert_eq!(
@@ -602,5 +620,63 @@ fn the_recorded_session_is_current() {
     assert!(
         kept == text,
         "{file} is out of date: run the test with SATURNUS_BLESS=1"
+    );
+}
+
+#[test]
+fn a_tree_with_a_read_only_file_is_refused_before_anything_is_deleted() {
+    use filer_proto::FileSystem;
+    let mut r = Rig::connected();
+    r.server
+        .fs_mut()
+        .set_attributes(b"C:\\SUB\\DEEP\\A.TXT", attr::READ_ONLY)
+        .unwrap();
+    let deletes = r.commands.iter().filter(|&&c| c == 0x04).count();
+    let e = r
+        .run(PalmtopRequest::Remove {
+            dir: dir(&["C:"]),
+            name: "SUB".into(),
+            directory: true,
+        })
+        .unwrap_err();
+    assert_eq!(
+        e,
+        PalmtopError::ReadOnlyInside {
+            dir: "SUB".into(),
+            file: "DEEP\\A.TXT".into()
+        }
+    );
+    assert_eq!(
+        e.to_string(),
+        "SUB: DEEP\\A.TXT in it is read-only, so nothing was deleted; clear its read-only mark on the palmtop first"
+    );
+    assert_eq!(
+        r.commands.iter().filter(|&&c| c == 0x04).count(),
+        deletes,
+        "nothing deleted"
+    );
+    assert!(r.server.fs().file(b"C:\\SUB\\NOTE.TXT").is_some());
+}
+
+#[test]
+fn a_directory_with_a_hidden_file_says_so_at_its_removal() {
+    use filer_proto::FileSystem;
+    let mut r = Rig::connected();
+    // Hidden files are not listed, so the walk cannot delete them.
+    r.server
+        .fs_mut()
+        .set_attributes(b"C:\\SUB\\NOTE.TXT", attr::HIDDEN)
+        .unwrap();
+    let e = r
+        .run(PalmtopRequest::Remove {
+            dir: dir(&["C:"]),
+            name: "SUB".into(),
+            directory: true,
+        })
+        .unwrap_err();
+    assert_eq!(e, PalmtopError::HiddenInside("SUB".into()));
+    assert_eq!(
+        e.to_string(),
+        "SUB: the directory still holds files the palmtop does not list (hidden or system)"
     );
 }

@@ -266,7 +266,17 @@ pub enum NameProblem {
     Dots,
     /// A character DOS does not take in a name.
     Char(char),
+    /// A name DOS keeps for a device (`AUX` is the serial port the
+    /// session runs on), with any extension.
+    Device(String),
 }
+
+/// The names DOS keeps for its devices: a file of that name, whatever its
+/// extension, is the device.
+pub const DEVICE_NAMES: [&str; 13] = [
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "LPT1", "LPT2", "LPT3", "CLOCK$",
+    "CONFIG$",
+];
 
 impl fmt::Display for NameProblem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -277,6 +287,10 @@ impl fmt::Display for NameProblem {
             ),
             NameProblem::Char(' ') => f.write_str("the palmtop takes no spaces in a name"),
             NameProblem::Char(c) => write!(f, "the palmtop takes no {c:?} in a name"),
+            NameProblem::Device(d) => write!(
+                f,
+                "{d} is the name of a device on the palmtop (DOS keeps it), so no file can have it: choose another"
+            ),
         }
     }
 }
@@ -307,6 +321,10 @@ pub fn dos_name(name: &str) -> std::result::Result<String, NameProblem> {
         } else {
             NameProblem::TooLong
         });
+    }
+    let upper = base.to_ascii_uppercase();
+    if DEVICE_NAMES.contains(&upper.as_str()) {
+        return Err(NameProblem::Device(upper));
     }
     Ok(name.to_ascii_uppercase())
 }
@@ -368,6 +386,21 @@ pub enum PalmtopError {
         /// The status.
         failure: String,
     },
+    /// A directory removal found a read-only file in it: nothing was
+    /// deleted.
+    #[error(
+        "{dir}: {file} in it is read-only, so nothing was deleted; clear its read-only mark on the palmtop first"
+    )]
+    ReadOnlyInside {
+        /// The directory to remove.
+        dir: String,
+        /// The read-only file, from that directory down.
+        file: String,
+    },
+    /// The palmtop refused to remove a directory the walk had emptied: it
+    /// still holds what the listing does not show.
+    #[error("{0}: the directory still holds files the palmtop does not list (hidden or system)")]
+    HiddenInside(String),
     /// The file is larger than a get reads.
     #[error("{0} is larger than Files reads (16 MB)")]
     TooLarge(String),
@@ -440,6 +473,8 @@ struct Remove {
     at: Vec<u8>,
     /// What the directory held.
     count: usize,
+    /// A read-only file the walk saw (from the directory down).
+    read_only: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -500,7 +535,13 @@ fn dos_path(dir: &[String], name: Option<&str>) -> Option<Vec<u8>> {
             .collect::<Option<Vec<u8>>>()
     };
     for part in dir[1..].iter().map(String::as_str).chain(name) {
-        if part.is_empty() || part.contains(['\\', '/']) {
+        // Never a step up, the current directory, another drive or a
+        // pattern: a removal walks what this names.
+        if part.is_empty()
+            || part == "."
+            || part == ".."
+            || part.contains(['\\', '/', ':', '*', '?'])
+        {
             return None;
         }
         out = path::join(&out, &latin1(part)?);
@@ -737,6 +778,7 @@ impl Palmtop {
                     dirs: Vec::new(),
                     at: p.clone(),
                     count: 0,
+                    read_only: None,
                 };
                 let job = if *directory {
                     remove.phase = Phase::Listing;
@@ -982,9 +1024,25 @@ impl Palmtop {
         let at = path::display(path::file_name(&r.at));
         match result {
             Ok(Output::Listing(entries)) if r.phase == Phase::Listing => {
+                // The removed directory's own path, to name what is in it.
+                let root_len = r.dirs.first().map_or(0, Vec::len);
                 for e in &entries {
+                    // Never a step up or across, whatever the palmtop sends.
+                    if e.name.is_empty()
+                        || e.name == b"."
+                        || e.name == b".."
+                        || e.name.iter().any(|&b| matches!(b, b'\\' | b'/' | b':'))
+                    {
+                        continue;
+                    }
                     let p = path::join(&r.at, &e.name);
                     r.count += 1;
+                    if !e.is_directory()
+                        && e.attributes & attr::READ_ONLY != 0
+                        && r.read_only.is_none()
+                    {
+                        r.read_only = Some(path::display(p.get(root_len + 1..).unwrap_or(&p)));
+                    }
                     if e.is_directory() {
                         r.dirs.push(p.clone());
                         r.to_list.push(p);
@@ -994,6 +1052,11 @@ impl Palmtop {
                 }
             }
             Ok(_) => {}
+            Err(JobError::Failed(Failure::Fs(FsError::ACCESS_DENIED)))
+                if r.phase == Phase::Dirs =>
+            {
+                return Some(Err(PalmtopError::HiddenInside(at)));
+            }
             Err(e) => return Some(Err(job_error(e, &at))),
         }
         if self.stopping {
@@ -1004,6 +1067,9 @@ impl Palmtop {
                 r.at = next;
                 let job = Job::List(pattern(&r.at));
                 return self.remove_send(now, r, job);
+            }
+            if let Some(file) = r.read_only.take() {
+                return Some(Err(PalmtopError::ReadOnlyInside { dir: r.name, file }));
             }
             r.phase = Phase::Files;
         }

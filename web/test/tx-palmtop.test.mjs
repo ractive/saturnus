@@ -24,12 +24,15 @@ import { Transfers } from "../tx/transfers.js";
 import { palmtopLink } from "./tx-fake-palmtop.js";
 
 const pkgFile = new URL("../pkg/saturnus_web_bg.wasm", import.meta.url);
+const filerFile = new URL("./pkg-filer/filer_test_server_bg.wasm", import.meta.url);
 let wasm = null;
+/** The app's wasm with the test palmtop's `TxFilerServer` beside it (its own package), or null. */
 async function load() {
-  if (!existsSync(pkgFile)) return null;
-  wasm ??= import("../pkg/saturnus_web.js").then((pkg) => {
+  if (!existsSync(pkgFile) || !existsSync(filerFile)) return null;
+  wasm ??= Promise.all([import("../pkg/saturnus_web.js"), import("./pkg-filer/filer_test_server.js")]).then(([pkg, filer]) => {
     pkg.initSync({ module: readFileSync(pkgFile) });
-    return pkg;
+    filer.initSync({ module: readFileSync(filerFile) });
+    return { ...pkg, TxFilerServer: filer.TxFilerServer };
   });
   return wasm;
 }
@@ -77,7 +80,7 @@ function quickWorker(TxPalmtop) {
 async function connected(t, opts = {}) {
   const pkg = await load();
   if (!pkg) {
-    t.skip("web/pkg not built (just web)");
+    t.skip("web/pkg or web/test/pkg-filer not built (just web)");
     return null;
   }
   const link = palmtopLink(pkg.TxFilerServer, undefined, opts);
@@ -186,8 +189,8 @@ test("copies with a folder: a tree in, a long name left out with the reason, a f
   }));
   const plan = await transfers.plan({ from, fromPath: ["hp-files"], items, to, toPath: ["Palmtop", "C:"] });
   assert.deepEqual(plan.steps.map((s) => s.name), ["TREE"]);
-  assert.deepEqual(plan.sections.map((s) => s.items), [["a long name.txt"]]);
-  assert.match(plan.sections[0].text, /^Left out: the palmtop takes DOS names only/);
+  assert.deepEqual(plan.sections.map((s) => s.items), [["a long name.txt (the palmtop takes no spaces in a name)"]]);
+  assert.match(plan.sections[0].text, /^Left out: names the palmtop does not take/);
   const result = await transfers.copy({ from, fromPath: ["hp-files"], items, to, toPath: ["Palmtop", "C:"] });
   assert.deepEqual(result, { copied: ["TREE"], failed: [], skipped: [] });
   assert.equal(dec.decode(link.server.file("C:\\TREE\\A.TXT")), "A");
@@ -204,6 +207,53 @@ test("copies with a folder: a tree in, a long name left out with the reason, a f
   const all = await palmtop.files(["Palmtop", "C:"], ["TREE"]);
   assert.deepEqual(all.map((e) => e.name), ["TREE", "TREE/IN", "TREE/IN/B.TXT", "TREE/A.TXT"]);
   assert.equal((await palmtop.zip(["Palmtop", "C:"])).name, "C.zip");
+  // A drive zipped from the top: no colon in a directory's path either.
+  const top = await palmtop.zip(["Palmtop"], ["C:"]);
+  const text = new TextDecoder("latin1").decode(new Uint8Array(await top.blob.arrayBuffer()));
+  assert.equal(top.name, "C.zip");
+  assert.ok(text.includes("C/TREE/IN/") && text.includes("C/TREE/A.TXT"), "the drive as a folder C");
+  assert.ok(!text.includes("C:"), "no colon in the zip");
+});
+
+test("a folder or a calculator directory with a name inside the palmtop does not take is left out whole, with the path and why, before anything is sent", { timeout: 60_000 }, async (t) => {
+  const r = await connected(t);
+  if (!r) return;
+  const { pkg, link, palmtop } = r;
+  const transfers = new Transfers({ queue: new JobQueue(), helpers: async () => pkg, ask: async () => true, askName: async () => null, say: () => {} });
+  const to = { id: "p", kind: "folder", palmtop: true, folder: palmtop, device: palmtop, title: "the palmtop" };
+  const dirItem = (name, children) => ({ name, directory: true, size: null, read: async () => new Uint8Array(), children: async () => children });
+  const fileIt = (name) => ({ name, directory: false, size: 1, read: async () => enc.encode("x"), children: async () => [] });
+  const items = [dirItem("OK", [fileIt("A.TXT")]), dirItem("BAD", [fileIt("B.TXT"), dirItem("IN", [fileIt("aux.txt")])])];
+  const plan = await transfers.plan({ from: null, items, to, toPath: ["Palmtop", "C:"] });
+  assert.deepEqual(plan.steps.map((s) => s.name), ["OK"]);
+  assert.deepEqual(plan.sections.map((s) => s.items), [["BAD/IN/aux.txt (AUX is the name of a device on the palmtop (DOS keeps it), so no file can have it: choose another)"]]);
+  // From a calculator: the variables inside, named as their .hp files.
+  const calc = {
+    id: "c", kind: "device", model: "48gx", title: "the calculator",
+    device: { list: async (path) => ({ entries: path.length === 2 ? [{ name: "SHORT", directory: false }, { name: "LONGERNAME", directory: false }] : [] }) },
+  };
+  const fromCalc = await transfers.plan({ from: calc, fromPath: ["HOME"], items: [{ name: "GAMES", directory: true, size: 10 }], to, toPath: ["Palmtop", "C:"] });
+  assert.deepEqual(fromCalc.steps, []);
+  assert.deepEqual(fromCalc.sections.map((s) => s.items), [["GAMES/LONGERNAME.hp (the palmtop takes DOS names: up to 8 letters or digits, a dot and up to 3 more (like NOTES.TXT))"]]);
+  assert.equal(fromCalc.nothing, "Nothing was copied: GAMES/LONGERNAME.hp (the palmtop takes DOS names: up to 8 letters or digits, a dot and up to 3 more (like NOTES.TXT)).");
+  assert.ok(!link.server.paths().some((p) => p.includes("BAD") || p.includes("GAMES")), "nothing sent");
+  assert.equal(await palmtop.nameProblem("Con.txt"), "CON is the name of a device on the palmtop (DOS keeps it), so no file can have it: choose another.");
+});
+
+test("names are DOS's: listings and their change events go by the palmtop's spelling, whatever case a path is given in", { timeout: 60_000 }, async (t) => {
+  const r = await connected(t);
+  if (!r) return;
+  const { palmtop } = r;
+  await palmtop.mkdir(["Palmtop", "C:"], "tree");
+  const kept = await palmtop.list(["Palmtop", "C:", "TREE"]);
+  assert.deepEqual(names(kept), []);
+  const events = [];
+  palmtop.addEventListener("change", (e) => events.push(e.detail.path));
+  // Written through the name as typed ("tree"): the TREE listing goes and is read again.
+  await palmtop.write(["Palmtop", "C:", "tree"], "a.txt", enc.encode("A"));
+  assert.deepEqual(events, [["Palmtop", "C:", "TREE"]]);
+  assert.deepEqual(names(await palmtop.list(["Palmtop", "C:", "TREE"])), ["A.TXT"]);
+  assert.equal(await palmtop.list(["Palmtop", "c:", "tree"]), await palmtop.list(["Palmtop", "C:", "TREE"]), "one listing");
 });
 
 test("Stop ends a copy at the palmtop's next reply: the file is closed, the part written deleted, the session goes on", { timeout: 60_000 }, async (t) => {
@@ -211,15 +261,29 @@ test("Stop ends a copy at the palmtop's next reply: the file is closed, the part
   if (!r) return;
   const { link, palmtop } = r;
   const bytes = new Uint8Array(20_000).fill(7);
-  const writing = palmtop.write(["Palmtop", "C:"], "PART.BIN", bytes);
+  const job = {};
+  const writing = palmtop.write(["Palmtop", "C:"], "PART.BIN", bytes, { owner: job });
   await new Promise((resolve) => palmtop.addEventListener("progress", resolve, { once: true }));
-  palmtop.stop();
+  assert.equal(palmtop.busyFor(job), true);
+  assert.equal(palmtop.busyFor({}), false);
+  palmtop.stopOwner(job);
   await assert.rejects(writing, (err) => err.kind === "cancelled" && err.message === "Stopped.");
   assert.equal(link.server.file("C:\\PART.BIN"), undefined, "the part written is gone");
-  const reading = palmtop.read(["Palmtop", "C:"], "BIG.BIN");
+  // The job's later operations are refused; nobody else's.
+  await assert.rejects(palmtop.read(["Palmtop", "C:"], "HELLO.TXT", { owner: job }), (err) => err.kind === "cancelled");
+  // Another job's Stop leaves this read alone; its own waiting one goes.
+  const other = {};
+  const third = {};
+  const reading = palmtop.read(["Palmtop", "C:"], "BIG.BIN", { owner: other });
+  const waiting = palmtop.read(["Palmtop", "C:"], "HELLO.TXT", { owner: third });
   await new Promise((resolve) => palmtop.addEventListener("progress", resolve, { once: true }));
-  palmtop.stop();
-  await assert.rejects(reading, (err) => err.kind === "cancelled");
+  palmtop.stopOwner(third);
+  await assert.rejects(waiting, (err) => err.kind === "cancelled");
+  assert.equal((await reading).data.length, 5000, "the other job's read went on");
+  const again = palmtop.read(["Palmtop", "C:"], "BIG.BIN", { owner: other });
+  await new Promise((resolve) => palmtop.addEventListener("progress", resolve, { once: true }));
+  palmtop.stopOwner(other);
+  await assert.rejects(again, (err) => err.kind === "cancelled");
   assert.ok(palmtop.connection, "still connected");
   assert.equal(dec.decode((await palmtop.read(["Palmtop", "C:"], "HELLO.TXT")).data), "Hello, palmtop\r\n");
 });
@@ -247,7 +311,7 @@ test("a palmtop that stops answering: notAnswering, no connection, the queue dro
 test("nothing answering a connect says what to check, and 19200 after a faster speed", { timeout: 60_000 }, async (t) => {
   const pkg = await load();
   if (!pkg) {
-    t.skip("web/pkg not built (just web)");
+    t.skip("web/pkg or web/test/pkg-filer not built (just web)");
     return;
   }
   const link = palmtopLink(pkg.TxFilerServer);

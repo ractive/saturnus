@@ -825,7 +825,13 @@ as for the 48's Kermit server.
   asks), and a copy's plan leaves out a name the palmtop cannot make,
   with the reason, before anything is sent (saturnus-tx's `dos_name`;
   printable ASCII without spaces and `"*+,./:;<=>?[\]|`, 1 to 8
-  characters, optionally a dot and 1 to 3 more). A calculator's
+  characters, optionally a dot and 1 to 3 more; never one of DOS's
+  device names, `CON`, `PRN`, `AUX` (the serial port the session runs
+  on), `NUL`, `COM1`-`4`, `LPT1`-`3`, `CLOCK$`, `CONFIG$`, whatever the
+  extension). A folder or calculator directory with such a name
+  anywhere inside is left out whole, naming the path (its copy would
+  stop part way). Listings and change events go by the palmtop's
+  spelling (capitals), whatever case a path is given in. A calculator's
   variable goes over as its `.hp` file. Not offered: shortening a name.
 - **The device.** `saturnus-tx`'s `palmtop::Palmtop`, sans I/O like the
   Kermit device, over `filer-proto`'s `Session`; the wasm binds it as
@@ -836,11 +842,19 @@ as for the 48's Kermit server.
   `replace`: create, and on "file already exists" create-or-replace),
   rename (refused over another name), remove (a file; or a directory:
   every level listed, its files deleted, its directories removed
-  deepest first; the count it held), mkdir, disconnect (one DISCONNECT,
+  deepest first; the count it held; refused before anything is deleted
+  when the walk saw a read-only file, named; a directory still not
+  empty at the end holds hidden or system files, which listings do not
+  show, and says so), mkdir, disconnect (one DISCONNECT,
   not awaited; Filer stays in server mode).
 - **Stop.** A copy, download or delete on a palmtop can be stopped while
-  it runs: the queue's running row gets a Stop button (`queue.js` jobs
-  with `stop`). The device ends the request at the palmtop's next reply
+  its palmtop work runs: the queue's running row gets a Stop button
+  (`queue.js` jobs with `stop` and `stoppable`). The palmtop's
+  operations carry the job as their owner (`PalmtopFolder.stopOwner`,
+  `busyFor`, `scoped`): Stop ends that job's running operation, drops
+  its waiting ones and refuses its later ones; a preview or another
+  job's work goes on, and listings, shared and short, are never cut.
+  The device ends the request at the palmtop's next reply
   (`filer-proto`'s `Session::cancel`): a get closes its file, a put
   closes and deletes the part written, a removal stops after the file or
   directory it is at. The session stays.
@@ -848,7 +862,8 @@ as for the 48's Kermit server.
   sends (5.9 s each, about 18 s) ends the session: the pane shows "The
   palmtop stopped answering" with what to check (Filer open in front,
   server mode on, auto-off, the cable) and Reconnect, which connects at
-  the same speed. A palmtop whose session ended (Ctrl+Break there)
+  the speed it was connected at (kept on the place, not the dialog's
+  current one). A palmtop whose session ended (Ctrl+Break there)
   answers a request with a CONNECT refusal, which ends it the same way.
 - **Progress.** Each 2 KB block of a get or put; the listing's size gives
   a get its total. About 1.7 KB/s at 19200 baud, so a palmtop file is
@@ -859,8 +874,11 @@ as for the 48's Kermit server.
   `traces/100lx-session.trace` (`SATURNUS_BLESS=1` rewrites it), which
   `web/test/tx-driver.test.mjs` replays through the page's protocol
   stack; `web/test/tx-palmtop.test.mjs` runs `PalmtopFolder` and the
-  copies in Node against the same server through the wasm's
-  `TxFilerServer` (`web/test/tx-fake-palmtop.js`); `tx-page.test.mjs`
+  copies in Node against the same server through `TxFilerServer`
+  (`web/test/tx-fake-palmtop.js`), which is a wasm package of its own
+  (`crates/filer-test-server`, `web/test/build-filer.sh`, built by
+  `just web` and CI's wasm job beside `web/pkg`), so the app's wasm
+  holds no test server; `tx-page.test.mjs`
   goes through "Add a calculator" with the server behind a fake Web
   Serial port. The real palmtop is the owner's session (the iteration's
   last task): the error codes it really sends, the fastest speed that

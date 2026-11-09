@@ -1563,8 +1563,10 @@ with a switch above them.
   `tx-driver.test.mjs` and `tx-bindings.test.mjs` (the protocol stack in
   Node over saturnus-tx's recorded traces, the palmtop's
   `100lx-session.trace` too), `tx-palmtop.test.mjs` (the palmtop in Node:
-  `PalmtopFolder` against filer-proto's server, the wasm's
-  `TxFilerServer`, on `tx-fake-palmtop.js`'s link: listings, get and put
+  `PalmtopFolder` against filer-proto's server, the test package's
+  `TxFilerServer` (`crates/filer-test-server`, built by
+  `test/build-filer.sh` into `test/pkg-filer/`, never in `pkg/`), on
+  `tx-fake-palmtop.js`'s link: listings, get and put
   byte for byte, 8.3 names, delete with the count, a tree copied in, Stop,
   not answering), `tx-page.test.mjs` (headless
   Chrome: the page with the recorded fake link of

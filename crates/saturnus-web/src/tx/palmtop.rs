@@ -1,9 +1,9 @@
 //! The HP 100LX/200LX palmtop for the page: [`TxPalmtop`], saturnus-tx's
 //! [`Palmtop`] over a link the page holds (`web/tx/palmtop.js` through the
-//! protocol Worker, which runs it in the same driver as [`TxDevice`]), the
-//! name check [`palmtop_name_problem`], and [`TxFilerServer`],
-//! `filer-proto`'s server over its in-memory files: the palmtop of the
-//! page's tests (`web/test/tx-palmtop.test.mjs`), on a link of their own.
+//! protocol Worker, which runs it in the same driver as [`TxDevice`]), and
+//! the name check [`palmtop_name_problem`]. The palmtop of the page's
+//! tests is a package of its own (`crates/filer-test-server`), never in
+//! this one.
 //!
 //! The requests are [`parse_palmtop_request`]'s JSON, the results
 //! [`palmtop_outcome_json`]'s and [`palmtop_error_json`]'s.
@@ -11,7 +11,7 @@
 //! [`TxDevice`]: crate::tx::TxDevice
 
 use filer_proto::time::{Duration, Instant};
-use filer_proto::{DosDateTime, FsError, MemoryFs, Server, ServerConfig, attr};
+use filer_proto::{DosDateTime, FsError, attr};
 use js_sys::{Array, Reflect, Uint8Array};
 use saturnus_tx::Action;
 use saturnus_tx::palmtop::{
@@ -195,6 +195,8 @@ pub fn palmtop_error_json(e: &PalmtopError) -> Value {
         ),
         PalmtopError::Status { name, .. } => ("palmtop", Some(name), None),
         PalmtopError::TooLarge(n) => ("tooLarge", Some(n), None),
+        PalmtopError::ReadOnlyInside { dir, .. } => ("denied", Some(dir), None),
+        PalmtopError::HiddenInside(n) => ("denied", Some(n), None),
         PalmtopError::Stopped => ("stopped", None, None),
         PalmtopError::NotAnswering => ("notAnswering", None, None),
         PalmtopError::Link(_) => ("link", None, None),
@@ -403,91 +405,6 @@ impl TxPalmtop {
             out.push(&v);
         }
         Ok(out)
-    }
-}
-
-/// `filer-proto`'s server over its in-memory files: a palmtop in Filer
-/// server mode for the page's tests, on a link of their own
-/// (`web/test/tx-palmtop.test.mjs`). Drives `A:`, `C:` and `D:`, D:
-/// write-protected as the palmtop's ROM disk.
-#[wasm_bindgen]
-pub struct TxFilerServer {
-    server: Server<MemoryFs>,
-}
-
-impl std::fmt::Debug for TxFilerServer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TxFilerServer").finish_non_exhaustive()
-    }
-}
-
-/// A DOS path of the server's files from the page's `C:\SUB\X.TXT`.
-fn server_path(path: &str) -> Result<Vec<u8>, JsValue> {
-    filer_proto::path::normalize(path, b'C').map_err(js_err)
-}
-
-#[wasm_bindgen]
-impl TxFilerServer {
-    /// A server holding `files` (`[{path: "C:\\SUB\\X.TXT", data}]`; no
-    /// `data`: a directory).
-    #[wasm_bindgen(constructor)]
-    pub fn new(files: JsValue) -> Result<TxFilerServer, JsValue> {
-        let mut fs = MemoryFs::new(b"ACD");
-        fs.set_read_only(b'D');
-        if Array::is_array(&files) {
-            for item in Array::from(&files).iter() {
-                let path = Reflect::get(&item, &"path".into())?
-                    .as_string()
-                    .ok_or_else(|| js_err("a file's path is a string"))?;
-                let path = server_path(&path)?;
-                let data = Reflect::get(&item, &"data".into())?;
-                if data.is_instance_of::<Uint8Array>() {
-                    fs.insert_file(&path, Uint8Array::new(&data).to_vec());
-                } else {
-                    fs.insert_dir(&path);
-                }
-            }
-        }
-        Ok(TxFilerServer {
-            server: Server::new(fs, ServerConfig::default()),
-        })
-    }
-
-    /// Bytes the page wrote.
-    pub fn input(&mut self, bytes: &[u8]) {
-        self.server.handle_input(bytes);
-    }
-
-    /// The replies to send back, each a `Uint8Array`.
-    pub fn output(&mut self) -> Array {
-        let out = Array::new();
-        while let Some(frame) = self.server.poll_output() {
-            out.push(&Uint8Array::from(frame.as_slice()));
-        }
-        out
-    }
-
-    /// Lose the next `n` replies (a lot: a palmtop gone silent; 0 answers
-    /// again).
-    #[wasm_bindgen(js_name = dropReplies)]
-    pub fn drop_replies(&mut self, n: u32) {
-        self.server.drop_replies(n);
-    }
-
-    /// A file's bytes, or `undefined`.
-    pub fn file(&self, path: &str) -> Result<Option<Uint8Array>, JsValue> {
-        let path = server_path(path)?;
-        Ok(self.server.fs().file(&path).map(Uint8Array::from))
-    }
-
-    /// Every path the server holds, `C:\SUB\X.TXT`.
-    pub fn paths(&self) -> Array {
-        self.server
-            .fs()
-            .paths()
-            .iter()
-            .map(|p| JsValue::from(filer_proto::path::display(p)))
-            .collect()
     }
 }
 

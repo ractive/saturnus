@@ -23,8 +23,8 @@
 //!   reads a file's header.
 //! - The HP 100LX and 200LX palmtops: [`palmtop::TxPalmtop`] (the same
 //!   calls as [`TxDevice`], so one driver runs either), the 8.3 name
-//!   check [`palmtop::palmtop_name_problem`], and
-//!   [`palmtop::TxFilerServer`], the page tests' palmtop.
+//!   check [`palmtop::palmtop_name_problem`]. The page tests' palmtop is
+//!   `crates/filer-test-server`, a package of its own.
 //!
 //! The page's JavaScript tests of these bindings are
 //! `web/test/tx-bindings.test.mjs`; `tests/xmodem.rs` replays the fast

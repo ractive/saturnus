@@ -57,6 +57,9 @@ const FILE_PREVIEW_BYTES = 256 * 1024;
 
 let placeSerial = 0;
 
+/** A queue job's Stop on a palmtop place: that job's palmtop work only, offered while it runs (nothing for other places). */
+const palmtopStop = (place) => (place.palmtop ? { stop: (job) => place.device.stopOwner(job), stoppable: (job) => place.device.busyFor(job) } : {});
+
 /** Whether `place` shows its tree and list: a folder, or a calculator or palmtop while connected. */
 const usable = (place) => Boolean(place && (place.palmtop ? place.device.connection && !place.device.notAnswering : place.kind === "folder" || place.device.connection));
 
@@ -502,7 +505,8 @@ export class Pane {
     const client = new ProtocolClient(link, { ...this.app.deviceOptions, kind: "palmtop" });
     device = new PalmtopFolder(client, { helpers: () => this.app.helpers() });
     const heading = palmtopTitle(link.label);
-    const place = { id: `${this.id}:${++placeSerial}`, kind: "folder", palmtop: true, folder: device, device, model: "palmtop", emulated: false, linkLabel: link.label, title: "the palmtop", heading };
+    // `baud` kept: Reconnect uses the speed this palmtop was connected at, not whatever the dialog says by then.
+    const place = { id: `${this.id}:${++placeSerial}`, kind: "folder", palmtop: true, folder: device, device, model: "palmtop", emulated: false, linkLabel: link.label, title: "the palmtop", heading, baud };
     this.wireDevice(place);
     this.note = "";
     this.step = { title: heading, status: `Connecting at ${baud} baud…`, busy: true };
@@ -640,12 +644,12 @@ export class Pane {
     this.say("Connected again.");
   }
 
-  /** A palmtop that stopped answering, connected again at the speed it had. */
+  /** A palmtop that stopped answering, connected again at the speed it was connected at (`place.baud`). */
   async reconnectPalmtop(p) {
     this.step = { title: p.heading, status: "Connecting to the palmtop…", busy: true };
     this.renderCard();
     try {
-      await this.app.queue.add({ label: `Reconnect to ${p.title}`, places: [p.id], run: () => p.device.connect({ baud: this.app.palmtopBaud?.() ?? PALMTOP_BAUD }) });
+      await this.app.queue.add({ label: `Reconnect to ${p.title}`, places: [p.id], run: () => p.device.connect({ baud: p.baud ?? PALMTOP_BAUD }) });
     } catch (err) {
       this.step = null;
       this.render();
@@ -1124,7 +1128,7 @@ export class Pane {
     const path = [...this.path];
     try {
       if (p.kind === "folder") {
-        const r = await this.app.queue.add({ label: `Download from ${p.title}`, places: [p.id], stop: p.palmtop ? () => p.device.stop() : null, run: () => downloadFolder(p.folder, path, entries.map((e) => e.name), this.app.downloadDeps) });
+        const r = await this.app.queue.add({ label: `Download from ${p.title}`, places: [p.id], ...palmtopStop(p), run: ({ job }) => downloadFolder(p.palmtop ? p.folder.scoped(job) : p.folder, path, entries.map((e) => e.name), this.app.downloadDeps) });
         this.say(r.collisions.length ? `${r.name} saved to your downloads. Some names in it differ only in case: unzipped on macOS or Windows, one of each pair is lost.` : `${r.name} saved to your downloads.`);
         return;
       }
@@ -1212,7 +1216,7 @@ export class Pane {
     const gone = [];
     for (const e of entries) {
       try {
-        await this.app.queue.add({ label: `${device ? "Purge" : "Delete"} ${e.name}`, places: [p.id], stop: p.palmtop ? () => p.device.stop() : null, run: () => (device ? p.device.purge(path, e.name, { count: e.directory ? counts.get(e.name) ?? 0 : null }) : p.folder.purge(path, e.name, { recursive: e.directory })) });
+        await this.app.queue.add({ label: `${device ? "Purge" : "Delete"} ${e.name}`, places: [p.id], ...palmtopStop(p), run: ({ job }) => (device ? p.device.purge(path, e.name, { count: e.directory ? counts.get(e.name) ?? 0 : null }) : p.folder.purge(path, e.name, { recursive: e.directory, owner: job })) });
         gone.push(e.name);
       } catch (err) {
         if (quiet(err)) continue;

@@ -306,7 +306,7 @@ export function mountFiles(root, { shown = () => true } = {}) {
     const jobs = queue.jobs;
     ui.queue.hidden = jobs.length === 0;
     ui.cancelWaiting.hidden = queue.waiting.length < 2;
-    const shape = jobs.map((j) => `${j.id}:${j.state}:${j.total ? 1 : 0}:${j.stop ? 1 : 0}`).join(",");
+    const shape = jobs.map((j) => `${j.id}:${j.state}:${j.total ? 1 : 0}:${queue.canStop(j) ? 1 : 0}`).join(",");
     if (shape === queueShape) {
       // Progress only: the rows stay, and with them a focused Cancel button.
       for (const j of queue.running) {
@@ -335,11 +335,11 @@ export function mountFiles(root, { shown = () => true } = {}) {
       );
       if (running && j.total) li.append(el("progress", { class: "queue-bar", max: String(j.total), value: String(Math.min(j.done, j.total)), "aria-label": `${j.label}: ${amount || "started"}` }));
       // A running job that can be stopped (on a palmtop): Stop ends it at the device's next reply.
-      if (running && j.stop) {
+      if (queue.canStop(j)) {
         const b = el("button", { type: "button", class: "icon queue-cancel queue-stop", title: `Stop: ${j.label}`, "aria-label": `Stop ${j.label}` }, iconEl("close"));
         b.addEventListener("click", () => {
           b.disabled = true;
-          j.stop();
+          j.stop(j);
         });
         li.append(b);
       }

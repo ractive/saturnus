@@ -22,7 +22,8 @@ export function folderItem(folder, path, entry) {
     name: entry.name,
     directory: entry.directory,
     size: entry.size ?? null,
-    read: async () => (await folder.read(path, entry.name)).data,
+    // `opts.owner`: the queue job reading it (a palmtop stops that job's reads only).
+    read: async (opts = {}) => (await folder.read(path, entry.name, opts)).data,
     children: async () => (await folder.list([...path, entry.name])).entries.map((e) => folderItem(folder, [...path, entry.name], e)),
   };
 }
@@ -34,17 +35,18 @@ export function fileItem(file) {
 
 /**
  * Everything below FsItem `dir` as tree items, parents first: `{path:
- * [names below dir], data?}` (no data: a directory).
+ * [names below dir], data?}` (no data: a directory). `opts` go to each
+ * read (`owner`, the queue job).
  */
-export async function flatten(dir, prefix = []) {
+export async function flatten(dir, prefix = [], opts = {}) {
   const out = [];
   for (const child of await dir.children()) {
     const path = [...prefix, child.name];
     if (child.directory) {
       out.push({ path });
-      out.push(...(await flatten(child, path)));
+      out.push(...(await flatten(child, path, opts)));
     } else {
-      out.push({ path, data: await child.read() });
+      out.push({ path, data: await child.read(opts) });
     }
   }
   return out;
@@ -167,11 +169,12 @@ export class Transfers {
     }
     const places = [from?.id, to.id].filter((p) => p !== undefined && p !== null);
     const result = { copied: [], failed: [], skipped: [] };
-    // A copy to or from a palmtop can be stopped while it runs (at the palmtop's next reply).
+    // A copy to or from a palmtop can be stopped while its palmtop work runs: that job's, at the palmtop's next reply.
     const palmtops = [from, to].filter((p) => p?.palmtop);
-    const stop = palmtops.length ? () => palmtops.forEach((p) => p.device.stop()) : null;
+    const stop = palmtops.length ? (job) => palmtops.forEach((p) => p.device.stopOwner(job)) : null;
+    const stoppable = palmtops.length ? (job) => palmtops.some((p) => p.device.busyFor(job)) : null;
     await Promise.all(plan.steps.map((step) => this.queue
-      .add({ label: `Copy ${step.name} to ${to.title}`, places, total: step.size ?? null, stop, run: ({ report }) => this.marked(step, { from, fromPath, to, toPath }, report) })
+      .add({ label: `Copy ${step.name} to ${to.title}`, places, total: step.size ?? null, stop, stoppable, run: ({ report, job }) => this.marked(step, { from, fromPath, to, toPath }, report, job) })
       .then((note) => {
         result.copied.push(step.name);
         if (note) this.say(note);
@@ -197,8 +200,9 @@ export class Transfers {
    * Run `step` with its rows marked: the source row (a calculator's or a
    * folder's) and the target row, when the panes show them (a target that
    * is not there yet gets the mark if it shows up during the copy).
+   * `job` the queue's, whose palmtop operations these are.
    */
-  async marked(step, { from, fromPath, to, toPath }, report) {
+  async marked(step, { from, fromPath, to, toPath }, report, job = null) {
     const rows = [];
     if (from && fromPath) rows.push([from, fromPath, step.name]);
     rows.push([to, toPath, step.target ?? step.name]);
@@ -220,7 +224,7 @@ export class Transfers {
           pending = false;
           if (!ended) set(latest);
         });
-      }, () => step.run(step));
+      }, () => step.run(step, job));
     } finally {
       ended = true;
       set(undefined);
@@ -238,6 +242,17 @@ export class Transfers {
     const devices = [...new Set(places.filter((p) => p?.kind === "device" || p?.palmtop).map((p) => p.device))];
     const seen = new Map();
     const off = [];
+    // A palmtop starting or ending an operation: reported again as it stands, so the queue offers Stop while that work runs.
+    let last = [0, null, ""];
+    const forward = (done, total, label) => {
+      last = [done, total, label];
+      report(done, total, label);
+    };
+    for (const p of places.filter((x) => x?.palmtop)) {
+      const busy = () => report(...last);
+      p.device.addEventListener("busy", busy);
+      off.push(() => p.device.removeEventListener("busy", busy));
+    }
     for (const d of devices) {
       const on = (e) => {
         seen.set(d, { done: e.detail.done ?? 0, total: e.detail.total ?? null });
@@ -253,7 +268,7 @@ export class Transfers {
         }
         // The phases not begun yet: as large as the last one known.
         if (last) total += (devices.length - seen.size) * last;
-        report(done, total ? Math.max(total, done) : null, e.detail.label ?? "");
+        forward(done, total ? Math.max(total, done) : null, e.detail.label ?? "");
       };
       d.addEventListener("progress", on);
       off.push(() => d.removeEventListener("progress", on));
@@ -279,9 +294,33 @@ export class Transfers {
     const steps = [];
     const inUse = [];
     const blocked = [];
-    /** Names the target does not take (a palmtop's 8.3 rule), with why. */
+    /** Names the target does not take (a palmtop's 8.3 rule), each with why: `NAME (the reason)`. */
     const badNames = [];
-    const refused = async (name) => (to.kind === "folder" && to.folder.nameProblem ? to.folder.nameProblem(name) : null);
+    const nameCheck = to.kind === "folder" && to.folder.nameProblem ? (n) => to.folder.nameProblem(n) : null;
+    /** Why the target refuses `name`, as part of a sentence, or null. */
+    const refused = async (name) => {
+      const problem = nameCheck ? await nameCheck(name) : null;
+      return problem ? problem.replace(/^The /, "the ").replace(/\.$/, "") : null;
+    };
+    /**
+     * The first name below a directory the target refuses, as `DIR/SUB/NAME
+     * (the reason)`, or null: `children(keys)` gives `[{name, key,
+     * directory}]` below the source's `keys` (`name` as it would be written
+     * there, `key` as the source names it). A copy of the directory would
+     * stop part way at it, so the directory is left out whole.
+     */
+    const refusedInside = async (top, children, keys = [], names = []) => {
+      if (!nameCheck) return null;
+      for (const c of await children(keys)) {
+        const why = await refused(c.name);
+        if (why) return `${[top, ...names, c.name].join("/")} (${why})`;
+        if (c.directory) {
+          const deeper = await refusedInside(top, children, [...keys, c.key], [...names, c.name]);
+          if (deeper) return deeper;
+        }
+      }
+      return null;
+    };
     const strings = [];
     const families = [];
     let familyMessage = null;
@@ -291,9 +330,22 @@ export class Transfers {
       for (const e of items) {
         const asFile = !e.directory || single;
         const fileName = asFile ? h.file_name(e.name, "binary") : h.folder_name(e.name);
-        if (await refused(fileName)) {
-          badNames.push(fileName);
+        const why = await refused(fileName);
+        if (why) {
+          badNames.push(`${fileName} (${why})`);
           continue;
+        }
+        if (!asFile && nameCheck) {
+          // The variables and directories inside, as the copy names them.
+          const inside = await refusedInside(fileName, async (below) => (await from.device.list([...fromPath, e.name, ...below])).entries.map((x) => ({
+            name: x.directory ? h.folder_name(x.name) : h.file_name(x.name, "binary"),
+            key: x.name,
+            directory: x.directory,
+          })));
+          if (inside) {
+            badNames.push(inside);
+            continue;
+          }
         }
         const there = to.folder.existing ? await to.folder.existing(toPath, fileName) : null;
         if (there && (!there.exact || there.directory !== !asFile)) {
@@ -303,15 +355,15 @@ export class Transfers {
         const step = { name: e.name, target: fileName, size: e.size ?? null, replace: false };
         if (there && asFile) inUse.push(fileName);
         if (asFile) {
-          step.run = async (s) => {
+          step.run = async (s, owner = null) => {
             const got = await from.device.read(fromPath, e.name, { size: e.size });
-            await to.folder.write(toPath, fileName, got.data, { replace: s.replace });
+            await to.folder.write(toPath, fileName, got.data, { replace: s.replace, owner });
           };
         } else {
-          step.run = async () => {
+          step.run = async (s, owner = null) => {
             const tree = await from.device.getTree([...fromPath, e.name], { size: e.size });
             const files = tree.items.map((i) => (i.directory ? { path: i.fsPath } : { path: i.fsPath, data: i.data }));
-            await this.writeTree(to, toPath, fileName, files);
+            await this.writeTree(to, toPath, fileName, files, owner);
           };
         }
         steps.push(step);
@@ -335,9 +387,21 @@ export class Transfers {
               continue;
             }
           }
-          if (await refused(item.name)) {
-            badNames.push(item.name);
+          const why = await refused(item.name);
+          if (why) {
+            badNames.push(`${item.name} (${why})`);
             continue;
+          }
+          if (item.directory && nameCheck) {
+            const inside = await refusedInside(item.name, async (below) => {
+              let dir = item;
+              for (const n of below) dir = (await dir.children()).find((x) => x.name === n);
+              return (await dir.children()).map((x) => ({ name: x.name, key: x.name, directory: x.directory }));
+            });
+            if (inside) {
+              badNames.push(inside);
+              continue;
+            }
           }
           const there = await to.folder.existing(toPath, item.name);
           if (there && (!there.exact || there.directory !== item.directory)) {
@@ -345,11 +409,11 @@ export class Transfers {
             continue;
           }
           const step = { name: item.name, target: item.name, size: item.size, replace: false };
-          if (item.directory) step.run = async () => this.writeTree(to, toPath, item.name, await flatten(item));
+          if (item.directory) step.run = async (s, owner = null) => this.writeTree(to, toPath, item.name, await flatten(item, [], { owner }), owner);
           else {
             if (there) inUse.push(item.name);
-            step.run = async (s) => {
-              await to.folder.write(toPath, item.name, await item.read(), { replace: s.replace });
+            step.run = async (s, owner = null) => {
+              await to.folder.write(toPath, item.name, await item.read({ owner }), { replace: s.replace, owner });
             };
           }
           steps.push(step);
@@ -437,16 +501,14 @@ export class Transfers {
     }
     if (strings.length) sections.push({ text: "These are not calculator files. The calculator keeps their contents as strings:", items: strings });
     if (blocked.length) sections.push({ text: "Left out: the name is taken by something a copy cannot replace:", items: blocked });
-    if (badNames.length) sections.push({ text: "Left out: the palmtop takes DOS names only, up to 8 letters or digits, a dot and up to 3 more (like NOTES.TXT). Rename these first:", items: badNames });
+    if (badNames.length) sections.push({ text: "Left out: names the palmtop does not take (a folder with one inside goes whole). Rename them first:", items: badNames });
     const left = [...blocked, ...badNames];
     return {
       steps,
       inUse,
       sections,
       stringsOnly: strings.length > 0 && !families.length && !left.length,
-      nothing: badNames.length && !blocked.length
-        ? `Nothing was copied: the palmtop takes DOS names only (up to 8 letters or digits, a dot and up to 3 more), not ${namesText(badNames)}.`
-        : left.length ? `Nothing was copied: ${namesText(left)}.` : null,
+      nothing: left.length ? `Nothing was copied: ${namesText(left)}.` : null,
     };
   }
 
@@ -502,7 +564,7 @@ export class Transfers {
    * `path` of a folder place, made if missing, merged into if there; the
    * files already there are replaced only after asking.
    */
-  async writeTree(to, path, root, files) {
+  async writeTree(to, path, root, files, owner = null) {
     const folder = to.folder;
     const top = [...path, root];
     const there = await folder.existing(path, root);
@@ -520,16 +582,16 @@ export class Transfers {
         throw Object.assign(new Error("not replaced"), { kind: "declined" });
       }
     } else {
-      await folder.mkdir(path, root);
+      await folder.mkdir(path, root, { owner });
     }
     for (const f of files) {
       const at = [...top, ...f.path.slice(0, -1)];
       const name = f.path.at(-1);
       if (!f.data) {
         const found = await folder.existing(at, name);
-        if (!found) await folder.mkdir(at, name);
+        if (!found) await folder.mkdir(at, name, { owner });
       } else {
-        await folder.write(at, name, f.data, { replace: conflicts.includes([root, ...f.path].join("/")) });
+        await folder.write(at, name, f.data, { replace: conflicts.includes([root, ...f.path].join("/")), owner });
       }
     }
   }

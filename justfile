@@ -98,6 +98,7 @@ vendor-tab-mcp-local dir=env("TAB_MCP_DIR", env("HOME", "") + "/devel/tab-mcp"):
 # web/pkg/ (needs wasm-pack).
 web:
     web/build.sh -- --locked
+    web/test/build-filer.sh -- --locked
 
 # The transfer page against the emulated 48SX, 48GX and 49G in headless
 # Chrome (web/test/tx-e2e.test.mjs): connect, detect, list, get, put,

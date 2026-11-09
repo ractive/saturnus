@@ -1,6 +1,7 @@
 // An HP 100LX palmtop in Filer server mode for Files' tests (not a test
 // itself): filer-proto's server over its in-memory files, through the
-// wasm's `TxFilerServer` (crates/saturnus-web/src/tx/palmtop.rs), on a
+// test package's `TxFilerServer` (crates/filer-test-server, built into
+// web/test/pkg-filer by web/test/build-filer.sh; never in the app's wasm), on a
 // Link (web/tx/links.js) of its own. Loaded by the node tests
 // (tx-palmtop.test.mjs) and into the page (tx-page.test.mjs). The
 // protocol is the real one both ways: the page's TxPalmtop in its Worker

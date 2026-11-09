@@ -37,7 +37,7 @@
 // `SATURNUS_AUDIT=1` makes the skip a failure).
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import { session, sleep } from "./chrome.mjs";
 import { PAGE_FILES, PAGE_SEED, pageSession, txBuilt, txPage } from "./tx-chrome.mjs";
@@ -698,6 +698,11 @@ test("\"Add a calculator\" asks the kind first: an HP 48 or 49 goes on to one co
 // ---------------------------------------------------------------- the palmtop
 
 test("an HP 100LX or 200LX through \"Add a calculator\": its Filer settings, the cable warning, the speed; its drives and files; a long name refused; not answering; Disconnect", { timeout: 120_000 }, async (t) => {
+  if (!existsSync(new URL("./pkg-filer/filer_test_server_bg.wasm", import.meta.url))) {
+    if (process.env.SATURNUS_AUDIT) assert.fail("web/test/pkg-filer not built (just web)");
+    t.skip("web/test/pkg-filer not built (just web)");
+    return;
+  }
   const c = await open(t);
   if (!c) return;
   await c.send("Page.enable");
@@ -705,8 +710,8 @@ test("an HP 100LX or 200LX through \"Add a calculator\": its Filer settings, the
   const p = txPage(c);
   await p.open(c.port);
   // A Web Serial port with filer-proto's server behind it; replies wait 300 ms, not 5.9 s, before a resend.
-  await c.ev(`Promise.all([import("./test/tx-fake-palmtop.js"), tx.helpers()]).then(([m, h]) => {
-    window.__port = m.fakeSerialPort(h.TxFilerServer);
+  await c.ev(`Promise.all([import("./test/tx-fake-palmtop.js"), import("./test/pkg-filer/filer_test_server.js").then(async (f) => { await f.default(); return f; })]).then(([m, f]) => {
+    window.__port = m.fakeSerialPort(f.TxFilerServer);
     navigator.serial.requestPort = async () => __port;
     navigator.serial.getPorts = async () => [];
     tx.app.deviceOptions = { silenceMs: 300 };
@@ -756,10 +761,10 @@ test("an HP 100LX or 200LX through \"Add a calculator\": its Filer settings, the
   assert.equal(await c.ev(`new TextDecoder().decode(__port.server.file("C:\\\\NOTES.TXT"))`), "hello, palmtop");
   // A long name: nothing sent, the reason said.
   await p.drop({ "a long name.txt": "x" });
-  await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent.includes("the palmtop takes DOS names only"))`, 10_000, "the refusal");
+  await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent.includes("Nothing was copied: a long name.txt (the palmtop takes no spaces in a name)."))`, 10_000, "the refusal with its reason");
   assert.ok(!(await c.ev(`__port.server.paths()`)).some((x) => /LONG/i.test(x)));
-  // Silent: the card says what to check; Reconnect once it answers.
-  await c.ev(`__port.silence(); tx.panes[0].refresh(); true`);
+  // Silent: the card says what to check; Reconnect once it answers, at the speed it was connected at (not the dialog's, changed since).
+  await c.ev(`tx.app.palmtop = { fixed: true, baud: 57600 }; __port.silence(); tx.panes[0].refresh(); true`);
   await p.until(`document.querySelector(".pane[data-pane=left] .start h2")?.textContent === "The palmtop stopped answering"`, 20_000, "the not-answering card");
   const card = await c.ev(`(() => {
     const pane = document.querySelector(".pane[data-pane=left]");
@@ -771,6 +776,7 @@ test("an HP 100LX or 200LX through \"Add a calculator\": its Filer settings, the
   await c.ev(`__port.answer(); document.querySelector('.pane[data-pane=left] [data-action="reconnect"]').click(); true`);
   await p.idle(30_000, "connected again");
   assert.equal(await c.ev(`tx.panes[0].ui.status.textContent`), "Connected at 19200 baud.");
+  assert.deepEqual(await c.ev(`__port.opened`), [19200, 19200]);
   await c.ev(`tx.panes[0].close()`);
   await p.until(`!tx.panes[0].place`, 10_000, "disconnected");
   assert.equal(await c.ev(`tx.panes[0].note`), "Disconnected. Filer on the palmtop stays in server mode for the next connect.");

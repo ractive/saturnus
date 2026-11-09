@@ -12,7 +12,7 @@
 //                                       checksum: null, modified, readOnly}]}
 //   read, head, write, existing, mkdir, rename, count, purge, files, zip
 //                                    as a Folder's
-//   connect({baud}), disconnect(), close(), stop()
+//   connect({baud}), disconnect(), close(), stopOwner(job), busyFor(job), scoped(job)
 //
 // Names are DOS names: 8.3, upper case, case-insensitive (a write of
 // `notes.txt` replaces NOTES.TXT, after the question). A name the palmtop
@@ -54,6 +54,9 @@ export function entryKind(e) {
   const flags = [e.readOnly && "read-only", e.hidden && "hidden", e.system && "system"].filter(Boolean);
   return flags.length ? `${base}, ${flags.join(", ")}` : base;
 }
+
+/** `name` with its ASCII letters in capitals, as DOS keeps names (other bytes as they are). */
+export const dosUpper = (name) => String(name).replace(/[a-z]+/g, (m) => m.toUpperCase());
 
 /** `text` with a capital first letter and a full stop. */
 const sentence = (text) => {
@@ -107,6 +110,8 @@ export class PalmtopFolder extends EventTarget {
     this.kind = "palmtop";
     this.listings = new Map();
     this.queue = [];
+    /** The owners (queue jobs) whose operations were stopped: their later ones are refused. */
+    this.stoppedOwners = new WeakSet();
     this.running = null;
     this.lost = null;
     /** The palmtop stopped answering: not connected until `connect` again. */
@@ -153,10 +158,15 @@ export class PalmtopFolder extends EventTarget {
     this.dispatchEvent(new CustomEvent("progress", { detail: { label: op.label, done: op.done ?? 0, total: op.total ?? null } }));
   }
 
-  /** Run `fn` when the operations before it are done; `label` says what it is. */
-  run(label, fn, { total = null, tag = null } = {}) {
+  /**
+   * Run `fn` when the operations before it are done; `label` says what it
+   * is. `owner` (a queue job) is whose it is: `stopOwner` stops only that
+   * owner's operations, and one stopped already is refused at once.
+   */
+  run(label, fn, { total = null, tag = null, owner = null } = {}) {
+    if (owner !== null && this.stoppedOwners.has(owner)) return Promise.reject(new FolderError("cancelled", "Stopped."));
     return new Promise((resolve, reject) => {
-      this.queue.push({ label, fn, resolve, reject, total, tag });
+      this.queue.push({ label, fn, resolve, reject, total, tag, owner });
       this.busyEvent();
       this.pump();
     });
@@ -186,22 +196,67 @@ export class PalmtopFolder extends EventTarget {
 
   /** Drop the operations not started yet (each rejects as cancelled); with `tag`, only those of that tag. */
   cancelQueued(tag = null) {
-    const dropped = this.queue.filter((op) => tag === null || op.tag === tag);
+    return this.drop((op) => tag === null || op.tag === tag);
+  }
+
+  /** Drop the waiting operations `which(op)` picks; how many. */
+  drop(which) {
+    const dropped = this.queue.filter(which);
     this.queue = this.queue.filter((op) => !dropped.includes(op));
     for (const op of dropped) op.reject(new FolderError("cancelled", "Stopped."));
     this.busyEvent();
     return dropped.length;
   }
 
-  /** Stop the running operation at the palmtop's next reply: a file being read is closed, one being written deleted. */
-  stop() {
-    if (this.running) this.client.stop();
+  /**
+   * Stop what `owner` (a queue job) asked of the palmtop: its running
+   * operation ends at the palmtop's next reply (a file being read is
+   * closed, one being written deleted), its waiting ones are dropped, and
+   * its later ones are refused. Nobody else's operation is touched.
+   */
+  stopOwner(owner) {
+    this.stoppedOwners.add(owner);
+    this.drop((op) => op.owner === owner);
+    if (this.running?.owner === owner) this.client.stop();
   }
 
-  /** The directory names below the top (`["C:", "_DAT"]`). */
+  /** Whether `owner`'s operation runs on the palmtop now (its Stop is offered then). */
+  busyFor(owner) {
+    return this.running !== null && this.running.owner === owner;
+  }
+
+  /**
+   * This palmtop as `owner`'s: the Folder calls with `owner` on every
+   * operation, for code that knows only a folder (the zip download).
+   */
+  scoped(owner) {
+    const o = { owner };
+    return {
+      kind: this.kind,
+      title: this.title,
+      home: this.home,
+      list: (path) => this.list(path),
+      existing: (path, name) => this.existing(path, name),
+      read: (path, name, opts = {}) => this.read(path, name, { ...opts, ...o }),
+      write: (path, name, bytes, opts = {}) => this.write(path, name, bytes, { ...opts, ...o }),
+      mkdir: (path, name) => this.mkdir(path, name, o),
+      rename: (path, from, to) => this.rename(path, from, to, o),
+      count: (path, name) => this.count(path, name),
+      purge: (path, name, opts = {}) => this.purge(path, name, { ...opts, ...o }),
+      files: (path, names = null) => this.files(path, names, o),
+      zip: (path, names = null) => this.zip(path, names, o),
+    };
+  }
+
+  /** The directory names below the top (`["C:", "_DAT"]`), letters in capitals as DOS keeps them. */
   dirOf(path) {
     if (!Array.isArray(path) || path[0] !== this.title) throw new FolderError("missing", `${Array.isArray(path) ? path.join("/") : path} is not on the palmtop.`);
-    return path.slice(1);
+    return path.slice(1).map(dosUpper);
+  }
+
+  /** `path` as the palmtop names it (case ignored): the key of its listing and of its change events. */
+  canonical(path) {
+    return [path[0], ...path.slice(1).map(dosUpper)];
   }
 
   /** Connect at `baud` (19200 by default). */
@@ -214,22 +269,27 @@ export class PalmtopFolder extends EventTarget {
     });
   }
 
-  /** The listing of `path`: kept, or read (once, however many ask). */
+  /**
+   * The listing of `path`: kept, or read (once, however many ask). A
+   * listing belongs to nobody (it is shared and short), so a Stop never
+   * cuts one.
+   */
   list(path) {
-    const key = pathKey(path);
+    let dir;
+    try {
+      dir = this.dirOf(path);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+    const key = pathKey(this.canonical(path));
     if (!this.listings.has(key)) {
-      let dir;
-      try {
-        dir = this.dirOf(path);
-      } catch (err) {
-        return Promise.reject(err);
-      }
       const p = this.run(`Reading ${path[path.length - 1]}…`, async () => {
         const r = await this.client.request({ type: "list", dir });
         const entries = r.entries.map((e) => ({
           name: e.name,
           kind: entryKind(e),
           directory: e.directory,
+          drive: Boolean(e.drive),
           size: e.directory ? null : e.size,
           checksum: null,
           modified: dosTime(e.modified),
@@ -245,11 +305,12 @@ export class PalmtopFolder extends EventTarget {
     return this.listings.get(key);
   }
 
-  /** Forget the listing of `path` (none: all) and say so. */
+  /** Forget the listing of `path` (none: all) and say so, in the palmtop's spelling of the path. */
   refresh(path = null) {
-    if (path) this.listings.delete(pathKey(path));
+    const p = path ? this.canonical(path) : null;
+    if (p) this.listings.delete(pathKey(p));
     else this.listings.clear();
-    this.dispatchEvent(new CustomEvent("change", { detail: { path: path ? [...path] : null } }));
+    this.dispatchEvent(new CustomEvent("change", { detail: { path: p } }));
   }
 
   /** A changed directory: its listing goes, and the tree and the list read it again. */
@@ -257,8 +318,8 @@ export class PalmtopFolder extends EventTarget {
 
   /** What in `path` has `name`, case ignored as DOS ignores it: `{name, directory, exact: true}` or null. */
   async existing(path, name) {
-    const key = String(name).toUpperCase();
-    const found = (await this.list(path)).entries.find((e) => e.name.toUpperCase() === key);
+    const key = dosUpper(String(name));
+    const found = (await this.list(path)).entries.find((e) => dosUpper(e.name) === key);
     return found ? { name: found.name, directory: found.directory, exact: true } : null;
   }
 
@@ -270,16 +331,21 @@ export class PalmtopFolder extends EventTarget {
 
   async checkName(name) {
     const problem = await this.nameProblem(name);
-    if (problem) throw new FolderError("bad-name", `${name}: ${problem.charAt(0).toLowerCase()}${problem.slice(1)}`, { name });
+    if (problem) throw new FolderError("bad-name", `${name}: ${problem.replace(/^The /, "the ")}`, { name });
   }
 
-  /** File `name` of `path`: `{name, fileName, data, size, modified}`. `size` (bytes) for the progress. */
-  read(path, name, { size = null, tag = null } = {}) {
-    const dir = this.dirOf(path);
+  /** File `name` of `path`: `{name, fileName, data, size, modified}`. `size` (bytes) for the progress; `owner` whose it is. */
+  read(path, name, { size = null, tag = null, owner = null } = {}) {
+    let dir;
+    try {
+      dir = this.dirOf(path);
+    } catch (err) {
+      return Promise.reject(err);
+    }
     return this.run(`Getting ${name}…`, async () => {
       const r = await this.client.request({ type: "get", dir, name });
       return { name: r.name, fileName: r.name, data: r.data, size: r.data.length, modified: dosTime(r.modified) };
-    }, { total: size, tag });
+    }, { total: size, tag, owner });
   }
 
   /** The first `n` bytes of file `name` (the whole file is read: the Filer reads in 2 KB blocks anyway). */
@@ -288,39 +354,39 @@ export class PalmtopFolder extends EventTarget {
   }
 
   /** Write `bytes` as file `name` of `path`; an existing file only with `replace`. Resolves to the name made (upper case). */
-  async write(path, name, bytes, { replace = false } = {}) {
+  async write(path, name, bytes, { replace = false, owner = null } = {}) {
     const dir = this.dirOf(path);
     if (dir.length === 0) throw new FolderError("refused", "Files go on a drive: open C: or A: first.");
     await this.checkName(name);
     try {
-      return await this.run(`Putting ${name.toUpperCase()}…`, async () => {
+      return await this.run(`Putting ${dosUpper(name)}…`, async () => {
         const r = await this.client.request({ type: "put", dir, name, replace }, bytes);
         return r.name;
-      }, { total: bytes.length });
+      }, { total: bytes.length, owner });
     } finally {
       this.changed(path);
     }
   }
 
   /** Make directory `name` in `path`. */
-  async mkdir(path, name) {
+  async mkdir(path, name, { owner = null } = {}) {
     const dir = this.dirOf(path);
     if (dir.length === 0) throw new FolderError("refused", "Directories go on a drive: open C: or A: first.");
     await this.checkName(name);
     try {
-      return await this.run(`Making ${name.toUpperCase()}…`, async () => (await this.client.request({ type: "mkdir", dir, name })).name);
+      return await this.run(`Making ${dosUpper(name)}…`, async () => (await this.client.request({ type: "mkdir", dir, name })).name, { owner });
     } finally {
       this.changed(path);
     }
   }
 
   /** Rename `from` in `path` to `to`; never over another name. Resolves to the new name. */
-  async rename(path, from, to) {
+  async rename(path, from, to, { owner = null } = {}) {
     const dir = this.dirOf(path);
     if (dir.length === 0) throw new FolderError("refused", "A drive cannot be renamed.");
     await this.checkName(to);
     try {
-      return await this.run(`Renaming ${from}…`, async () => (await this.client.request({ type: "rename", dir, from, to })).to);
+      return await this.run(`Renaming ${from}…`, async () => (await this.client.request({ type: "rename", dir, from, to })).to, { owner });
     } finally {
       this.changed(path);
     }
@@ -347,7 +413,7 @@ export class PalmtopFolder extends EventTarget {
    * with `recursive` (ask first, with `count`). Resolves to how many
    * entries went with it.
    */
-  async purge(path, name, { recursive = false } = {}) {
+  async purge(path, name, { recursive = false, owner = null } = {}) {
     const dir = this.dirOf(path);
     if (dir.length === 0) throw new FolderError("refused", "A drive cannot be deleted.");
     const found = await this.existing(path, name);
@@ -357,7 +423,7 @@ export class PalmtopFolder extends EventTarget {
       if (inside) throw new FolderError("not-empty", `${name} holds ${inside} ${inside === 1 ? "item" : "items"}.`, { name, count: inside });
     }
     try {
-      return await this.run(`Deleting ${found.name}…`, async () => (await this.client.request({ type: "remove", dir, name: found.name, directory: found.directory })).count, { tag: "remove" });
+      return await this.run(`Deleting ${found.name}…`, async () => (await this.client.request({ type: "remove", dir, name: found.name, directory: found.directory })).count, { tag: "remove", owner });
     } finally {
       // Everything below it is gone too.
       this.listings.clear();
@@ -368,21 +434,29 @@ export class PalmtopFolder extends EventTarget {
   /**
    * The files under `names` of `path` (all of `path` when null) as zip
    * entries: `{name: "D1/A.TXT", data, modified}`, `{name: "D1",
-   * directory: true}`.
+   * directory: true}`. A drive that is not ready (an empty card slot) is
+   * left out.
    */
-  async files(path, names = null) {
+  async files(path, names = null, { owner = null } = {}) {
     const out = [];
     let total = 0;
     const add = async (p, e, prefix) => {
       const full = `${prefix}${e.name}`;
       if (e.directory) {
+        let listing;
+        try {
+          listing = await this.list([...p, e.name]);
+        } catch (err) {
+          if (e.drive && err?.kind === "notReady") return;
+          throw err;
+        }
         out.push({ name: full, directory: true });
-        for (const c of (await this.list([...p, e.name])).entries) await add([...p, e.name], c, `${full}/`);
+        for (const c of listing.entries) await add([...p, e.name], c, `${full}/`);
         return;
       }
       total += e.size ?? 0;
       if (total > MAX_ZIP_BYTES) throw new FolderError("too-big", "That is more than 64 MB, too much for one download from the palmtop. Download fewer at once.");
-      const file = await this.read(p, e.name, { size: e.size });
+      const file = await this.read(p, e.name, { size: e.size, owner });
       out.push({ name: full, data: file.data, modified: file.modified ?? e.modified ?? Date.now() });
     };
     const listing = await this.list(path);
@@ -396,14 +470,14 @@ export class PalmtopFolder extends EventTarget {
   }
 
   /** A `.zip` of `names` of `path` (all of it when null): `{name, blob, size, collisions}`. */
-  async zip(path, names = null) {
-    const entries = await this.files(path, names);
+  async zip(path, names = null, { owner = null } = {}) {
+    const entries = await this.files(path, names, { owner });
     const single = names?.length === 1 && entries[0]?.directory;
-    // A drive's colon is no file name's.
+    // A drive's colon is no file name's: not in the zip's name, nor in a directory's or a file's path in it.
     const base = (single ? names[0] : path[path.length - 1]).replace(/:$/, "");
     let parts;
     try {
-      parts = zipParts(entries.map((e) => (e.directory ? e : { ...e, name: e.name.replace(/:/g, "") })));
+      parts = zipParts(entries.map((e) => ({ ...e, name: e.name.replace(/:/g, "") })));
     } catch (err) {
       throw new FolderError(err?.code === "too-big" ? "too-big" : "bad-name", `That cannot go into one .zip (${String(err?.message ?? err).replace(/^zip: /, "")}).`, { cause: err });
     }
