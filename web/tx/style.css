@@ -119,7 +119,8 @@
   .pane-place { min-width: 0; flex: 1 1 200px; }
   /* The name, and beside it the ⓘ of the files in this browser. */
   .pane-name { display: flex; align-items: center; gap: var(--s1); }
-  .pane-info { flex: none; }
+  /* The full tap target, its overhang in negative margins: the head keeps the name's height. */
+  .pane-info { flex: none; margin-block: calc((var(--fs-lg) * var(--lh-tight) - var(--tap)) / 2); }
   .pane-place h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-tight); overflow-wrap: anywhere; }
   .pane-progress { font-variant-numeric: tabular-nums; }
   /* The status line: what the place does now, in the body size (iteration 45: it was easy to miss). */

@@ -58,7 +58,7 @@ export const BROWSER_FILES_NOTE = "Not on your disk. Use ⋯ → Download to sav
  */
 export function browserFilesHelp(kind, { pick = canPickFolder() } = {}) {
   const where = kind === "memory"
-    ? "These files are only in this tab's memory: this browser does not let the page keep files (a private window, or site data switched off). They are gone when you close the tab."
+    ? "These files are only in this tab's memory: this browser does not let the page keep files (an older Safari, a private window, or site data switched off). They are gone when you close the tab."
     : "These files are not on your disk: the browser keeps them in its own storage for this site, so Finder or Explorer does not show them. They stay until you clear this site's data in the browser.";
   const how = "To bring a file in, drop it here or use Add files from this computer… in the ⋯ menu at the top. To keep a copy on your disk, use the file's ⋯ → Download.";
   const why = pick

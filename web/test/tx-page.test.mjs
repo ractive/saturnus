@@ -1165,6 +1165,14 @@ test("files in this browser: named so, not on the disk, explained by its ⓘ, an
   await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent === "PRG copied to Files in this browser. It is not on your disk: use ⋯ → Download to save a file.")`, 5_000, "the note with the first copy");
   await c.ev(`tx.panes[0].copySelection([tx.entry("X")]).then(() => true)`);
   await p.until(`[...document.querySelectorAll(".toast")].some((e) => e.textContent === "X copied to Files in this browser.")`, 5_000, "the second copy without it");
+  // The ⓘ's line height is the name's: the head grows by nothing.
+  const heights = await c.ev(`({ name: document.querySelector(".pane[data-pane=right] .pane-name").getBoundingClientRect().height, title: document.querySelector(".pane[data-pane=right] .pane-title").getBoundingClientRect().height })`);
+  assert.ok(Math.abs(heights.name - heights.title) < 1, `the name row ${heights.name}px, the name ${heights.title}px`);
+  // Files kept in memory (no OPFS to write): the ⓘ says they go with the tab.
+  await c.ev(`tx.panes[1].setFolder(new tx.Folder(new tx.MemoryDirectory("Files"), { kind: "memory", title: "Files" })).then(() => true)`);
+  await p.idle(10_000);
+  await c.ev(`${info("right")}.click(); true`);
+  assert.match(await c.ev(`${hint}.textContent`), /only in this tab's memory.*older Safari.*gone when you close the tab/);
   assert.deepEqual(c.errors, []);
 });
 
