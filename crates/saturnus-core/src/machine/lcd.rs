@@ -95,11 +95,12 @@ impl Lcd {
             if !chip.display_on() {
                 continue;
             }
-            for n in 0..8 {
-                let nib = chip.ram_nibble(base + n);
-                for bit in 0..4 {
-                    lcd.pixels[4 * n + bit][x] = nib >> bit & 1 != 0;
-                }
+            // The column's 32 rows, least significant bit the top row.
+            let column = (0..8).fold(0u32, |column, n| {
+                column | u32::from(chip.ram_nibble(base + n)) << (4 * n)
+            });
+            for (y, row) in lcd.pixels.iter_mut().enumerate() {
+                row[x] = column >> y & 1 != 0;
             }
         }
         lcd
@@ -127,12 +128,15 @@ impl Lcd {
             } else {
                 (x - LEWIS_LEFT_COLUMNS, 2)
             };
-            for line in 0..2 {
+            // The column's 16 rows (the upper line's byte, then the
+            // lower line's), least significant bit the top row.
+            let column = (0..2).fold(0u16, |column, line| {
                 let byte = 4 * k + half + line;
                 let bits = lewis.ram_nibble(2 * byte) | (lewis.ram_nibble(2 * byte + 1) << 4);
-                for row in 0..8 {
-                    lcd.pixels[8 * line + row][x] = bits >> row & 1 != 0;
-                }
+                column | u16::from(bits) << (8 * line)
+            });
+            for (y, row) in lcd.pixels.iter_mut().enumerate() {
+                row[x] = column >> y & 1 != 0;
             }
         }
         lcd

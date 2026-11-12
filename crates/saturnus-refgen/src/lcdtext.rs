@@ -432,11 +432,9 @@ mod tests {
     fn menu_sized(w: usize, h: usize, letters: &[&str]) -> Lcd {
         let mut l = Lcd::blank_sized(w, h);
         let lay = Layout::of(&l);
-        for b in 0..BOXES {
-            for x in lay.box_xs(b) {
-                for y in lay.box_top()..=lay.box_bottom() {
-                    l.pixels[y][x] = true;
-                }
+        for row in &mut l.pixels[lay.box_top()..=lay.box_bottom()] {
+            for b in 0..BOXES {
+                row[lay.box_xs(b)].fill(true);
             }
         }
         for (dy, r) in letters.iter().enumerate() {
