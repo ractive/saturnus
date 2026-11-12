@@ -41,6 +41,21 @@ test("the vendored files are the ones vendor.json records", () => {
   assert.deepEqual(vendorProblems(readdirSync(DIR), reader(DIR)), []);
 });
 
+// The desktop app's confirmation imports the UI chunk by its hashed name
+// (web/ai-local.js), which the vendor script does not rewrite: a stale name
+// would turn every store_variable and purge_variable into "declined".
+test("the page's confirmation module is the vendored UI chunk", async () => {
+  const { CONFIRM_MODULE } = await import("../ai-local.js");
+  const prefix = "./vendor/tab-mcp-client/";
+  assert.ok(CONFIRM_MODULE.startsWith(prefix), CONFIRM_MODULE);
+  const name = CONFIRM_MODULE.slice(prefix.length);
+  const manifest = JSON.parse(readFileSync(join(DIR, "vendor.json"), "utf8"));
+  assert.ok(name in manifest.files, `${name} is not in vendor.json (update CONFIRM_MODULE after just vendor-tab-mcp)`);
+  assert.match(readFileSync(join(DIR, manifest.entry), "utf8"), new RegExp(`import\\("\\./${name.replace(/\./g, "\\.")}"\\)`));
+  const { confirmInPage } = await import(new URL(`../${CONFIRM_MODULE.slice(2)}`, import.meta.url).href);
+  assert.equal(typeof confirmInPage, "function");
+});
+
 test("a changed, an extra and a missing file are each reported", () => {
   const read = reader(DIR);
   const names = readdirSync(DIR);
