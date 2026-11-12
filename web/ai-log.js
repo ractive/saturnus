@@ -93,6 +93,7 @@ export function outcomeText(e) {
     case "ok": return "done";
     case "error": return "error";
     case "declined": return "declined";
+    case "unanswered": return "not answered";
     case "cancelled": return "cancelled";
     default: return null;
   }
@@ -142,7 +143,7 @@ export class AiLog extends EventTarget {
     if (!entry) return;
     this.pending.delete(d.id);
     entry.outcome = d.outcome;
-    entry.result = d.outcome === "declined" || d.outcome === "cancelled" ? "" : resultText(d.result);
+    entry.result = d.outcome === "declined" || d.outcome === "unanswered" || d.outcome === "cancelled" ? "" : resultText(d.result);
     entry.durationMs = d.durationMs;
     this.dispatchEvent(new CustomEvent("change", { detail: { entry, ended: true } }));
   }

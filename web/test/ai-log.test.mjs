@@ -6,7 +6,7 @@
 // events to the log. The drawer itself: ai-log-page.test.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AiLog, aiView, argPairs, durationText, foldOf, noteText, resultText } from "../ai-log.js";
+import { AiLog, aiView, argPairs, durationText, foldOf, noteText, outcomeText, resultText } from "../ai-log.js";
 import { AiAccess } from "../ai.js";
 
 const CLIENT = { grantId: "g1", id: "https://claude.ai/cimd.json", host: "claude.ai", name: "Claude" };
@@ -40,6 +40,7 @@ test("a call is one entry, its end completes it in place: outcome, result, durat
   assert.equal(a.result, '{"stack":[{"text":"5"}]}\n[image, image/png]');
   assert.equal(a.durationMs, 120);
   assert.deepEqual([b.outcome, b.result], ["declined", ""]);
+  assert.equal(outcomeText({ outcome: "unanswered" }), "not answered");
   assert.equal(log.pending.size, 0);
   assert.equal(changes.filter((c) => c.ended).length, 2);
 });
