@@ -95,7 +95,9 @@ impl Lcd {
             if !chip.display_on() {
                 continue;
             }
-            // The column's 32 rows, least significant bit the top row.
+            // The column's 32 rows, least significant bit the top row:
+            // eight nibbles fill a u32, one bit per row.
+            const _: () = assert!(LCD_HEIGHT_28S == u32::BITS as usize);
             let column = (0..8).fold(0u32, |column, n| {
                 column | u32::from(chip.ram_nibble(base + n)) << (4 * n)
             });
@@ -129,7 +131,9 @@ impl Lcd {
                 (x - LEWIS_LEFT_COLUMNS, 2)
             };
             // The column's 16 rows (the upper line's byte, then the
-            // lower line's), least significant bit the top row.
+            // lower line's), least significant bit the top row: two bytes
+            // fill a u16, one bit per row.
+            const _: () = assert!(LCD_HEIGHT_42S == u16::BITS as usize);
             let column = (0..2).fold(0u16, |column, line| {
                 let byte = 4 * k + half + line;
                 let bits = lewis.ram_nibble(2 * byte) | (lewis.ram_nibble(2 * byte + 1) << 4);
