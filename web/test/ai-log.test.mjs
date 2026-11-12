@@ -40,9 +40,18 @@ test("a call is one entry, its end completes it in place: outcome, result, durat
   assert.equal(a.result, '{"stack":[{"text":"5"}]}\n[image, image/png]');
   assert.equal(a.durationMs, 120);
   assert.deepEqual([b.outcome, b.result], ["declined", ""]);
-  assert.equal(outcomeText({ outcome: "unanswered" }), "not answered");
   assert.equal(log.pending.size, 0);
   assert.equal(changes.filter((c) => c.ended).length, 2);
+});
+
+test("a question nobody answered (tab-mcp 0.14) ends its call like a refusal: no result, its own word", () => {
+  const ai = fakeAi();
+  const log = new AiLog(ai, { now: () => 0 });
+  ai.emit("toolcall", { id: 1, tool: "store_variable", arguments: { name: "A", text: "1" }, client: CLIENT });
+  ai.emit("toolcallend", { id: 1, tool: "store_variable", client: CLIENT, outcome: "unanswered", result: { content: [{ type: "text", text: "The user was asked and did not answer." }], isError: true }, durationMs: 60000 });
+  const [e] = log.entries;
+  assert.deepEqual([e.outcome, e.result], ["unanswered", ""]);
+  assert.equal(outcomeText(e), "not answered");
 });
 
 test("the connection's events in words", () => {
