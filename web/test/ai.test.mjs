@@ -288,6 +288,12 @@ test("the library's own reconnect is on: the page keeps no retries of its own", 
   assert.equal(Mcp.last.options.reconnect, undefined, "the library's default");
 });
 
+test("the library's WebMCP mirror is off: web/ai-webmcp.js registers the tools itself", async () => {
+  const { ai, Mcp } = reconnecting([true]);
+  await ai.connect();
+  assert.equal(Mcp.last.options.webmcp, false);
+});
+
 test("a broken connection: lost while the library tries again, each wait and attempt in the log, until it is back; without Keep AI access on", { timeout: 2000 }, async () => {
   const { ai, timers, Mcp } = reconnecting([true, DOWN(), DOWN(), DOWN(), DOWN(), DOWN()]);
   await ai.connect();

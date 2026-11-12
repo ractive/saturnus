@@ -252,6 +252,9 @@ export class AiAccess extends EventTarget {
         appName: "saturnus",
         server: { name: "saturnus", title: "saturnus calculators", version: VERSION, instructions: INSTRUCTIONS },
         storageKey: aiSecretKey(origin),
+        // The client's WebMCP mirror (tab-mcp 0.13) stays off: web/ai-webmcp.js registers the tools
+        // with WebMCP itself, without the page's question; the mirror would register them twice.
+        webmcp: false,
       });
       for (const tool of this.tools) await mcp.registerTool(tool);
       mcp.addEventListener("statechange", (e) => {
