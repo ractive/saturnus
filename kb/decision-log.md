@@ -5055,3 +5055,25 @@ saturnus".
 - **tab-mcp and the desktop app unchanged**: AI apps outside the
   browser (through the relay) and the desktop app's local AI access
   still ask in the page before `store_variable` and `purge_variable`.
+
+## 2026-11-12 (Rust 1.100; release-workflows v0.5.0: aarch64 Linux packages)
+
+- **Rust 1.100's `needless_range_loop`** now sees an index through a
+  field (`lcd.pixels[row][x]`). The renderers of the 28S's and 42S's
+  displays (`Lcd::render_clamshell`, `Lcd::render_lewis`) assemble a
+  column's bits first and write them down the rows; the tests fill rows
+  with `fill`. No `#[allow]`: the lint's own suggestion did not compile
+  there (the row index depends on the inner loops).
+- **`saturnus-web` is no longer a workspace dependency**: no crate
+  depends on it (it is the cdylib the page loads), and Cargo 1.100 warns
+  on an unused one. A version bump has one `version` fewer to change.
+- **release-workflows v0.5.0** (from v0.3.2): v0.4.0 builds the .deb and
+  .rpm for aarch64 as well, natively on `ubuntu-24.04-arm`, and attests
+  the cross-compiled archives; v0.5.0 attests the packages. No input
+  changed. The musl swap in `pre-package-command` built
+  `x86_64-unknown-linux-musl` unconditionally, which in the new aarch64
+  job would have put an x86_64 binary in the arm64 package: it now builds
+  the musl twin of the job's `TARGET` (`<arch>-unknown-linux-gnu`), fails
+  on a `TARGET` it does not know, and checks with `file` that the binary
+  is static and of that architecture. Not yet dry-run
+  (kb/docs/releasing.md, "Linux packages").

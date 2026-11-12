@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   release-saturnus:
-    uses: ractive/release-workflows/.github/workflows/release.yml@v0.3.2
+    uses: ractive/release-workflows/.github/workflows/release.yml@v0.5.0
     secrets: inherit
     with:
       # The shared workflow packages one binary per archive, so each binary
@@ -37,22 +37,27 @@ jobs:
       # publish-crates.yml and `just package` (kb/docs/releasing.md). The
       # other crates are `publish = false`.
       publish-crates: saturnus-core,kermit-proto,saturnus-objects,saturnus-host,saturnus-drive,saturnus,xmodem-proto,filer-proto,satx-core,satx
-      # A .deb and an .rpm of the CLI (x86_64, package `saturnus`:
+      # A .deb and an .rpm of the CLI per architecture (package `saturnus`:
       # [package.metadata.deb] and [package.metadata.generate-rpm] in its
-      # manifest), uploaded as saturnus-vV-x86_64-linux.deb/.rpm.
+      # manifest), uploaded as saturnus-vV-x86_64-linux.deb/.rpm and, since
+      # release-workflows v0.4.0, saturnus-vV-aarch64-linux.deb/.rpm, each
+      # built natively (ubuntu-latest, ubuntu-24.04-arm).
       enable-linux-packages: true
       linux-package-crate: saturnus
-      # The packages carry the static x86_64 musl binary, not the glibc one
-      # the linux-packages job builds on ubuntu-latest, which needed glibc
-      # 2.39 (Ubuntu 24.04+). v0.3.2 has no input for the package's target,
-      # so this command swaps the binary in that job only: its id is
-      # linux-packages and its BIN_PATH target/release/saturnus; the build
-      # matrix's job is `build`, its BIN_PATH target/<target>/release/saturnus,
-      # and there the command does nothing. When the two signs disagree
-      # (a release-workflows bump changed one), or the swapped binary is not
-      # static, it fails instead of packaging the glibc binary. Pure Rust,
-      # so the musl target needs no musl-gcc. kb/docs/releasing.md, "Linux
-      # packages". On Windows it also fails when the binary imports the C
+      # The packages carry the static musl binary of their architecture, not
+      # the glibc one the linux-packages job builds, which needed glibc 2.39
+      # (Ubuntu 24.04+). release-workflows (v0.5.0) has no input for the
+      # package's target, so this command swaps the binary in that job only:
+      # its id is linux-packages, its BIN_PATH target/release/saturnus and
+      # its TARGET <arch>-unknown-linux-gnu, whose musl twin it builds; the
+      # build matrix's job is `build`, its BIN_PATH
+      # target/<target>/release/saturnus, and there the command does
+      # nothing. When the two signs disagree (a release-workflows bump
+      # changed one), TARGET is no gnu target it knows, or the swapped binary
+      # is not static or not of TARGET's architecture, it fails instead of
+      # packaging the wrong binary. Pure Rust, so the musl targets need no
+      # musl-gcc. kb/docs/releasing.md, "Linux packages". On Windows it also
+      # fails when the binary imports the C
       # runtime's DLLs (VCRUNTIME140.dll, api-ms-win-crt-*): the static CRT
       # of .cargo/config.toml is lost if an env RUSTFLAGS replaces it, and
       # the runners have the VC++ runtime, so nothing else would notice.
@@ -71,10 +76,17 @@ jobs:
           fi ;;
         esac
         if [ "$in_job" = true ]; then
-          rustup target add x86_64-unknown-linux-musl
-          cargo build --release --locked -p saturnus --bin "$BIN_NAME" --target x86_64-unknown-linux-musl
-          cp "target/x86_64-unknown-linux-musl/release/$BIN_NAME" "$BIN_PATH"
-          file "$BIN_PATH" | grep -q 'static' || { echo "musl swap failed: $BIN_PATH" >&2; exit 1; }
+          case "$TARGET" in
+            x86_64-unknown-linux-gnu) elf='x86-64' ;;
+            aarch64-unknown-linux-gnu) elf='ARM aarch64' ;;
+            *) echo "musl swap: no musl target known for '$TARGET'; release-workflows changed, see kb/docs/releasing.md" >&2; exit 1 ;;
+          esac
+          musl="${TARGET%-gnu}-musl"
+          rustup target add "$musl"
+          cargo build --release --locked -p saturnus --bin "$BIN_NAME" --target "$musl"
+          cp "target/$musl/release/$BIN_NAME" "$BIN_PATH"
+          info=$(file "$BIN_PATH")
+          { grep -q 'static' <<<"$info" && grep -q "$elf" <<<"$info"; } || { echo "musl swap failed: $info" >&2; exit 1; }
         fi
       # Left off on purpose (kb/docs/releasing.md), for both callers:
       # winget-identifier (the first winget submission is a manual PR to
@@ -105,7 +117,7 @@ jobs:
         ]
 
   release-satx:
-    uses: ractive/release-workflows/.github/workflows/release.yml@v0.3.2
+    uses: ractive/release-workflows/.github/workflows/release.yml@v0.5.0
     secrets: inherit
     with:
       bin-name: satx
@@ -113,16 +125,17 @@ jobs:
       checksums-file: satx-SHA256SUMS
       # release-saturnus publishes every crate, satx's included.
       publish-crates: ""
-      # A .deb and an .rpm of satx (x86_64, package `satx`, with the shell
-      # completions: [package.metadata.deb] and
-      # [package.metadata.generate-rpm] in crates/satx-cli/Cargo.toml).
+      # A .deb and an .rpm of satx per architecture (x86_64 and aarch64,
+      # package `satx`, with the shell completions: [package.metadata.deb]
+      # and [package.metadata.generate-rpm] in crates/satx-cli/Cargo.toml).
       enable-linux-packages: true
       linux-package-crate: satx
       # Shell completions in the archives and the deb/rpm. Copied into
       # crates/satx-cli/ too, because cargo-deb resolves asset paths from
       # the crate's directory (cargo-generate-rpm from the workspace root).
       # Then the same musl swap as release-saturnus's (see there): the
-      # packages carry the static x86_64 musl satx, not the glibc 2.39 one.
+      # packages carry the static musl satx of their architecture, not the
+      # glibc 2.39 one.
       # satx's dependencies are pure Rust too (serialport without libudev).
       # And the same C runtime check on Windows.
       pre-package-command: |
@@ -153,10 +166,17 @@ jobs:
         mkdir -p crates/satx-cli/completions
         cp completions/* crates/satx-cli/completions/
         if [ "$in_job" = true ]; then
-          rustup target add x86_64-unknown-linux-musl
-          cargo build --release --locked -p satx --bin "$BIN_NAME" --target x86_64-unknown-linux-musl
-          cp "target/x86_64-unknown-linux-musl/release/$BIN_NAME" "$BIN_PATH"
-          file "$BIN_PATH" | grep -q 'static' || { echo "musl swap failed: $BIN_PATH" >&2; exit 1; }
+          case "$TARGET" in
+            x86_64-unknown-linux-gnu) elf='x86-64' ;;
+            aarch64-unknown-linux-gnu) elf='ARM aarch64' ;;
+            *) echo "musl swap: no musl target known for '$TARGET'; release-workflows changed, see kb/docs/releasing.md" >&2; exit 1 ;;
+          esac
+          musl="${TARGET%-gnu}-musl"
+          rustup target add "$musl"
+          cargo build --release --locked -p satx --bin "$BIN_NAME" --target "$musl"
+          cp "target/$musl/release/$BIN_NAME" "$BIN_PATH"
+          info=$(file "$BIN_PATH")
+          { grep -q 'static' <<<"$info" && grep -q "$elf" <<<"$info"; } || { echo "musl swap failed: $info" >&2; exit 1; }
         fi
       extra-archive-paths: completions
       dry-run: ${{ github.event_name == 'workflow_dispatch' }}

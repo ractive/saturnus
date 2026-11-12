@@ -7,6 +7,12 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **Linux packages for aarch64.** The .deb and .rpm of `saturnus` and
+  `satx` now come for aarch64 too (`saturnus-v<version>-aarch64-linux.deb`
+  and `.rpm`, and satx's likewise), with the same static binary as the
+  archives, and every package has a build provenance attestation
+  (`gh attestation verify <file> --repo ractive/saturnus`).
+- Built with Rust 1.100; dependencies updated.
 - **Files shows a running transfer once.** The rows being copied keep
   their thin bar, and the head of the calculator's (or palmtop's) pane
   says the job beside a spinner, for example "Copying ZPAR… 2 of 3",

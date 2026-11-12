@@ -10,7 +10,7 @@ tags:
 # Releasing
 
 `.github/workflows/release.yml` calls the shared pipeline
-`ractive/release-workflows/.github/workflows/release.yml@v0.3.2` twice, once
+`ractive/release-workflows/.github/workflows/release.yml@v0.5.0` twice, once
 per command-line tool, because the shared pipeline packages one binary per
 archive. One tag releases both:
 
@@ -92,17 +92,21 @@ matter ("Desktop app").
 ## Linux packages
 
 `enable-linux-packages: true` (with `linux-package-crate: saturnus`)
-makes the shared workflow's `linux-packages` job build the workspace on
-ubuntu-latest (x86_64 gnu; `cargo build --release --locked`, which leaves
-out `saturnus-tauri` through `default-members`), then run `cargo deb -p
+makes the shared workflow's `linux-packages` job build the workspace
+natively once per architecture, on ubuntu-latest (x86_64 gnu) and, since
+release-workflows v0.4.0, on ubuntu-24.04-arm (aarch64 gnu; `cargo build
+--release --locked`, which leaves out `saturnus-tauri` through
+`default-members`), then run `cargo deb -p
 saturnus --no-build --no-strip` and `cargo generate-rpm -p
 crates/saturnus-cli`. They read `[package.metadata.deb]` and
 `[package.metadata.generate-rpm]` in `crates/saturnus-cli/Cargo.toml`
-and become the release assets `saturnus-vV-x86_64-linux.deb` and
-`saturnus-vV-x86_64-linux.rpm` (also in `saturnus-SHA256SUMS`). x86_64
-only; the aarch64 Linux users take the archives. `release-satx` does the
-same for `satx` (`linux-package-crate: satx`, `crates/satx-cli`):
-`satx-vV-x86_64-linux.deb` and `.rpm` with `/usr/bin/satx`, its README and
+and become the release assets `saturnus-vV-<arch>-linux.deb` and
+`saturnus-vV-<arch>-linux.rpm`, `<arch>` `x86_64` or `aarch64` (also in
+`saturnus-SHA256SUMS`; since v0.5.0 each package has a build provenance
+attestation too). Releases up to 0.11.0 have the x86_64 packages only.
+`release-satx` does the same for `satx` (`linux-package-crate: satx`,
+`crates/satx-cli`): `satx-vV-<arch>-linux.deb` and `.rpm` with
+`/usr/bin/satx`, its README and
 LICENSE, and the bash, zsh and fish completions, which its
 `pre-package-command` writes into `completions/` and
 `crates/satx-cli/completions/` (cargo-deb resolves sources in the crate
@@ -113,27 +117,32 @@ hold the static binary too: its dependencies are pure Rust as well
 `cargo build --target x86_64-unknown-linux-musl -p satx`, `static-pie
 linked`).
 
-The binary in the packages is the static `x86_64-unknown-linux-musl`
+The binary in the packages is the static `<arch>-unknown-linux-musl`
 build, so they depend on no glibc. The job itself builds the glibc
 binary on `ubuntu-latest` (Ubuntu 24.04), and packaged as it was that
 needed glibc 2.39: the first dry run (37911820913, on 27b22ae) had
 `Depends: libc6 (>= 2.39)` in the .deb and `libc.so.6(GLIBC_2.39)` among
 the .rpm's requirements, so Ubuntu 24.04+, Debian 13+, Fedora 40+ and
-RHEL 10 only. v0.3.2 has no input for the package's target, so
-`release.yml`'s `pre-package-command` builds the musl binary in the
-`linux-packages` job and copies it over `target/release/saturnus` before
-cargo-deb and cargo-generate-rpm run. It recognises that job by its id,
-`GITHUB_JOB` `linux-packages`, and by `BIN_PATH`, `target/release/saturnus`;
-the build matrix's job is `build`, its `BIN_PATH`
-`target/<target>/release/saturnus`, and there the command does nothing.
-If the two signs disagree it fails, and so it does when the copied binary
-is not static (`file` must say so), rather than package the glibc binary.
-**On every bump of the `release-workflows` pin**, re-read both jobs in
-its `release.yml` (the job ids, the `BIN_PATH` each exports to
-`pre-package-command`, and whether the packages are still built from
-`target/release/`), and dry-run: the .deb's binary must be static. The CLI's dependencies
-are pure Rust, so the musl target links with the Rust toolchain's own
-musl and needs no `musl-tools`. Check on a dry run: the .deb's control
+RHEL 10 only. release-workflows (v0.5.0) has no input for the package's
+target, so `release.yml`'s `pre-package-command` builds the musl binary
+in the `linux-packages` job and copies it over `target/release/saturnus`
+before cargo-deb and cargo-generate-rpm run. It recognises that job by
+its id, `GITHUB_JOB` `linux-packages`, and by `BIN_PATH`,
+`target/release/saturnus`; the build matrix's job is `build`, its
+`BIN_PATH` `target/<target>/release/saturnus`, and there the command
+does nothing. The job's `TARGET` (`x86_64-unknown-linux-gnu` or
+`aarch64-unknown-linux-gnu`, one per architecture since v0.4.0) names
+the musl twin it builds. If the two signs disagree, or `TARGET` is no gnu
+target the command knows, it fails, and so it does when the copied
+binary is not static or not of `TARGET`'s architecture (`file` must say
+both), rather than package the glibc binary or an x86_64 binary in the
+arm64 package. **On every bump of the `release-workflows` pin**, re-read
+both jobs in its `release.yml` (the job ids, the `BIN_PATH` and `TARGET`
+each exports to `pre-package-command`, and whether the packages are
+still built from `target/release/`), and dry-run: the .deb's binary must
+be static and of the package's architecture. The CLI's dependencies are
+pure Rust, so the musl targets link with the Rust toolchain's own musl
+and need no `musl-tools`. Check on a dry run: the .deb's control
 (`ar x`, then `tar -xOf control.tar.* ./control`) has no `libc6` in
 `Depends`, and `file usr/bin/saturnus` from its data says `static-pie
 linked`. A later release-workflows input for the package's target would
@@ -182,8 +191,11 @@ non-blocking. Releases made before that are pushed by hand
 (`cloudsmith push deb ractive/saturnus/any-distro/any-version <file>`,
 and `push rpm` likewise).
 
-`release-workflows` is at v0.3.2 (v0.3.2 changed only the winget job,
-now komac 2.16.0); since v0.3.1 it finds each SBOM by its package's
+`release-workflows` is at v0.5.0: v0.5.0 attests the .deb/.rpm packages,
+v0.4.0 builds them for aarch64 too (natively, so the musl swap above
+follows `TARGET`) and attests the cross-compiled archives as well;
+neither changed an input. v0.3.2 changed only the winget job (komac
+2.16.0); since v0.3.1 it finds each SBOM by its package's
 manifest directory (the package `saturnus` lives in `crates/saturnus-cli`,
 `satx` in `crates/satx-cli`; v0.3.0 shipped no SBOM for them) and fails
 the build when one is missing; v0.3.0 brought two callers in one run and
@@ -315,10 +327,11 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `gh run watch $(gh run list --workflow release.yml -L 1 --json databaseId -q '.[0].databaseId') --exit-status`.
    Check: `gh run download <id> -n dry-run-bundle-saturnus -D /tmp/saturnus-dry`
    holds seven `saturnus-vV-<target>` archives,
-   `saturnus-vV-x86_64-linux.deb`, `saturnus-vV-x86_64-linux.rpm` and
+   `saturnus-vV-<arch>-linux.deb` and `.rpm` for `x86_64` and `aarch64`, and
    `saturnus-SHA256SUMS`; `gh run download <id> -n dry-run-bundle-satx -D /tmp/satx-dry`
    holds eight `satx-vV-<target>` archives (with `x86_64-apple-darwin`),
-   `satx-vV-x86_64-linux.deb`, `.rpm` and `satx-SHA256SUMS`.
+   `satx-vV-<arch>-linux.deb` and `.rpm` for both architectures, and
+   `satx-SHA256SUMS`.
 6. **Desktop dry run**: `gh workflow run desktop.yml --ref main`, watch it
    the same way (five build jobs: macOS, and Windows and Linux on x86_64
    and ARM);
@@ -691,6 +704,6 @@ ones for the bundle id, not yet checked on an installed app.
 Third-party actions are pinned to a full commit SHA with a `# vX.Y.Z`
 comment; Dependabot proposes the updates. First-party reusable workflows
 and actions are referenced by tag, not SHA: `ractive/release-workflows`
-by exact tag (`@v0.3.2`), `ractive/setup-hyalo@v1` floating on its major
+by exact tag (`@v0.5.0`), `ractive/setup-hyalo@v1` floating on its major
 tag, as in hyalo. Both repositories belong to the owner, so a tag is a
 reviewed release; Dependabot ignores them.

@@ -114,11 +114,12 @@ checksums in `saturnus-SHA256SUMS`. The natively built archives also
 have an SBOM and a build provenance attestation
 (`gh attestation verify <archive> --repo ractive/saturnus`).
 
-On Linux x86_64 the command line also comes as a package named
+On Linux x86_64 and aarch64 (aarch64 from the release after 0.11.0)
+the command line also comes as a package named
 `saturnus`. It is a different package from the desktop app's
 (`saturnus-app`), and the two can be installed side by side. Download
-`saturnus-v<version>-x86_64-linux.deb` or `.rpm` from the releases page,
-then
+`saturnus-v<version>-<arch>-linux.deb` or `.rpm` (`<arch>` is `x86_64`
+or `aarch64`) from the releases page, then
 
 ```sh
 sudo apt install ./saturnus-v<version>-x86_64-linux.deb   # Debian, Ubuntu
@@ -126,7 +127,8 @@ sudo dnf install ./saturnus-v<version>-x86_64-linux.rpm   # Fedora, RHEL
 ```
 
 The binary in them is statically linked (musl), so they need no
-particular glibc and install on any x86_64 Debian, Ubuntu, Fedora or RHEL.
+particular glibc and install on any Debian, Ubuntu, Fedora or RHEL of
+their architecture.
 
 **Files** moves files between an HP 48 or 49 on a serial cable, an
 emulated calculator and your computer, and serves aplets to a 38G, 39G
