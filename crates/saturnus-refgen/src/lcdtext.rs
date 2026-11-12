@@ -434,8 +434,8 @@ mod tests {
         let lay = Layout::of(&l);
         for b in 0..BOXES {
             for x in lay.box_xs(b) {
-                for y in lay.box_top()..=lay.box_bottom() {
-                    l.pixels[y][x] = true;
+                for row in &mut l.pixels[lay.box_top()..=lay.box_bottom()] {
+                    row[x] = true;
                 }
             }
         }

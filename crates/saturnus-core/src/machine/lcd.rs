@@ -84,6 +84,8 @@ impl Lcd {
     /// (wiki: hardware/hp28s "Display", from Gariepy's scroll routine and
     /// the ROM's screens). Each half is blank while its chip's DON is
     /// clear (inferred: each chip drives its own columns).
+    // `x` is both the RAM address and the column of every row: no iterator says that more plainly.
+    #[allow(clippy::needless_range_loop)]
     pub(crate) fn render_clamshell(master: &LewisIo, slave: &LewisIo) -> Self {
         let mut lcd = Self::blank_sized(LCD_WIDTH_28S, LCD_HEIGHT_28S);
         for x in 0..LCD_WIDTH_28S {
@@ -116,6 +118,8 @@ impl Lcd {
     /// 8c for c < 66 and #40004 + 8(c-66) above (wiki:
     /// hardware/lewis "Display", checked on the ROM's "Memory Clear"
     /// screen). Blank while DON is clear.
+    // `x` picks the RAM bytes and is the column of every row, as above.
+    #[allow(clippy::needless_range_loop)]
     pub(crate) fn render_lewis(lewis: &LewisIo) -> Self {
         let mut lcd = Self::blank_rows(LCD_HEIGHT_42S);
         if !lewis.display_on() {

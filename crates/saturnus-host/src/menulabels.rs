@@ -308,9 +308,7 @@ mod tests {
         let mut lcd = Lcd::blank_sized(131, 16);
         assert_eq!(boxes_drawn(&lcd), [false; PAGE]);
         // One border row alone: no row of boxes.
-        for x in 22..43 {
-            lcd.pixels[9][x] = true;
-        }
+        lcd.pixels[9][22..43].fill(true);
         assert_eq!(boxes_drawn(&lcd), [false; PAGE], "no box framed");
         // Box 2 framed: it shows, and so does box 1 with its upper row.
         for x in 44..65 {
@@ -328,13 +326,9 @@ mod tests {
     #[test]
     fn a_line_across_the_display_is_no_box() {
         let mut big = Lcd::blank_sized(137, 32);
-        for x in 0..137 {
-            big.pixels[31][x] = true;
-        }
+        big.pixels[31][..137].fill(true);
         assert_eq!(boxes_drawn(&big), [false; PAGE], "a dark last row");
-        for x in 0..137 {
-            big.pixels[25][x] = true;
-        }
+        big.pixels[25][..137].fill(true);
         assert_eq!(boxes_drawn(&big), [false; PAGE], "two dark rows, gaps dark");
         // Six framed boxes with light gaps.
         let mut menu = Lcd::blank_sized(137, 32);
