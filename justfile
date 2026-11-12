@@ -82,7 +82,9 @@ wasm: web
 # tab-mcp's browser library for "Connect your AI tool" (iteration 55),
 # copied into web/vendor/tab-mcp-client/ (committed) from the published npm
 # package, its tarball checked against the pinned integrity. A new version:
-# change both values here, run it, commit the files and vendor.json.
+# change both values here, run it, point web/ai-local.js's CONFIRM_MODULE
+# at the new ui-*.min.js (web/test/vendor.test.mjs checks it), commit the
+# files and vendor.json.
 tab_mcp_client_version := "0.12.1"
 tab_mcp_client_integrity := "sha512-UOm3YJHXLGF5nTURvi+QTOcmVfgEfr3bcPUu7U7eZkuuPvltsmRps143qd0m8fy77DbEcvWAlhZ+q6xiB68Y2A=="
 
