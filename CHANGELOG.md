@@ -52,6 +52,9 @@ the desktop app and the web page share one version.
   mirror stays off, since the web page already offers its tools to the
   browser's AI itself, and the desktop app's question keeps "Always
   allow" for AI apps that name themselves.
+- tab-mcp client 0.14.0. Nothing changes for you: saturnus's question
+  is answered with Allow or Don't allow, and The AI's calls would show
+  "not answered" for a question nobody answered.
 
 ## 0.11.0 (2026-11-09)
 

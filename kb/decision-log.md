@@ -5058,12 +5058,9 @@ saturnus".
 
 ## 2026-11-12 (Rust 1.100; release-workflows v0.5.0: aarch64 Linux packages)
 
-- **Rust 1.100's `needless_range_loop`** now sees an index through a
-  field (`lcd.pixels[row][x]`). The renderers of the 28S's and 42S's
-  displays (`Lcd::render_clamshell`, `Lcd::render_lewis`) assemble a
-  column's bits first and write them down the rows; the tests fill rows
-  with `fill`. No `#[allow]`: the lint's own suggestion did not compile
-  there (the row index depends on the inner loops).
+- **Rust 1.100's clippy** lints were fixed on main by PR 278
+  (`needless_range_loop`; the two display renderers keep their index
+  loops under `#[allow]` with the reason).
 - **`saturnus-web` is no longer a workspace dependency**: no crate
   depends on it (it is the cdylib the page loads), and Cargo 1.100 warns
   on an unused one. A version bump has one `version` fewer to change.
@@ -5075,5 +5072,7 @@ saturnus".
   job would have put an x86_64 binary in the arm64 package: it now builds
   the musl twin of the job's `TARGET` (`<arch>-unknown-linux-gnu`), fails
   on a `TARGET` it does not know, and checks with `file` that the binary
-  is static and of that architecture. Not yet dry-run
-  (kb/docs/releasing.md, "Linux packages").
+  is static and of that architecture. Dry run 43327234948: the aarch64
+  .deb of saturnus and of satx is `Architecture: arm64` with no
+  `Depends`, its binary `ARM aarch64, statically linked`; the .rpm
+  `aarch64` (kb/docs/releasing.md, "Linux packages").

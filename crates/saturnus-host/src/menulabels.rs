@@ -326,9 +326,9 @@ mod tests {
     #[test]
     fn a_line_across_the_display_is_no_box() {
         let mut big = Lcd::blank_sized(137, 32);
-        big.pixels[31].fill(true);
+        big.pixels[31][..137].fill(true);
         assert_eq!(boxes_drawn(&big), [false; PAGE], "a dark last row");
-        big.pixels[25].fill(true);
+        big.pixels[25][..137].fill(true);
         assert_eq!(boxes_drawn(&big), [false; PAGE], "two dark rows, gaps dark");
         // Six framed boxes with light gaps.
         let mut menu = Lcd::blank_sized(137, 32);

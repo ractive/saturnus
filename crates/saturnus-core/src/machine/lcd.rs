@@ -84,6 +84,8 @@ impl Lcd {
     /// (wiki: hardware/hp28s "Display", from Gariepy's scroll routine and
     /// the ROM's screens). Each half is blank while its chip's DON is
     /// clear (inferred: each chip drives its own columns).
+    // `x` is both the RAM address and the column of every row: no iterator says that more plainly.
+    #[allow(clippy::needless_range_loop)]
     pub(crate) fn render_clamshell(master: &LewisIo, slave: &LewisIo) -> Self {
         let mut lcd = Self::blank_sized(LCD_WIDTH_28S, LCD_HEIGHT_28S);
         for x in 0..LCD_WIDTH_28S {
@@ -95,14 +97,11 @@ impl Lcd {
             if !chip.display_on() {
                 continue;
             }
-            // The column's 32 rows, least significant bit the top row:
-            // eight nibbles fill a u32, one bit per row.
-            const _: () = assert!(LCD_HEIGHT_28S == u32::BITS as usize);
-            let column = (0..8).fold(0u32, |column, n| {
-                column | u32::from(chip.ram_nibble(base + n)) << (4 * n)
-            });
-            for (y, row) in lcd.pixels.iter_mut().enumerate() {
-                row[x] = column >> y & 1 != 0;
+            for n in 0..8 {
+                let nib = chip.ram_nibble(base + n);
+                for bit in 0..4 {
+                    lcd.pixels[4 * n + bit][x] = nib >> bit & 1 != 0;
+                }
             }
         }
         lcd
@@ -119,6 +118,8 @@ impl Lcd {
     /// 8c for c < 66 and #40004 + 8(c-66) above (wiki:
     /// hardware/lewis "Display", checked on the ROM's "Memory Clear"
     /// screen). Blank while DON is clear.
+    // `x` picks the RAM bytes and is the column of every row, as above.
+    #[allow(clippy::needless_range_loop)]
     pub(crate) fn render_lewis(lewis: &LewisIo) -> Self {
         let mut lcd = Self::blank_rows(LCD_HEIGHT_42S);
         if !lewis.display_on() {
@@ -130,17 +131,12 @@ impl Lcd {
             } else {
                 (x - LEWIS_LEFT_COLUMNS, 2)
             };
-            // The column's 16 rows (the upper line's byte, then the
-            // lower line's), least significant bit the top row: two bytes
-            // fill a u16, one bit per row.
-            const _: () = assert!(LCD_HEIGHT_42S == u16::BITS as usize);
-            let column = (0..2).fold(0u16, |column, line| {
+            for line in 0..2 {
                 let byte = 4 * k + half + line;
                 let bits = lewis.ram_nibble(2 * byte) | (lewis.ram_nibble(2 * byte + 1) << 4);
-                column | u16::from(bits) << (8 * line)
-            });
-            for (y, row) in lcd.pixels.iter_mut().enumerate() {
-                row[x] = column >> y & 1 != 0;
+                for row in 0..8 {
+                    lcd.pixels[8 * line + row][x] = bits >> row & 1 != 0;
+                }
             }
         }
         lcd

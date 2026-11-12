@@ -6,7 +6,7 @@
 // events to the log. The drawer itself: ai-log-page.test.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AiLog, aiView, argPairs, durationText, foldOf, noteText, resultText } from "../ai-log.js";
+import { AiLog, aiView, argPairs, durationText, foldOf, noteText, outcomeText, resultText } from "../ai-log.js";
 import { AiAccess } from "../ai.js";
 
 const CLIENT = { grantId: "g1", id: "https://claude.ai/cimd.json", host: "claude.ai", name: "Claude" };
@@ -42,6 +42,16 @@ test("a call is one entry, its end completes it in place: outcome, result, durat
   assert.deepEqual([b.outcome, b.result], ["declined", ""]);
   assert.equal(log.pending.size, 0);
   assert.equal(changes.filter((c) => c.ended).length, 2);
+});
+
+test("a question nobody answered (tab-mcp 0.14) ends its call like a refusal: no result, its own word", () => {
+  const ai = fakeAi();
+  const log = new AiLog(ai, { now: () => 0 });
+  ai.emit("toolcall", { id: 1, tool: "store_variable", arguments: { name: "A", text: "1" }, client: CLIENT });
+  ai.emit("toolcallend", { id: 1, tool: "store_variable", client: CLIENT, outcome: "unanswered", result: { content: [{ type: "text", text: "The user was asked and did not answer." }], isError: true }, durationMs: 60000 });
+  const [e] = log.entries;
+  assert.deepEqual([e.outcome, e.result], ["unanswered", ""]);
+  assert.equal(outcomeText(e), "not answered");
 });
 
 test("the connection's events in words", () => {
