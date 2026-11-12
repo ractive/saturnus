@@ -78,11 +78,18 @@ function fakeView() {
  * A confirmation that answers `answer` and counts the questions: the UI
  * chunk's `confirmInPage` (tab-mcp 0.8), which keeps "Always allow" per
  * host for a grant the host has, until the host's `grantschange` drops it.
+ * As tab-mcp 0.13's, it asks a client whose `kind` is not "relay" as
+ * WebMCP's: no "Always allow", nothing remembered.
  */
 function fakeConfirm(answer) {
   const asked = [];
   const always = new WeakMap();
   const confirmInPage = async (host, q, _doc, options) => {
+    if (q.client.kind !== "relay") {
+      asked.push(Object.assign(q, { options: { ...options, alwaysAllow: false } }));
+      const a = typeof answer === "function" ? await answer(q) : answer;
+      return a === "allow";
+    }
     const key = `${q.client.grantId}\n${q.tool.name}`;
     if (always.get(host)?.has(key)) return true;
     asked.push(Object.assign(q, { options }));

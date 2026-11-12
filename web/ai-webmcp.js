@@ -54,7 +54,7 @@ export function modelContextOf(doc = globalThis.document, nav = globalThis.navig
 }
 
 /** Who calls through WebMCP, for the log ("Your browser's AI") and the tools. */
-export const WEBMCP_CLIENT = Object.freeze({ grantId: "webmcp", id: "webmcp", name: "Your browser's AI", host: "WebMCP" });
+export const WEBMCP_CLIENT = Object.freeze({ kind: "webmcp", grantId: "webmcp", id: "webmcp", name: "Your browser's AI", host: "WebMCP" });
 
 /** The tools registered with no calculator shown. */
 const NONE = ["list_calculators", "lookup_command"];

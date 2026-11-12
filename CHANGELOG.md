@@ -42,6 +42,10 @@ the desktop app and the web page share one version.
   the AI app's name as `\uXXXX` (controls, spaces other than the plain
   one, the Braille blank, lone surrogates). The connect dialog's changes
   don't apply: saturnus has its own.
+- tab-mcp client 0.13.0. Nothing changes for you: its new WebMCP
+  mirror stays off, since the web page already offers its tools to the
+  browser's AI itself, and the desktop app's question keeps "Always
+  allow" for AI apps that name themselves.
 
 ## 0.11.0 (2026-11-09)
 

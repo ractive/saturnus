@@ -35,7 +35,7 @@ import { AiLog } from "./ai-log.js";
 import { keepsRunning, screenPng, settingLook } from "./ai.js";
 
 /** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its UI chunk's `confirmInPage`). */
-export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-j8sthahc.min.js";
+export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-5zecjy7s.min.js";
 
 /**
  * What the client's `confirmInPage` takes for the `TabMcp` (tab-mcp 0.8:
@@ -471,7 +471,9 @@ export class LocalAiAccess extends EventTarget {
     if (!isPlainObject(raw)) return errorResult("Invalid params: arguments must be an object");
     const name = clientName || "AI app";
     // A name only guessed (User-Agent, the default) is no key for "Always allow": its grant is its own.
-    const client = { grantId: stable ? name : `?${name}`, id: "local", name, host: HERE, stable };
+    // `kind: "relay"`: tab-mcp 0.13's confirmation treats any other client as WebMCP's (no "Always
+    // allow", its own wording); the app's endpoint stands in for the relay here.
+    const client = { kind: "relay", grantId: stable ? name : `?${name}`, id: "local", name, host: HERE, stable };
     const controller = new AbortController();
     this.running.set(id, controller);
     this.changed();
