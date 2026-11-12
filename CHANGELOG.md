@@ -37,6 +37,11 @@ the desktop app and the web page share one version.
   Files now connects again by itself and carries on. The palmtop's
   setup steps also say not to press Remote (F6): in server mode Filer
   waits for Files by itself.
+- tab-mcp client 0.12.1: the question before store_variable and
+  purge_variable shows more invisible characters in the arguments and
+  the AI app's name as `\uXXXX` (controls, spaces other than the plain
+  one, the Braille blank, lone surrogates). The connect dialog's changes
+  don't apply: saturnus has its own.
 
 ## 0.11.0 (2026-11-09)
 
