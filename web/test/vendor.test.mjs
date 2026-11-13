@@ -1,6 +1,7 @@
 // The vendored tab-mcp client (web/vendor/tab-mcp-client/, `just
 // vendor-tab-mcp`, iteration 55) is exactly what vendor.json records: each
-// file's SHA-256, no file more or less, and every chunk the entry loads.
+// file's SHA-256, no file more or less, and every chunk a file loads (the
+// entry's `import()`s, and the chunk the dialogs share since tab-mcp 0.16).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -26,9 +27,10 @@ export function vendorProblems(names, read) {
     if (sha !== manifest.files[n]) problems.push(`${n} does not match its SHA-256`);
   }
   if (!present.includes(manifest.entry)) problems.push(`the entry ${manifest.entry} is missing`);
-  else {
-    for (const m of String(read(manifest.entry)).matchAll(/import\("\.\/([^"]+)"\)/g)) {
-      if (!present.includes(m[1])) problems.push(`the entry loads ${m[1]}, which is missing`);
+  for (const n of present.filter((p) => listed.includes(p))) {
+    const what = n === manifest.entry ? "the entry" : n;
+    for (const m of String(read(n)).matchAll(/(?:import\(|from|import)\s*"\.\/([^"]+)"/g)) {
+      if (!present.includes(m[1])) problems.push(`${what} loads ${m[1]}, which is missing`);
     }
   }
   if (!manifest.version || !manifest.source?.kind) problems.push("vendor.json names no version or source");
@@ -41,16 +43,17 @@ test("the vendored files are the ones vendor.json records", () => {
   assert.deepEqual(vendorProblems(readdirSync(DIR), reader(DIR)), []);
 });
 
-// The desktop app's confirmation imports the UI chunk by its hashed name
-// (web/ai-local.js), which the vendor script does not rewrite: a stale name
-// would turn every store_variable and purge_variable into "declined".
-test("the page's confirmation module is the vendored UI chunk", async () => {
+// The desktop app's confirmation imports the confirmation chunk by its
+// hashed name (web/ai-local.js; the vendor script rewrites it): a stale
+// name would turn every store_variable and purge_variable into "declined".
+test("the page's confirmation module is the vendored confirmation chunk", async () => {
   const { CONFIRM_MODULE } = await import("../ai-local.js");
   const prefix = "./vendor/tab-mcp-client/";
   assert.ok(CONFIRM_MODULE.startsWith(prefix), CONFIRM_MODULE);
   const name = CONFIRM_MODULE.slice(prefix.length);
+  assert.match(name, /^confirm-[0-9a-z]+\.min\.js$/);
   const manifest = JSON.parse(readFileSync(join(DIR, "vendor.json"), "utf8"));
-  assert.ok(name in manifest.files, `${name} is not in vendor.json (update CONFIRM_MODULE after just vendor-tab-mcp)`);
+  assert.ok(name in manifest.files, `${name} is not in vendor.json (run just vendor-tab-mcp)`);
   assert.match(readFileSync(join(DIR, manifest.entry), "utf8"), new RegExp(`import\\("\\./${name.replace(/\./g, "\\.")}"\\)`));
   const { confirmInPage } = await import(new URL(`../${CONFIRM_MODULE.slice(2)}`, import.meta.url).href);
   assert.equal(typeof confirmInPage, "function");
@@ -66,4 +69,10 @@ test("a changed, an extra and a missing file are each reported", () => {
   const without = vendorProblems(names.filter((n) => n !== chunk), read).join("\n");
   assert.match(without, new RegExp(`${chunk.replace(/\./g, "\\.")} is missing`));
   assert.match(without, /the entry loads connection-/);
+  // The chunk the confirmation and the connect dialog share (tab-mcp 0.16): not loaded by the entry itself.
+  const confirm = names.find((n) => n.startsWith("confirm-"));
+  const shared = [...String(read(confirm)).matchAll(/from\s*"\.\/([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(shared.length, 1, `${confirm} imports one shared chunk`);
+  const noShared = vendorProblems(names.filter((n) => n !== shared[0]), read).join("\n");
+  assert.match(noShared, new RegExp(`${confirm.replace(/\./g, "\\.")} loads ${shared[0].replace(/\./g, "\\.")}, which is missing`));
 });

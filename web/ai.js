@@ -17,7 +17,7 @@
 // Calculator stops sending `visibility` hidden (app.js, on `change`).
 //
 // A broken connection (the relay restarted, the network went) is tried
-// again by the client library (tab-mcp 0.4 on, its `reconnecting`): 5 s
+// again by the client library (tab-mcp 0.4 on; its state `reconnecting` since 0.16): 5 s
 // up to every 60 s, at once when the tab is back in front or online, until
 // it is back, the user turns AI access off, or the relay refuses it. The
 // page only shows it: the panel's "lost", the log's notes. The calls and
@@ -139,10 +139,6 @@ export class AiAccess extends EventTarget {
     this.look = look;
     /** Counts the user's Turn offs: a connect that outlived one says nothing. */
     this.offs = 0;
-    /** While the page itself ends the session (Turn off, a new address): the client's reconnecting stops, not refused. */
-    this.ending = false;
-    /** The relay's refusal of an attempt the client made by itself (its `error` just before `reconnecting` turns null, 0.5.1). */
-    this.refusal = null;
     /** The page lost its address to another tab (`{sibling}`: one of this page in this browser, else a tab or program with the address's secret), until Connect or a new address. */
     this.replaced = null;
     /** The tools that ask the user first (`consequentialHint`). */
@@ -183,14 +179,14 @@ export class AiAccess extends EventTarget {
     }
   }
 
-  /** Something for the log (`what`: connected, lost, retrying, wait, paired, unpaired, off). */
+  /** Something for the log (`what`: connected, lost, wait, paired, unpaired, off). */
   note(what, detail = {}) {
     this.dispatchEvent(new CustomEvent("note", { detail: { what, ...detail } }));
   }
 
-  /** The connection broke and the client is connecting again by itself (its `reconnecting`). */
+  /** The connection broke and the client is connecting again by itself (its state `reconnecting`, tab-mcp 0.16). */
   get lost() {
-    return this.mcp?.reconnecting != null;
+    return this.mcp?.state === "reconnecting";
   }
 
   /** Whether AI access can be offered here (a relay). */
@@ -198,6 +194,7 @@ export class AiAccess extends EventTarget {
     return Boolean(this.relay);
   }
 
+  /** The client's state: disconnected, connecting, connected, or reconnecting (`lost`). */
   get state() {
     return this.mcp?.state ?? "disconnected";
   }
@@ -257,14 +254,35 @@ export class AiAccess extends EventTarget {
         webmcp: false,
       });
       for (const tool of this.tools) await mcp.registerTool(tool);
+      // `statechange` (tab-mcp 0.16) carries `reason` when a session ends (connected to disconnected
+      // or, broken, to reconnecting) and when the page ends connecting or reconnecting; `reconnecting`
+      // comes again for each attempt the client schedules.
       mcp.addEventListener("statechange", (e) => {
-        // An attempt of the client's reconnecting starts (its timer, the tab back in front, Connect).
-        if (e.detail?.state === "connecting" && mcp.reconnecting) this.note("retrying", { attempt: mcp.reconnecting.attempt });
+        const { state, reason } = e.detail;
+        if (state === "connected") {
+          this.error = null;
+          this.apps = new Map(mcp.grants.map((g) => [g.grantId, appLabel(g.client)]));
+          this.note("connected", { host: this.relayHost, apps: mcp.grants.length });
+        }
         // Connecting again (Connect, a new address): no longer replaced.
-        if (e.detail?.state === "connecting") this.replaced = null;
+        if (state === "connecting") this.replaced = null;
+        if (reason !== undefined) {
+          this.release();
+          this.apps = null;
+          const ours = reason === "user" || reason === "new_address";
+          if (!ours) this.note("lost", { reason, text: lostText(reason) });
+          // What to do; when the client tries again (reconnecting), why it was lost (below).
+          this.error = ours ? null : disconnectText(reason);
+        }
+        const next = mcp.reconnecting;
+        if (state === "reconnecting" && next) {
+          // Tried again until it is back, whether or not "Keep AI access on" is set: the user had it on.
+          this.error = lostText(next.reason);
+          this.note("wait", { attempt: next.attempt, seconds: Math.max(0, Math.round((next.at - this.now()) / 1000)) });
+        }
         this.changed();
       });
-      // After `disconnected` with reason replaced (tab-mcp 0.8): who took the address, up to a second later.
+      // After the `statechange` to disconnected with reason replaced (tab-mcp 0.8): who took the address, up to a second later.
       mcp.addEventListener("replaced", (e) => {
         if (this.state !== "disconnected") return;
         const sibling = e.detail?.sibling === true;
@@ -273,48 +291,17 @@ export class AiAccess extends EventTarget {
         this.changed();
       });
       mcp.addEventListener("pairingcode", () => this.changed());
-      mcp.addEventListener("reconnecting", (e) => {
-        const next = e.detail;
-        if (next) {
-          // Tried again until it is back, whether or not "Keep AI access on" is set: the user had it on.
-          this.error = lostText(next.reason);
-          this.note("wait", { seconds: Math.max(0, Math.round((next.at - this.now()) / 1000)) });
-        } else {
-          // Stopped: connected (the client stops before it says connected), ended by the page, or the
-          // relay refused the attempt. No longer lost, so not the lost text: the relay's words when the
-          // client made the attempt by itself (`refusal`), else none (a connect() of ours that made or
-          // joined it says them in its catch).
-          const refusal = this.refusal;
-          this.refusal = null;
-          this.error = refusal && !this.ending && mcp.state === "disconnected" ? `Could not connect to the relay: ${refusal.message}` : null;
-        }
-        this.changed();
-      });
       for (const type of ["toolcall", "toolcallend"]) mcp.addEventListener(type, (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail })));
       mcp.addEventListener("grantschange", () => {
         this.noteApps(mcp.grants);
         this.changed();
       });
-      mcp.addEventListener("connected", () => {
-        this.error = null;
-        this.apps = new Map(mcp.grants.map((g) => [g.grantId, appLabel(g.client)]));
-        this.note("connected", { host: this.relayHost, apps: mcp.grants.length });
-        this.changed();
-      });
       mcp.addEventListener("error", (e) => {
-        // Disconnected and no longer reconnecting: the refusal that ends the client's reconnecting.
-        this.refusal = mcp.state === "disconnected" && !mcp.reconnecting ? (e.detail?.error ?? null) : null;
-        this.error = e.detail?.error?.message ?? null;
-        this.changed();
-      });
-      mcp.addEventListener("disconnected", (e) => {
-        this.release();
-        this.apps = null;
-        const reason = e.detail?.reason;
-        const ours = reason === "user" || reason === "new_address";
-        if (!ours) this.note("lost", { reason, text: lostText(reason) });
-        // What to do; the client's `reconnecting` that follows a broken connection says it is tried again.
-        this.error = reason && !ours ? disconnectText(reason) : null;
+        const message = e.detail?.error?.message ?? null;
+        // Already disconnected: the relay refused an attempt of the client's reconnecting, which ends
+        // it (tab-mcp 0.16: `error` before the `statechange` to disconnected, also when a Connect of
+        // ours waited on that attempt). The relay's words, as a refused Connect says them.
+        this.error = message !== null && mcp.state === "disconnected" ? `Could not connect to the relay: ${message}` : message;
         this.changed();
       });
       this.mcp = mcp;
@@ -367,7 +354,7 @@ export class AiAccess extends EventTarget {
     const on = this.lost || this.state !== "disconnected";
     this.offs++;
     this.error = null;
-    this.byPage(() => this.mcp?.disconnect());
+    this.mcp?.disconnect();
     this.release();
     if (on) this.note("off");
     this.changed();
@@ -384,7 +371,8 @@ export class AiAccess extends EventTarget {
     this.replaced = null;
     // The takeover's words go while the address is taken back; a failure brings its own.
     this.error = null;
-    const made = this.byPage(() => this.mcp?.newAddress());
+    // Resolves with nothing (tab-mcp 0.16): the new address is `mcp.session.address` once connected.
+    const made = this.mcp?.newAddress();
     made?.catch((err) => {
       this.error = err?.reason === "replaced" ? "It was taken over again before its AI apps were disconnected. Try again." : `Could not connect to the relay: ${err?.message ?? err}`;
       this.changed();
@@ -392,18 +380,19 @@ export class AiAccess extends EventTarget {
     return made;
   }
 
-  /** `end()`, which ends the session (and the client's reconnecting) on the page's behalf. */
-  byPage(end) {
-    this.ending = true;
+  /**
+   * Disconnect one AI app (tab-mcp 0.16: a promise that resolves once the
+   * relay removed its grant). Rejects with the reason in the dialog's
+   * words as its message: not connected, the relay could not save it, or
+   * no answer in time.
+   */
+  async revoke(grantId) {
     try {
-      return end();
-    } finally {
-      this.ending = false;
+      if (!this.mcp) throw new DOMException("TabMcp: not connected", "InvalidStateError");
+      await this.mcp.revoke(grantId);
+    } catch (err) {
+      throw new Error(revokeText(err), { cause: err });
     }
-  }
-
-  revoke(grantId) {
-    return this.mcp?.revoke(grantId) ?? false;
   }
 
   /** The other calculators' connections let go: the session ended. */
@@ -530,6 +519,15 @@ export function lostText(reason) {
     case "user": return "AI access was turned off.";
     default: return "The relay ended the session.";
   }
+}
+
+/** Why disconnecting an AI app failed (tab-mcp 0.16 `revoke()`'s rejection), in the dialog's words. */
+export function revokeText(err) {
+  if (err?.name === "InvalidStateError") return "Connect again first: only a connected tab can disconnect an app.";
+  if (err?.code === "store_unavailable") return "The relay could not save this. Try again.";
+  if (err?.name === "TimeoutError") return "The relay did not answer. Try again.";
+  if (err?.code === "unknown_id") return "The relay does not know this app any more. Connect again to see the apps it knows.";
+  return `Could not disconnect the app: ${err?.message ?? err}`;
 }
 
 /** Why a session ended, in the dialog's words: what to do as well. */

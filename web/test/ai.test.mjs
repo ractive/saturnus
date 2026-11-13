@@ -131,17 +131,21 @@ test("a connect the browser refused for lack of a click says to press Connect, n
 
 // Reconnecting: the client library (tab-mcp 0.4 on) connects again by
 // itself; AI access shows it. A fake TabMcp that models the library's
-// `reconnecting` (its getter and event, its waits) on fake timers; its
-// connects succeed or fail as the test says.
+// state `reconnecting` (0.16: its `statechange` per scheduled attempt,
+// the `reconnecting` getter, its waits) on fake timers; its connects
+// succeed or fail as the test says.
 
 /** A connect that never settles (the test ends it). */
 const HANG = Symbol("hang");
 
 /**
- * A fake `TabMcp` that does what the library (0.5.1) does: `connect` takes
- * the next of `outcomes` (true, an Error, HANG, or a promise the test
- * settles), a connect while one runs shares it, `drop(reason)` breaks the
- * session.
+ * A fake `TabMcp` that does what the library (0.16.0, src/tab-mcp.ts)
+ * does: `connect` takes the next of `outcomes` (true, an Error, HANG, or a
+ * promise the test settles), a connect while one runs shares it, a
+ * connect while reconnecting makes the next attempt at once (which stays
+ * `reconnecting`), `drop(reason)` breaks the session. `statechange` has
+ * `{ state, reason? }`; a refusal that stops reconnecting sets the state
+ * to disconnected, emits `error`, then the `statechange` without reason.
  */
 function fakeMcpClass(outcomes, timers) {
   const DELAYS = [5000, 10000, 20000, 40000, 60000];
@@ -151,95 +155,99 @@ function fakeMcpClass(outcomes, timers) {
       super();
       this.options = options;
       this.state = "disconnected";
+      this.session = undefined;
       this.grants = [];
       this.connects = 0;
       this.reconnecting = undefined;
       this.timer = null;
-      /** The running attempt's promise; `pageWaits`: a connect() of the page has it. */
+      /** The running attempt's promise. */
       this.connecting = null;
-      this.pageWaits = false;
       FakeTabMcp.last = this;
     }
     registerTool() { return Promise.resolve(); }
     emit(type, detail) { this.dispatchEvent(new CustomEvent(type, { detail })); }
-    setState(state) {
-      if (this.state === state) return;
+    setState(state, reason) {
+      if (this.state === state && state !== "reconnecting") return;
       this.state = state;
-      this.emit("statechange", { state });
+      this.emit("statechange", reason ? { state, reason } : { state });
     }
     connect() {
-      if (this.state === "connected") return Promise.resolve({});
-      if (this.connecting) {
-        if (this.reconnecting) this.pageWaits = true;
-        return this.connecting;
-      }
-      return this.attempt(true);
+      if (this.state === "connected") return Promise.resolve(this.session);
+      if (this.connecting) return this.connecting;
+      if (this.reconnecting) return this.attemptReconnect();
+      return this.start();
     }
-    /** One attempt; while reconnecting, a failure that may pass schedules the next, any other stops (with `error` when no connect() of the page waits). */
-    attempt(byPage) {
+    /** One attempt; while reconnecting it stays `reconnecting`. */
+    start() {
       timers.api.clear(this.timer);
       this.timer = null;
       this.connects++;
-      const info = this.reconnecting;
-      this.pageWaits = byPage;
-      this.setState("connecting");
+      if (!this.reconnecting) this.setState("connecting");
       const next = outcomes.shift() ?? true;
       const ready = next === HANG ? new Promise(() => {}) : Promise.resolve(next).then((v) => { if (v instanceof Error) throw v; });
       const connecting = ready.then(
         () => {
-          if (this.connecting !== connecting) return {};
+          if (this.connecting !== connecting) return this.session;
           this.connecting = null;
           this.stop();
-          this.setState("connected");
-          this.address = "https://relay.example/a/secret/mcp";
+          this.session = { address: "https://relay.example/a/secret/mcp" };
           this.emit("grantschange", { grants: this.grants });
-          this.emit("connected", {});
-          return {};
+          this.setState("connected");
+          return this.session;
         },
         (err) => {
           if (this.connecting !== connecting) throw err;
           this.connecting = null;
-          this.setState("disconnected");
-          const pageWaits = this.pageWaits;
-          this.pageWaits = false;
-          if (info && this.reconnecting === info) {
-            if (err.reason === undefined || AGAIN.has(err.reason)) this.schedule(info.reason, info.attempt + 1);
-            else this.stop(pageWaits ? undefined : err);
-          }
+          if (!this.reconnecting) this.setState("disconnected");
           throw err;
         },
       );
       this.connecting = connecting;
       return connecting;
     }
+    /** The next attempt now; a failure that may pass schedules the one after, any other stops it, with `error`. */
+    attemptReconnect() {
+      if (this.connecting) return this.connecting;
+      const attempt = this.start();
+      attempt.catch((err) => {
+        const info = this.reconnecting;
+        if (info === undefined || this.connecting) return;
+        if (err.reason === undefined || AGAIN.has(err.reason)) {
+          this.schedule(info.reason, info.attempt + 1);
+          return;
+        }
+        this.stop();
+        this.state = "disconnected";
+        this.emit("error", { error: err });
+        if (this.state === "disconnected") this.emit("statechange", { state: "disconnected" });
+      });
+      return attempt;
+    }
     disconnect() {
       this.stop();
       this.connecting = null;
-      const was = this.state === "connected";
-      this.setState("disconnected");
-      if (was) this.emit("disconnected", { reason: "user", code: 1000 });
+      this.session = undefined;
+      if (this.state !== "disconnected") this.setState("disconnected", "user");
     }
     drop(reason) {
-      this.setState("disconnected");
-      this.emit("disconnected", { reason, code: 1006 });
-      if (AGAIN.has(reason) && this.state === "disconnected") this.schedule(reason, 1);
+      this.session = undefined;
+      if (AGAIN.has(reason)) this.schedule(reason, 1);
+      else this.setState("disconnected", reason);
     }
     schedule(reason, attempt) {
       const ms = DELAYS[Math.min(attempt, DELAYS.length) - 1];
+      timers.api.clear(this.timer);
       this.timer = timers.api.set(() => {
         this.timer = null;
-        this.attempt(false).catch(() => {});
+        this.attemptReconnect().catch(() => {});
       }, ms);
       this.reconnecting = { reason, attempt, at: timers.now + ms };
-      this.emit("reconnecting", this.reconnecting);
+      this.setState("reconnecting", attempt > 1 ? undefined : reason);
     }
-    stop(why) {
+    stop() {
       timers.api.clear(this.timer);
       this.timer = null;
-      if (this.reconnecting === undefined) return;
       this.reconnecting = undefined;
-      if (why) this.emit("error", { error: why });
-      this.emit("reconnecting", null);
     }
   };
 }
@@ -317,17 +325,11 @@ test("a broken connection: lost while the library tries again, each wait and att
     "Connected to the relay relay.example",
     "Connection lost. The relay restarted.",
     "Next try in 5 s",
-    "Retrying to connect… (attempt 1)",
-    "Next try in 10 s",
-    "Retrying to connect… (attempt 2)",
-    "Next try in 20 s",
-    "Retrying to connect… (attempt 3)",
-    "Next try in 40 s",
-    "Retrying to connect… (attempt 4)",
-    "Next try in 60 s",
-    "Retrying to connect… (attempt 5)",
-    "Next try in 60 s",
-    "Retrying to connect… (attempt 6)",
+    "Try 1 failed. Next try in 10 s",
+    "Try 2 failed. Next try in 20 s",
+    "Try 3 failed. Next try in 40 s",
+    "Try 4 failed. Next try in 60 s",
+    "Try 5 failed. Next try in 60 s",
     "Connected to the relay relay.example",
   ]);
 });
@@ -342,7 +344,8 @@ test("Connect while lost makes the library's next attempt at once", { timeout: 2
   assert.equal(ai.state, "connected");
   assert.equal(ai.lost, false);
   assert.equal(timers.waiting.length, 0);
-  assert.equal(notes(ai).at(-2), "Retrying to connect… (attempt 2)");
+  assert.equal(Mcp.last.connects, 3, "the first connect, the timer's attempt, Connect's");
+  assert.deepEqual(notes(ai).slice(-2), ["Try 1 failed. Next try in 10 s", "Connected to the relay relay.example"]);
 });
 
 test("a failed attempt the library tries again later leaves the error at why it was lost", { timeout: 2000 }, async () => {
@@ -424,12 +427,32 @@ test("turning AI access off ends the reconnecting; a refusal or another tab taki
   }
 });
 
+test("Disconnect of an AI app: the client's promise (tab-mcp 0.16), a refusal in the dialog's words", { timeout: 2000 }, async () => {
+  const { ai, Mcp } = reconnecting([true]);
+  await assert.rejects(ai.revoke("g1"), { message: "Connect again first: only a connected tab can disconnect an app." });
+  await ai.connect();
+  const asked = [];
+  let answer = Promise.resolve();
+  Mcp.last.revoke = (id) => { asked.push(id); return answer; };
+  await ai.revoke("g1");
+  assert.deepEqual(asked, ["g1"]);
+  answer = Promise.reject(new DOMException("TabMcp: not connected", "InvalidStateError"));
+  await assert.rejects(ai.revoke("g1"), { message: "Connect again first: only a connected tab can disconnect an app." });
+  answer = Promise.reject(Object.assign(new Error("could not save"), { code: "store_unavailable" }));
+  await assert.rejects(ai.revoke("g1"), { message: "The relay could not save this. Try again." });
+  answer = Promise.reject(new DOMException("no answer", "TimeoutError"));
+  await assert.rejects(ai.revoke("g1"), { message: "The relay did not answer. Try again." });
+  answer = Promise.reject(Object.assign(new Error("unknown grant"), { code: "unknown_id" }));
+  await assert.rejects(ai.revoke("g1"), /does not know this app/);
+});
+
 test("turned off while an attempt connects: no error, no further attempt", { timeout: 2000 }, async () => {
   const { ai, timers, Mcp } = reconnecting([true, HANG]);
   await ai.connect();
   Mcp.last.drop("network");
   await timers.fire();
-  assert.equal(ai.state, "connecting");
+  assert.equal(Mcp.last.connects, 2, "the attempt runs");
+  assert.equal(ai.state, "reconnecting");
   assert.equal(ai.lost, true);
   ai.disconnect();
   for (let i = 0; i < 5; i++) await turn();
@@ -441,10 +464,12 @@ test("turned off while an attempt connects: no error, no further attempt", { tim
 test("a new address while lost: not taken for a refusal", { timeout: 2000 }, async () => {
   const { ai, Mcp } = reconnecting([true, HANG]);
   await ai.connect();
-  // As the library's: the reconnecting stops, then it connects with the new address.
+  // As the library's: the reconnecting stops (disconnected, reason new_address), then it connects with the new address.
   Mcp.last.newAddress = function () {
     this.stop();
-    return this.connect();
+    this.connecting = null;
+    this.setState("disconnected", "new_address");
+    return this.connect().then(() => {});
   };
   Mcp.last.drop("network");
   ai.newAddress();
@@ -452,14 +477,14 @@ test("a new address while lost: not taken for a refusal", { timeout: 2000 }, asy
   assert.equal(ai.error, null);
 });
 
-test("Connect while the library's own attempt runs joins it: one attempt, one Retrying note", { timeout: 2000 }, async () => {
+test("Connect while the library's own attempt runs joins it: one attempt", { timeout: 2000 }, async () => {
   {
     let settle;
     const { ai, timers, Mcp } = reconnecting([true, new Promise((r) => { settle = r; })]);
     await ai.connect();
     Mcp.last.drop("network");
     await timers.fire();
-    assert.equal(ai.state, "connecting");
+    assert.equal(ai.state, "reconnecting");
     const joined = ai.connect();
     for (let i = 0; i < 5; i++) await turn();
     assert.equal(Mcp.last.connects, 2, "the first connect and the one attempt");
@@ -467,10 +492,9 @@ test("Connect while the library's own attempt runs joins it: one attempt, one Re
     await joined;
     assert.equal(ai.state, "connected");
     assert.equal(ai.lost, false);
-    assert.equal(notes(ai).filter((n) => n.startsWith("Retrying")).length, 1);
   }
   {
-    // Refused while Connect waits on it: the client's promise says why, no `error`.
+    // Refused while Connect waits on it: the client's `error` (tab-mcp 0.16 emits it also then) and the promise say the same.
     let settle;
     const { ai, timers, Mcp } = reconnecting([true, new Promise((r) => { settle = r; })]);
     await ai.connect();
@@ -481,7 +505,7 @@ test("Connect while the library's own attempt runs joins it: one attempt, one Re
     const joined = ai.connect();
     settle(REFUSED());
     await assert.rejects(joined);
-    assert.equal(errors, 0);
+    assert.equal(errors, 1);
     assert.equal(Mcp.last.connects, 2);
     assert.equal(ai.lost, false);
     assert.equal(ai.error, "Could not connect to the relay: The relay refused the connection: unknown address");
@@ -501,7 +525,7 @@ test("no stale lost text once the reconnecting stops: on every change while it c
       if (lost) assert.equal(error, "The relay restarted.", `lost while ${state}: why`);
       else assert.equal(error, null, `not lost while ${state}: no error`);
     }
-    assert.ok(seen.some(([lost, state]) => !lost && state === "connecting"), "the client stops reconnecting before it says connected");
+    assert.deepEqual(seen.at(-1), [false, "connected", null]);
   }
   {
     // A refused attempt Connect made: no `error` from the client, the catch says why; nothing stale between.

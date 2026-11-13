@@ -199,7 +199,7 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   const box = await ev("(() => { const r = document.getElementById('ai-connect').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()");
   for (const type of ["mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type, x: box.x, y: box.y, button: "left", clickCount: 1 });
   await until(ev, "document.querySelector('dialog.ai[open]') && window.saturnusApp.ai.then((a) => a.state === 'connected')", 15_000, "connected from the dialog");
-  const address = await ev("window.saturnusApp.ai.then((a) => a.mcp.address)");
+  const address = await ev("window.saturnusApp.ai.then((a) => a.mcp.session.address)");
   assert.equal(await ev("document.querySelector('dialog.ai .ai-address').value"), address, "the dialog shows the address");
   assert.match(await ev("document.querySelector('dialog.ai .ai-status').textContent"), /AI access is on/);
   await ev("document.querySelector('dialog.ai').close(), true");

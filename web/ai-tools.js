@@ -1,8 +1,8 @@
 // The tools an AI app gets for the app's calculators (iteration 55),
 // in the WebMCP shape tab-mcp's `registerTool` takes: `{name, title,
 // description, inputSchema, outputSchema, annotations, execute}`
-// (`outputSchema` only WebMCP passes on, web/ai-webmcp.js; tab-mcp's
-// client and the desktop app's tool list leave it out). `execute(input,
+// (`outputSchema` in WebMCP, web/ai-webmcp.js, and since tab-mcp
+// 0.16 in tools/list, from the relay and the desktop app). `execute(input,
 // {signal})`: a call whose signal aborts presses nothing more, drops the
 // keys it queued and the calculator has not played yet (`releaseAll`)
 // and stops waiting for the calculator ("Cancelled"). Pure over what it is
@@ -97,7 +97,8 @@ const INT = { type: "integer" };
 const BOOL = { type: "boolean" };
 const LEVEL = { type: "object", properties: { level: INT, type: STR, text: STR } };
 const obj = (properties) => ({ type: "object", properties: { calculator: STR, error: { type: "string", description: "Why the call failed, or the calculator's error message." }, ...properties } });
-const VARIABLE_ROW = { type: "object", properties: { name: STR, type: STR, size: INT, variables: { type: "array", items: { type: "object" } } } };
+// A size in bytes may end in .5 (the 48 and 49 count nibbles).
+const VARIABLE_ROW = { type: "object", properties: { name: STR, type: STR, size: { type: "number" }, variables: { type: "array", items: { type: "object" } } } };
 const OUT = {
   calculators: {
     type: "object",

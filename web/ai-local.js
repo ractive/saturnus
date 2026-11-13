@@ -12,14 +12,14 @@
 // and web/test/ai-local.test.mjs checks that both paths list the same.
 //
 // What tab-mcp's client does around a call, done here the same way (its
-// relay-less `serve` of 0.15 answers the relay's `http.*` messages on a
-// port, which the app's endpoint does not send, and never offers "Always
-// allow" to its `local` caller, so saturnus does it itself): the tool
+// relay-less `serve` (0.15 on) answers the relay's `http.*` messages on a
+// port, which the app's endpoint does not send, and never offers "Allow
+// until reload" to its `local` caller, so saturnus does it itself): the tool
 // list in MCP's shape (`listTools`, tab-mcp's annotation mapping), the
 // arguments checked against the tool's schema (`validate`), the
 // confirmation of a consequential tool in tab-mcp's own dialog (its
 // vendored `confirmInPage`, so it looks the same and "The AI's calls"
-// sees it), "Always allow" per named AI app and tool until the app
+// sees it), "Allow until reload" per named AI app and tool until the app
 // reloads or the setting goes off (kept by that chunk, for the grants
 // `ConfirmHost` names), the result in MCP's shape (`toCallToolResult`),
 // and the `toolcall`/`toolcallend` events that feed "The AI's calls"
@@ -36,15 +36,15 @@ import { aiTools, INSTRUCTIONS, titleOf } from "./ai-tools.js";
 import { AiLog } from "./ai-log.js";
 import { keepsRunning, screenPng, settingLook } from "./ai.js";
 
-/** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its UI chunk's `confirmInPage`). */
-export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-2nv84ry7.min.js";
+/** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its confirmation chunk's `confirmInPage`, named by `just vendor-tab-mcp`). */
+export const CONFIRM_MODULE = "./vendor/tab-mcp-client/confirm-y30cx7e1.min.js";
 
 /**
  * What the client's `confirmInPage` takes for the `TabMcp` (tab-mcp 0.8:
- * the tools allowed always live in the UI chunk, per `TabMcp`, and an
+ * the tools allowed always live in the dialogs' chunks, per `TabMcp`, and an
  * entry is kept only while its grant is among `grants`): the named AI
  * apps asked while AI access is on, as grants by name. `forget()` empties
- * them and says so (`grantschange`), which drops every "Always allow".
+ * them and says so (`grantschange`), which drops every "Allow until reload".
  */
 export class ConfirmHost extends EventTarget {
   constructor() {
@@ -95,13 +95,18 @@ export function mapAnnotations(hints = {}) {
   return out;
 }
 
+/** After the description of a consequential tool in `tools/list` (tab-mcp 0.16 `CONFIRMED_IN_TAB`). */
+export const CONFIRMED_IN_TAB = "The page may ask the user to allow each call, usually in the page's browser tab.";
+
 /** The tools as `tools/list` gives them. */
 export function listTools(tools) {
   return tools.map((tool) => {
     const entry = { name: tool.name };
     if (tool.title !== undefined) entry.title = tool.title;
-    entry.description = tool.description;
+    // The AI app waits while the user is asked: it can tell the user where.
+    entry.description = tool.annotations?.consequentialHint === true ? `${tool.description} ${CONFIRMED_IN_TAB}` : tool.description;
     entry.inputSchema = JSON.parse(JSON.stringify(tool.inputSchema ?? { type: "object" }));
+    if (tool.outputSchema !== undefined) entry.outputSchema = JSON.parse(JSON.stringify(tool.outputSchema));
     const hints = {};
     for (const [k, v] of Object.entries(tool.annotations ?? {})) if (typeof v === "boolean") hints[k] = v;
     const { annotations, meta } = mapAnnotations(hints);
@@ -118,11 +123,36 @@ export function errorResult(message) {
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
-/** What a tool returned, as MCP's result: a string one text block, `{content}` as it is, undefined empty, other JSON its text (and `structuredContent` for an object). */
+/** Whether `block` is an MCP content block with the fields its type needs (tab-mcp 0.16 `isContentBlock`). */
+function isContentBlock(block) {
+  if (!isPlainObject(block)) return false;
+  const str = (v) => typeof v === "string";
+  switch (block.type) {
+    case "text": return str(block.text);
+    case "image": case "audio": return str(block.data) && str(block.mimeType);
+    case "resource_link": return str(block.uri) && str(block.name);
+    case "resource": return isPlainObject(block.resource) && str(block.resource.uri);
+    default: return false;
+  }
+}
+
+const RESULT_KEYS = new Set(["content", "structuredContent", "isError", "_meta", "resultType"]);
+
+/** Whether `value` is an MCP result, not data that has a `content` array (tab-mcp 0.16 `isCallToolResult`). */
+export function isCallToolResult(value) {
+  if (!isPlainObject(value) || !Array.isArray(value.content)) return false;
+  const { content, isError, structuredContent, _meta } = value;
+  return (content.length > 0 ? content.every(isContentBlock) : Object.keys(value).every((k) => RESULT_KEYS.has(k)))
+    && (isError === undefined || typeof isError === "boolean")
+    && (structuredContent === undefined || isPlainObject(structuredContent))
+    && (_meta === undefined || isPlainObject(_meta));
+}
+
+/** What a tool returned, as MCP's result: a string one text block, an MCP result as it is, undefined empty, other JSON its text (and that JSON as `structuredContent` for an object). */
 export function toCallToolResult(value) {
   if (typeof value === "string") return { content: [{ type: "text", text: value }] };
   if (value === undefined) return { content: [] };
-  if (isPlainObject(value) && Array.isArray(value.content)) return value;
+  if (isCallToolResult(value)) return value;
   let text;
   try {
     text = JSON.stringify(value);
@@ -131,8 +161,16 @@ export function toCallToolResult(value) {
   }
   if (text === undefined) return errorResult("The tool returned a value that is not JSON.");
   const result = { content: [{ type: "text", text }] };
-  if (isPlainObject(value)) result.structuredContent = value;
+  const parsed = JSON.parse(text);
+  if (isPlainObject(parsed)) result.structuredContent = parsed;
   return result;
+}
+
+/** Every result of a tool marked `untrustedContentHint` says so in `_meta` (tab-mcp 0.16 `markUntrusted`). */
+export function markUntrusted(result) {
+  const meta = result._meta ?? {};
+  const own = meta[ANNOTATIONS_META_KEY];
+  return { ...result, _meta: { ...meta, [ANNOTATIONS_META_KEY]: { ...(isPlainObject(own) ? own : {}), untrustedContentHint: true } } };
 }
 
 /** A thrown value as an error result. */
@@ -242,7 +280,7 @@ export class LocalAiAccess extends EventTarget {
     this.failure = null;
     /** The tools that ask the user first. */
     this.consequential = new Set();
-    /** "Always allow" lives in the client's UI chunk, per this host, until the app reloads or AI access goes off. */
+    /** "Allow until reload" lives in the client's dialogs' chunks, per this host, until the app reloads or AI access goes off. */
     this.confirmHost = new ConfirmHost();
     /** The calls running, by the endpoint's id, with their abort controllers. */
     this.running = new Map();
@@ -472,10 +510,10 @@ export class LocalAiAccess extends EventTarget {
     const raw = params.arguments ?? {};
     if (!isPlainObject(raw)) return errorResult("Invalid params: arguments must be an object");
     const name = clientName || "AI app";
-    // A name only guessed (User-Agent, the default) is no key for "Always allow": its grant is its own.
-    // `kind: "relay"`: tab-mcp 0.13's confirmation treats any other client as WebMCP's (no "Always
-    // allow", its own wording), and so does 0.15's for its `kind: "local"`; the app's endpoint stands
-    // in for the relay here.
+    // A name only guessed (User-Agent, the default) is no key for "Allow until reload": its grant is its own.
+    // `kind: "relay"`: tab-mcp's confirmation (0.13 on) offers "Allow until reload" only to a relay
+    // client, never to WebMCP's or a served port's (`kind: "local"`); the app's endpoint stands in for
+    // the relay here.
     const client = { kind: "relay", grantId: stable ? name : `?${name}`, id: "local", name, host: HERE, stable };
     const controller = new AbortController();
     this.running.set(id, controller);
@@ -488,6 +526,8 @@ export class LocalAiAccess extends EventTarget {
     let result;
     try {
       [outcome, result] = await this.decideAndRun(tool, raw, controller.signal, client);
+      // The caller learns per result that this text is not the app's (tab-mcp 0.16).
+      if (tool.annotations?.untrustedContentHint === true) result = markUntrusted(result);
     } finally {
       this.running.delete(id);
       this.changed();
@@ -520,10 +560,10 @@ export class LocalAiAccess extends EventTarget {
   }
 
   /**
-   * Ask the user in tab-mcp's confirmation; "Always allow" remembered for
+   * Ask the user in tab-mcp's confirmation; "Allow until reload" remembered for
    * this AI app and tool. Only for an AI app that named itself (`stable`):
    * a name guessed from its User-Agent may be another app's, so it is
-   * asked every time and the dialog offers no "Always allow" (the
+   * asked every time and the dialog offers no "Allow until reload" (the
    * library's `alwaysAllow`, off by default since tab-mcp 0.8; the AI apps
    * here are on this computer, so the app keeps it for the named ones).
    */
@@ -534,7 +574,7 @@ export class LocalAiAccess extends EventTarget {
     if (tool.title !== undefined) question.tool.title = tool.title;
     const options = { alwaysAllow: client.stable === true };
     if (this.allowDelayMs !== undefined) options.allowDelayMs = this.allowDelayMs;
-    // Its "Always allow" is kept only for a grant the host has: a named app while AI access is on.
+    // Its "Allow until reload" is kept only for a grant the host has: a named app while AI access is on.
     if (client.stable && this.status.running) this.confirmHost.admit(client.grantId);
     return confirmInPage(this.confirmHost, question, this.doc, options);
   }

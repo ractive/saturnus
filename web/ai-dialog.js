@@ -156,7 +156,7 @@ export async function openAiDialog(ai, doc = document) {
     const mcp = ai.mcp;
     const on = state === "connected";
     const lost = !on && ai.lost;
-    if (on) lastAddress = mcp.address;
+    if (on) lastAddress = mcp.session?.address ?? "";
     address.value = on || lost ? lastAddress : "";
     addStep.hidden = !on && !lost;
     codeStep.hidden = !on && !lost;
@@ -187,17 +187,21 @@ export async function openAiDialog(ai, doc = document) {
     apps.replaceChildren(...grants.map((g) => {
       const b = el("button", { type: "button", class: "small", text: "Disconnect", "aria-label": `Disconnect ${g.client.name || g.client.host}` });
       b.addEventListener("click", () => {
-        if (!ai.revoke(g.grantId)) {
-          ai.error = "Connect again first: only a connected tab can disconnect an app.";
+        b.disabled = true;
+        // The row goes with the relay's grantschange; a refusal says why (ai.js `revokeText`).
+        ai.revoke(g.grantId).catch((err) => {
+          b.disabled = false;
+          ai.error = err?.message ?? String(err);
           render();
-        }
+        });
       });
       return appRow(g.client.name || g.client.host, g.client.host, b);
     }));
     appsNote.textContent = grants.length ? "" : "No AI app is connected yet.";
     appsNote.hidden = grants.length > 0;
     keep.checked = ai.keepOn;
-    connect.hidden = state !== "disconnected" || taken;
+    // While lost too: Connect makes the client's next attempt at once.
+    connect.hidden = (state !== "disconnected" && state !== "reconnecting") || taken;
     off.hidden = state === "disconnected" && !ai.lost;
     fresh.hidden = !on;
     waiting = on && grants.length === 0;

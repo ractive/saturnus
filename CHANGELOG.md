@@ -57,6 +57,14 @@ the desktop app and the web page share one version.
   "not answered" for a question nobody answered.
 - tab-mcp client 0.15.0. Nothing changes for you: its new way to offer
   the tools without a relay (to a site's own assistant) is not used.
+- tab-mcp client 0.16.0. The confirmation's "Always allow" is now
+  "Allow until reload", left of Allow. A consequential tool's
+  description tells the AI app that the user may be asked, and the
+  tools list their result schemas (`outputSchema`), in the browser and
+  the desktop app alike. The AI's calls note each scheduled reconnect
+  attempt ("Try 1 failed. Next try in 10 s"); the client no longer says
+  when an attempt starts. Disconnect of an AI app in the dialog says why
+  when the relay refused it or did not answer.
 
 ## 0.11.0 (2026-11-09)
 

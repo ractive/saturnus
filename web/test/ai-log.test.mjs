@@ -57,8 +57,8 @@ test("a question nobody answered (tab-mcp 0.14) ends its call like a refusal: no
 test("the connection's events in words", () => {
   assert.equal(noteText({ what: "connected", host: "tab-mcp.ractive.ch" }), "Connected to the relay tab-mcp.ractive.ch");
   assert.equal(noteText({ what: "lost", text: "The relay restarted." }), "Connection lost. The relay restarted.");
-  assert.equal(noteText({ what: "retrying", attempt: 3 }), "Retrying to connect… (attempt 3)");
-  assert.equal(noteText({ what: "wait", seconds: 20 }), "Next try in 20 s");
+  assert.equal(noteText({ what: "wait", attempt: 1, seconds: 5 }), "Next try in 5 s");
+  assert.equal(noteText({ what: "wait", attempt: 3, seconds: 20 }), "Try 2 failed. Next try in 20 s");
   assert.equal(noteText({ what: "paired", app: "Claude" }), "Claude connected");
   assert.equal(noteText({ what: "unpaired", app: "Claude" }), "Claude disconnected");
   assert.equal(noteText({ what: "off" }), "AI access turned off");
@@ -84,10 +84,10 @@ test("a long outage's connection events go before the calls", () => {
   const ai = fakeAi();
   const log = new AiLog(ai);
   for (let i = 0; i < 10; i++) ai.emit("toolcall", { id: i, tool: "read_stack", arguments: {}, client: CLIENT });
-  for (let i = 1; i <= 300; i++) ai.emit("note", { what: "retrying", attempt: i });
+  for (let i = 1; i <= 300; i++) ai.emit("note", { what: "wait", attempt: i, seconds: 60 });
   assert.equal(log.entries.length, 200);
   assert.equal(log.entries.filter((e) => e.kind === "call").length, 10, "every call kept");
-  assert.match(log.entries.at(-1).text, /300/);
+  assert.match(log.entries.at(-1).text, /Try 299 failed/);
 });
 
 test("folded: whole hidden lines are counted; a head cut inside a line says more", () => {
@@ -126,10 +126,9 @@ test("the sidebar says the state: off, connecting, on without an app, connected 
   const two = v({ state: "connected", mcp: { grants: [{ grantId: "g", client: { name: "", host: "claude.ai" } }, { grantId: "h", client: { name: "ChatGPT", host: "chatgpt.com" } }] } });
   assert.equal(two.entry, "2 AI apps are connected");
   assert.equal(v({ state: "connected", mcp: { grants: [{ grantId: "g", client: { name: "", host: "claude.ai" } }] } }).entry, "claude.ai is connected");
-  for (const state of ["disconnected", "connecting"]) {
-    const lost = v({ state, lost: true, error: "The relay restarted." });
-    assert.deepEqual([lost.entry, lost.dot, lost.actions], ["AI access lost · reconnecting…", "lost", "lost"]);
-  }
+  // The client's state while it connects again by itself (tab-mcp 0.16).
+  const lost = v({ state: "reconnecting", lost: true, error: "The relay restarted." });
+  assert.deepEqual([lost.entry, lost.dot, lost.actions], ["AI access lost · reconnecting…", "lost", "lost"]);
 });
 
 test("AI access hands the calls and the connection's events to its log, never the address or the pairing code", { timeout: 2000 }, async () => {
@@ -141,26 +140,23 @@ test("AI access hands the calls and the connection's events to its log, never th
       mcp = this;
       this.state = "disconnected";
       this.grants = [{ grantId: "g1", client: { id: CLIENT.id, name: "Claude", host: "claude.ai" } }];
-      this.address = "https://relay.example/a/abcdefsecret/mcp";
+      this.session = { address: "https://relay.example/a/abcdefsecret/mcp" };
       this.pairingCode = { code: "XKCD-4242", expiresAt: "" };
     }
     registerTool() { return Promise.resolve(); }
     connect() {
       const ok = outcomes.shift() ?? true;
       if (!ok) return Promise.reject(new Error("down"));
-      this.state = "connected";
       this.dispatchEvent(new CustomEvent("grantschange", { detail: { grants: this.grants } }));
-      this.dispatchEvent(new CustomEvent("connected", { detail: { address: this.address } }));
-      return Promise.resolve({});
+      this.state = "connected";
+      this.dispatchEvent(new CustomEvent("statechange", { detail: { state: "connected" } }));
+      return Promise.resolve(this.session);
     }
     disconnect() {
-      if (this.reconnecting) {
-        this.reconnecting = undefined;
-        this.dispatchEvent(new CustomEvent("reconnecting", { detail: null }));
-      }
+      this.reconnecting = undefined;
       if (this.state === "disconnected") return;
       this.state = "disconnected";
-      this.dispatchEvent(new CustomEvent("disconnected", { detail: { reason: "user", code: 1000 } }));
+      this.dispatchEvent(new CustomEvent("statechange", { detail: { state: "disconnected", reason: "user" } }));
     }
   }
   const ai = new AiAccess({ calculatorView: () => null, relay: "https://relay.example", storage: null, client: async () => ({ TabMcp: FakeTabMcp }), now: () => 0, hub: { running: () => false, client: () => null }, roms: { kept: async () => [], bytes: async () => null } });
@@ -174,11 +170,10 @@ test("AI access hands the calls and the connection's events to its log, never th
   mcp.dispatchEvent(new CustomEvent("grantschange", { detail: { grants: mcp.grants } }));
   mcp.dispatchEvent(new CustomEvent("toolcall", { detail: { id: 7, tool: "store_variable", title: "Store a variable", arguments: { name: "A", text: "1" }, client: CLIENT } }));
   mcp.dispatchEvent(new CustomEvent("toolcallend", { detail: { id: 7, tool: "store_variable", client: CLIENT, outcome: "ok", result: { content: [{ type: "text", text: '{"stored":true}' }] }, durationMs: 900 } }));
-  // The connection breaks; the client says it reconnects (its `reconnecting`).
-  mcp.state = "disconnected";
-  mcp.dispatchEvent(new CustomEvent("disconnected", { detail: { reason: "network", code: 1006 } }));
+  // The connection breaks; the client reconnects (tab-mcp 0.16: state `reconnecting`, with the reason).
+  mcp.state = "reconnecting";
   mcp.reconnecting = { reason: "network", attempt: 1, at: 5000 };
-  mcp.dispatchEvent(new CustomEvent("reconnecting", { detail: mcp.reconnecting }));
+  mcp.dispatchEvent(new CustomEvent("statechange", { detail: { state: "reconnecting", reason: "network" } }));
   ai.disconnect();
   const lines = ai.log.entries.map((e) => (e.kind === "event" ? e.text : `${e.app} ${e.title} ${e.outcome} ${e.asks}`));
   assert.deepEqual(lines, [
