@@ -9,7 +9,7 @@
 # Then:   satx lx --port tcp://localhost:4853 ls
 
 # The base image pinned by digest, the same as tools/saturnng-oracle's.
-FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS build
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS build
 # The author's page lists v0.3 as bsdfil03.lzh; the checksum is that of
 # the archive fetched on 2026-11-08.
 ARG BSDFILER_URL=http://vvvvvv.wheel.gr.jp/~dai/software/bsdfil03.lzh
@@ -30,7 +30,7 @@ RUN curl -fsSL "$BSDFILER_URL" -o bsdfil03.lzh \
     && gcc -std=gnu89 -w -O2 -include sys/vfs.h -o /usr/local/bin/bsdfiler ./*.c \
     && test -x /usr/local/bin/bsdfiler
 
-FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       socat procps \
     && rm -rf /var/lib/apt/lists/*
