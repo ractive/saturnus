@@ -12,7 +12,9 @@
 // and web/test/ai-local.test.mjs checks that both paths list the same.
 //
 // What tab-mcp's client does around a call, done here the same way (its
-// client exports no local entry, so saturnus does it itself): the tool
+// relay-less `serve` of 0.15 answers the relay's `http.*` messages on a
+// port, which the app's endpoint does not send, and never offers "Always
+// allow" to its `local` caller, so saturnus does it itself): the tool
 // list in MCP's shape (`listTools`, tab-mcp's annotation mapping), the
 // arguments checked against the tool's schema (`validate`), the
 // confirmation of a consequential tool in tab-mcp's own dialog (its
@@ -35,7 +37,7 @@ import { AiLog } from "./ai-log.js";
 import { keepsRunning, screenPng, settingLook } from "./ai.js";
 
 /** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its UI chunk's `confirmInPage`). */
-export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-5zecjy7s.min.js";
+export const CONFIRM_MODULE = "./vendor/tab-mcp-client/ui-2nv84ry7.min.js";
 
 /**
  * What the client's `confirmInPage` takes for the `TabMcp` (tab-mcp 0.8:
@@ -472,7 +474,8 @@ export class LocalAiAccess extends EventTarget {
     const name = clientName || "AI app";
     // A name only guessed (User-Agent, the default) is no key for "Always allow": its grant is its own.
     // `kind: "relay"`: tab-mcp 0.13's confirmation treats any other client as WebMCP's (no "Always
-    // allow", its own wording); the app's endpoint stands in for the relay here.
+    // allow", its own wording), and so does 0.15's for its `kind: "local"`; the app's endpoint stands
+    // in for the relay here.
     const client = { kind: "relay", grantId: stable ? name : `?${name}`, id: "local", name, host: HERE, stable };
     const controller = new AbortController();
     this.running.set(id, controller);
