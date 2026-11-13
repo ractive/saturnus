@@ -85,8 +85,8 @@ wasm: web
 # change both values here, run it, point web/ai-local.js's CONFIRM_MODULE
 # at the new ui-*.min.js (web/test/vendor.test.mjs checks it), commit the
 # files and vendor.json.
-tab_mcp_client_version := "0.14.0"
-tab_mcp_client_integrity := "sha512-PPMG/3E3MtZVXeF+0hdihPRSVcbreG0YpPH9kqn0HGayuWRbRCWhR+/MeQZwq17Ks0eLCmWcZuSe73mlAN9ukA=="
+tab_mcp_client_version := "0.15.0"
+tab_mcp_client_integrity := "sha512-RC7pq4g86+3109FNmrTvnI8SsUyPBdOiTV/Orw6jBaOpL9Oxi6vt8k94+18Rb1JC7q+QwiIxDMVieEkDnzyCJg=="
 
 vendor-tab-mcp:
     scripts/vendor-tab-mcp-client.sh --from-npm "{{tab_mcp_client_version}}" --integrity "{{tab_mcp_client_integrity}}"

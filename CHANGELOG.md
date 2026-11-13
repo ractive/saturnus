@@ -49,6 +49,8 @@ the desktop app and the web page share one version.
 - tab-mcp client 0.14.0. Nothing changes for you: saturnus's question
   is answered with Allow or Don't allow, and The AI's calls would show
   "not answered" for a question nobody answered.
+- tab-mcp client 0.15.0. Nothing changes for you: its new way to offer
+  the tools without a relay (to a site's own assistant) is not used.
 
 ## 0.11.0 (2026-11-09)
 
