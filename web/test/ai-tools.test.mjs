@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { aiTools, familyOf, INSTRUCTIONS, pixelRows } from "../ai-tools.js";
 import { buildIndex } from "../reference.js";
+import { validate } from "../ai-local.js";
 
 const data = JSON.parse(readFileSync(new URL("../commands.json", import.meta.url), "utf8"));
 const reference = { index: async (m) => buildIndex(data, m) };
@@ -218,7 +219,7 @@ test("run_rpl on the 28S refuses while a command line is open; read_display show
 test("the memory tools: reads, a store with its compile error, a purge; the dir; refused off the 48/49", async () => {
   const c = fake("48gx", {
     stack: [{ type: "program", source: "« 1 + »", text: "« 1 + »" }, { type: "real", value: 2, text: "2" }],
-    memoryTree: { path: ["HOME", "A"], variables: [{ name: "A", type: "Directory", size: 30, variables: [{ name: "P", type: "Program", size: 12.5 }] }] },
+    memoryTree: { path: ["HOME", "A"], variables: [{ name: "A", type: "Directory", size: 30.5, variables: [{ name: "P", type: "Program", size: 12.5 }] }] },
     editText: { text: "« 1 + »", was: "1:2" },
     storeText: (m) => (m.text.includes("«") && !m.text.includes("»") ? { error: "Invalid Syntax" } : {}),
     purge: {},
@@ -228,6 +229,8 @@ test("the memory tools: reads, a store with its compile error, a purge; the dir;
   const vars = await call(t.list_variables);
   assert.deepEqual(vars.current, ["HOME", "A"]);
   assert.deepEqual(vars.home[0].variables[0], { name: "P", type: "Program", size: 12.5 });
+  // What the tool returns fits its outputSchema, which tab-mcp 0.16 lists to AI apps, whose MCP clients check it.
+  assert.deepEqual(validate(t.list_variables.outputSchema, vars), []);
   assert.equal((await call(t.read_variable, { name: "P" })).text, "« 1 + »");
   assert.deepEqual(c.calls.find(([cmd]) => cmd === "editText")[1], { dir: ["HOME", "A"], name: "P" });
   assert.deepEqual(await call(t.store_variable, { name: "Q", text: "« 2 *", dir: ["B"] }), { calculator: "48gx", stored: false, error: "Invalid Syntax" });

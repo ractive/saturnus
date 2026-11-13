@@ -78,8 +78,8 @@ export function noteText(d) {
     case "connected": return `Connected to the relay ${d.host}`.trim();
     case "listening": return `AI access on at ${d.address}`.trim();
     case "lost": return `Connection lost. ${d.text ?? ""}`.trim();
-    case "retrying": return `Retrying to connect… (attempt ${d.attempt})`;
-    case "wait": return `Next try in ${d.seconds} s`;
+    // Each attempt the client schedules (tab-mcp 0.16 says nothing when one starts): after the first, the one before failed.
+    case "wait": return d.attempt > 1 ? `Try ${d.attempt - 1} failed. Next try in ${d.seconds} s` : `Next try in ${d.seconds} s`;
     case "paired": return `${d.app} connected`;
     case "unpaired": return `${d.app} disconnected`;
     case "off": return "AI access turned off";

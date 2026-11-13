@@ -1093,8 +1093,9 @@ through the relay while the tab is open. Nothing is installed.
   the user types it on the relay's sign-in page) in a box like a display
   (`--display`, one width whether a code is there or not, so nothing
   moves when it changes; one click selects it) with Copy code; the
-  connected apps as card rows, each with Disconnect; the notes; **Keep
-  AI access on** (connect again when the app opens, kept as
+  connected apps as card rows, each with Disconnect (the client's
+  `revoke()`, a promise since tab-mcp 0.16: a refusal or no answer is
+  said in the status line); the notes; **Keep AI access on** (connect again when the app opens, kept as
   `saturnus.aiKeepOn`); Turn off, and Connect or Done, whichever shows,
   as the one primary button. New address (the apps of the old one lose
   access) is a link under the address. While the connection is lost
@@ -1103,7 +1104,7 @@ through the relay while the tab is open. Nothing is installed.
   AI access is off. While AI access is on and no app is connected, Done
   and the backdrop do not close it, since closing ends the pairing code;
   a line says so, with Close anyway (Esc closes too). When another tab
-  takes the address (tab-mcp's `replaced`, after `disconnected`, with
+  takes the address (tab-mcp's `replaced`, after the `statechange` to `disconnected`, with
   `sibling`): a tab of this page in this browser gets the line "Opened in
   another tab", anything else (a tab elsewhere, a program with the
   address's secret) the warning that another tab or program took over
@@ -1131,18 +1132,19 @@ through the relay while the tab is open. Nothing is installed.
   back, the user turns it off, or an attempt is refused (the relay
   refused the address or its limits). Not after `replaced` (another tab
   took over), `expired` or `idle`. `ai.js` only shows it: `lost` on
-  `AiAccess` is the client's `reconnecting`; its `reconnecting` event
-  gives the log's "Next try in n s" and the error (why it was lost), a
-  `statechange` to `connecting` while reconnecting its "Retrying to
-  connect… (attempt n)". A refused attempt the client made by itself
-  says why in its `error`, just before the event's `null` (0.5.1); one
-  that Connect made or joined rejects that connect. Either way the
-  dialog shows the relay's words. Connect while lost makes the next
-  attempt at once, or joins the one running.
+  `AiAccess` is the client's state `reconnecting` (tab-mcp 0.16); each
+  `statechange` to it (one per attempt the client schedules) gives the
+  log's "Next try in n s" ("Try n failed. Next try in n s" after the
+  first) and the error (why it was lost). The client says nothing when
+  an attempt starts. A refused attempt stops it: the client's `error`
+  (with the state already `disconnected`), then the `statechange` to
+  `disconnected`; one that Connect made or joined also rejects that
+  connect. Either way the dialog shows the relay's words. Connect while
+  lost makes the next attempt at once, or joins the one running.
 - **The AI's calls** (`ai-log.js`): `AiLog`, made with `AiAccess`, keeps
   the last 200 tool calls (the client's `toolcall` and `toolcallend`:
   app, tool title, arguments, outcome, result, duration) and the
-  connection's events (connected, lost, each wait and attempt of the reconnecting, apps paired and
+  connection's events (connected, lost, each wait of the reconnecting, apps paired and
   gone, turned off) in memory only; never the address, a token or a
   pairing code. `AiLogView` is the drawer `#ai-log` (the packets' look,
   green on black; beside the calculator in the stage's right part when
@@ -1163,12 +1165,15 @@ through the relay while the tab is open. Nothing is installed.
   TAB_MCP_STORE=memory NODE_ENV=development bun packages/tab-mcp/src/main.ts`
   in the tab-mcp checkout (or its Docker image). Without a relay nothing
   of it loads.
-- **The client** is tab-mcp's browser library (0.15.0), vendored in
+- **The client** is tab-mcp's browser library (0.16.1), vendored in
   `vendor/tab-mcp-client/` (its self-contained build, with
   `vendor.json`: source, version, SHA-256s) by `just vendor-tab-mcp`
   (`scripts/vendor-tab-mcp-client.sh`: the npm package, its version and
-  integrity pinned in the justfile; `just vendor-tab-mcp-local` for a
-  local tab-mcp build) and loaded with `import()`
+  integrity pinned in the justfile, and `CONFIRM_MODULE` in `ai-local.js`
+  pointed at the confirmation chunk; `just vendor-tab-mcp-version X.Y.Z`
+  pins another version with the registry's integrity and takes it;
+  `just vendor-tab-mcp-local` for a local tab-mcp build) and loaded with
+  `import()`
   only when AI access is used; the service worker precaches it with the
   page. The address secret is kept per relay (`saturnus.aiSecret:<relay
   origin>`, the client's `storageKey`, so 0.5's own per-page key is

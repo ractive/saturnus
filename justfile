@@ -81,15 +81,20 @@ wasm: web
 
 # tab-mcp's browser library for "Connect your AI tool" (iteration 55),
 # copied into web/vendor/tab-mcp-client/ (committed) from the published npm
-# package, its tarball checked against the pinned integrity. A new version:
-# change both values here, run it, point web/ai-local.js's CONFIRM_MODULE
-# at the new ui-*.min.js (web/test/vendor.test.mjs checks it), commit the
-# files and vendor.json.
-tab_mcp_client_version := "0.15.0"
-tab_mcp_client_integrity := "sha512-RC7pq4g86+3109FNmrTvnI8SsUyPBdOiTV/Orw6jBaOpL9Oxi6vt8k94+18Rb1JC7q+QwiIxDMVieEkDnzyCJg=="
+# package, its tarball checked against the pinned integrity. It also points
+# web/ai-local.js's CONFIRM_MODULE at the new confirm-*.min.js
+# (web/test/vendor.test.mjs checks it). A new version: `just
+# vendor-tab-mcp-version X.Y.Z` pins it here with the registry's integrity
+# and takes it; then run the web tests and commit the files, vendor.json,
+# web/ai-local.js and the justfile.
+tab_mcp_client_version := "0.16.1"
+tab_mcp_client_integrity := "sha512-7kjWjmoQmWjMbTj/mKsSCm8/AZ6HaPfT5HFkLULB2iiqErmcJU5r/Y+0xWBQJy7U6ArRdTht5lX+RBpqR2NkBQ=="
 
 vendor-tab-mcp:
     scripts/vendor-tab-mcp-client.sh --from-npm "{{tab_mcp_client_version}}" --integrity "{{tab_mcp_client_integrity}}"
+
+vendor-tab-mcp-version version:
+    scripts/vendor-tab-mcp-client.sh --from-npm "{{version}}" --pin
 
 # The same from a local tab-mcp checkout's build, for development against
 # changes not yet published (vendor.json then names the commit).

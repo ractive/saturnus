@@ -1,12 +1,15 @@
 {
   "package": "@ractive-ch/tab-mcp-client",
-  "version": "0.15.0",
+  "version": "0.16.1",
   "license": "MIT (tab-mcp; @cfworker/json-schema, MIT, inlined)",
-  "source": {"kind": "npm", "package": "@ractive-ch/tab-mcp-client", "integrity": "sha512-RC7pq4g86+3109FNmrTvnI8SsUyPBdOiTV/Orw6jBaOpL9Oxi6vt8k94+18Rb1JC7q+QwiIxDMVieEkDnzyCJg=="},
+  "source": {"kind": "npm", "package": "@ractive-ch/tab-mcp-client", "integrity": "sha512-7kjWjmoQmWjMbTj/mKsSCm8/AZ6HaPfT5HFkLULB2iiqErmcJU5r/Y+0xWBQJy7U6ArRdTht5lX+RBpqR2NkBQ=="},
   "entry": "tab-mcp-client.min.js",
   "files": {
-    "connection-hgt931xk.min.js": "1e5e4490b40c8467d4c533ba61f332db910f363df5c424f53bea583a246ca1ca",
-    "tab-mcp-client.min.js": "1cd7152b91d0d406904bafec7f3da47b9ffa254c599dd69692a69a19d55ed2ee",
-    "ui-2nv84ry7.min.js": "3bacefd6ce34585bb3eed3cc87232ace1ebdac35c2909934ba899dc3d74a452d"
+    "confirm-y30cx7e1.min.js": "124d3e3a266083a8687310c78641e0e8428d6f8eadd4fc9c16cde2310799fd2d",
+    "connect-bbhj2y7w.min.js": "69780c2b191158fcaf0e7571c2805512806325cb3172fa24c7fc71aa54b64933",
+    "connection-w97tf22a.min.js": "2cf099a9c95ec9eef96baf132b4c03229c682c81f24db10597c4002808b07234",
+    "index-vt5zk9me.min.js": "fac4e90bbcd15a7624779385abe0e9dab6863f6a8534723aaa84a9e4b972bc5a",
+    "tab-mcp-client.min.js": "eeba8f20bcce08748cc1daf6cd7f926d844623df98a9d9d5e77d3e99041c3123",
+    "webmcp-khy4f5rj.min.js": "3c19fb18ce1bbb8ecf802c4af064e66312c984b3798539ba5f0f2bbcd598433c"
   }
 }

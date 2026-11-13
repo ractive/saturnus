@@ -117,12 +117,12 @@ pub const OFF: &str = "AI access is off in the saturnus app.";
 /// whether it is `stable`, taken from what the app declared in its
 /// requests (`clientInfo`, or the legacy session this server issued it).
 /// A name guessed from the `User-Agent`, or the "AI app" default, is not:
-/// different apps may share it, so "Always allow" is not offered for it.
+/// different apps may share it, so "Allow until reload" is not offered for it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Client {
     /// The name shown.
     pub name: String,
-    /// Whether the name may key "Always allow".
+    /// Whether the name may key "Allow until reload".
     pub stable: bool,
 }
 

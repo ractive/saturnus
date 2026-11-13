@@ -151,12 +151,14 @@ export async function openAiDialog(ai, doc = document) {
   // itself, the address stays) the steps stay, dimmed, with it, so the user can go
   // on copying; they go only when AI access is off.
   let lastAddress = "";
+  /** The apps whose Disconnect is under way, by grant id. */
+  const revoking = new Set();
   const render = () => {
     const state = ai.state;
     const mcp = ai.mcp;
     const on = state === "connected";
     const lost = !on && ai.lost;
-    if (on) lastAddress = mcp.address;
+    if (on) lastAddress = mcp.session?.address ?? "";
     address.value = on || lost ? lastAddress : "";
     addStep.hidden = !on && !lost;
     codeStep.hidden = !on && !lost;
@@ -186,18 +188,24 @@ export async function openAiDialog(ai, doc = document) {
     const grants = on ? mcp.grants : [];
     apps.replaceChildren(...grants.map((g) => {
       const b = el("button", { type: "button", class: "small", text: "Disconnect", "aria-label": `Disconnect ${g.client.name || g.client.host}` });
+      // Off while its request runs (up to 15 s), across renders: one grant.revoke per click.
+      b.disabled = revoking.has(g.grantId);
       b.addEventListener("click", () => {
-        if (!ai.revoke(g.grantId)) {
-          ai.error = "Connect again first: only a connected tab can disconnect an app.";
+        revoking.add(g.grantId);
+        render();
+        // The row goes with the relay's grantschange; a refusal is said in the status (ai.js `revoke`).
+        ai.revoke(g.grantId).catch(() => {}).finally(() => {
+          revoking.delete(g.grantId);
           render();
-        }
+        });
       });
       return appRow(g.client.name || g.client.host, g.client.host, b);
     }));
     appsNote.textContent = grants.length ? "" : "No AI app is connected yet.";
     appsNote.hidden = grants.length > 0;
     keep.checked = ai.keepOn;
-    connect.hidden = state !== "disconnected" || taken;
+    // While lost too: Connect makes the client's next attempt at once.
+    connect.hidden = (state !== "disconnected" && state !== "reconnecting") || taken;
     off.hidden = state === "disconnected" && !ai.lost;
     fresh.hidden = !on;
     waiting = on && grants.length === 0;

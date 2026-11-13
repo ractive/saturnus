@@ -56,8 +56,8 @@ const SIDEBAR = `(() => {
 
 /** Play a state into AI access: the client's state and apps, then `change`. */
 const STATE = (state, grants, lost = false) => `window.saturnusApp.ai.then((a) => {
-  // Lost: the client reconnecting by itself (its \`reconnecting\`), until Turn off stops it.
-  a.mcp = { state: ${JSON.stringify(state)}, grants: ${JSON.stringify(grants)}, reconnecting: ${lost ? '{ reason: "shutdown", attempt: 1, at: Date.now() + 5000 }' : "undefined"}, disconnect() { this.reconnecting = undefined; }, startPairing() {}, stopPairing() {} };
+  // Lost: the client reconnecting by itself (its state \`reconnecting\`, tab-mcp 0.16), until Turn off stops it.
+  a.mcp = { state: ${JSON.stringify(state)}, grants: ${JSON.stringify(grants)}, reconnecting: ${lost ? '{ reason: "shutdown", attempt: 1, at: Date.now() + 5000 }' : "undefined"}, disconnect() { this.state = "disconnected"; this.reconnecting = undefined; }, startPairing() {}, stopPairing() {} };
   a.error = ${lost ? JSON.stringify("The relay restarted.") : "null"};
   a.changed();
   return true;
@@ -155,7 +155,7 @@ test("the sidebar says AI access's state; Calls opens the AI's calls, which foll
   assert.equal(await ev("document.querySelectorAll('#ai-log .al-entry.bad').length"), 2, "the error and the loss in red");
 
   // Lost: the warning dot, Calls and Turn off; Turn off ends it.
-  await ev(STATE("disconnected", [], true));
+  await ev(STATE("reconnecting", [], true));
   const lost = await ev(SIDEBAR);
   assert.equal(lost.entry, "AI access lost · reconnecting…");
   assert.equal(lost.line, "Calls · Turn off");

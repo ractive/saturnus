@@ -1,7 +1,7 @@
 // AI access in the desktop app (web/ai-local.js, iteration 58) with a
 // fake Tauri bridge: what the window attaches, the tool list and calls it
 // answers for the app's endpoint (mcp-call / mcp_reply), the confirmation
-// with "Always allow", declined and cancelled calls, the AI's calls
+// with "Allow until reload", declined and cancelled calls, the AI's calls
 // (toolcall / toolcallend), and the setting.
 //
 // And the owner's rule that the browser and the desktop app offer the same
@@ -10,7 +10,7 @@
 // tab-mcp.v1), lists and answers exactly what ai-local.js does.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CALL_LIMIT_MS, CONFIRM_LIMIT_MS, LocalAiAccess, invalidArguments, listTools, mapAnnotations, toCallToolResult, validate } from "../ai-local.js";
+import { CALL_LIMIT_MS, CONFIRM_LIMIT_MS, CONFIRMED_IN_APP, LocalAiAccess, invalidArguments, listTools, mapAnnotations, toCallToolResult, validate } from "../ai-local.js";
 import { AiAccess, screenPng } from "../ai.js";
 import { aiTools, INSTRUCTIONS } from "../ai-tools.js";
 
@@ -76,10 +76,10 @@ function fakeView() {
 
 /**
  * A confirmation that answers `answer` and counts the questions: the UI
- * chunk's `confirmInPage` (tab-mcp 0.8), which keeps "Always allow" per
+ * chunk's `confirmInPage` (tab-mcp 0.8), which keeps "Allow until reload" per
  * host for a grant the host has, until the host's `grantschange` drops it.
  * As tab-mcp 0.13's, it asks a client whose `kind` is not "relay" as
- * WebMCP's: no "Always allow", nothing remembered.
+ * WebMCP's: no "Allow until reload", nothing remembered.
  */
 function fakeConfirm(answer) {
   const asked = [];
@@ -151,7 +151,7 @@ test("tools/list and tools/call through the bridge, with the AI's calls", async 
   assert.match(other.error, /not served/);
 });
 
-test("a consequential tool asks first; Always allow stops asking for that app and tool", async () => {
+test("a consequential tool asks first; Allow until reload stops asking for that app and tool", async () => {
   const { ai, tauri, confirm } = await loaded({ answer: "always", status: { running: true, enabled: true } });
   const store = { name: "store_variable", arguments: { name: "X", text: "1" } };
   await tauri.call(1, "tools/call", store, "Cursor");
@@ -159,7 +159,7 @@ test("a consequential tool asks first; Always allow stops asking for that app an
   assert.equal(confirm.asked[0].client.name, "Cursor");
   assert.equal(confirm.asked[0].client.host, "this computer");
   assert.equal(confirm.asked[0].tool.title, "Store a variable");
-  assert.equal(confirm.asked[0].options.alwaysAllow, true, "a named app is offered Always allow (tab-mcp 0.8: opt-in)");
+  assert.equal(confirm.asked[0].options.alwaysAllow, true, "a named app is offered Allow until reload (tab-mcp 0.8: opt-in)");
   await tauri.call(2, "tools/call", store, "Cursor");
   assert.equal(confirm.asked.length, 1, "always allowed for Cursor");
   await tauri.call(3, "tools/call", store, "Claude Code");
@@ -171,14 +171,14 @@ test("a consequential tool asks first; Always allow stops asking for that app an
   assert.equal(confirm.asked.length, 3);
 });
 
-test("an AI app named only by its User-Agent is asked every time, without Always allow", async () => {
+test("an AI app named only by its User-Agent is asked every time, without Allow until reload", async () => {
   const { tauri, confirm } = await loaded({ answer: "always", status: { running: true, enabled: true } });
   const store = { name: "store_variable", arguments: { name: "X", text: "1" } };
   await tauri.call(1, "tools/call", store, "node", false);
   await tauri.call(2, "tools/call", store, "node", false);
   assert.equal(confirm.asked.length, 2, "asked again");
   assert.equal(confirm.asked[0].client.stable, false);
-  assert.equal(confirm.asked[0].options.alwaysAllow, false, "no Always allow in the dialog");
+  assert.equal(confirm.asked[0].options.alwaysAllow, false, "no Allow until reload in the dialog");
   // A stable app of the same name gets no grant from it either.
   await tauri.call(3, "tools/call", store, "node", true);
   assert.equal(confirm.asked.length, 3);
@@ -266,6 +266,16 @@ test("MCP's shape of tools and results, as tab-mcp's client makes it", () => {
   assert.deepEqual(validate({ type: "array", items: { type: "string" }, minItems: 1 }, []), ["/ must have at least 1 items"]);
   assert.equal(invalidArguments({ name: "t", inputSchema: { type: "object", properties: { s: { type: "string", maxLength: 2 } } } }, { s: "«»" }), undefined, "characters, not UTF-16 units");
   assert.equal(listTools([{ name: "x", description: "d", execute() {} }])[0].inputSchema.type, "object");
+  // tab-mcp 0.16: only an MCP result passes through; data with a `content` array is JSON text.
+  const mcpResult = { content: [{ type: "text", text: "ok" }], isError: false };
+  assert.equal(toCallToolResult(mcpResult), mcpResult);
+  assert.deepEqual(toCallToolResult({ title: "t", content: [] }), { content: [{ type: "text", text: '{"title":"t","content":[]}' }], structuredContent: { title: "t", content: [] } });
+  assert.deepEqual(toCallToolResult({ content: ["a"] }).structuredContent, { content: ["a"] });
+  assert.equal(toCallToolResult(new Date(0)).structuredContent, undefined, "a Date's JSON is a string");
+  // The consequential tool's description says where it is asked (the app's window, not tab-mcp's browser tab); outputSchema listed.
+  const [asks] = listTools([{ name: "s", description: "Stores.", outputSchema: { type: "object" }, annotations: { consequentialHint: true }, execute() {} }]);
+  assert.equal(asks.description, "Stores. The app may ask the user to allow each call, in the saturnus window.");
+  assert.deepEqual(asks.outputSchema, { type: "object" });
 });
 
 // --- The same tools in the browser and the desktop app.
@@ -357,7 +367,10 @@ test("the browser (tab-mcp) and the desktop app offer exactly the same tools, sc
     const webList = (await relay.mcp("tools/list")).result.tools;
     const desktopList = (await tauri.call(1, "tools/list", {})).result.tools;
     assert.ok(webList.length >= 10);
-    assert.deepEqual(desktopList, webList);
+    // The one difference: where a consequential tool asks (the app's window; the library says a browser tab).
+    const inTab = (d) => d.replace(CONFIRMED_IN_APP, "The page may ask the user to allow each call, usually in the page's browser tab.");
+    assert.deepEqual(desktopList.map((t) => ({ ...t, description: inTab(t.description) })), webList);
+    assert.ok(desktopList.some((t) => t.description.endsWith(CONFIRMED_IN_APP)));
 
     const discover = (await relay.mcp("server/discover")).result;
     const attach = tauri.calls.find(([c]) => c === "mcp_attach")[1];
@@ -368,7 +381,9 @@ test("the browser (tab-mcp) and the desktop app offer exactly the same tools, sc
     const webCall = (await relay.mcp("tools/call", call)).result;
     const desktopCall = (await tauri.call(2, "tools/call", call)).result;
     delete webCall.resultType;
-    delete webCall._meta;
+    // The relay's own `_meta` (serverInfo) aside; the mark of an untrusted result (tab-mcp 0.16) the same both ways.
+    webCall._meta = { "ch.ractive.tab-mcp/annotations": webCall._meta["ch.ractive.tab-mcp/annotations"] };
+    assert.deepEqual(webCall._meta["ch.ractive.tab-mcp/annotations"], { untrustedContentHint: true });
     assert.deepEqual(desktopCall, webCall);
     const bad = { name: "read_stack", arguments: { levels: 0 } };
     const webBad = (await relay.mcp("tools/call", bad)).result;
