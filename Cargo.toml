@@ -24,7 +24,6 @@ saturnus-core = { path = "crates/saturnus-core", version = "0.11.0" }
 saturnus-objects = { path = "crates/saturnus-objects", version = "0.11.0" }
 saturnus-host = { path = "crates/saturnus-host", version = "0.11.0" }
 saturnus-drive = { path = "crates/saturnus-drive", version = "0.11.0" }
-saturnus-web = { path = "crates/saturnus-web", version = "0.11.0" }
 saturnus-kermit = { path = "crates/saturnus-kermit" }
 kermit-proto = { path = "crates/kermit-proto", version = "0.11.0" }
 xmodem-proto = { path = "crates/xmodem-proto", version = "0.11.0" }

@@ -5055,3 +5055,24 @@ saturnus".
 - **tab-mcp and the desktop app unchanged**: AI apps outside the
   browser (through the relay) and the desktop app's local AI access
   still ask in the page before `store_variable` and `purge_variable`.
+
+## 2026-11-12 (Rust 1.100; release-workflows v0.5.0: aarch64 Linux packages)
+
+- **Rust 1.100's clippy** lints were fixed on main by PR 278
+  (`needless_range_loop`; the two display renderers keep their index
+  loops under `#[allow]` with the reason).
+- **`saturnus-web` is no longer a workspace dependency**: no crate
+  depends on it (it is the cdylib the page loads), and Cargo 1.100 warns
+  on an unused one. A version bump has one `version` fewer to change.
+- **release-workflows v0.5.0** (from v0.3.2): v0.4.0 builds the .deb and
+  .rpm for aarch64 as well, natively on `ubuntu-24.04-arm`, and attests
+  the cross-compiled archives; v0.5.0 attests the packages. No input
+  changed. The musl swap in `pre-package-command` built
+  `x86_64-unknown-linux-musl` unconditionally, which in the new aarch64
+  job would have put an x86_64 binary in the arm64 package: it now builds
+  the musl twin of the job's `TARGET` (`<arch>-unknown-linux-gnu`), fails
+  on a `TARGET` it does not know, and checks with `file` that the binary
+  is static and of that architecture. Dry run 43327234948: the aarch64
+  .deb of saturnus and of satx is `Architecture: arm64` with no
+  `Depends`, its binary `ARM aarch64, statically linked`; the .rpm
+  `aarch64` (kb/docs/releasing.md, "Linux packages").
