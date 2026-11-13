@@ -10,7 +10,7 @@
 // tab-mcp.v1), lists and answers exactly what ai-local.js does.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CALL_LIMIT_MS, CONFIRM_LIMIT_MS, LocalAiAccess, invalidArguments, listTools, mapAnnotations, toCallToolResult, validate } from "../ai-local.js";
+import { CALL_LIMIT_MS, CONFIRM_LIMIT_MS, CONFIRMED_IN_APP, LocalAiAccess, invalidArguments, listTools, mapAnnotations, toCallToolResult, validate } from "../ai-local.js";
 import { AiAccess, screenPng } from "../ai.js";
 import { aiTools, INSTRUCTIONS } from "../ai-tools.js";
 
@@ -272,9 +272,9 @@ test("MCP's shape of tools and results, as tab-mcp's client makes it", () => {
   assert.deepEqual(toCallToolResult({ title: "t", content: [] }), { content: [{ type: "text", text: '{"title":"t","content":[]}' }], structuredContent: { title: "t", content: [] } });
   assert.deepEqual(toCallToolResult({ content: ["a"] }).structuredContent, { content: ["a"] });
   assert.equal(toCallToolResult(new Date(0)).structuredContent, undefined, "a Date's JSON is a string");
-  // The consequential tool's description says where it is asked; outputSchema listed.
+  // The consequential tool's description says where it is asked (the app's window, not tab-mcp's browser tab); outputSchema listed.
   const [asks] = listTools([{ name: "s", description: "Stores.", outputSchema: { type: "object" }, annotations: { consequentialHint: true }, execute() {} }]);
-  assert.equal(asks.description, "Stores. The page may ask the user to allow each call, usually in the page's browser tab.");
+  assert.equal(asks.description, "Stores. The app may ask the user to allow each call, in the saturnus window.");
   assert.deepEqual(asks.outputSchema, { type: "object" });
 });
 
@@ -367,7 +367,10 @@ test("the browser (tab-mcp) and the desktop app offer exactly the same tools, sc
     const webList = (await relay.mcp("tools/list")).result.tools;
     const desktopList = (await tauri.call(1, "tools/list", {})).result.tools;
     assert.ok(webList.length >= 10);
-    assert.deepEqual(desktopList, webList);
+    // The one difference: where a consequential tool asks (the app's window; the library says a browser tab).
+    const inTab = (d) => d.replace(CONFIRMED_IN_APP, "The page may ask the user to allow each call, usually in the page's browser tab.");
+    assert.deepEqual(desktopList.map((t) => ({ ...t, description: inTab(t.description) })), webList);
+    assert.ok(desktopList.some((t) => t.description.endsWith(CONFIRMED_IN_APP)));
 
     const discover = (await relay.mcp("server/discover")).result;
     const attach = tauri.calls.find(([c]) => c === "mcp_attach")[1];

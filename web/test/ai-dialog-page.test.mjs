@@ -148,11 +148,15 @@ test("the browser dialog: Done waits for an AI app, the code has Copy, Codex get
   assert.equal(d.code, null, "no code: the box stays, empty");
   assert.deepEqual(d.codeBox, emptyBox);
   assert.deepEqual(await ev(`[...document.querySelectorAll("dialog.ai .ai-apps li")].map((li) => [li.querySelector(".row-title").textContent, li.querySelector(".row-sub").textContent.trim(), li.querySelector("button").getAttribute("aria-label")])`), [["Codex", "chatgpt.com", "Disconnect Codex"]]);
-  // Disconnect is a promise (tab-mcp 0.16): a refusal shows its words (ai.js `revokeText`).
-  await ev(`window.t.ai.revoke = async (id) => { window.t.revoked = id; throw new Error("The relay could not save this. Try again."); }, document.querySelector("dialog.ai .ai-apps li button").click(), true`);
+  // Disconnect is a promise (tab-mcp 0.16): its button stays off while it runs, also across renders;
+  // a refusal shows the words AI access puts in `error` (ai.js `revoke`).
+  await ev(`window.t.ai.revoke = (id) => { window.t.revoked = id; return new Promise((_, reject) => { window.t.refuse = () => { window.t.ai.error = "The relay could not save this. Try again."; window.t.ai.changed(); reject(new Error(window.t.ai.error)); }; }); }, document.querySelector("dialog.ai .ai-apps li button").click(), window.t.ai.changed(), true`);
+  assert.equal(await ev(`window.t.revoked`), "g1");
+  assert.equal(await ev(`document.querySelector("dialog.ai .ai-apps li button").disabled`), true, "off while it runs");
+  await ev(`window.t.refuse(), true`);
   d = await until(ev, `(${DIALOG})?.status[0] === "error" && (${DIALOG})`, "the refusal said");
   assert.equal(d.status[1], "The relay could not save this. Try again.");
-  assert.equal(await ev(`window.t.revoked`), "g1");
+  await until(ev, `document.querySelector("dialog.ai .ai-apps li button").disabled === false`, "Disconnect usable again");
   await click("Done");
   await until(ev, `window.t.done === true`, "closed by Done");
 });

@@ -95,16 +95,21 @@ export function mapAnnotations(hints = {}) {
   return out;
 }
 
-/** After the description of a consequential tool in `tools/list` (tab-mcp 0.16 `CONFIRMED_IN_TAB`). */
-export const CONFIRMED_IN_TAB = "The page may ask the user to allow each call, usually in the page's browser tab.";
+/**
+ * After the description of a consequential tool in the desktop app's
+ * `tools/list`, where tab-mcp 0.16 puts its `CONFIRMED_IN_TAB` ("…
+ * usually in the page's browser tab"): here the question is in the
+ * app's window, not a browser tab.
+ */
+export const CONFIRMED_IN_APP = "The app may ask the user to allow each call, in the saturnus window.";
 
-/** The tools as `tools/list` gives them. */
+/** The tools as the desktop app's `tools/list` gives them. */
 export function listTools(tools) {
   return tools.map((tool) => {
     const entry = { name: tool.name };
     if (tool.title !== undefined) entry.title = tool.title;
     // The AI app waits while the user is asked: it can tell the user where.
-    entry.description = tool.annotations?.consequentialHint === true ? `${tool.description} ${CONFIRMED_IN_TAB}` : tool.description;
+    entry.description = tool.annotations?.consequentialHint === true ? `${tool.description} ${CONFIRMED_IN_APP}` : tool.description;
     entry.inputSchema = JSON.parse(JSON.stringify(tool.inputSchema ?? { type: "object" }));
     if (tool.outputSchema !== undefined) entry.outputSchema = JSON.parse(JSON.stringify(tool.outputSchema));
     const hints = {};

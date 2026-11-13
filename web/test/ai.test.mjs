@@ -444,6 +444,13 @@ test("Disconnect of an AI app: the client's promise (tab-mcp 0.16), a refusal in
   await assert.rejects(ai.revoke("g1"), { message: "The relay did not answer. Try again." });
   answer = Promise.reject(Object.assign(new Error("unknown grant"), { code: "unknown_id" }));
   await assert.rejects(ai.revoke("g1"), /does not know this app/);
+  // The refusal stays said (the dialog's status) until a retry works.
+  answer = Promise.reject(Object.assign(new Error("could not save"), { code: "store_unavailable" }));
+  await assert.rejects(ai.revoke("g1"));
+  assert.equal(ai.error, "The relay could not save this. Try again.");
+  answer = Promise.resolve();
+  await ai.revoke("g1");
+  assert.equal(ai.error, null);
 });
 
 test("turned off while an attempt connects: no error, no further attempt", { timeout: 2000 }, async () => {

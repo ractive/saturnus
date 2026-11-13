@@ -391,8 +391,14 @@ export class AiAccess extends EventTarget {
       if (!this.mcp) throw new DOMException("TabMcp: not connected", "InvalidStateError");
       await this.mcp.revoke(grantId);
     } catch (err) {
-      throw new Error(revokeText(err), { cause: err });
+      // In place of the client's `error`, which carried the relay's own words for a refusal.
+      this.error = revokeText(err);
+      this.changed();
+      throw new Error(this.error, { cause: err });
     }
+    // Done: a refusal said before (a retry that worked) goes.
+    this.error = null;
+    this.changed();
   }
 
   /** The other calculators' connections let go: the session ended. */

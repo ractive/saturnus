@@ -151,6 +151,8 @@ export async function openAiDialog(ai, doc = document) {
   // itself, the address stays) the steps stay, dimmed, with it, so the user can go
   // on copying; they go only when AI access is off.
   let lastAddress = "";
+  /** The apps whose Disconnect is under way, by grant id. */
+  const revoking = new Set();
   const render = () => {
     const state = ai.state;
     const mcp = ai.mcp;
@@ -186,12 +188,14 @@ export async function openAiDialog(ai, doc = document) {
     const grants = on ? mcp.grants : [];
     apps.replaceChildren(...grants.map((g) => {
       const b = el("button", { type: "button", class: "small", text: "Disconnect", "aria-label": `Disconnect ${g.client.name || g.client.host}` });
+      // Off while its request runs (up to 15 s), across renders: one grant.revoke per click.
+      b.disabled = revoking.has(g.grantId);
       b.addEventListener("click", () => {
-        b.disabled = true;
-        // The row goes with the relay's grantschange; a refusal says why (ai.js `revokeText`).
-        ai.revoke(g.grantId).catch((err) => {
-          b.disabled = false;
-          ai.error = err?.message ?? String(err);
+        revoking.add(g.grantId);
+        render();
+        // The row goes with the relay's grantschange; a refusal is said in the status (ai.js `revoke`).
+        ai.revoke(g.grantId).catch(() => {}).finally(() => {
+          revoking.delete(g.grantId);
           render();
         });
       });
