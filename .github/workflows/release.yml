@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   release-saturnus:
-    uses: ractive/release-workflows/.github/workflows/release.yml@v0.5.0
+    uses: ractive/release-workflows/.github/workflows/release.yml@v0.5.1
     secrets: inherit
     with:
       # The shared workflow packages one binary per archive, so each binary
@@ -117,7 +117,7 @@ jobs:
         ]
 
   release-satx:
-    uses: ractive/release-workflows/.github/workflows/release.yml@v0.5.0
+    uses: ractive/release-workflows/.github/workflows/release.yml@v0.5.1
     secrets: inherit
     with:
       bin-name: satx
