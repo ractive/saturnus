@@ -11,7 +11,7 @@
 # the build.
 #
 # `just vendor-tab-mcp` takes the npm package at the version and integrity
-# pinned in the justfile; `just vendor-tab-mcp-version 0.16.1` pins another
+# pinned in the justfile; `just vendor-tab-mcp-version X.Y.Z` pins another
 # version (with the registry's integrity) and takes it;
 # `just vendor-tab-mcp-local` a local build.
 #

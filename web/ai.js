@@ -532,6 +532,9 @@ export function revokeText(err) {
   if (err?.name === "InvalidStateError") return "Connect again first: only a connected tab can disconnect an app.";
   if (err?.code === "store_unavailable") return "The relay could not save this. Try again.";
   if (err?.name === "TimeoutError") return "The relay did not answer. Try again.";
+  // tab-mcp 0.16.1: the session ended after the request went out; the relay may have done it.
+  if (err?.name === "NetworkError") return "The connection ended before the relay answered. Connect again to see whether the app is still connected.";
+  // Relays before 0.10.2 (from 0.16.1 the client drops such a grant and resolves).
   if (err?.code === "unknown_id") return "The relay does not know this app any more. Connect again to see the apps it knows.";
   return `Could not disconnect the app: ${err?.message ?? err}`;
 }

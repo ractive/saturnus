@@ -84,11 +84,11 @@ wasm: web
 # package, its tarball checked against the pinned integrity. It also points
 # web/ai-local.js's CONFIRM_MODULE at the new confirm-*.min.js
 # (web/test/vendor.test.mjs checks it). A new version: `just
-# vendor-tab-mcp-version 0.16.1` pins it here with the registry's integrity
+# vendor-tab-mcp-version X.Y.Z` pins it here with the registry's integrity
 # and takes it; then run the web tests and commit the files, vendor.json,
 # web/ai-local.js and the justfile.
-tab_mcp_client_version := "0.16.0"
-tab_mcp_client_integrity := "sha512-FpPeq4pth0bCpV7LmX2xKdf7+TQFo5lSFH2qn6nZqElP3p1YDbmdfBeq4V4aqbY3XhCv4uAXEvBog9AUMrfa9Q=="
+tab_mcp_client_version := "0.16.1"
+tab_mcp_client_integrity := "sha512-7kjWjmoQmWjMbTj/mKsSCm8/AZ6HaPfT5HFkLULB2iiqErmcJU5r/Y+0xWBQJy7U6ArRdTht5lX+RBpqR2NkBQ=="
 
 vendor-tab-mcp:
     scripts/vendor-tab-mcp-client.sh --from-npm "{{tab_mcp_client_version}}" --integrity "{{tab_mcp_client_integrity}}"

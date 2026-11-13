@@ -442,6 +442,8 @@ test("Disconnect of an AI app: the client's promise (tab-mcp 0.16), a refusal in
   await assert.rejects(ai.revoke("g1"), { message: "The relay could not save this. Try again." });
   answer = Promise.reject(new DOMException("no answer", "TimeoutError"));
   await assert.rejects(ai.revoke("g1"), { message: "The relay did not answer. Try again." });
+  answer = Promise.reject(new DOMException("ended", "NetworkError"));
+  await assert.rejects(ai.revoke("g1"), /connection ended before the relay answered/);
   answer = Promise.reject(Object.assign(new Error("unknown grant"), { code: "unknown_id" }));
   await assert.rejects(ai.revoke("g1"), /does not know this app/);
   // The refusal stays said (the dialog's status) until a retry works.
