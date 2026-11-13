@@ -10,7 +10,7 @@ tags:
 # Releasing
 
 `.github/workflows/release.yml` calls the shared pipeline
-`ractive/release-workflows/.github/workflows/release.yml@v0.5.0` twice, once
+`ractive/release-workflows/.github/workflows/release.yml@v0.5.1` twice, once
 per command-line tool, because the shared pipeline packages one binary per
 archive. One tag releases both:
 
@@ -704,6 +704,6 @@ ones for the bundle id, not yet checked on an installed app.
 Third-party actions are pinned to a full commit SHA with a `# vX.Y.Z`
 comment; Dependabot proposes the updates. First-party reusable workflows
 and actions are referenced by tag, not SHA: `ractive/release-workflows`
-by exact tag (`@v0.5.0`), `ractive/setup-hyalo@v1` floating on its major
+by exact tag (`@v0.5.1`), `ractive/setup-hyalo@v1` floating on its major
 tag, as in hyalo. Both repositories belong to the owner, so a tag is a
 reviewed release; Dependabot ignores them.

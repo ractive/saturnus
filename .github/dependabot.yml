@@ -31,3 +31,15 @@ updates:
     groups:
       cargo-minor-patch:
         update-types: [minor, patch]
+
+  # The two local oracle images pin debian:trixie-slim by digest; Dependabot
+  # refreshes the digest. Neither image is pushed anywhere.
+  - package-ecosystem: docker
+    directories:
+      - /tools/filer-oracle
+      - /tools/saturnng-oracle
+    schedule:
+      interval: weekly
+    groups:
+      oracle-images:
+        patterns: ["*"]
