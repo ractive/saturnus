@@ -163,7 +163,7 @@ export class AiAccess extends EventTarget {
     this.attached = new Map();
     this.lobby = null;
     this.error = null;
-    /** The words of the last refused Disconnect of an AI app (`revoke`), which a retry that works clears from `error`. */
+    /** The last refused Disconnect of an AI app (`revoke`), `{grantId, text}`: a retry for that app that works clears its words from `error`. */
     this.revokeError = null;
     /** "The AI's calls" (web/ai-log.js): from now on, in memory only; tab-mcp's calls and WebMCP's. */
     this.log = new AiLog(this, { now: () => this.now() });
@@ -393,17 +393,24 @@ export class AiAccess extends EventTarget {
       if (!this.mcp) throw new DOMException("TabMcp: not connected", "InvalidStateError");
       await this.mcp.revoke(grantId);
     } catch (err) {
-      // In place of the client's `error`, which carried the relay's own words for a refusal.
       const text = revokeText(err);
-      this.error = text;
-      this.revokeError = text;
-      this.changed();
+      // The session ended before the relay answered: the dialog keeps why it was lost (set by
+      // `statechange`), which says more there; the rejection still carries the revoke's words.
+      const lost = err?.name === "NetworkError" && this.state !== "connected";
+      if (!lost) {
+        // In place of the client's `error`, which carried the relay's own words for a refusal.
+        this.error = text;
+        this.revokeError = { grantId, text };
+        this.changed();
+      }
       throw new Error(text, { cause: err });
     }
-    // Done: a refusal said before (a retry that worked) goes, but not words set meanwhile
-    // for something else (the connection lost while the relay answered).
-    if (this.revokeError !== null && this.error === this.revokeError) this.error = null;
-    this.revokeError = null;
+    // Done: this app's refusal said before (a retry that worked) goes, but not another app's
+    // refusal, nor words set meanwhile for something else.
+    if (this.revokeError?.grantId === grantId) {
+      if (this.error === this.revokeError.text) this.error = null;
+      this.revokeError = null;
+    }
     this.changed();
   }
 

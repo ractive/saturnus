@@ -455,7 +455,7 @@ test("Disconnect of an AI app: the client's promise (tab-mcp 0.16), a refusal in
   assert.equal(ai.error, null);
 });
 
-test("a Disconnect of an AI app that works keeps the words of a connection lost meanwhile", { timeout: 2000 }, async () => {
+test("a Disconnect of an AI app cut off by a lost connection keeps the connection's words", { timeout: 2000 }, async () => {
   for (const refusedBefore of [false, true]) {
     const { ai, Mcp } = reconnecting([true, HANG]);
     await ai.connect();
@@ -464,17 +464,45 @@ test("a Disconnect of an AI app that works keeps the words of a connection lost 
       await assert.rejects(ai.revoke("g1"));
       assert.equal(ai.error, "The relay could not save this. Try again.");
     }
-    let settle;
-    Mcp.last.revoke = () => new Promise((resolve) => { settle = resolve; });
+    // As tab-mcp 0.16.1's `#ask`: the session leaves `connected` before the relay answered, so it rejects.
+    let fail;
+    Mcp.last.revoke = () => new Promise((_, reject) => { fail = reject; });
     const done = ai.revoke("g1");
-    // The connection breaks while the relay answers; then the answer comes.
     Mcp.last.drop("network");
     assert.equal(ai.error, "The connection to the relay broke.");
-    settle();
-    await done;
-    assert.equal(ai.error, "The connection to the relay broke.", `not erased by the revoke's success (refused before: ${refusedBefore})`);
+    fail(new DOMException("TabMcp: the session ended before the relay answered", "NetworkError"));
+    await assert.rejects(done, /connection ended before the relay answered/, "the rejection keeps the revoke's words");
+    assert.equal(ai.error, "The connection to the relay broke.", `refused before: ${refusedBefore}`);
     ai.disconnect();
   }
+});
+
+test("a Disconnect of an AI app that works clears only that app's refusal", { timeout: 2000 }, async () => {
+  const { ai, Mcp } = reconnecting([true]);
+  await ai.connect();
+  const answers = new Map();
+  Mcp.last.revoke = (id) => answers.get(id);
+  const refuse = (code) => Promise.reject(Object.assign(new Error("refused"), { code }));
+  // Another app's Disconnect that works leaves this one's refusal said.
+  answers.set("g1", refuse("store_unavailable"));
+  await assert.rejects(ai.revoke("g1"));
+  answers.set("g2", Promise.resolve());
+  await ai.revoke("g2");
+  assert.equal(ai.error, "The relay could not save this. Try again.");
+  // Two refusals: the first app's retry that works leaves the second's said; the second's clears it.
+  answers.set("g2", Promise.reject(new DOMException("no answer", "TimeoutError")));
+  await assert.rejects(ai.revoke("g2"));
+  answers.set("g1", Promise.resolve());
+  await ai.revoke("g1");
+  assert.equal(ai.error, "The relay did not answer. Try again.");
+  answers.set("g2", Promise.resolve());
+  await ai.revoke("g2");
+  assert.equal(ai.error, null);
+  // Words that are not a refusal (the relay's `error` while connected) stay.
+  Mcp.last.emit("error", { error: new Error("rate limited") });
+  assert.equal(ai.error, "rate limited");
+  await ai.revoke("g1");
+  assert.equal(ai.error, "rate limited");
 });
 
 test("turned off while an attempt connects: no error, no further attempt", { timeout: 2000 }, async () => {
