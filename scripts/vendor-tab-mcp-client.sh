@@ -54,6 +54,16 @@ if [ "$pin" = 1 ] && { [ "$mode" != npm ] || [ -n "$integrity" ]; }; then
   exit 2
 fi
 
+# The lines rewritten after the copy are checked before anything is written, so a failed run
+# changes nothing. CONFIRM_MODULE: the one line that names the chunk (web/test/vendor.test.mjs
+# checks it); with --pin, the justfile's version and integrity.
+local_js="$here/web/ai-local.js"
+just="$here/justfile"
+grep -qE '^export const CONFIRM_MODULE = "\./vendor/tab-mcp-client/[^"]+";$' "$local_js" || { echo "vendor-tab-mcp-client: no CONFIRM_MODULE line in $local_js" >&2; exit 1; }
+if [ "$pin" = 1 ]; then
+  grep -q '^tab_mcp_client_version := "[^"]*"$' "$just" && grep -q '^tab_mcp_client_integrity := "[^"]*"$' "$just" || { echo "vendor-tab-mcp-client: no tab_mcp_client_version/integrity in $just" >&2; exit 1; }
+fi
+
 sha256() { if command -v sha256sum > /dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
 
 tmp=$(mktemp -d)
@@ -124,16 +134,13 @@ $entries
 EOF
 echo "written to web/vendor/tab-mcp-client/"
 
-# CONFIRM_MODULE: the one line that names the chunk (web/test/vendor.test.mjs checks it).
-local_js="$here/web/ai-local.js"
-grep -qE '^export const CONFIRM_MODULE = "\./vendor/tab-mcp-client/[^"]+";$' "$local_js" || { echo "vendor-tab-mcp-client: no CONFIRM_MODULE line in $local_js" >&2; exit 1; }
+# CONFIRM_MODULE (its line checked above).
 sed -E "s|^export const CONFIRM_MODULE = \"\./vendor/tab-mcp-client/[^\"]+\";$|export const CONFIRM_MODULE = \"./vendor/tab-mcp-client/$confirm\";|" "$local_js" > "$tmp/ai-local.js"
 cat "$tmp/ai-local.js" > "$local_js"
 echo "CONFIRM_MODULE: $confirm"
 
 if [ "$pin" = 1 ]; then
-  just="$here/justfile"
-  grep -q '^tab_mcp_client_version := "' "$just" && grep -q '^tab_mcp_client_integrity := "' "$just" || { echo "vendor-tab-mcp-client: no tab_mcp_client_version/integrity in $just" >&2; exit 1; }
+  # Its lines checked above.
   sed -E -e "s|^tab_mcp_client_version := \"[^\"]*\"$|tab_mcp_client_version := \"$version\"|" \
     -e "s|^tab_mcp_client_integrity := \"[^\"]*\"$|tab_mcp_client_integrity := \"$actual\"|" "$just" > "$tmp/justfile"
   cat "$tmp/justfile" > "$just"

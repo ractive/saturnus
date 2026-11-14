@@ -163,6 +163,8 @@ export class AiAccess extends EventTarget {
     this.attached = new Map();
     this.lobby = null;
     this.error = null;
+    /** The words of the last refused Disconnect of an AI app (`revoke`), which a retry that works clears from `error`. */
+    this.revokeError = null;
     /** "The AI's calls" (web/ai-log.js): from now on, in memory only; tab-mcp's calls and WebMCP's. */
     this.log = new AiLog(this, { now: () => this.now() });
     /** The tools through WebMCP (web/ai-webmcp.js `WebMcp`), where the browser has it; set by web/main.js. */
@@ -392,12 +394,16 @@ export class AiAccess extends EventTarget {
       await this.mcp.revoke(grantId);
     } catch (err) {
       // In place of the client's `error`, which carried the relay's own words for a refusal.
-      this.error = revokeText(err);
+      const text = revokeText(err);
+      this.error = text;
+      this.revokeError = text;
       this.changed();
-      throw new Error(this.error, { cause: err });
+      throw new Error(text, { cause: err });
     }
-    // Done: a refusal said before (a retry that worked) goes.
-    this.error = null;
+    // Done: a refusal said before (a retry that worked) goes, but not words set meanwhile
+    // for something else (the connection lost while the relay answered).
+    if (this.revokeError !== null && this.error === this.revokeError) this.error = null;
+    this.revokeError = null;
     this.changed();
   }
 

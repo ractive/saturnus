@@ -455,6 +455,28 @@ test("Disconnect of an AI app: the client's promise (tab-mcp 0.16), a refusal in
   assert.equal(ai.error, null);
 });
 
+test("a Disconnect of an AI app that works keeps the words of a connection lost meanwhile", { timeout: 2000 }, async () => {
+  for (const refusedBefore of [false, true]) {
+    const { ai, Mcp } = reconnecting([true, HANG]);
+    await ai.connect();
+    if (refusedBefore) {
+      Mcp.last.revoke = () => Promise.reject(Object.assign(new Error("could not save"), { code: "store_unavailable" }));
+      await assert.rejects(ai.revoke("g1"));
+      assert.equal(ai.error, "The relay could not save this. Try again.");
+    }
+    let settle;
+    Mcp.last.revoke = () => new Promise((resolve) => { settle = resolve; });
+    const done = ai.revoke("g1");
+    // The connection breaks while the relay answers; then the answer comes.
+    Mcp.last.drop("network");
+    assert.equal(ai.error, "The connection to the relay broke.");
+    settle();
+    await done;
+    assert.equal(ai.error, "The connection to the relay broke.", `not erased by the revoke's success (refused before: ${refusedBefore})`);
+    ai.disconnect();
+  }
+});
+
 test("turned off while an attempt connects: no error, no further attempt", { timeout: 2000 }, async () => {
   const { ai, timers, Mcp } = reconnecting([true, HANG]);
   await ai.connect();
