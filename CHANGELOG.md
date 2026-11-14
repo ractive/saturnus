@@ -67,6 +67,9 @@ the desktop app and the web page share one version.
   when the relay refused it or did not answer; when the connection to
   the relay breaks before the relay answered, the dialog keeps saying
   that the connection broke.
+- tab-mcp client 0.16.2. Nothing changes for you: the client no longer
+  reads the address secret under its old default key, and saturnus
+  keeps it under its own key.
 
 ## 0.11.0 (2026-11-09)
 
