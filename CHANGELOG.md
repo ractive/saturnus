@@ -64,7 +64,9 @@ the desktop app and the web page share one version.
   the desktop app alike. The AI's calls note each scheduled reconnect
   attempt ("Try 1 failed. Next try in 10 s"); the client no longer says
   when an attempt starts. Disconnect of an AI app in the dialog says why
-  when the relay refused it or did not answer.
+  when the relay refused it or did not answer; when the connection to
+  the relay breaks before the relay answered, the dialog keeps saying
+  that the connection broke.
 
 ## 0.11.0 (2026-11-09)
 
