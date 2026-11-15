@@ -421,8 +421,8 @@ export function aiTools(deps) {
         const max = Number(input.levels ?? 50);
         const note = running.running
           ? { note: "A program is still running: these are its working objects, not its result. Read the stack again once it is done." }
-          : OFF_STACK[screen?.kind]
-            ? { note: OFF_STACK[screen.kind] }
+          : offStack(t, screen)
+            ? { note: offStack(t, screen) }
             : {};
         return { calculator: t.id, ...(await modeField(t)), depth: stack.length, levels: stack.slice(0, max).map((o, i) => levelText(o, i + 1)), ...running, ...note };
       }, options?.signal),
@@ -659,7 +659,7 @@ const SCREENS = {
   equationView: { screen: "equation view", next: "The EquationWriter's scrolling mode: ENTER does nothing here, the arrow keys move the view. press_keys [\"on\"] (CANCEL) returns to the EquationWriter, where the formula can be edited, and keeps it; to_stack does that for you and stops there." },
   interactiveStack: { screen: "interactive stack", next: "The interactive stack: ▲ and ▼ (press_keys [\"up\"], [\"down\"]) move the pointer from level to level; a menu key (PICK, ROLL, ...; the labels are on the display) acts on the level the pointer is at, at once. press_keys [\"on\"] (CANCEL) or [\"enter\"] leaves; what the menu keys did stays. to_stack presses CANCEL for you." },
   objectEdit: { screen: "object edit", next: "An object is being edited on the command line (▼ on a stack level, EDIT, VIEW, VISIT, the interactive stack's EDIT, the 49G's TOOL EDIT): decide first. press_keys [\"enter\"] puts the edited object back in its place (VISIT: stores it in the variable). press_keys [\"on\"] (CANCEL) drops the changes and puts the original back. Until then the object is off the stack." },
-  matrixWriter: { screen: "matrix writer", next: "The MatrixWriter is open: decide first. Type a number with press_keys and press [\"enter\"] to put it in the cell at the cursor, which then moves on; the arrow keys move the cursor. press_keys [\"enter\"] with nothing typed closes it and puts the matrix on the stack (opened with ▼ from the stack, it goes back to its level). press_keys [\"on\"] (CANCEL) closes it: a new matrix is dropped, a matrix opened from the stack comes back unchanged. The cells are on the display (read_display)." },
+  matrixWriter: { screen: "matrix writer", next: "The MatrixWriter is open: decide first. Type a number with press_keys and press [\"enter\"] to put it in the cell at the cursor, which then moves on; the arrow keys move the cursor. press_keys [\"enter\"] with nothing typed closes it and puts the matrix on the stack (opened with ▼ from the stack, it goes back to its level; opened from a form's field, such as STAT's EDIT, it goes into the field). press_keys [\"on\"] (CANCEL) closes it: a new matrix is dropped, a matrix opened from the stack comes back unchanged, and from a form's field it returns to the form unchanged. The cells are on the display (read_display)." },
   unknown: { screen: "unknown", next: "Another screen has the keyboard (a catalog or browser, the 49G's viewer, a program waiting for a key with WAIT): look at the display (read_display), then press_keys [\"on\"] (CANCEL) yourself, which leaves most of them. CANCEL stops a program waiting in WAIT. to_stack presses nothing here." },
 };
 
@@ -682,6 +682,12 @@ const OFF_STACK = {
   matrixWriter: "The MatrixWriter is open: a matrix opened from the stack with ▼ is off the stack until ENTER or CANCEL.",
   input: "A command line is open in another screen: an algebraic opened with ▼ in the 49G's equation writer is off the stack until ENTER or CANCEL.",
 };
+
+/** OFF_STACK's note for screen `s` of `t`, or null (the `input` one only on the 49G, whose equation writer it is about). */
+function offStack(t, s) {
+  if (!s || (s.kind === "input" && t.model !== "49g")) return null;
+  return OFF_STACK[s.kind] ?? null;
+}
 
 /** Why the stack's levels are not listed in `s` (one of WORKING_STACK), with the stack's `depth` if given. */
 function workingStackNote(s, depth = null) {
@@ -713,7 +719,7 @@ async function screenOf(t) {
     screen.next = "A field is being edited: press_keys [\"enter\"] keeps what is typed, [\"on\"] (CANCEL) drops it (decide first). Then CANCEL leaves the form unchanged, ENTER or OK confirms it.";
   }
   if (s.kind === "matrixWriter" && screen.commandLine) {
-    screen.next = "A number is being typed into a cell of the MatrixWriter: press_keys [\"enter\"] puts it in the cell, [\"on\"] (CANCEL) clears the typing and stays in the MatrixWriter. Then ENTER with nothing typed puts the matrix on the stack; CANCEL closes it, dropping a new matrix or putting one opened from the stack back unchanged.";
+    screen.next = "A number is being typed into a cell of the MatrixWriter: press_keys [\"enter\"] puts it in the cell, [\"on\"] (CANCEL) clears the typing and stays in the MatrixWriter. Then ENTER with nothing typed puts the matrix on the stack (or into the form's field it was opened from); CANCEL closes it, dropping a new matrix, putting one opened from the stack back unchanged, or returning to the form unchanged.";
   }
   return screen;
 }
@@ -823,7 +829,7 @@ async function display(t, format, { pixels = false, png = null, look = undefined
           const stack = await t.backend.stack();
           text.stack = stack.slice(0, 8).map((o, i) => levelText(o, i + 1));
           if (stack.length > 8) text.stackDepth = stack.length;
-          if (OFF_STACK[screen?.kind]) text.stackNote = OFF_STACK[screen.kind];
+          if (offStack(t, screen)) text.stackNote = offStack(t, screen);
         }
       } catch (err) {
         text.stack = `not readable now: ${err?.message ?? err}`;

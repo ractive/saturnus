@@ -543,7 +543,11 @@ test("a command line in another screen: INPUT, told apart from an edited object"
   assert.doesNotMatch(d.next, /VISIT|object is being edited/);
   const s = await call(tools({ "48gx": e }).read_stack);
   assert.equal(s.depth, 1);
-  assert.doesNotMatch(s.note, /VISIT/);
+  // The equation writer's note is the 49G's: not on the 48.
+  assert.equal(s.note, undefined);
+  assert.equal(d.stackNote, undefined);
+  const g = fake("49g", { uiState: { ...IN_FORM, kind: "input", commandLine: true }, commandLine: { active: true, text: "5" }, stack: [{ type: "real", text: "1" }], flags: { set: [] } });
+  assert.match((await call(tools({ "49g": g }).read_stack)).note, /49G's equation writer/);
 });
 
 test("the interactive stack: named, its next from the manuals, closed by to_stack with one CANCEL", async () => {
@@ -599,6 +603,7 @@ test("the MatrixWriter: named, with a cell being typed, not closed by to_stack",
   const d = await call(tools({ "48sx": m }).read_display, { format: "text" });
   assert.equal(d.screen, "matrix writer");
   assert.match(d.next, /decide first.*Type a number.*\["enter"\].*cell.*\["enter"\] with nothing typed.*puts the matrix on the stack.*\["on"\].*new matrix is dropped.*comes back unchanged/s);
+  assert.match(d.next, /form's field.*goes into the field.*returns to the form unchanged/s);
   assert.match(d.stackNote, /MatrixWriter is open.*opened from the stack with ▼ is off the stack/s);
   const s = await call(tools({ "48sx": m }).read_stack);
   assert.match(s.note, /opened from the stack with ▼ is off the stack/);
@@ -607,6 +612,7 @@ test("the MatrixWriter: named, with a cell being typed, not closed by to_stack",
   const t = await call(tools({ "48sx": typed }).read_display, { format: "text" });
   assert.equal(t.screen, "matrix writer");
   assert.match(t.next, /being typed into a cell.*\["enter"\] puts it in the cell.*\["on"\].*clears the typing and stays/s);
+  assert.match(t.next, /form's field.*returning to the form unchanged/s);
   // to_stack refuses in both and presses nothing.
   for (const x of [m, typed]) {
     await assert.rejects(call(tools({ "48sx": x }).to_stack), /does not press CANCEL in the MatrixWriter.*screen: "matrix writer"/s);

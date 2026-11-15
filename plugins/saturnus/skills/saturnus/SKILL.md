@@ -71,7 +71,8 @@ object, EDIT and VISIT put the object on the command line (`object edit`):
 ENTER puts the edited object back, CANCEL the original, and until then it is
 off the stack. ▼ on a matrix and ◀MATRIX (the 49G's MTRW) open the MatrixWriter
 (`matrix writer`): type a number and ENTER to fill a cell; ENTER with nothing
-typed puts the matrix on the stack, CANCEL drops a new matrix.
+typed puts the matrix on the stack (opened from a form's field, such as STAT's
+EDIT, into the field), CANCEL drops a new matrix.
 
 ## Families
 
