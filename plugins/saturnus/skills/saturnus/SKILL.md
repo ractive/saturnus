@@ -38,8 +38,9 @@ would.
 
 Many problems come from keys landing in a screen you did not expect. On the
 48SX, 48GX and 49G the tools say which screen is showing (`screen`) and what to
-do there (`next`); `to_stack` closes forms, choose boxes, messages and the plot
-screen, and refuses where closing would lose what was typed. Follow `next`.
+do there (`next`); `to_stack` closes forms, choose boxes, messages, the plot
+screen and the interactive stack, and refuses where closing would lose what was
+typed. Follow `next`.
 Elsewhere, look for these signs:
 
 - `run_rpl` is refused because a command line is open, or a form answers
@@ -62,6 +63,15 @@ can be edited. There ENTER puts the formula on the stack; CANCEL closes it,
 drops a formula typed there and leaves the stack as it was.
 While the EquationWriter is open, its working objects fill the stack, so
 `read_stack` lists no levels.
+
+▲ at the stack (the 49G's HIST too) opens the interactive stack
+(`interactive stack`): ▲▼ move its pointer, a menu key acts on the level it
+points at at once, CANCEL or ENTER leaves and keeps what was done. ▼ on another
+object, EDIT and VISIT put the object on the command line (`object edit`):
+ENTER puts the edited object back, CANCEL the original, and until then it is
+off the stack. ▼ on a matrix and ◀MATRIX (the 49G's MTRW) open the MatrixWriter
+(`matrix writer`): type a number and ENTER to fill a cell; ENTER with nothing
+typed puts the matrix on the stack, CANCEL drops a new matrix.
 
 ## Families
 

@@ -72,7 +72,7 @@ The models fall into three families:
 - 28S: RPL too, but run_rpl types through its keys, and of its memory only the command line is read (run_rpl refuses while one is open, as on the 48): check results with read_display.
 - 42S, 27S, 17BII, 17B, 19BII, 38G, 39G, 40G (key-driven): run_function presses a function's keys by its name, from lookup_command's reference (on the 42S also XEQ "NAME"). On the 38G, 39G and 40G it puts the function on HOME's edit line, which is algebraic (SIN(45)); type the arguments and ENTER with press_keys.
 
-Screens (48SX, 48GX, 49G): read_display, press_keys and run_rpl say in "screen" what has the keyboard, read from the calculator's memory: "stack", "command line", "program halted", "input form", "choose box", "message", "graphics", "program input", "equation writer" (the 48's EquationWriter), "equation view" (its scrolling mode, where ENTER does nothing), "running" (a program is still computing) or "unknown", and for every screen but the stack, in "next", how to work in it or leave it. A form, a choose box, a message, the plot screen or another application takes the keys the stack would: run_rpl refuses there, since its text would go into the form's field. Leave with to_stack (it presses CANCEL until the stack is back and says what it closed; it leaves forms, choose boxes, messages and the plot screen, never a command line, a program, the EquationWriter or a screen it cannot name), or follow "next" (CANCEL leaves a form unchanged, OK or ENTER confirms it). From the equation view, to_stack goes back to the EquationWriter and stops there: ENTER puts the formula on the stack, CANCEL drops it, so decide first. While the 48's EquationWriter is open, its working objects lie on the stack: read_stack lists no levels then. A halted program (HALT, PROMPT) leaves the stack usable: run_rpl "CONT" continues it, "KILL" stops it.
+Screens (48SX, 48GX, 49G): read_display, press_keys and run_rpl say in "screen" what has the keyboard, read from the calculator's memory: "stack", "command line", "program halted", "input form", "choose box", "message", "graphics", "program input", "equation writer" (the 48's EquationWriter), "equation view" (its scrolling mode, where ENTER does nothing), "interactive stack" (▲ at the stack, the 49G's HIST), "object edit" (an object taken from the stack or a variable onto the command line: ▼, EDIT, VISIT), "matrix writer" (the MatrixWriter), "running" (a program is still computing) or "unknown", and for every screen but the stack, in "next", how to work in it or leave it. A form, a choose box, a message, the plot screen or another application takes the keys the stack would: run_rpl refuses there, since its text would go into the form's field. Leave with to_stack (it presses CANCEL until the stack is back and says what it closed; it leaves forms, choose boxes, messages, the plot screen and the interactive stack, never a command line, a program, an object edit, the EquationWriter, the MatrixWriter or a screen it cannot name), or follow "next" (CANCEL leaves a form unchanged, OK or ENTER confirms it). From the equation view, to_stack goes back to the EquationWriter and stops there: ENTER puts the formula on the stack, CANCEL drops it, so decide first. While the 48's EquationWriter is open, its working objects lie on the stack: read_stack lists no levels then. An object being edited, and a matrix opened from the stack in the MatrixWriter, are off the stack until ENTER or CANCEL. A halted program (HALT, PROMPT) leaves the stack usable: run_rpl "CONT" continues it, "KILL" stops it.
 
 Work in small steps: press or run, then read the display (read_display) or the stack to check what happened before the next step. press_keys and run_function return the display afterwards. Key names come from list_keys: digits are "0" to "9", operators "plus", "minus", "multiply", "divide", and a shifted function is the shift key, then the key ("leftshift", "sin"). A shift or ALPHA stays pending until the next key: look at the annunciators. Long presses are not possible; every press is a normal tap.
 
@@ -121,6 +121,7 @@ const OUT = {
     commandLine: { type: "object", properties: { text: STR, cursor: INT } },
     stack: { type: ["array", "string"], items: LEVEL },
     stackDepth: INT,
+    stackNote: STR,
     display: STR,
     pixels: { type: "array", items: STR },
     image: { type: "string", description: "The display as a PNG, a data: URL, when an image was asked for." },
@@ -369,7 +370,7 @@ export function aiTools(deps) {
     {
       name: "to_stack",
       title: "Back to the stack",
-      description: "48SX, 48GX, 49G: leaves an input form (no field being edited), a choose box, a message or the graphics screen by pressing CANCEL (ATTN on the 48) until the stack has the keyboard again, at most 5 times, reading the screen from memory before each press; returns what it closed (\"closed\") and the display. It presses nothing where CANCEL could throw away typing or stop a program: a command line (at the stack, in a form's field, for INPUT), the 48's EquationWriter, a halted or running program, or a screen it cannot name; it refuses there (or, after closing something, stops) with \"next\": what to do yourself. In the EquationWriter's scrolling mode (\"equation view\") it presses CANCEL once, which returns to the EquationWriter and keeps the formula, and stops there. Nothing is pressed at the stack.",
+      description: "48SX, 48GX, 49G: leaves an input form (no field being edited), a choose box, a message, the graphics screen or the interactive stack (what was done there stays) by pressing CANCEL (ATTN on the 48) until the stack has the keyboard again, at most 5 times, reading the screen from memory before each press; returns what it closed (\"closed\") and the display. It presses nothing where CANCEL could throw away typing or stop a program: a command line (at the stack, in a form's field, for INPUT, an object being edited), the 48's EquationWriter, the MatrixWriter, a halted or running program, or a screen it cannot name; it refuses there (or, after closing something, stops) with \"next\": what to do yourself. In the EquationWriter's scrolling mode (\"equation view\") it presses CANCEL once, which returns to the EquationWriter and keeps the formula, and stops there. Nothing is pressed at the stack.",
       inputSchema: { type: "object", properties: { calculator: CALCULATOR, display: { ...DISPLAY, description: `${DISPLAY.description} Default: text.` }, look: LOOK } },
       outputSchema: OUT.display,
       annotations: { untrustedContentHint: true },
@@ -402,7 +403,7 @@ export function aiTools(deps) {
     {
       name: "read_stack",
       title: "Read the stack",
-      description: "48SX, 48GX, 49G: the stack's levels as the calculator writes them, level 1 first, read from memory (no key pressed). On the 49G, \"mode\" is \"algebraic\" (flag -95 set) or \"rpn\". While the 48's EquationWriter is open, the stack holds its working objects: no levels are listed then, and \"note\" says how to leave it.",
+      description: "48SX, 48GX, 49G: the stack's levels as the calculator writes them, level 1 first, read from memory (no key pressed). On the 49G, \"mode\" is \"algebraic\" (flag -95 set) or \"rpn\". While the 48's EquationWriter is open, the stack holds its working objects: no levels are listed then, and \"note\" says how to leave it. While an object is edited on the command line or the MatrixWriter is open, \"note\" says what is off the stack meanwhile.",
       inputSchema: {
         type: "object",
         properties: { calculator: CALCULATOR, levels: { type: "integer", minimum: 1, maximum: 200, description: "At most this many levels. Default: 50." } },
@@ -420,8 +421,8 @@ export function aiTools(deps) {
         const max = Number(input.levels ?? 50);
         const note = running.running
           ? { note: "A program is still running: these are its working objects, not its result. Read the stack again once it is done." }
-          : screen?.kind === "input"
-            ? { note: "A command line is open in another screen: an object being edited there (▼ or EDIT on a stack level) is off the stack until ENTER or CANCEL; VISIT edits a variable and leaves the stack alone." }
+          : OFF_STACK[screen?.kind]
+            ? { note: OFF_STACK[screen.kind] }
             : {};
         return { calculator: t.id, ...(await modeField(t)), depth: stack.length, levels: stack.slice(0, max).map((o, i) => levelText(o, i + 1)), ...running, ...note };
       }, options?.signal),
@@ -653,10 +654,13 @@ const SCREENS = {
   chooseBox: { screen: "choose box", next: "The arrow keys pick an item, press_keys [\"enter\"] (OK) chooses it, [\"on\"] (CANCEL) closes the box. The items are on the display (read_display)." },
   message: { screen: "message", next: "Read it on the display (read_display); press_keys [\"enter\"] (OK) or [\"on\"] closes it." },
   graphics: { screen: "graphics", next: "press_keys [\"on\"] (CANCEL) returns to the stack." },
-  input: { screen: "program input", next: "A command line is open in another screen: a program waits for input (INPUT), or an object is being edited (▼ on a stack level, EDIT, VISIT; on the 49G also the equation writer). press_keys [\"enter\"] finishes it: INPUT gives the text to the program, an edit puts the object back in its place. Once you have decided to drop what is typed, press_keys [\"on\"] (CANCEL) yourself: an edited object then comes back unchanged. While an object is edited, it is off the stack." },
+  input: { screen: "program input", next: "A command line is open in another screen: a program waits for input (INPUT), or an editor uses the line (the 49G's equation writer, EDIT in the 48's EquationWriter). Type with press_keys; press_keys [\"enter\"] finishes it (INPUT gives the text to the program). Once you have decided to drop what is typed, press_keys [\"on\"] (CANCEL) yourself." },
   equationWriter: { screen: "equation writer", next: "The EquationWriter is open: decide first. press_keys [\"enter\"] closes it and puts the formula on the stack (opened with ▼ from the stack, the formula replaces that level; opened from a form's field, it goes into the field). press_keys [\"on\"] (CANCEL) closes it and drops the formula typed here; a formula opened with ▼ stays on the stack unchanged. The formula is on the display (read_display); read the stack after leaving." },
   equationView: { screen: "equation view", next: "The EquationWriter's scrolling mode: ENTER does nothing here, the arrow keys move the view. press_keys [\"on\"] (CANCEL) returns to the EquationWriter, where the formula can be edited, and keeps it; to_stack does that for you and stops there." },
-  unknown: { screen: "unknown", next: "Another screen has the keyboard (the interactive stack, the matrix writer, a catalog or browser, a program waiting for a key with WAIT): look at the display (read_display), then press_keys [\"on\"] (CANCEL) yourself, which leaves most of them. CANCEL drops a matrix the matrix writer is building and stops a program waiting in WAIT. to_stack presses nothing here." },
+  interactiveStack: { screen: "interactive stack", next: "The interactive stack: ▲ and ▼ (press_keys [\"up\"], [\"down\"]) move the pointer from level to level; a menu key (PICK, ROLL, ...; the labels are on the display) acts on the level the pointer is at, at once. press_keys [\"on\"] (CANCEL) or [\"enter\"] leaves; what the menu keys did stays. to_stack presses CANCEL for you." },
+  objectEdit: { screen: "object edit", next: "An object is being edited on the command line (▼ on a stack level, EDIT, VIEW, VISIT, the interactive stack's EDIT, the 49G's TOOL EDIT): decide first. press_keys [\"enter\"] puts the edited object back in its place (VISIT: stores it in the variable). press_keys [\"on\"] (CANCEL) drops the changes and puts the original back. Until then the object is off the stack." },
+  matrixWriter: { screen: "matrix writer", next: "The MatrixWriter is open: decide first. Type a number with press_keys and press [\"enter\"] to put it in the cell at the cursor, which then moves on; the arrow keys move the cursor. press_keys [\"enter\"] with nothing typed closes it and puts the matrix on the stack (opened with ▼ from the stack, it goes back to its level). press_keys [\"on\"] (CANCEL) closes it: a new matrix is dropped, a matrix opened from the stack comes back unchanged. The cells are on the display (read_display)." },
+  unknown: { screen: "unknown", next: "Another screen has the keyboard (a catalog or browser, the 49G's viewer, a program waiting for a key with WAIT): look at the display (read_display), then press_keys [\"on\"] (CANCEL) yourself, which leaves most of them. CANCEL stops a program waiting in WAIT. to_stack presses nothing here." },
 };
 
 /**
@@ -667,6 +671,16 @@ const SCREENS = {
 const WORKING_STACK = {
   equationWriter: "the EquationWriter",
   equationView: "the EquationWriter",
+};
+
+/**
+ * The screens with an object taken off the stack while they are open, and
+ * what read_stack and the display's stack say about it.
+ */
+const OFF_STACK = {
+  objectEdit: "An object is being edited on the command line: until ENTER or CANCEL it is off the stack, so these levels do not hold it. VISIT edits a variable instead: the name it took from level 1 does not come back.",
+  matrixWriter: "The MatrixWriter is open: a matrix opened from the stack with ▼ is off the stack until ENTER or CANCEL.",
+  input: "A command line is open in another screen: an algebraic opened with ▼ in the 49G's equation writer is off the stack until ENTER or CANCEL.",
 };
 
 /** Why the stack's levels are not listed in `s` (one of WORKING_STACK), with the stack's `depth` if given. */
@@ -698,6 +712,9 @@ async function screenOf(t) {
   if (s.kind === "inputForm" && screen.commandLine) {
     screen.next = "A field is being edited: press_keys [\"enter\"] keeps what is typed, [\"on\"] (CANCEL) drops it (decide first). Then CANCEL leaves the form unchanged, ENTER or OK confirms it.";
   }
+  if (s.kind === "matrixWriter" && screen.commandLine) {
+    screen.next = "A number is being typed into a cell of the MatrixWriter: press_keys [\"enter\"] puts it in the cell, [\"on\"] (CANCEL) clears the typing and stays in the MatrixWriter. Then ENTER with nothing typed puts the matrix on the stack; CANCEL closes it, dropping a new matrix or putting one opened from the stack back unchanged.";
+  }
   return screen;
 }
 
@@ -715,7 +732,7 @@ async function refuseOpenLine(t) {
 /** Whether `to_stack` presses CANCEL in `s`: nothing typed or running is lost there. */
 function closable(s) {
   if (s.kind === "inputForm") return !s.commandLine;
-  return ["chooseBox", "message", "graphics", "equationView"].includes(s.kind);
+  return ["chooseBox", "message", "graphics", "equationView", "interactiveStack"].includes(s.kind);
 }
 
 /** "an input form", "a message", "the graphics screen". */
@@ -726,6 +743,9 @@ function screenPhrase(s) {
   if (s.kind === "unknown") return "another screen";
   if (s.kind === "equationWriter") return "the EquationWriter";
   if (s.kind === "equationView") return "the EquationWriter's scrolling mode";
+  if (s.kind === "interactiveStack") return "the interactive stack";
+  if (s.kind === "objectEdit") return "an object being edited";
+  if (s.kind === "matrixWriter") return "the MatrixWriter";
   return `${/^[aeiou]/.test(s.screen) ? "an" : "a"} ${s.screen}`;
 }
 
@@ -803,6 +823,7 @@ async function display(t, format, { pixels = false, png = null, look = undefined
           const stack = await t.backend.stack();
           text.stack = stack.slice(0, 8).map((o, i) => levelText(o, i + 1));
           if (stack.length > 8) text.stackDepth = stack.length;
+          if (OFF_STACK[screen?.kind]) text.stackNote = OFF_STACK[screen.kind];
         }
       } catch (err) {
         text.stack = `not readable now: ${err?.message ?? err}`;

@@ -7,6 +7,16 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The AI tools know three more screens.** On the 48SX, 48GX and 49G,
+  `screen` says "interactive stack" (▲ at the stack, the 49G's HIST),
+  "object edit" (an object put on the command line by ▼, EDIT or VISIT)
+  and "matrix writer" (the MatrixWriter, also while a cell is typed)
+  instead of "unknown" or "program input", each with its own `next`.
+  `to_stack` leaves the interactive stack; it presses nothing in an
+  object edit or the MatrixWriter, where CANCEL drops changes.
+  `read_stack` and the display say when an object is off the stack
+  while it is edited.
+
 - **The AI tools know the 48's EquationWriter.** On the 48SX and 48GX,
   `screen` says "equation writer" or "equation view" (its scrolling
   mode, opened by ▼ on an algebraic, where ENTER does nothing) instead
