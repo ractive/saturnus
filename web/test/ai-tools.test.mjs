@@ -531,17 +531,93 @@ test("an unknown screen's next does not promise what to_stack will not do", asyn
   const d = await call(tools({ "48gx": u }).read_display, { format: "text" });
   assert.equal(d.screen, "unknown");
   assert.doesNotMatch(d.next, /to_stack presses it/);
-  assert.match(d.next, /\["on"\].*yourself.*drops a matrix.*stops a program waiting in WAIT.*to_stack presses nothing/s);
+  assert.match(d.next, /\["on"\].*yourself.*stops a program waiting in WAIT.*to_stack presses nothing/s);
+  assert.doesNotMatch(d.next, /interactive stack|matrix/i);
 });
 
-test("a command line in another screen: INPUT or an object being edited, off the stack meanwhile", async () => {
+test("a command line in another screen: INPUT, told apart from an edited object", async () => {
   const e = fake("48gx", { uiState: { ...IN_FORM, kind: "input", commandLine: true }, commandLine: { active: true, text: "5" }, stack: [{ type: "real", text: "1" }] });
   const d = await call(tools({ "48gx": e }).read_display, { format: "text" });
   assert.equal(d.screen, "program input");
-  assert.match(d.next, /INPUT.*object is being edited.*\["enter"\].*puts the object back.*\["on"\].*comes back unchanged/s);
+  assert.match(d.next, /program waits for input \(INPUT\).*\["enter"\].*gives the text to the program.*\["on"\].*yourself/s);
+  assert.doesNotMatch(d.next, /VISIT|object is being edited/);
   const s = await call(tools({ "48gx": e }).read_stack);
   assert.equal(s.depth, 1);
-  assert.match(s.note, /off the stack until ENTER or CANCEL/);
+  // The equation writer's note is the 49G's: not on the 48.
+  assert.equal(s.note, undefined);
+  assert.equal(d.stackNote, undefined);
+  const g = fake("49g", { uiState: { ...IN_FORM, kind: "input", commandLine: true }, commandLine: { active: true, text: "5" }, stack: [{ type: "real", text: "1" }], flags: { set: [] } });
+  assert.match((await call(tools({ "49g": g }).read_stack)).note, /49G's equation writer/);
+});
+
+test("the interactive stack: named, its next from the manuals, closed by to_stack with one CANCEL", async () => {
+  const ISTACK = { ...IN_FORM, kind: "interactiveStack" };
+  const levels = [{ type: "real", text: "1" }, { type: "real", text: "3" }, { type: "real", text: "2" }];
+  const i = fake("48gx", { uiState: ISTACK, commandLine: { active: false }, stack: levels });
+  const d = await call(tools({ "48gx": i }).read_display, { format: "text" });
+  assert.equal(d.screen, "interactive stack");
+  assert.match(d.next, /▲ and ▼.*move the pointer.*menu key.*acts on the level the pointer is at, at once.*\["on"\].*\["enter"\].*leaves.*stays.*to_stack/s);
+  // Its stack is the user's: listed, no note.
+  assert.equal(d.stack.length, 3);
+  assert.equal(d.stackNote, undefined);
+  const s = await call(tools({ "48gx": i }).read_stack);
+  assert.equal(s.depth, 3);
+  assert.equal(s.note, undefined);
+  // run_rpl refuses, pointing at to_stack.
+  const r = fake("48gx", { uiState: ISTACK, commandLine: { active: false }, run: { closed: true } });
+  await assert.rejects(call(tools({ "48gx": r }).run_rpl, { text: "1" }), /the interactive stack, not the stack.*screen: "interactive stack".*to_stack, which presses CANCEL/s);
+  assert.ok(!r.calls.some(([cmd]) => cmd === "run"));
+  // to_stack: one CANCEL, then the stack.
+  const states = [ISTACK, AT_STACK];
+  const c = fake("48gx", { uiState: () => states[Math.min(c.calls.filter(([cmd]) => cmd === "typeKeys").length, 1)], commandLine: { active: false }, stack: levels });
+  const t = await call(tools({ "48gx": c }).to_stack);
+  assert.deepEqual(t.closed, ["interactive stack"]);
+  assert.equal(t.pressed, 1);
+  assert.deepEqual(c.calls.filter(([cmd]) => cmd === "typeKeys").map(([, k]) => k), [["on"]]);
+});
+
+test("an object edited on the command line: named, not closed by to_stack, off the stack meanwhile", async () => {
+  const EDIT = { ...IN_FORM, kind: "objectEdit", commandLine: true };
+  const e = fake("49g", { uiState: EDIT, commandLine: { active: true, text: "3.5" }, stack: [{ type: "real", text: "2" }, { type: "real", text: "1" }], flags: { set: [] } });
+  const d = await call(tools({ "49g": e }).read_display, { format: "text" });
+  assert.equal(d.screen, "object edit");
+  assert.match(d.next, /▼ on a stack level.*VISIT.*TOOL EDIT.*decide first.*\["enter"\].*puts the edited object back.*VISIT: stores it in the variable.*\["on"\].*puts the original back.*off the stack/s);
+  assert.match(d.stackNote, /being edited.*off the stack.*VISIT edits a variable/s);
+  const s = await call(tools({ "49g": e }).read_stack);
+  assert.equal(s.depth, 2);
+  assert.match(s.note, /until ENTER or CANCEL it is off the stack.*VISIT edits a variable/s);
+  // to_stack refuses and presses nothing.
+  await assert.rejects(call(tools({ "49g": e }).to_stack), /does not press CANCEL in an object being edited.*screen: "object edit".*decide first/s);
+  assert.ok(!e.calls.some(([cmd]) => cmd === "typeKeys"));
+  // run_rpl refuses without offering to_stack.
+  await assert.rejects(call(tools({ "49g": e }).run_rpl, { text: "1" }), (err) => {
+    assert.match(err.message, /an object being edited, not the stack/);
+    assert.doesNotMatch(err.message, /to_stack/);
+    return true;
+  });
+});
+
+test("the MatrixWriter: named, with a cell being typed, not closed by to_stack", async () => {
+  const MW = { ...IN_FORM, kind: "matrixWriter" };
+  const m = fake("48sx", { uiState: MW, commandLine: { active: false }, stack: [] });
+  const d = await call(tools({ "48sx": m }).read_display, { format: "text" });
+  assert.equal(d.screen, "matrix writer");
+  assert.match(d.next, /decide first.*Type a number.*\["enter"\].*cell.*\["enter"\] with nothing typed.*puts the matrix on the stack.*\["on"\].*new matrix is dropped.*comes back unchanged/s);
+  assert.match(d.next, /form's field.*goes into the field.*returns to the form unchanged/s);
+  assert.match(d.stackNote, /MatrixWriter is open.*opened from the stack with ▼ is off the stack/s);
+  const s = await call(tools({ "48sx": m }).read_stack);
+  assert.match(s.note, /opened from the stack with ▼ is off the stack/);
+  // A cell being typed: its own next.
+  const typed = fake("48sx", { uiState: { ...MW, commandLine: true }, commandLine: { active: true, text: "2" }, stack: [] });
+  const t = await call(tools({ "48sx": typed }).read_display, { format: "text" });
+  assert.equal(t.screen, "matrix writer");
+  assert.match(t.next, /being typed into a cell.*\["enter"\] puts it in the cell.*\["on"\].*clears the typing and stays/s);
+  assert.match(t.next, /form's field.*returning to the form unchanged/s);
+  // to_stack refuses in both and presses nothing.
+  for (const x of [m, typed]) {
+    await assert.rejects(call(tools({ "48sx": x }).to_stack), /does not press CANCEL in the MatrixWriter.*screen: "matrix writer"/s);
+    assert.ok(!x.calls.some(([cmd]) => cmd === "typeKeys"));
+  }
 });
 
 test("the tools whose results carry calculator text say it is untrusted", () => {

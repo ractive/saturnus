@@ -28,6 +28,14 @@ on it.
 
 ## Ranked
 
+Items 1 to 3 were done in [[iterations/iteration-75-more-screens]]
+(`interactiveStack`, `objectEdit`, `matrixWriter`, checked on 48SX J,
+48GX R, 49G 2.10 and 1.19-6). Two of the sweep's rules did not hold as
+written: the 49G edits a string with system binary #0 (as INPUT), so the
+edit is told by the environment under the four, which binds the edited
+object alone; and the 48's MatrixWriter's second binding turns into a
+binary integer once a cell is filled. Items 4 to 11 remain.
+
 1. **Interactive stack** (▲ at the stack; on the 49G also HIST). 48:
    innermost 4 unnamed (command, three system binaries) under `SavedUI`;
    49G: newest 8 unnamed, binding 1 a system binary, 3 a command, 8 a

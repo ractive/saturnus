@@ -1123,7 +1123,9 @@ impl Emulator {
 
     /// What has the keyboard (`uiState`): the stack, a command line, a
     /// halted program, an input form, a choose or message box, the
-    /// graphics screen, the 48's EquationWriter (wiki: hardware/ui-state).
+    /// graphics screen, the 48's EquationWriter, the interactive stack, an
+    /// object edited on the command line, the MatrixWriter (wiki:
+    /// hardware/ui-state).
     pub fn ui_state(&self) -> crate::Result<saturnus_objects::screen::Screen> {
         Ok(saturnus_objects::screen::screen(self.machine())?)
     }
