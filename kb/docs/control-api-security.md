@@ -119,12 +119,13 @@ under "Known limits".
 A legacy `initialize` gets an `Mcp-Session-Id`; it only names the client
 in "The AI's calls" and is never checked, so it grants nothing.
 
-"Always allow" is keyed on the AI app's declared name (its `clientInfo`,
-or the legacy session this server issued it), which is enough because
+"Allow until reload" (tab-mcp's "Always allow" before 0.16) is keyed on
+the AI app's declared name (its `clientInfo`, or the legacy session this
+server issued it), which is enough because
 the token is the boundary and the confirmation guards against an AI
 model's mistakes, not a hostile local app; a name only guessed from the
 `User-Agent` or the "AI app" default is asked every time, with no
-"Always allow" (`mcp::tests::which_client_names_are_stable`, web
+"Allow until reload" (`mcp::tests::which_client_names_are_stable`, web
 `ai-local.test.mjs`, `ai-local-page.test.mjs`).
 
 ## WebMCP in the browser
