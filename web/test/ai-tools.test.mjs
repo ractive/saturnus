@@ -506,6 +506,7 @@ test("the 48's EquationWriter: named, left by to_stack only from its scrolling m
     await assert.rejects(call(tools({ "48gx": r }).run_rpl, { text: "1" }), (err) => {
       assert.match(err.message, /the EquationWriter.*not the stack/s);
       assert.doesNotMatch(err.message, /presses CANCEL until the stack is back/);
+      assert.equal(err.message.match(/to_stack/g)?.length ?? 0, state === VIEW ? 1 : 0, "to_stack named at most once");
       return true;
     });
     assert.ok(!r.calls.some(([cmd]) => cmd === "run"));
@@ -517,7 +518,7 @@ test("the 48's EquationWriter: named, left by to_stack only from its scrolling m
   assert.deepEqual(r.closed, ["equation view"]);
   assert.equal(r.pressed, 1);
   assert.equal(r.screen, "equation writer");
-  assert.match(r.note, /^Stopped: .*the EquationWriter/);
+  assert.match(r.note, /^Stopped: .*the EquationWriter: it would drop the formula/);
   assert.match(r.next, /decide first/);
   assert.deepEqual(c.calls.filter(([cmd]) => cmd === "typeKeys").map(([, k]) => k), [["on"]]);
   // In the writer: refused, nothing pressed.
@@ -565,7 +566,7 @@ test("the interactive stack: named, its next from the manuals, closed by to_stac
   assert.equal(s.note, undefined);
   // run_rpl refuses, pointing at to_stack.
   const r = fake("48gx", { uiState: ISTACK, commandLine: { active: false }, run: { closed: true } });
-  await assert.rejects(call(tools({ "48gx": r }).run_rpl, { text: "1" }), /the interactive stack, not the stack.*screen: "interactive stack".*to_stack, which presses CANCEL/s);
+  await assert.rejects(call(tools({ "48gx": r }).run_rpl, { text: "1" }), /the interactive stack, not the stack.*screen: "interactive stack".*to_stack presses CANCEL for you\.$/s);
   assert.ok(!r.calls.some(([cmd]) => cmd === "run"));
   // to_stack: one CANCEL, then the stack.
   const states = [ISTACK, AT_STACK];
@@ -678,4 +679,18 @@ test("a call cancelled while its keys play drops those not played: the next call
   } finally {
     clearInterval(timer);
   }
+});
+
+test("a cursor blinking on an open line is not a program running", async () => {
+  // Awake at one look in four (the blink), asleep otherwise: not running.
+  let n = 0;
+  const b = fake("48gx", { stats: () => ({ loop: n++ % 4 === 3 ? "frame" : "sleep" }), uiState: { ...IN_FORM, kind: "matrixWriter", commandLine: true }, commandLine: { active: true, text: "5" }, stack: [] });
+  for (let i = 0; i < 4; i++) {
+    const d = await call(tools({ "48gx": b }).read_display, { format: "text" });
+    assert.equal(d.screen, "matrix writer");
+    assert.equal(d.running, undefined);
+  }
+  // Awake at every look: running.
+  const r = fake("48gx", { stats: { loop: "frame" }, uiState: AT_STACK, commandLine: { active: false }, stack: [] });
+  assert.equal((await call(tools({ "48gx": r }).read_display, { format: "text" })).screen, "running");
 });

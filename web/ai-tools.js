@@ -352,7 +352,7 @@ export function aiTools(deps) {
         const screen = await screenOf(t);
         if (screen?.kind === "running") throw new Error(`The calculator is still running a program: run_rpl would type into it. screen: "running". next: ${screen.next}`);
         if (screen && !screen.inControl) {
-          const way = screen.kind === "equationView" ? " Or to_stack, which returns to the EquationWriter." : closable(screen) ? " Or to_stack, which presses CANCEL until the stack is back." : "";
+          const way = closable(screen) && !/to_stack/.test(screen.next ?? "") ? " Or to_stack, which presses CANCEL until the stack is back." : "";
           throw new Error(`The calculator shows ${screenPhrase(screen)}, not the stack: run_rpl would type into it. screen: ${JSON.stringify(screen.screen)}. next: ${screen.next}${way}`);
         }
         await refuseOpenLine(t);
@@ -383,7 +383,8 @@ export function aiTools(deps) {
           if (!screen) throw new Error("The calculator's screen cannot be read now. Read the display (read_display) and press_keys [\"on\"] (CANCEL) yourself.");
           if (screen.kind === "stack") return display(t, String(input.display ?? "text"), { png, look: askedLook(input), extra: { closed, pressed: closed.length } });
           if (!closable(screen)) {
-            const why = `to_stack does not press CANCEL in ${screenPhrase(screen)}${screen.kind === "inputForm" ? " with a field being edited" : ""}: it could throw away typing or stop a program.`;
+            const loss = { equationWriter: "it would drop the formula", matrixWriter: "it would drop a new matrix or what is typed", objectEdit: "it would drop the changes" }[screen.kind] ?? "it could throw away typing or stop a program";
+            const why = `to_stack does not press CANCEL in ${screenPhrase(screen)}${screen.kind === "inputForm" ? " with a field being edited" : ""}: ${loss}.`;
             if (!closed.length) throw new Error(`${why} screen: ${JSON.stringify(screen.screen)}. next: ${screen.next}`);
             return display(t, String(input.display ?? "both"), { png, look: askedLook(input), extra: { closed, pressed: closed.length, note: `Stopped: ${why} Follow "next".` } });
           }
@@ -634,11 +635,23 @@ async function skinKeys(t) {
   return skin?.keys ?? [];
 }
 
-/** `{running: true}` while the calculator still computes after the wait. */
+/** How often and how far apart `stillRunning` looks before it calls the calculator busy. */
+const RUNNING_LOOKS = 6;
+const RUNNING_LOOK_MS = 50;
+
+/**
+ * `{running: true}` while the calculator still computes after the wait:
+ * awake at every look over about 300 ms. A cursor blinking on an open
+ * command line wakes it for a moment, which is not a program running
+ * (a single look then told the AI to press ATTN, which drops the typing).
+ */
 async function stillRunning(t) {
   try {
-    const s = await t.backend.stats();
-    return s.loop === "frame" ? { running: true } : {};
+    for (let i = 0; i < RUNNING_LOOKS; i++) {
+      if (i) await new Promise((r) => setTimeout(r, RUNNING_LOOK_MS));
+      if ((await t.backend.stats()).loop !== "frame") return {};
+    }
+    return { running: true };
   } catch {
     return {};
   }

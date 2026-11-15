@@ -5,6 +5,16 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `filer-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **The AI tools no longer call a blinking cursor a running program.**
+  Right after a key opened a command line (a cell of the MatrixWriter,
+  an edit), the tools could say "running" and suggest ATTN, which drops
+  what was typed; they now look for about 300 ms before calling the
+  calculator busy. to_stack's note says what CANCEL would lose in the
+  EquationWriter, the MatrixWriter and an edit, and run_rpl's refusal
+  names to_stack once.
+
 ## 0.12.0 (2026-11-15)
 
 - **The AI tools know three more screens.** On the 48SX, 48GX and 49G,
