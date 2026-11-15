@@ -5,7 +5,7 @@ All notable changes to saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `filer-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## Unreleased
+## 0.12.0 (2026-11-15)
 
 - **The AI tools know three more screens.** On the 48SX, 48GX and 49G,
   `screen` says "interactive stack" (▲ at the stack, the 49G's HIST),

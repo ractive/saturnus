@@ -114,7 +114,7 @@ checksums in `saturnus-SHA256SUMS`. The natively built archives also
 have an SBOM and a build provenance attestation
 (`gh attestation verify <archive> --repo ractive/saturnus`).
 
-On Linux x86_64 and aarch64 (aarch64 from the release after 0.11.0)
+On Linux x86_64 and aarch64 (aarch64 since 0.12.0)
 the command line also comes as a package named
 `saturnus`. It is a different package from the desktop app's
 (`saturnus-app`), and the two can be installed side by side. Download
