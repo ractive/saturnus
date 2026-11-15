@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 74: the EquationWriter and other dead ends for the AI tools"
 date: 2026-11-15
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
