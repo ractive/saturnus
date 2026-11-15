@@ -350,7 +350,8 @@ export function aiTools(deps) {
         const screen = await screenOf(t);
         if (screen?.kind === "running") throw new Error(`The calculator is still running a program: run_rpl would type into it. screen: "running". next: ${screen.next}`);
         if (screen && !screen.inControl) {
-          throw new Error(`The calculator shows ${screenPhrase(screen)}, not the stack: run_rpl would type into it. screen: ${JSON.stringify(screen.screen)}. next: ${screen.next} Or to_stack, which presses CANCEL until the stack is back.`);
+          const way = screen.kind === "equationView" ? " Or to_stack, which returns to the EquationWriter." : closable(screen) ? " Or to_stack, which presses CANCEL until the stack is back." : "";
+          throw new Error(`The calculator shows ${screenPhrase(screen)}, not the stack: run_rpl would type into it. screen: ${JSON.stringify(screen.screen)}. next: ${screen.next}${way}`);
         }
         await refuseOpenLine(t);
         cancelled(signal);
@@ -419,7 +420,7 @@ export function aiTools(deps) {
         const note = running.running
           ? { note: "A program is still running: these are its working objects, not its result. Read the stack again once it is done." }
           : screen?.kind === "input"
-            ? { note: "A command line is open in another screen: an object being edited there (▼, EDIT, VISIT) is off the stack until ENTER or CANCEL." }
+            ? { note: "A command line is open in another screen: an object being edited there (▼ or EDIT on a stack level) is off the stack until ENTER or CANCEL; VISIT edits a variable and leaves the stack alone." }
             : {};
         return { calculator: t.id, ...(await modeField(t)), depth: stack.length, levels: stack.slice(0, max).map((o, i) => levelText(o, i + 1)), ...running, ...note };
       }, options?.signal),

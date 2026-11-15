@@ -149,6 +149,11 @@ const WRITER: &[Case] = &[
         Kind::EquationWriter,
     ),
     case(
+        "EDIT in the equation writer's selection mode",
+        &["leftshift enter", "1 plus 2", "left", "b"],
+        Kind::Input,
+    ),
+    case(
         "PICTURE in the equation writer",
         &["leftshift enter", "1 plus 2", "leftshift left"],
         Kind::EquationView,

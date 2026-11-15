@@ -500,7 +500,11 @@ test("the 48's EquationWriter: named, left by to_stack only from its scrolling m
   // run_rpl refuses in both.
   for (const state of [WRITER, VIEW]) {
     const r = fake("48gx", { uiState: state, commandLine: { active: false }, run: { closed: true } });
-    await assert.rejects(call(tools({ "48gx": r }).run_rpl, { text: "1" }), /the EquationWriter.*not the stack/s);
+    await assert.rejects(call(tools({ "48gx": r }).run_rpl, { text: "1" }), (err) => {
+      assert.match(err.message, /the EquationWriter.*not the stack/s);
+      assert.doesNotMatch(err.message, /presses CANCEL until the stack is back/);
+      return true;
+    });
     assert.ok(!r.calls.some(([cmd]) => cmd === "run"));
   }
   // to_stack: one CANCEL in the scrolling mode, then stops at the writer with its next.

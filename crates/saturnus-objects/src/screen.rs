@@ -459,7 +459,9 @@ pub fn read(
         Some(false) => return Ok(at(Kind::Message, Source::Display)),
         None => {}
     }
-    if let Some(kind) = equation_writer(&envs) {
+    // The 48's writer never has the command line open itself: an open
+    // line above it (EDIT in selection mode) is an editor of its own.
+    if !command_line && let Some(kind) = equation_writer(&envs) {
         return Ok(at(kind, Source::Memory));
     }
     if command_line {
@@ -675,6 +677,16 @@ mod tests {
         assert_eq!(kind_gx(&[&["IF", "SavedUI"], WRITER]), Kind::InputForm);
         // Without the writer's names: nothing to tell.
         assert_eq!(kind_gx(&[&["SavedUI"]]), Kind::Unknown);
+        // A command line open above the writer (EDIT in selection mode):
+        // an editor of its own, not the writer.
+        let l = ScreenLayout::HP48GX;
+        let e = EditorLayout::HP48GX;
+        let mut ram = in_loop(&l, &[&["SavedUI"], WRITER, &["SavedUI"]]);
+        ram.put(e.line, 2, 1);
+        ram.put(e.text_end_ptr, 0x8FEE3, 5);
+        ram.put(e.stack_end_ptr, 0x8FEB3, 5);
+        let s = read(&ram, &l, &e, &[]).unwrap();
+        assert_eq!((s.kind, s.command_line), (Kind::Input, true));
         let l = ScreenLayout::HP48GX;
         let ram = in_loop(&l, &[&["SavedUI", ""], WRITER]);
         assert_eq!(
