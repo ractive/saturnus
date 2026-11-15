@@ -473,6 +473,70 @@ test("to_stack presses CANCEL until the stack has the keyboard, and says what it
   assert.match(INSTRUCTIONS, /to_stack/);
 });
 
+test("the 48's EquationWriter: named, left by to_stack only from its scrolling mode, its stack not listed", async () => {
+  const WRITER = { ...IN_FORM, kind: "equationWriter" };
+  const VIEW = { ...IN_FORM, kind: "equationView" };
+  /** The EquationWriter's working objects on the stack, as the owner's report had them. */
+  const working = Array.from({ length: 109 }, (_, i) => (i ? { type: "unknown" } : { type: "list", text: "{ }" }));
+  // The names and what to do.
+  const v = fake("48gx", { uiState: VIEW, commandLine: { active: false }, stack: working });
+  const view = await call(tools({ "48gx": v }).read_display, { format: "text" });
+  assert.equal(view.screen, "equation view");
+  assert.match(view.next, /ENTER does nothing.*arrow keys.*\["on"\].*returns to the EquationWriter, where the formula can be edited, and keeps it.*to_stack/s);
+  const w = fake("48gx", { uiState: WRITER, commandLine: { active: false }, stack: working });
+  const writer = await call(tools({ "48gx": w }).read_display, { format: "text" });
+  assert.equal(writer.screen, "equation writer");
+  assert.match(writer.next, /decide first.*\["enter"\].*on the stack.*replaces that level.*form's field.*\["on"\].*drops the formula.*stays on the stack/s);
+  // Its working objects are not listed as the user's stack: not in the display, not by read_stack.
+  for (const d of [view, writer]) {
+    assert.match(d.stack, /EquationWriter is open.*working objects.*not listed/s);
+    assert.equal(d.stackDepth, undefined);
+  }
+  const s = await call(tools({ "48gx": w }).read_stack);
+  assert.equal(s.levels, undefined);
+  assert.equal(s.depth, undefined);
+  assert.equal(s.screen, "equation writer");
+  assert.match(s.note, /working objects.*Leave it first.*109 objects now, the EquationWriter's included/s);
+  // run_rpl refuses in both.
+  for (const state of [WRITER, VIEW]) {
+    const r = fake("48gx", { uiState: state, commandLine: { active: false }, run: { closed: true } });
+    await assert.rejects(call(tools({ "48gx": r }).run_rpl, { text: "1" }), /the EquationWriter.*not the stack/s);
+    assert.ok(!r.calls.some(([cmd]) => cmd === "run"));
+  }
+  // to_stack: one CANCEL in the scrolling mode, then stops at the writer with its next.
+  const states = [VIEW, WRITER];
+  const c = fake("48gx", { uiState: () => states[Math.min(c.calls.filter(([cmd]) => cmd === "typeKeys").length, 1)], commandLine: { active: false }, stack: working });
+  const r = (await call(tools({ "48gx": c }).to_stack)).structuredContent;
+  assert.deepEqual(r.closed, ["equation view"]);
+  assert.equal(r.pressed, 1);
+  assert.equal(r.screen, "equation writer");
+  assert.match(r.note, /^Stopped: .*the EquationWriter/);
+  assert.match(r.next, /decide first/);
+  assert.deepEqual(c.calls.filter(([cmd]) => cmd === "typeKeys").map(([, k]) => k), [["on"]]);
+  // In the writer: refused, nothing pressed.
+  const x = fake("48gx", { uiState: WRITER, commandLine: { active: false }, stack: working });
+  await assert.rejects(call(tools({ "48gx": x }).to_stack), /does not press CANCEL in the EquationWriter.*screen: "equation writer".*decide first/s);
+  assert.ok(!x.calls.some(([cmd]) => cmd === "typeKeys"));
+});
+
+test("an unknown screen's next does not promise what to_stack will not do", async () => {
+  const u = fake("48gx", { uiState: { ...IN_FORM, kind: "unknown" }, commandLine: { active: false }, stack: [] });
+  const d = await call(tools({ "48gx": u }).read_display, { format: "text" });
+  assert.equal(d.screen, "unknown");
+  assert.doesNotMatch(d.next, /to_stack presses it/);
+  assert.match(d.next, /\["on"\].*yourself.*drops a matrix.*stops a program waiting in WAIT.*to_stack presses nothing/s);
+});
+
+test("a command line in another screen: INPUT or an object being edited, off the stack meanwhile", async () => {
+  const e = fake("48gx", { uiState: { ...IN_FORM, kind: "input", commandLine: true }, commandLine: { active: true, text: "5" }, stack: [{ type: "real", text: "1" }] });
+  const d = await call(tools({ "48gx": e }).read_display, { format: "text" });
+  assert.equal(d.screen, "program input");
+  assert.match(d.next, /INPUT.*object is being edited.*\["enter"\].*puts the object back.*\["on"\].*comes back unchanged/s);
+  const s = await call(tools({ "48gx": e }).read_stack);
+  assert.equal(s.depth, 1);
+  assert.match(s.note, /off the stack until ENTER or CANCEL/);
+});
+
 test("the tools whose results carry calculator text say it is untrusted", () => {
   const t = tools({ "48gx": fake("48gx") });
   for (const name of ["read_display", "read_stack", "list_variables", "read_variable", "press_keys", "run_rpl", "to_stack", "run_function"]) {

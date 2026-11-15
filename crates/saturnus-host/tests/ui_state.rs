@@ -2,8 +2,8 @@
 //! `SATURNUS_ROM_DIR` holds `sxrom-j`, `gxrom-r`, `rom-2.10.49g`): each
 //! screen the AI tools name (the stack, a command line, a halted program,
 //! an input form, a choose box, a message box, the graphics screen,
-//! INPUT, another loop) opened by its keys or command, read by
-//! `uiState`, then left with ATTN/CANCEL back to the stack, as the
+//! INPUT, the 48's EquationWriter, another loop) opened by its keys or
+//! command, read by `uiState`, then left with ATTN/CANCEL back to the stack, as the
 //! tools' `to_stack` does (wiki: hardware/ui-state).
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -135,6 +135,31 @@ const fn halted(what: &'static str, steps: &'static [&'static str], kind: Kind, 
     }
 }
 
+/// The 48SX's and 48GX's EquationWriter: entry, selection and scrolling
+/// mode.
+const WRITER: &[Case] = &[
+    case(
+        "the equation writer",
+        &["leftshift enter"],
+        Kind::EquationWriter,
+    ),
+    case(
+        "the equation writer's selection mode",
+        &["leftshift enter", "1 plus 2", "left"],
+        Kind::EquationWriter,
+    ),
+    case(
+        "PICTURE in the equation writer",
+        &["leftshift enter", "1 plus 2", "leftshift left"],
+        Kind::EquationView,
+    ),
+    case(
+        "down on an algebraic",
+        &["r:'A+B'", "down"],
+        Kind::EquationView,
+    ),
+];
+
 /// Screens all three models have.
 const COMMON: &[Case] = &[
     case("the stack", &[], Kind::Stack),
@@ -165,12 +190,13 @@ const COMMON: &[Case] = &[
     case("WAIT", &["r:« 0 WAIT » EVAL"], Kind::Unknown),
 ];
 
-fn check(model: Model, file: &str, own: &[Case]) {
+/// The `COMMON` cases, then `own` and `more`, on `model`.
+fn check(model: Model, file: &str, own: &[Case], more: &[Case]) {
     let Some(base) = boot(model, file) else {
         eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
         return;
     };
-    for c in COMMON.iter().chain(own) {
+    for c in COMMON.iter().chain(own).chain(more) {
         let mut m = base.clone();
         act(&mut m, c.steps);
         let s: Screen = screen(&m).unwrap();
@@ -199,9 +225,9 @@ fn hp48sx_screens() {
         "sxrom-j",
         &[
             case("GRAPH", &["leftshift left"], Kind::Graphics),
-            case("the equation writer", &["leftshift enter"], Kind::Unknown),
             case("the matrix writer", &["rightshift enter"], Kind::Unknown),
         ],
+        WRITER,
     );
 }
 
@@ -246,8 +272,14 @@ fn hp48gx_screens() {
             shown("the SOLVE choose box", &["rightshift 7"], Kind::ChooseBox),
             shown("MSGBOX", &["r:\"HELLO\" MSGBOX"], Kind::Message),
             case("PICTURE", &["leftshift left"], Kind::Graphics),
-            case("the equation writer", &["leftshift enter"], Kind::Unknown),
+            case("the matrix writer", &["rightshift enter"], Kind::Unknown),
+            case(
+                "the equation writer from a form's field",
+                &["rightshift 8", "down down", "leftshift enter"],
+                Kind::EquationWriter,
+            ),
         ],
+        WRITER,
     );
 }
 
@@ -274,5 +306,36 @@ fn hp49g_screens() {
             // Its editor line is the command line's: told as INPUT is.
             case("the equation writer", &["eqw"], Kind::Input),
         ],
+        &[],
     );
+}
+
+/// The tools' rule for the 48's EquationWriter: one CANCEL in scrolling
+/// mode returns to the writer; opened by down from the stack, a second
+/// CANCEL closes it and leaves the algebraic where it was.
+#[test]
+fn cancel_leaves_the_equation_view_for_the_writer() {
+    for (model, file) in [(Model::Hp48sx, "sxrom-j"), (Model::Hp48gx, "gxrom-r")] {
+        let Some(base) = boot(model, file) else {
+            eprintln!("skipped: no {file} in SATURNUS_ROM_DIR");
+            continue;
+        };
+        let mut m = base.clone();
+        act(&mut m, &["leftshift enter", "1 plus 2", "leftshift left"]);
+        assert_eq!(screen(&m).unwrap().kind, Kind::EquationView, "{model:?}");
+        press(&mut m, Key::On);
+        assert_eq!(screen(&m).unwrap().kind, Kind::EquationWriter, "{model:?}");
+
+        let mut m = base.clone();
+        act(&mut m, &["r:'A+B'", "down"]);
+        assert_eq!(screen(&m).unwrap().kind, Kind::EquationView, "{model:?}");
+        press(&mut m, Key::On);
+        assert_eq!(screen(&m).unwrap().kind, Kind::EquationWriter, "{model:?}");
+        press(&mut m, Key::On);
+        let s = screen(&m).unwrap();
+        assert_eq!(s.kind, Kind::Stack, "{model:?}: {s:?}");
+        let stack = Emulator::from_machine(m).stack().unwrap();
+        assert_eq!(stack.len(), 1, "{model:?}: {stack:?}");
+        assert_eq!(stack[0]["text"], "'A+B'", "{model:?}: {stack:?}");
+    }
 }

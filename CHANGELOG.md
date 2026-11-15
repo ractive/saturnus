@@ -7,6 +7,14 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **The AI tools know the 48's EquationWriter.** On the 48SX and 48GX,
+  `screen` says "equation writer" or "equation view" (its scrolling
+  mode, opened by ▼ on an algebraic, where ENTER does nothing) instead
+  of "unknown", and `next` says how to leave without losing the formula.
+  `to_stack` leaves the view for the EquationWriter and stops there.
+  While it is open, `read_stack` no longer lists the EquationWriter's
+  working objects as the stack.
+
 - **Linux packages for aarch64.** The .deb and .rpm of `saturnus` and
   `satx` now come for aarch64 too (`saturnus-v<version>-aarch64-linux.deb`
   and `.rpm`, and satx's likewise), with the same static binary as the

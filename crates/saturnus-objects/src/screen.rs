@@ -1,6 +1,7 @@
 //! What has the keyboard: the stack (the ROM's top-level outer loop), an
 //! open command line, a halted program, or an application's own loop (an
-//! input form, a choose box, a message box, the graphics screen), read
+//! input form, a choose box, a message box, the graphics screen, the 48's
+//! EquationWriter), read
 //! from RAM without pressing a key; the display only where RAM gave no
 //! sign (wiki: hardware/ui-state).
 //!
@@ -19,7 +20,13 @@
 //!   each halted program adds one more copy of the outer-loop frame.
 //! - The temporary environments (RPLMAN 13.1): input forms bind named
 //!   temporaries (`IF` on the 48GX, `IfMenu`, `CurrentField`, ... on the
-//!   49G), the 49G's choose box binds `NbElm` and others.
+//!   49G), the 49G's choose box binds `NbElm` and others. The 48SX's and
+//!   48GX's EquationWriter binds `ploc`, `FontGauge` and others: newest
+//!   in entry mode, under one environment binding only `SavedUI` in
+//!   selection mode, under `SavedUI` and `SAVEDDEPTH EXITFCN EnvOK`
+//!   (48SX: `EXITFCN EnvOK`) in scrolling mode. The 49G's equation writer
+//!   binds only unnamed temporaries and edits on the command line: it
+//!   reads as INPUT does.
 //! - The display: the stack display's GROB pointer equals the PICT
 //!   pointer while the graphics screen shows.
 //! - The 48GX's choose and message boxes bind only unnamed temporaries,
@@ -137,12 +144,20 @@ pub enum Kind {
     Message,
     /// The graphics screen (PICTURE, PVIEW, a plot).
     Graphics,
+    /// The 48SX's or 48GX's EquationWriter in entry or selection mode.
+    /// Its working objects lie on the stack above the user's levels while
+    /// it is open.
+    EquationWriter,
+    /// The 48SX's or 48GX's EquationWriter in scrolling mode (▼ on an
+    /// algebraic at the stack, or PICTURE in the writer): ENTER does
+    /// nothing there, CANCEL returns to the writer.
+    EquationView,
     /// Another loop reads the keys with the command line open: a program
     /// waits for input (INPUT), or an editor uses the line (the 49G's
     /// equation writer).
     Input,
-    /// Another loop has the keyboard (the interactive stack, the equation
-    /// or matrix writer, WAIT), or the state could not be read.
+    /// Another loop has the keyboard (the interactive stack, the matrix
+    /// writer, WAIT), or the state could not be read.
     Unknown,
 }
 
@@ -234,40 +249,99 @@ impl ReturnStack {
     }
 }
 
-/// The names of the temporaries bound in the newest environments, down to
-/// and including the first that binds `SavedUI` (the parameterized outer
-/// loop's saved state: what the innermost loop bound); only the newest
-/// environment when none does. Names lose a leading `'`.
-pub fn innermost_names(mem: &dyn Memory, layout: &ScreenLayout) -> Result<Vec<String>> {
-    let mut envs: Vec<Vec<String>> = Vec::new();
+/// One temporary environment's bindings.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Environment {
+    /// The names it binds, in order, without a leading `'`.
+    pub names: Vec<String>,
+    /// The bindings with no name (`NULLLAM`, or a name that does not
+    /// decode).
+    pub unnamed: u32,
+}
+
+impl Environment {
+    /// Whether it binds `name`.
+    pub fn binds(&self, name: &str) -> bool {
+        self.names.iter().any(|n| n == name)
+    }
+}
+
+/// The temporary environments, newest first.
+pub fn environments(mem: &dyn Memory, layout: &ScreenLayout) -> Result<Vec<Environment>> {
+    let mut envs = Vec::new();
     let mut a = field(mem, layout.environments_ptr, 5)?;
     for _ in 0..MAX_ENVIRONMENTS {
         let link = field(mem, a, 5)?;
         if link == 0 {
             break;
         }
-        let mut names = Vec::new();
+        let mut env = Environment::default();
         let mut p = a + 10;
         let mut n = 0;
         while p + 10 <= a + link && n < MAX_BINDINGS {
             let name = field(mem, p, 5)?;
-            if let Ok(Object::LocalName { value }) = decode_at(name, mem) {
-                let value = value.trim_start_matches('\'');
-                if !value.is_empty() {
-                    names.push(value.to_string());
+            match decode_at(name, mem) {
+                Ok(Object::LocalName { value }) if !value.trim_start_matches('\'').is_empty() => {
+                    env.names.push(value.trim_start_matches('\'').to_string());
                 }
+                _ => env.unnamed += 1,
             }
             p += 10;
             n += 1;
         }
-        let saved = names.iter().any(|n| n == "SavedUI");
-        envs.push(names);
-        if saved {
-            return Ok(envs.concat());
-        }
+        envs.push(env);
         a = a.wrapping_add(link) & 0xFFFFF;
     }
-    Ok(envs.into_iter().next().unwrap_or_default())
+    Ok(envs)
+}
+
+/// The names of the temporaries bound in the newest environments, down to
+/// and including the first that binds `SavedUI` (the parameterized outer
+/// loop's saved state: what the innermost loop bound); only the newest
+/// environment when none does. Names lose a leading `'`.
+pub fn innermost_names(mem: &dyn Memory, layout: &ScreenLayout) -> Result<Vec<String>> {
+    Ok(innermost(&environments(mem, layout)?))
+}
+
+fn innermost(envs: &[Environment]) -> Vec<String> {
+    match envs.iter().position(|e| e.binds("SavedUI")) {
+        Some(i) => envs[..=i].iter().flat_map(|e| e.names.clone()).collect(),
+        None => envs.first().map(|e| e.names.clone()).unwrap_or_default(),
+    }
+}
+
+/// What the environments above a scrolling EquationWriter bind (wiki:
+/// hardware/ui-state).
+const VIEW_NAMES: [&str; 4] = ["SavedUI", "SAVEDDEPTH", "EXITFCN", "EnvOK"];
+
+/// The 48SX's or 48GX's EquationWriter from the environments, newest
+/// first: [`Kind::EquationWriter`] when its own environment (`ploc`,
+/// `FontGauge`) is the newest or only `SavedUI` ones are above it,
+/// [`Kind::EquationView`] when the scrolling mode's are; `None` when it
+/// is not open or another loop (a box, a form) is above it.
+fn equation_writer(envs: &[Environment]) -> Option<Kind> {
+    let at = envs
+        .iter()
+        .position(|e| e.binds("ploc") && e.binds("FontGauge"))?;
+    let above = &envs[..at];
+    if above.is_empty() {
+        return Some(Kind::EquationWriter);
+    }
+    if above.iter().any(|e| e.unnamed > 0 || e.names.is_empty()) {
+        return None;
+    }
+    let only = |allowed: &[&str]| {
+        above
+            .iter()
+            .all(|e| e.names.iter().all(|n| allowed.contains(&n.as_str())))
+    };
+    if only(&["SavedUI"]) {
+        return Some(Kind::EquationWriter);
+    }
+    if only(&VIEW_NAMES) && above.iter().any(|e| e.binds("EnvOK")) {
+        return Some(Kind::EquationView);
+    }
+    None
 }
 
 /// A framed box with a two-dot shadow on the display (the 48GX's and the
@@ -368,7 +442,8 @@ pub fn read(
     if field(mem, layout.shown_grob_ptr, 5)? == field(mem, layout.pict_ptr, 5)? {
         return Ok(at(Kind::Graphics, Source::Memory));
     }
-    let names = innermost_names(mem, layout)?;
+    let envs = environments(mem, layout)?;
+    let names = innermost(&envs);
     let has = |n: &str| names.iter().any(|m| m == n);
     if has("IF") || has("IfMenu") || has("CurrentField") {
         return Ok(at(Kind::InputForm, Source::Memory));
@@ -383,6 +458,9 @@ pub fn read(
         Some(true) => return Ok(at(Kind::ChooseBox, Source::Display)),
         Some(false) => return Ok(at(Kind::Message, Source::Display)),
         None => {}
+    }
+    if let Some(kind) = equation_writer(&envs) {
+        return Ok(at(kind, Source::Memory));
     }
     if command_line {
         return Ok(at(Kind::Input, Source::Memory));
@@ -519,6 +597,93 @@ mod tests {
         ram.put(0xA100A, 0x90100, 5);
         ram.put(0xA1014, 0, 5);
         assert_eq!(innermost_names(&ram, &l).unwrap(), ["SavedUI"]);
+    }
+
+    /// A loop that is not the stack's (no box on the display), with the
+    /// environments `envs`, newest first, each a list of names (`""`:
+    /// an unnamed binding).
+    fn in_loop(l: &ScreenLayout, envs: &[&[&str]]) -> Ram {
+        let mut ram = Ram::default();
+        ram.returns(l, &stack(&[0x385D4, 0x38AF5, 0x38B3B, 0x38B22]));
+        ram.put(l.shown_grob_ptr, 1, 5);
+        let mut names = 0x90000;
+        let mut a = 0xA0000;
+        ram.put(l.environments_ptr, a, 5);
+        for env in envs {
+            let link = 10 + 10 * env.len() as u32;
+            ram.put(a, link, 5);
+            for (i, name) in env.iter().enumerate() {
+                // A local name: prolog #02E6D, length, characters.
+                ram.put(names, 0x02E6D, 5);
+                ram.put(names + 5, name.len() as u32, 2);
+                for (j, b) in name.bytes().enumerate() {
+                    ram.put(names + 7 + 2 * j as u32, u32::from(b), 2);
+                }
+                ram.put(a + 10 + 10 * i as u32, names, 5);
+                names += 0x100;
+            }
+            a += link;
+        }
+        ram.put(a, 0, 5);
+        ram
+    }
+
+    const WRITER: &[&str] = &["ploc", "FontGauge", "cx", "cy"];
+
+    fn kind_gx(envs: &[&[&str]]) -> Kind {
+        let l = ScreenLayout::HP48GX;
+        read(&in_loop(&l, envs), &l, &EditorLayout::HP48GX, &[])
+            .unwrap()
+            .kind
+    }
+
+    #[test]
+    fn the_equation_writers_environments_name_its_modes() {
+        // Entry mode: the writer's own environment is the newest.
+        assert_eq!(kind_gx(&[WRITER, &["SavedUI"]]), Kind::EquationWriter);
+        // Selection mode: one environment binding only SavedUI above it.
+        assert_eq!(
+            kind_gx(&[&["SavedUI"], WRITER, &["SavedUI"]]),
+            Kind::EquationWriter
+        );
+        // Scrolling mode: the 48GX's and the 48SX's.
+        assert_eq!(
+            kind_gx(&[
+                &["SavedUI"],
+                &["SAVEDDEPTH", "EXITFCN", "EnvOK"],
+                WRITER,
+                &["SavedUI"]
+            ]),
+            Kind::EquationView
+        );
+        assert_eq!(
+            kind_gx(&[&["SavedUI"], &["EXITFCN", "EnvOK"], WRITER]),
+            Kind::EquationView
+        );
+        // A message box over the writer binds unnamed temporaries: not
+        // selection mode.
+        assert_eq!(
+            kind_gx(&[&["SavedUI"], &["", ""], WRITER, &["SavedUI"]]),
+            Kind::Unknown
+        );
+        // Other names above the writer: not its own loop.
+        assert_eq!(
+            kind_gx(&[&["SavedUI"], &["SAVEDDEPTH", "EXITFCN"], WRITER]),
+            Kind::Unknown
+        );
+        // A form opened over the writer names itself.
+        assert_eq!(kind_gx(&[&["IF", "SavedUI"], WRITER]), Kind::InputForm);
+        // Without the writer's names: nothing to tell.
+        assert_eq!(kind_gx(&[&["SavedUI"]]), Kind::Unknown);
+        let l = ScreenLayout::HP48GX;
+        let ram = in_loop(&l, &[&["SavedUI", ""], WRITER]);
+        assert_eq!(
+            environments(&ram, &l).unwrap()[0],
+            Environment {
+                names: vec!["SavedUI".into()],
+                unnamed: 1
+            }
+        );
     }
 
     fn boxed(band: bool) -> Vec<Vec<bool>> {
