@@ -37,7 +37,7 @@ only), archives with the binary, LICENSE and README (satx's also its
 `completions/`), SBOMs and
 build provenance (the macOS binary signed with a Developer ID
 certificate and notarised before it is archived, see "macOS signing"),
-a `.deb` and an `.rpm` of each CLI (x86_64, see "Linux
+a `.deb` and an `.rpm` of each CLI (x86_64 and aarch64, see "Linux
 packages"), and the upload to the release; after the upload, the
 crates go to crates.io and the Homebrew formulas `saturnus` and `satx`
 (`ractive/homebrew-tap`) and Scoop manifests (`ractive/scoop-bucket`) are
