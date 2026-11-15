@@ -55,6 +55,14 @@ CANCEL is key `"on"` on the 48, 49 and 38G to 40G, ATTN is key `"on"` on the
 ⇧ MAIN. Repeat until the stack (RPL models), HOME (38G to 40G) or the main
 menu is back. A message box with OK takes the OK menu key or ENTER.
 
+On the 48SX and 48GX, ▼ on an algebraic at the stack opens the
+EquationWriter's scrolling mode (`equation view`), where ENTER does nothing.
+CANCEL goes back to the EquationWriter (`equation writer`), where the formula
+can be edited. There ENTER puts the formula on the stack; CANCEL closes it,
+drops a formula typed there and leaves the stack as it was.
+While the EquationWriter is open, its working objects fill the stack, so
+`read_stack` lists no levels.
+
 ## Families
 
 | Family | Models | Main tools | Reference |
