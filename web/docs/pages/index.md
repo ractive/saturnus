@@ -1,10 +1,11 @@
 ---
-title: saturnus docs
-description: The HP calculators saturnus runs, their commands, how the Saturn processor works and how to move files to a real calculator.
+title: Saturnus docs
+page_title: Saturnus docs: HP calculator models, commands and hardware
+description: Docs for Saturnus, an emulator of classic HP calculators: the twelve models, every command, the Saturn processor, file transfer and how it is built.
 section: index
 ---
 
-About the HP calculators that saturnus runs in the browser: the models, their commands, how the Saturn processor inside them works, and how to move files between a computer and a real calculator.
+Saturnus is an emulator of twelve classic HP calculators. It runs in the browser, as a desktop app and on the command line. These docs cover the models, their commands, how the Saturn processor inside them works, how to move files between a computer and a real calculator, and how Saturnus is built.
 
 ## Models
 
@@ -21,7 +22,7 @@ About the HP calculators that saturnus runs in the browser: the models, their co
 - [HP 28S](28s.md)
 - [HP 19BII](19bii.md)
 
-Each page tells the model's history, what makes it special and how saturnus runs it.
+Each page tells the model's history, what makes it special and how Saturnus runs it, and answers the usual questions: where the ROM comes from, which computers and phones it runs on, and how files reach a real calculator.
 
 ## Command reference
 
@@ -49,6 +50,10 @@ Each page tells the model's history, what makes it special and how saturnus runs
 
 ## For AI apps
 
-[AI apps](ai-apps.md): let Claude Code, Codex, Cursor, Claude or ChatGPT use the calculators, with the saturnus skill and the Claude Code plugin.
+[AI apps](ai-apps.md): let Claude Code, Codex, Cursor, Claude or ChatGPT use the calculators, with the Saturnus skill and the Claude Code plugin.
+
+## How Saturnus is built
+
+[How Saturnus is built](how-it-is-built.md), for developers: the Rust core that also runs as WebAssembly, the browser app, the Tauri desktop app, the command-line tools, the clean-room method and the tests.
 
 Every page is also available as Markdown: `/saturnus/docs/48gx/` as `/saturnus/docs/48gx.md`. [llms.txt](../llms.txt) lists them.

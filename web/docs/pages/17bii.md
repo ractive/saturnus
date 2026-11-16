@@ -1,14 +1,19 @@
 ---
 title: HP 17BII
-description: HP's business calculator of 1990 with RPN or algebraic entry, its history, what makes it special and how saturnus runs it.
+page_title: HP 17BII emulator for the browser, Mac, Windows and Linux
+description: Saturnus, a free emulator, runs the HP 17BII in your browser or as a desktop app, from your own calculator's ROM. With the history of HP's business calculator of 1990.
 section: models
 model: 17bii
 ---
 
 The HP 17BII is a business and financial calculator that Hewlett-Packard introduced in January 1990. It replaced the [HP 17B](17b.md) and kept its menus, applications and solver, but lets you choose between algebraic entry and [RPN](https://en.wikipedia.org/wiki/Reverse_Polish_notation). With the [HP 19BII](19bii.md) of the same month, it was the first HP calculator to offer both.
 
-![HP 17BII](../img/17bii-640.webp)
-The 17BII as saturnus draws it, with its main menu.
+![An HP 17BII in Saturnus showing 3.14 above its main menu](../img/17bii-640.webp)
+The 17BII as Saturnus draws it, with its main menu.
+
+Saturnus is a free emulator of the HP 17BII. It runs the 17BII's own ROM, read out of your calculator, in your browser, as a desktop app for Mac, Windows and Linux, and on the command line.
+
+[Open the HP 17BII in Saturnus](../app/#/calculator/17bii)
 
 ## At a glance
 
@@ -76,9 +81,9 @@ For anything not built in, type an equation and solve it for any of its variable
 
 The infrared port prints to HP's 82240 printer. [Finseth notes](https://www.finseth.com/hpdata/hp17bii.php) that the 17BII added a double-spaced printing mode, set in the MODES menu.
 
-## In saturnus
+## In Saturnus
 
-saturnus was tested with the international 17BII's ROMs, main revision B with language revision A:
+Saturnus was tested with the international 17BII's ROMs, main revision B with language revision A:
 
 - On a first start it asks for the language. It boots, computes, and the ROM checks of its self-test pass. Its ROM is 96 KB: the 64 KB main ROM and a 32 KB language ROM. The English-only 64 KB ROM has not been tested.
 - Its clock runs with emulated time. "Set the clock" sets it to your computer's time, by pressing the keys of its TIME menu as you would; not while it asks for the language. Appointment alarms have not been tested.
@@ -88,9 +93,35 @@ saturnus was tested with the international 17BII's ROMs, main revision B with la
 
 What it does not do: the 17BII has no serial port, so Files has nothing for it, and the infrared printer output is not emulated. The memory view and the RPL editor are for the HP 48 and 49 only.
 
-The [command reference](commands.md#17bii) lists the 17BII's 260 functions with the keys that run them, and examples for 58 of them, run in saturnus.
+The [command reference](commands.md#17bii) lists the 17BII's 260 functions with the keys that run them, and examples for 58 of them, run in Saturnus.
 
-[Open the HP 17BII in saturnus](../app/#/calculator/17bii)
+[Open the HP 17BII in Saturnus](../app/#/calculator/17bii)
+
+## Questions and answers
+
+### Where do I get the HP 17BII's ROM?
+
+HP never published the 17BII's ROM, so there is no download, and Saturnus does not include it. You can read the ROM out of your own 17BII, with an HP 48 as the infrared receiver: [Christoph Gießelink's Emu42 page](https://hp.giesselink.com/emu42.htm) points to the tools and the steps. Then choose the file in the app. Saturnus was tested with the international ROM, main revision B.
+
+### Can I use the HP 17BII online, in my browser?
+
+Yes, with the ROM file from your own calculator. [The app](../app/#/calculator/17bii) runs in the browser on a computer or a phone, with nothing to install. You choose the ROM file once; the calculator then runs on your device, not on a server, and the app works offline after the first visit. On a phone you can add it to the home screen.
+
+### Is there an HP 17BII emulator for Mac, Windows and Linux?
+
+Yes. The Saturnus desktop app runs the 17BII and the other eleven models. It is free and open source, for Macs with Apple silicon and for Windows and Linux on Intel, AMD or ARM processors: [the downloads](../#install) are on Saturnus's site. For a Mac with an Intel processor there is no desktop app; use the app in the browser.
+
+### Can I move programs between Saturnus and a real HP 17BII?
+
+No. The 17BII has no serial port: its infrared port only prints, and Saturnus does not emulate the printer output. [Moving files to a real calculator](transfer.md) lists what each model can do.
+
+### Does the emulated 17BII keep my work?
+
+Yes. The calculator keeps its memory when you close or reload the app, as a real one does when switched off. Save state keeps a second copy that Load state brings back, and a state saved to a file (`.sat`) opens in the browser, the desktop app and the command line.
+
+### How close is it to a real HP 17BII?
+
+It runs the 17BII's own ROM, and the ROM checks of the calculator's self-test pass. Run times are an estimate: the CPU runs at 1 MHz, the figure the sources give for its chip, and no real 17BII has been timed. The infrared printer output is missing, and appointment alarms have not been tested. [How Saturnus is built](how-it-is-built.md) describes the method and the tests.
 
 ## Sources
 
@@ -102,3 +133,4 @@ The [command reference](commands.md#17bii) lists the 17BII's 260 functions with 
 - [Wikipedia: HP-17B](https://en.wikipedia.org/wiki/HP-17B): the 17BII's code name, product number and date, the 17bII+ of 2007 and its Sunplus processor.
 - [Wikipedia: HP-28 series](https://en.wikipedia.org/wiki/HP-28_series): Lewis as a custom chip with an improved Saturn core.
 - [Wikipedia: HP-27S](https://en.wikipedia.org/wiki/HP-27S): the keyboard of the Pioneer series.
+- [Christoph Gießelink, Emu42](https://hp.giesselink.com/emu42.htm): the tools and the steps for reading the ROM out of the calculator.

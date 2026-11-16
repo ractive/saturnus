@@ -1,6 +1,7 @@
 ---
 title: Files in the app
-description: Files, the app's view for moving variables between a computer, an emulated calculator and a real one on a serial cable, in a browser with Web Serial or in the desktop app; aplets for the 38G, 39G and 40G; files on an HP 100LX or 200LX palmtop.
+page_title: Files: HP 48 and 49G file transfer in the browser
+description: Files, the app's view for moving programs between a computer, an emulated calculator and a real HP 48 or 49G on a serial cable; aplets for the 38G, 39G and 40G.
 section: transfer
 order: 4
 ---

@@ -6,27 +6,122 @@
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1efe9">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#272724">
-<title>saturnus: classic HP calculators, in your browser or as an app</title>
-<meta name="description" content="saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII. Run the real ROM in your browser, as a desktop app or on the command line. Everything runs locally.">
+<title>Saturnus: HP calculator emulator for the browser, Mac, Windows and Linux</title>
+<meta name="description" content="Saturnus is a free, open-source emulator of the HP 48GX, 48SX, 49G, 42S, 17BII and seven more HP calculators, for the browser, Mac, Windows and Linux.">
 <link rel="canonical" href="https://ractive.ch/saturnus/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="saturnus">
-<meta property="og:title" content="saturnus: classic HP calculators, in your browser or as an app">
-<meta property="og:description" content="HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII, emulated from the Saturn CPU up. In the browser, on the desktop and on the command line. Everything runs locally.">
+<meta property="og:site_name" content="Saturnus">
+<meta property="og:title" content="Saturnus: HP calculator emulator for the browser, Mac, Windows and Linux">
+<meta property="og:description" content="A free, open-source emulator of twelve classic HP calculators, from the HP 48GX to the 42S and the 17BII. It runs each calculator's own ROM in the browser, on the desktop and on the command line. Everything runs locally.">
 <meta property="og:url" content="https://ractive.ch/saturnus/">
 <meta property="og:image" content="https://ractive.ch/saturnus/img/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The saturnus logo beside an emulated HP 48GX showing a sine plot">
+<meta property="og:image:alt" content="The Saturnus logo beside an emulated HP 48GX showing a sine plot">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="style.css">
+<!-- Structured data (schema.org), data blocks and no scripts: the application, and the questions of the "Questions" section word for word (web/test/seo.test.mjs compares them). -->
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "SoftwareApplication",
+ "name": "Saturnus",
+ "description": "An emulator of twelve HP calculators: the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII. It runs each calculator's own ROM in the browser, as a desktop app and on the command line.",
+ "url": "https://ractive.ch/saturnus/",
+ "applicationCategory": "UtilitiesApplication",
+ "applicationSubCategory": "Calculator emulator",
+ "operatingSystem": [
+  "Web browser",
+  "macOS",
+  "Windows",
+  "Linux"
+ ],
+ "offers": {
+  "@type": "Offer",
+  "price": "0",
+  "priceCurrency": "USD"
+ },
+ "isAccessibleForFree": true,
+ "license": "https://github.com/ractive/saturnus/blob/main/LICENSE",
+ "image": "https://ractive.ch/saturnus/img/og.png",
+ "screenshot": "https://ractive.ch/saturnus/img/app-memory-1280.webp",
+ "installUrl": "https://ractive.ch/saturnus/app/",
+ "downloadUrl": [
+  "https://github.com/ractive/saturnus/releases/latest/download/saturnus-mac.dmg",
+  "https://github.com/ractive/saturnus/releases/latest/download/saturnus-windows-x64-setup.exe",
+  "https://github.com/ractive/saturnus/releases/latest/download/saturnus-windows-arm64-setup.exe",
+  "https://github.com/ractive/saturnus/releases/latest"
+ ],
+ "softwareHelp": {
+  "@type": "CreativeWork",
+  "url": "https://ractive.ch/saturnus/docs/"
+ },
+ "sameAs": "https://github.com/ractive/saturnus"
+}
+</script>
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "FAQPage",
+ "mainEntity": [
+  {
+   "@type": "Question",
+   "name": "Is Saturnus free?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Yes. Saturnus is free and open source under the MIT licence: the app in the browser, the desktop app and the command-line tools."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Where do I get the ROMs?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "The ROMs are HP's software and are not part of Saturnus. hpcalc.org offers the ROMs of the 48SX, 48GX, 49G, 38G, 39G and 40G for use with emulators, and the app links each one. The ROMs of the 42S, 27S, 17BII, 17B and 28S were never published: you read them out of your own calculator. The 19BII's was never published either and cannot be read out: Saturnus runs it only from a file you already have."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Does it run on a phone?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Yes, in the phone's browser. Add Saturnus to the home screen and it opens like an installed app and works offline. Connecting a real calculator by cable needs a computer."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Can it exchange files with my real calculator?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "With an HP 48 or 49G on its serial cable, yes: Files copies programs both ways and backs up the whole memory. It also serves aplets to the emulated 38G, 39G and 40G and to a real 38G; a real 39G or 40G has not been tried yet. The 42S and the other models without a serial port cannot exchange files."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Is anything sent to a server?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "No. The calculator runs on your device, and the ROM and your work stay there. The one exception is your choice: when you connect an AI app in the browser, that connection goes through a relay on the internet."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "How is it different from other HP emulators?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Saturnus was written from HP's manuals, the hardware literature and the behaviour of the ROMs, not from other emulators' source code. It runs in the browser as well as on the desktop, shows the calculator's memory while it runs, and has a reference of every command with examples."
+   }
+  }
+ ]
+}
+</script>
 </head>
 <body>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <!-- The saturnus mark (web/logo.svg); its colours come from the
+    <!-- The Saturnus mark (web/logo.svg); its colours come from the
          `data-logo` of the <svg> that uses it (style.css). -->
     <symbol id="mark" viewBox="0 0 32 32">
       <path fill="none" stroke="var(--logo-ring)" stroke-width="2.6" stroke-linecap="round" transform="rotate(-24 16 16)" d="M 1.6 16 A 14.4 4.6 0 0 1 30.4 16"/>
@@ -51,7 +146,7 @@
 <header class="top">
   <a class="brand" href="./">
     <svg class="logo" width="28" height="28" aria-hidden="true"><use href="#mark"/></svg>
-    <span>saturnus</span>
+    <span>Saturnus</span>
   </a>
   <a class="by" href="https://ractive.ch/" target="_blank" rel="noopener noreferrer">by @ractive.ch<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
 </header>
@@ -60,15 +155,15 @@
 
 <section class="hero">
   <div class="hero-text">
-    <h1>saturnus: classic HP calculators, in your browser or as an app</h1>
-    <p class="lead">saturnus emulates the HP 48SX, HP 48GX, HP 49G, HP 38G, HP 39G, HP 40G, HP 42S, HP 27S, HP 17BII, HP 17B, HP 28S and HP 19BII. Open it in your browser, or install the app on Mac, Windows or Linux.</p>
-    <p class="docs-line">The <a href="docs/">docs</a> describe each model, every command, the Saturn processor and how to move files to a real calculator.</p>
+    <h1>Saturnus: an emulator of classic HP calculators, in your browser or as an app</h1>
+    <p class="lead">Saturnus emulates twelve HP calculators: the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII. Each runs its own ROM, so it works as the real calculator does. Open it in your browser, or install the app on Mac, Windows or Linux.</p>
+    <p class="docs-line">The <a href="docs/">docs</a> describe each model, every command, the Saturn processor and how to move files to a real calculator. For developers: <a href="docs/how-it-is-built/">how Saturnus is built</a>, in Rust and WebAssembly.</p>
     <p class="actions">
-      <a class="button primary" href="app/"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Open saturnus</a>
+      <a class="button primary" href="app/"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Open Saturnus</a>
       <a class="button primary" href="https://github.com/ractive/saturnus/releases/latest/download/saturnus-mac.dmg" download><svg class="os" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>Download for Mac</a>
       <a class="button primary" href="https://github.com/ractive/saturnus/releases/latest/download/saturnus-windows-x64-setup.exe" download><svg class="os" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 1h10.5v10.5H1zM12.5 1H23v10.5H12.5zM1 12.5h10.5V23H1zM12.5 12.5H23V23H12.5z"/></svg>Download for Windows</a>
     </p>
-    <p class="fine">Free and open source (MIT). Your ROM and your work stay on your device. <a href="#rom">No ROMs included</a>.</p>
+    <p class="fine">Free and open source (MIT). To start, pick a model and give it its ROM: <a href="#rom">the ROMs are not included</a>, and the app links each download. Your ROM and your work stay on your device.</p>
   </div>
   <figure class="hero-calc">
     <img src="img/calculator.svg" width="144" height="248" alt="An HP 48 calculator, drawn flat, showing a sine plot">
@@ -199,7 +294,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp48sx.php" target="_blank" rel="noopener noreferrer">Finseth's HP calculator data<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/48sx"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/4371" target="_blank" rel="noopener noreferrer">ROM: sxrom-j<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/48sx/" title="The HP 48SX's history, what makes it special and how saturnus runs it">More about the HP 48SX</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/48sx"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/4371" target="_blank" rel="noopener noreferrer">ROM: sxrom-j<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/48sx/" title="The HP 48SX's history, what makes it special and how Saturnus runs it">More about the HP 48SX</a></p>
     </div>
   </dialog>
   <dialog id="dlg-48gx" class="model-dlg" closedby="any" aria-labelledby="dlg-48gx-title">
@@ -245,7 +340,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp48gx.php" target="_blank" rel="noopener noreferrer">Finseth's HP calculator data<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/48gx"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/4368" target="_blank" rel="noopener noreferrer">ROM: gxrom-r<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/48gx/" title="The HP 48GX's history, what makes it special and how saturnus runs it">More about the HP 48GX</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/48gx"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/4368" target="_blank" rel="noopener noreferrer">ROM: gxrom-r<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/48gx/" title="The HP 48GX's history, what makes it special and how Saturnus runs it">More about the HP 48GX</a></p>
     </div>
   </dialog>
   <dialog id="dlg-49g" class="model-dlg" closedby="any" aria-labelledby="dlg-49g-title">
@@ -293,7 +388,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp49g.php" target="_blank" rel="noopener noreferrer">Finseth's HP calculator data<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/49g"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/6744" target="_blank" rel="noopener noreferrer">ROM: rom.49g<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/49g/" title="The HP 49G's history, what makes it special and how saturnus runs it">More about the HP 49G</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/49g"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/6744" target="_blank" rel="noopener noreferrer">ROM: rom.49g<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/49g/" title="The HP 49G's history, what makes it special and how Saturnus runs it">More about the HP 49G</a></p>
     </div>
   </dialog>
   <dialog id="dlg-38g" class="model-dlg" closedby="any" aria-labelledby="dlg-38g-title">
@@ -339,7 +434,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp38g.php" target="_blank" rel="noopener noreferrer">Finseth's HP calculator data<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/38g"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/4775" target="_blank" rel="noopener noreferrer">ROM: 38G_A167.ROM<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/38g/" title="The HP 38G's history, what makes it special and how saturnus runs it">More about the HP 38G</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/38g"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/4775" target="_blank" rel="noopener noreferrer">ROM: 38G_A167.ROM<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/38g/" title="The HP 38G's history, what makes it special and how Saturnus runs it">More about the HP 38G</a></p>
     </div>
   </dialog>
   <dialog id="dlg-39g" class="model-dlg" closedby="any" aria-labelledby="dlg-39g-title">
@@ -385,7 +480,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp39g.php" target="_blank" rel="noopener noreferrer">Finseth's HP calculator data<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/39g"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/6739" target="_blank" rel="noopener noreferrer">ROM: rom.39g<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/39g/" title="The HP 39G's history, what makes it special and how saturnus runs it">More about the HP 39G</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/39g"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/6739" target="_blank" rel="noopener noreferrer">ROM: rom.39g<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/39g/" title="The HP 39G's history, what makes it special and how Saturnus runs it">More about the HP 39G</a></p>
     </div>
   </dialog>
   <dialog id="dlg-40g" class="model-dlg" closedby="any" aria-labelledby="dlg-40g-title">
@@ -427,7 +522,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp40g.php" target="_blank" rel="noopener noreferrer">Finseth's HP calculator data<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/40g"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/6739" target="_blank" rel="noopener noreferrer">ROM: rom.39g<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/40g/" title="The HP 40G's history, what makes it special and how saturnus runs it">More about the HP 40G</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/40g"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <a class="button" href="https://www.hpcalc.org/details/6739" target="_blank" rel="noopener noreferrer">ROM: rom.39g<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> <a class="button" href="docs/40g/" title="The HP 40G's history, what makes it special and how Saturnus runs it">More about the HP 40G</a></p>
     </div>
   </dialog>
   <dialog id="dlg-42s" class="model-dlg" closedby="any" aria-labelledby="dlg-42s-title">
@@ -473,7 +568,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp42s.php" target="_blank" rel="noopener noreferrer">Finseth's HP calculator data<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/42s"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: from your own 42S</span> <a class="button" href="docs/42s/" title="The HP 42S's history, what makes it special and how saturnus runs it">More about the HP 42S</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/42s"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: from your own 42S</span> <a class="button" href="docs/42s/" title="The HP 42S's history, what makes it special and how Saturnus runs it">More about the HP 42S</a></p>
     </div>
   </dialog>
   <dialog id="dlg-27s" class="model-dlg" closedby="any" aria-labelledby="dlg-27s-title">
@@ -519,7 +614,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp27s.php" target="_blank" rel="noopener noreferrer">Finseth's HP calculator data<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/27s"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: from your own 27S</span> <a class="button" href="docs/27s/" title="The HP 27S's history, what makes it special and how saturnus runs it">More about the HP 27S</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/27s"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: from your own 27S</span> <a class="button" href="docs/27s/" title="The HP 27S's history, what makes it special and how Saturnus runs it">More about the HP 27S</a></p>
     </div>
   </dialog>
   <dialog id="dlg-17bii" class="model-dlg" closedby="any" aria-labelledby="dlg-17bii-title">
@@ -562,7 +657,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp17biiplus.php" target="_blank" rel="noopener noreferrer">Finseth: HP 17bII+<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/17bii"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: from your own 17BII</span> <a class="button" href="docs/17bii/" title="The HP 17BII's history, what makes it special and how saturnus runs it">More about the HP 17BII</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/17bii"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: from your own 17BII</span> <a class="button" href="docs/17bii/" title="The HP 17BII's history, what makes it special and how Saturnus runs it">More about the HP 17BII</a></p>
     </div>
   </dialog>
   <dialog id="dlg-17b" class="model-dlg" closedby="any" aria-labelledby="dlg-17b-title">
@@ -608,7 +703,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp17b.php" target="_blank" rel="noopener noreferrer">Finseth's HP calculator data<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/17b"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: from your own 17B</span> <a class="button" href="docs/17b/" title="The HP 17B's history, what makes it special and how saturnus runs it">More about the HP 17B</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/17b"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: from your own 17B</span> <a class="button" href="docs/17b/" title="The HP 17B's history, what makes it special and how Saturnus runs it">More about the HP 17B</a></p>
     </div>
   </dialog>
   <dialog id="dlg-28s" class="model-dlg" closedby="any" aria-labelledby="dlg-28s-title">
@@ -654,7 +749,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp28s.php" target="_blank" rel="noopener noreferrer">Finseth's HP calculator data<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/28s"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: from your own 28S</span> <a class="button" href="docs/28s/" title="The HP 28S's history, what makes it special and how saturnus runs it">More about the HP 28S</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/28s"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: from your own 28S</span> <a class="button" href="docs/28s/" title="The HP 28S's history, what makes it special and how Saturnus runs it">More about the HP 28S</a></p>
     </div>
   </dialog>
   <dialog id="dlg-19bii" class="model-dlg" closedby="any" aria-labelledby="dlg-19bii-title">
@@ -700,7 +795,7 @@
           <li><a href="https://www.finseth.com/hpdata/hp19b.php" target="_blank" rel="noopener noreferrer">Finseth: HP 19B<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></li>
         </ul>
       </div>
-      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/19bii"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: no download, and it cannot be read out of the calculator</span> <a class="button" href="docs/19bii/" title="The HP 19BII's history, what makes it special and how saturnus runs it">More about the HP 19BII</a></p>
+      <p class="dlg-actions"><a class="button primary" href="app/#/calculator/19bii"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Start it</a> <span class="fine">ROM: no download, and it cannot be read out of the calculator</span> <a class="button" href="docs/19bii/" title="The HP 19BII's history, what makes it special and how Saturnus runs it">More about the HP 19BII</a></p>
     </div>
   </dialog>
 </section>
@@ -722,7 +817,7 @@
     </li>
     <li>
       <h3>Look up any command</h3>
-      <p>Search (Cmd+K or Ctrl+K) finds every command of every model, with examples run in saturnus. Enter runs the command on the calculator; on the 38G, 39G and 40G it goes on the edit line for you to finish.</p>
+      <p>Search (Cmd+K or Ctrl+K) finds every command of every model, with examples run in Saturnus. Enter runs the command on the calculator; on the 38G, 39G and 40G it goes on the edit line for you to finish.</p>
     </li>
     <li>
       <h3>Keep your work</h3>
@@ -741,18 +836,18 @@
     <div class="install-text">
       <h2>Install</h2>
       <h3>Web: nothing to install</h3>
-      <p>Open saturnus in a browser. It works offline after the first visit and can be added to a phone's home screen to install it.</p>
+      <p>Open Saturnus in a browser. It works offline after the first visit and can be added to a phone's home screen to install it.</p>
       <p>You need your model's ROM: download it from <a href="https://www.hpcalc.org/" target="_blank" rel="noopener noreferrer">hpcalc.org<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> (the app links each model's page), unzip it, and choose the file or drop it onto the page. A ROM you already have works the same way. The browser keeps it, so you choose it only once, and the ROM and your work never leave your device.</p>
-      <p class="actions"><a class="button primary" href="app/"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Open saturnus</a></p>
+      <p class="actions"><a class="button primary" href="app/"><svg class="os" viewBox="0 0 32 32" aria-hidden="true"><use href="#mark-mono"/></svg>Open Saturnus</a></p>
     </div>
     <a class="shot-open" href="img/app-memory-2000.webp" data-dialog="dlg-app" title="Show it larger">
       <figure class="browser">
         <div class="browser-bar" aria-hidden="true"><span class="browser-dots"><span></span><span></span><span></span></span><span class="browser-url">ractive.ch/saturnus/app/</span></div>
-        <img loading="lazy" src="img/app-memory-1280.webp" srcset="img/app-memory-640.webp 640w, img/app-memory-1280.webp 1280w, img/app-memory-2000.webp 2000w" sizes="(min-width: 900px) 500px, 100vw" width="1440" height="900" alt="The saturnus app in the browser: an emulated HP 48GX showing the saturnus logo on its screen; on the left its settings, on the right its memory with the variables NOTES, PAR, AREA, PTS, G and the directory GAMES, and the program AREA listed (opens larger)">
+        <img loading="lazy" src="img/app-memory-1280.webp" srcset="img/app-memory-640.webp 640w, img/app-memory-1280.webp 1280w, img/app-memory-2000.webp 2000w" sizes="(min-width: 900px) 500px, 100vw" width="1440" height="900" alt="The Saturnus app in the browser: an emulated HP 48GX showing the Saturnus logo on its screen; on the left its settings, on the right its memory with the variables NOTES, PAR, AREA, PTS, G and the directory GAMES, and the program AREA listed (opens larger)">
       </figure>
     </a>
     <!-- The screenshot large: the link above opens it here (dialogs.js), or as the image itself without script. -->
-    <dialog id="dlg-app" class="shot-dlg" closedby="any" aria-label="The saturnus app, larger">
+    <dialog id="dlg-app" class="shot-dlg" closedby="any" aria-label="The Saturnus app, larger">
       <form method="dialog" class="dlg-tools"><button class="dlg-close" aria-label="Close">×</button></form>
       <figure class="browser">
         <div class="browser-bar" aria-hidden="true"><span class="browser-dots"><span></span><span></span><span></span></span><span class="browser-url">ractive.ch/saturnus/app/</span></div>
@@ -786,7 +881,7 @@
       <p>Two programs without a window:</p>
       <ul class="tools">
         <li><strong>saturnus</strong> runs a calculator from its ROM in the terminal: it presses keys listed in a text file, saves the screen as text or a PNG, opens its serial port to other programs and looks up commands. It is made for automated tests and scripts, not for using a calculator by hand: for that, use the web or desktop app.</li>
-        <li><strong>satx</strong> sends and receives files with a real HP 48 or 49 over a serial cable, by Kermit or XModem, and with a calculator running in saturnus the same way.</li>
+        <li><strong>satx</strong> sends and receives files with a real HP 48 or 49 over a serial cable, by Kermit or XModem, and with a calculator running in Saturnus the same way.</li>
       </ul>
     </div>
     <div class="terminal" aria-label="Install the command-line tools">
@@ -806,7 +901,7 @@
 
   <div id="rom" class="rom-note">
     <h3>The ROMs are not included</h3>
-    <p>saturnus runs the calculator's own ROM, which is HP's software. <a href="https://www.hpcalc.org/" target="_blank" rel="noopener noreferrer">hpcalc.org<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> hosts the ROM files with HP's permission for use with emulators, and saturnus does not host or pass them on. Download the ROM for your model there, unzip it and drop the file into the app; the desktop app and <code>saturnus rom fetch</code> download it for you. The 42S, 27S, 17BII, 17B and 28S ROMs were never published, but you can read the ROM out of your own calculator with an HP 48 as the infrared receiver: <a href="https://hp.giesselink.com/emu42.htm" target="_blank" rel="noopener noreferrer">Christoph Gießelink's Emu42 page<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> points to the tools and the steps. The 19BII's was never published either and cannot be read out: saturnus runs it only from a file you already have.</p>
+    <p>Saturnus runs the calculator's own ROM, which is HP's software. <a href="https://www.hpcalc.org/" target="_blank" rel="noopener noreferrer">hpcalc.org<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> hosts the ROM files with HP's permission for use with emulators, and Saturnus does not host or pass them on. Download the ROM for your model there, unzip it and drop the file into the app; the desktop app and <code>saturnus rom fetch</code> download it for you. The 42S, 27S, 17BII, 17B and 28S ROMs were never published, but you can read the ROM out of your own calculator with an HP 48 as the infrared receiver: <a href="https://hp.giesselink.com/emu42.htm" target="_blank" rel="noopener noreferrer">Christoph Gießelink's Emu42 page<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a> points to the tools and the steps. The 19BII's was never published either and cannot be read out: Saturnus runs it only from a file you already have.</p>
   </div>
 </section>
 
@@ -830,25 +925,59 @@
   <div class="has-side">
     <div>
       <h2>AI apps</h2>
-      <p>Let an AI app such as Claude, ChatGPT, Claude Code, Codex or Cursor use the calculators you have open in saturnus: it reads the display, presses keys, runs RPL, stores programs on the 48 and 49 models and looks up commands. You see each key it presses on the calculator, and the app asks you before its tools store or delete a variable. To start, choose <strong>Connect your AI app…</strong> in the app. In the browser the connection goes through <a href="https://ractive.ch/tab-mcp/" target="_blank" rel="noopener noreferrer">tab-mcp<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>, an open-source relay that lets a web page offer tools to AI apps, so any AI app can connect, Claude and ChatGPT included. In the desktop app the connection stays on your computer, so only AI apps on the same computer can use it.</p>
+      <p>Let an AI app such as Claude, ChatGPT, Claude Code, Codex or Cursor use the calculators you have open in Saturnus: it reads the display, presses keys, runs RPL, stores programs on the 48 and 49 models and looks up commands. You see each key it presses on the calculator, and the app asks you before its tools store or delete a variable. To start, choose <strong>Connect your AI app…</strong> in the app. In the browser the connection goes through <a href="https://ractive.ch/tab-mcp/" target="_blank" rel="noopener noreferrer">tab-mcp<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>, an open-source relay that lets a web page offer tools to AI apps, so any AI app can connect, Claude and ChatGPT included. In the desktop app the connection stays on your computer, so only AI apps on the same computer can use it.</p>
       <p class="links"><a href="docs/ai-apps/">How to connect an AI app</a></p>
     </div>
     <a class="shot-open" href="img/ai-2000.webp" data-dialog="dlg-ai" title="Show it larger">
-      <figure class="shot"><img loading="lazy" src="img/ai-1280.webp" srcset="img/ai-640.webp 640w, img/ai-1280.webp 1280w, img/ai-2000.webp 2000w" sizes="(min-width: 900px) 500px, 100vw" width="3456" height="2163" alt="saturnus in Firefox beside the Claude app: asked to create a program that draws the saturnus logo, Claude wrote one, stored it on the emulated HP 48GX and ran it, and the logo shows on the calculator's screen (opens larger)"></figure>
+      <figure class="shot"><img loading="lazy" src="img/ai-1280.webp" srcset="img/ai-640.webp 640w, img/ai-1280.webp 1280w, img/ai-2000.webp 2000w" sizes="(min-width: 900px) 500px, 100vw" width="3456" height="2163" alt="Saturnus in Firefox beside the Claude app: asked to create a program that draws the Saturnus logo, Claude wrote one, stored it on the emulated HP 48GX and ran it, and the logo shows on the calculator's screen (opens larger)"></figure>
     </a>
     <dialog id="dlg-ai" class="shot-dlg" closedby="any" aria-label="An AI app at work, larger">
       <form method="dialog" class="dlg-tools"><button class="dlg-close" aria-label="Close">×</button></form>
       <figure class="shot"><img loading="lazy" src="img/ai-2000.webp" srcset="img/ai-640.webp 640w, img/ai-1280.webp 1280w, img/ai-2000.webp 2000w" sizes="min(100vw, 1440px)" width="3456" height="2163" alt=""></figure>
     </dialog>
-    <p class="fine span">In the picture: asked to draw the saturnus logo, Claude writes an RPL program, stores it on the emulated HP 48GX as SATRN and runs it.</p>
+    <p class="fine span">In the picture: asked to draw the Saturnus logo, Claude writes an RPL program, stores it on the emulated HP 48GX as SATRN and runs it.</p>
   </div>
+</section>
+
+<!-- The questions people ask first. The FAQPage block in the <head> repeats them word for word: change both (web/test/seo.test.mjs compares them). -->
+<section id="questions" class="features">
+  <h2>Questions</h2>
+  <ul class="feature-list">
+    <li>
+      <h3>Is Saturnus free?</h3>
+      <p>Yes. Saturnus is free and open source under the MIT licence: the app in the browser, the desktop app and the command-line tools.</p>
+    </li>
+    <li>
+      <h3>Where do I get the ROMs?</h3>
+      <p>The ROMs are HP's software and are not part of Saturnus. hpcalc.org offers the ROMs of the 48SX, 48GX, 49G, 38G, 39G and 40G for use with emulators, and the app links each one. The ROMs of the 42S, 27S, 17BII, 17B and 28S were never published: you read them out of your own calculator. The 19BII's was never published either and cannot be read out: Saturnus runs it only from a file you already have.</p>
+    </li>
+    <li>
+      <h3>Does it run on a phone?</h3>
+      <p>Yes, in the phone's browser. Add Saturnus to the home screen and it opens like an installed app and works offline. Connecting a real calculator by cable needs a computer.</p>
+    </li>
+    <li>
+      <h3>Can it exchange files with my real calculator?</h3>
+      <p>With an HP 48 or 49G on its serial cable, yes: Files copies programs both ways and backs up the whole memory. It also serves aplets to the emulated 38G, 39G and 40G and to a real 38G; a real 39G or 40G has not been tried yet. The 42S and the other models without a serial port cannot exchange files.</p>
+    </li>
+    <li>
+      <h3>Is anything sent to a server?</h3>
+      <p>No. The calculator runs on your device, and the ROM and your work stay there. The one exception is your choice: when you connect an AI app in the browser, that connection goes through a relay on the internet.</p>
+    </li>
+    <li>
+      <h3>How is it different from other HP emulators?</h3>
+      <p>Saturnus was written from HP's manuals, the hardware literature and the behaviour of the ROMs, not from other emulators' source code. It runs in the browser as well as on the desktop, shows the calculator's memory while it runs, and has a reference of every command with examples.</p>
+    </li>
+  </ul>
+  <p class="note">Each model's page in the <a href="docs/#models">docs</a> answers these for that model: where its ROM comes from, what works and what does not.</p>
 </section>
 
 <section id="about" class="about">
   <h2>Written from the documentation</h2>
-  <p>saturnus was written from HP's manuals, the hardware literature and the behaviour of the ROMs themselves, not from other emulators' source code. Every fact it relies on is in a public knowledge base with its source: the Saturn CPU, the display, the timers, the serial port, the memory layout and the transfer protocols. The <a href="docs/">docs</a> tell what was learned along the way: each model's history, every command with examples, how the Saturn processor works and how files reach a real calculator.</p>
+  <p>Saturnus was written from HP's manuals, the hardware literature and the behaviour of the ROMs themselves, not from other emulators' source code. Every fact it relies on is in a public knowledge base with its source: the Saturn CPU, the display, the timers, the serial port, the memory layout and the transfer protocols. The <a href="docs/">docs</a> tell what was learned along the way: each model's history, every command with examples, how the Saturn processor works and how files reach a real calculator.</p>
+  <p>Saturnus is written in Rust. One core runs in the browser as WebAssembly, natively in the desktop app, which is built with Tauri, and in the command-line tools. <a href="docs/how-it-is-built/">How Saturnus is built</a> describes the core, the browser app, the clean-room method and the tests, for developers.</p>
   <p class="links">
     <a href="docs/">Docs</a>
+    <a href="docs/how-it-is-built/">How it is built</a>
     <a href="https://github.com/ractive/calculator-knowledgebase" target="_blank" rel="noopener noreferrer">Knowledge base<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
     <a href="https://github.com/ractive/saturnus" target="_blank" rel="noopener noreferrer">Source code (MIT)<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
     <a href="https://github.com/ractive/saturnus/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
@@ -858,10 +987,10 @@
 </main>
 
 <footer>
-  <p>Not affiliated with or endorsed by HP. HP 48 and the other model names are HP's trademarks; saturnus uses them only to say what it emulates.</p>
-  <p>saturnus is open source under the MIT licence. Parts of the code were generated by AI under human supervision.</p>
+  <p>Not affiliated with or endorsed by HP. HP 48 and the other model names are HP's trademarks; Saturnus uses them only to say what it emulates.</p>
+  <p>Saturnus is open source under the MIT licence. Parts of the code were generated by AI under human supervision.</p>
   <nav class="foot" aria-label="Footer">
-    <span>saturnus is a project of <a href="https://ractive.ch/" target="_blank" rel="noopener noreferrer">@ractive.ch<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></span>
+    <span>Saturnus is a project of <a href="https://ractive.ch/" target="_blank" rel="noopener noreferrer">@ractive.ch<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a></span>
     <a href="https://github.com/ractive/saturnus" target="_blank" rel="noopener noreferrer"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg> GitHub<span class="ext" aria-hidden="true">↗</span><span class="visually-hidden"> (opens in a new tab)</span></a>
   </nav>
 </footer>

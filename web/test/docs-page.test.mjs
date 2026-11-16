@@ -90,7 +90,7 @@ test("the command reference page: the addressed command read-only, suggestions a
   assert.ok(await ev(`document.querySelectorAll("#ref-entry .ex").length`) >= 1, "its examples");
   // Read-only: nothing to send to a calculator.
   assert.equal(await ev(`document.querySelectorAll("#ref-entry button").length`), 0, "no Run, Type or Try it");
-  assert.match(await ev("document.title"), /^HMS- on the HP 48GX · Command reference/);
+  assert.equal(await ev("document.title"), "HMS- on the HP 48GX · Command reference · Saturnus");
   assert.match(await ev(`document.getElementById("ref-count").textContent`), /^517 commands on the HP 48GX\.$/);
   // The entry has the app's look (style.css's rules, scoped for the docs too).
   assert.equal(await ev(`getComputedStyle(document.querySelector("#ref-entry .ex")).display`), "grid");
@@ -253,7 +253,7 @@ test("the command reference page: the addressed command read-only, suggestions a
   assert.deepEqual(await ev(`[...document.querySelectorAll("#ref-entry .entry-manuals li")].map((li) => li.textContent)`), ["HP 48G Series Advanced User's Reference Manual, p. 198↗ (opens in a new tab)"]);
   assert.equal(await ev(`document.querySelector("#ref-entry .entry-stack-none").textContent`), "Takes nothing, returns nothing.");
   assert.equal(await ev(`document.querySelectorAll("#ref-entry .entry-stack").length`), 0, "no box for an arrow alone");
-  assert.equal(await ev(`document.querySelector("#ref-entry .entry h4").textContent`), "Examples · results from saturnus's emulated HP 48SX");
+  assert.equal(await ev(`document.querySelector("#ref-entry .entry h4").textContent`), "Examples · results from Saturnus's emulated HP 48SX");
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/commands/#49g/bar` });
   await until(ev, `document.querySelector("#ref-entry .chip.current")?.textContent === "49G"`, 10_000, "BAR on the 49G");
   assert.deepEqual(await rows(), [], "no Group row: our grouping is not a place on the calculator");
@@ -347,19 +347,19 @@ test("the docs index: the sections, the models with their colours, the Markdown 
   await send("Runtime.enable");
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/` });
   await until(ev, `document.readyState === "complete"`, 10_000, "the index loaded");
-  assert.equal(await ev("document.title"), "saturnus docs");
+  assert.equal(await ev("document.title"), "Saturnus docs: HP calculator models, commands and hardware");
   assert.deepEqual(await ev(`[...document.querySelectorAll(".docs-nav a")].map((a) => a.textContent)`), ["Models", "Command reference", "How the Saturn works", "Moving files"]);
-  assert.deepEqual(await ev(`[...document.querySelectorAll(".docs-page h2")].map((h) => h.textContent)`), ["Models", "Command reference", "How the Saturn works", "Moving files to a real calculator", "For AI apps"]);
+  assert.deepEqual(await ev(`[...document.querySelectorAll(".docs-page h2")].map((h) => h.textContent)`), ["Models", "Command reference", "How the Saturn works", "Moving files to a real calculator", "For AI apps", "How Saturnus is built"]);
   assert.equal(await ev(`document.querySelectorAll(".docs-model-link").length`), 12);
   // Each model's logo in its colours (style.css's table), the header's in the plain logo's.
   const fills = await ev(`[...document.querySelectorAll(".docs-model-link .planet")].map((p) => getComputedStyle(p).fill)`);
   assert.equal(new Set(fills).size >= 10, true, `the models' own colours: ${fills}`);
   assert.equal(await ev(`getComputedStyle(document.querySelector(".docs-bar .planet")).fill`), "rgb(217, 135, 74)");
-  // The header: "saturnus" leads to the landing page, "docs" to the docs' index, "Open the app" to the app.
-  assert.deepEqual(await ev(`[...document.querySelectorAll(".docs-bar .brand, .docs-bar .docs-brand-sub, .docs-bar .docs-app")].map((a) => [a.textContent.trim(), new URL(a.href).pathname])`), [["saturnus", "/"], ["docs", "/docs/"], ["Open the app", "/app/"]]);
+  // The header: "Saturnus" leads to the landing page, "docs" to the docs' index, "Open the app" to the app.
+  assert.deepEqual(await ev(`[...document.querySelectorAll(".docs-bar .brand, .docs-bar .docs-brand-sub, .docs-bar .docs-app")].map((a) => [a.textContent.trim(), new URL(a.href).pathname])`), [["Saturnus", "/"], ["docs", "/docs/"], ["Open the app", "/app/"]]);
   assert.equal(await ev(`document.querySelector('link[rel="alternate"]').getAttribute("href")`), "index.md");
   const md = await ev(`fetch("index.md").then((r) => r.text())`);
-  assert.match(md, /^---\ntitle: saturnus docs\n/);
+  assert.match(md, /^---\ntitle: Saturnus docs\n/);
   // A model page: the model's colours; its picture loaded and beside the text on a desktop.
   await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/docs/48gx/` });

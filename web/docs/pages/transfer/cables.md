@@ -1,6 +1,7 @@
 ---
 title: Cables
-description: Which cable connects which HP calculator to a computer: the 48's 4-pin port and its wiring, the 10-pin connector of the 49G and 38G, HP's cables and adapters, USB serial adapters and building a cable yourself.
+page_title: Serial cables for the HP 48, 49G, 38G, 39G and 40G
+description: Which cable connects an HP 48, 49G, 38G, 39G or 40G to a computer: the 48's 4-pin port and its wiring, the 10-pin connector, USB serial adapters and building one.
 section: transfer
 order: 1
 ---
@@ -18,7 +19,7 @@ To move files between a computer and a real calculator you need a serial cable a
 | HP 39G, 40G | the 49G's hardware | a PC adapter and a cable from calculator to calculator in the 40G's box |
 | HP 42S, 27S, 17B, 17BII, 19BII, 28S | none | only infrared to HP's 82240 printer, one way |
 
-Infrared from the 48 or the 39G to a computer is possible, but slow (2400 baud) and short-ranged, and saturnus does not use it.
+Infrared from the 48 or the 39G to a computer is possible, but slow (2400 baud) and short-ranged, and Saturnus does not use it.
 
 ## The HP 48's port
 

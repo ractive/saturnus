@@ -1,10 +1,11 @@
 ---
 title: How the Saturn works
-description: The hardware of HP's Saturn calculators for developers: the CPU, the memory and its controllers, the display, the keyboard, the timers and interrupts, the serial port and infrared.
+page_title: How the HP Saturn calculator hardware works, for developers
+description: How the hardware of the HP 48, 49G and 38G works, for developers: the Saturn CPU, the memory controllers, the display, the keyboard, the timers and the serial port.
 section: saturn
 ---
 
-The HP 48SX, the 48G series, the 49G and the 38G, 39G and 40G are built around HP's [Saturn processor](https://en.wikipedia.org/wiki/HP_Saturn) and one companion chip, the Clarke in the 48SX and the Yorke in the others. These pages describe that hardware for developers: for anyone who writes machine code for these calculators, builds an emulator or wants to know how saturnus works inside.
+The HP 48SX, the 48G series, the 49G and the 38G, 39G and 40G are built around HP's [Saturn processor](https://en.wikipedia.org/wiki/HP_Saturn) and one companion chip, the Clarke in the 48SX and the Yorke in the others. These pages describe that hardware for developers: for anyone who writes machine code for these calculators, builds an emulator or wants to know how Saturnus works inside. [How Saturnus is built](how-it-is-built.md) describes the emulator itself.
 
 The pages describe the hardware, as HP's documents and the community's describe it, not the code in the ROM.
 
@@ -28,7 +29,7 @@ The pages describe the hardware, as HP's documents and the community's describe 
 | HP 39G, 40G | Yorke | about 4 MHz | 256 KB | 1 MB |
 | HP 49G | Yorke | about 4 MHz | 512 KB | 2 MB of flash |
 
-The other calculators saturnus runs use the Saturn's older relative, the Lewis chip: the 42S, 27S, 17B and 17BII with one, the 28S and 19BII with two. Their memory is fixed, their display smaller and their only output an infrared printer port. These pages do not cover them; their model pages say more, such as [the HP 42S](42s.md).
+The other calculators Saturnus runs use the Saturn's older relative, the Lewis chip: the 42S, 27S, 17B and 17BII with one, the 28S and 19BII with two. Their memory is fixed, their display smaller and their only output an infrared printer port. These pages do not cover them; their model pages say more, such as [the HP 42S](42s.md).
 
 ## Further reading
 

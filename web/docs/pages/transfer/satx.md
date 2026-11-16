@@ -1,6 +1,7 @@
 ---
 title: satx
-description: satx, saturnus's command-line tool for moving files between a computer and an HP 48S/SX, 48G/GX or 49G over a serial cable: installing it, starting the calculator's server, and its commands with examples.
+page_title: satx: command-line Kermit and XModem for the HP 48 and 49G
+description: satx moves files between a computer and an HP 48S/SX, 48G/GX or 49G over a serial cable, by Kermit or XModem: how to install it and its commands with examples.
 section: transfer
 order: 3
 ---
@@ -163,7 +164,7 @@ satx ls --jq '.total'
 printf "6 7 *\n:ls\n" | satx repl --json  # one JSON object per line
 ```
 
-For tests without hardware, `--port` also takes `tcp://host:port` (an emulator with its serial port on TCP) and `saturnus://48gx@/path/to/rom`, which boots saturnus's emulated 48SX, 48GX or 49G inside satx for one command.
+For tests without hardware, `--port` also takes `tcp://host:port` (an emulator with its serial port on TCP) and `saturnus://48gx@/path/to/rom`, which boots Saturnus's emulated 48SX, 48GX or 49G inside satx for one command.
 
 `satx --help` lists every command, and `satx <command> --help` has the details and more examples.
 
