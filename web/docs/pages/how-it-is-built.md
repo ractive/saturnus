@@ -79,7 +79,7 @@ The desktop app is a Tauri 2 app with the same page as its front end. The core i
 
 ## The clean-room method
 
-Other emulators of these calculators exist, most of them under the GPL. Their source code is off limits to anyone working on Saturnus, human or AI, even to look up one fact. Facts come from what is published: HP's manuals and journal articles, the hardware literature, the documentation and change logs of other emulators, forum posts by their authors, and runs of the ROMs themselves.
+Other emulators of these calculators exist, most of them under the GPL. Their source code is off limits to anyone writing Saturnus's code, human or AI, even to look up one fact. Only a reviewer who checks that Saturnus is independent of them may compare the two. Facts come from what is published: HP's manuals and journal articles, the hardware literature, the documentation and change logs of other emulators, forum posts by their authors, and runs of the ROMs themselves.
 
 Each fact is first written down with its source in a public knowledge base, which [Saturnus's site](../#about) links, and the code is written from there. A comment in the code names the page it relies on. Where the sources disagree, the comment says so and which one was followed.
 

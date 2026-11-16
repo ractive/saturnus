@@ -133,3 +133,4 @@ It runs the 17BII's own ROM, and the ROM checks of the calculator's self-test pa
 - [Wikipedia: HP-17B](https://en.wikipedia.org/wiki/HP-17B): the 17BII's code name, product number and date, the 17bII+ of 2007 and its Sunplus processor.
 - [Wikipedia: HP-28 series](https://en.wikipedia.org/wiki/HP-28_series): Lewis as a custom chip with an improved Saturn core.
 - [Wikipedia: HP-27S](https://en.wikipedia.org/wiki/HP-27S): the keyboard of the Pioneer series.
+- [Christoph Gießelink, Emu42](https://hp.giesselink.com/emu42.htm): the tools and the steps for reading the ROM out of the calculator.
