@@ -30,6 +30,12 @@ AddCharset utf-8 .md .txt
 # on Android on 2026-10-08). The installed page's service worker fetches
 # past the HTTP cache either way.
 <IfModule mod_headers.c>
+# The Markdown copies of the docs pages (and llms.txt) are for AI tools,
+# not search results: noindex, so they never compete with the HTML page
+# of the same text (which carries the canonical link).
+<FilesMatch "\.(md|txt)$">
+Header set X-Robots-Tag "noindex"
+</FilesMatch>
 Header set Cache-Control "no-cache"
 Header unset Expires
 Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' wss://tab-mcp.ractive.ch; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
