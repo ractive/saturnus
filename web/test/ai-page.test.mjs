@@ -215,7 +215,7 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   const client = await mcpClient(address, token);
   t.after(() => client.close());
   const names = (await client.listTools()).tools.map((x) => x.name);
-  assert.deepEqual(names.sort(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "purge_variable", "read_display", "read_stack", "read_variable", "run_function", "run_rpl", "store_variable", "to_stack"].concat("list_variables").sort());
+  assert.deepEqual(names.sort(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "purge_variable", "read_display", "read_guide", "read_stack", "read_variable", "run_function", "run_rpl", "store_variable", "to_stack"].concat("list_variables").sort());
 
   const list = await use(client, "list_calculators");
   assert.deepEqual(list.json.calculators.map((x) => [x.id, x.shown, x.family]), [["48gx", true, "rpl"]]);
@@ -268,6 +268,11 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
 
   const look = await use(client, "lookup_command", { name: "->LIST" });
   assert.equal(look.json.name, "→LIST");
+  // The guide, from the page's guide.json (the plugin's skill).
+  const guide = await use(client, "read_guide", { topic: "rpl" });
+  assert.equal(guide.error, false, guide.text);
+  assert.match(guide.json.text, /^# RPL on the 48SX, 48GX, 49G and 28S\n/);
+  assert.match(client.getInstructions() ?? "", /read_guide/, "the server's instructions point at it");
 
   // Hidden while connected: the calculator is not told to stop.
   await ev(`(() => {

@@ -1,7 +1,8 @@
 # Workflows
 
 Each starts with `list_calculators` and `read_display`, and gets out of any
-open form or menu first (SKILL.md, "Screens that catch key presses").
+open form or menu first ("Screens that catch key presses" in the skill,
+`read_guide` topic `skill`).
 
 ## Write, store and test a program (48SX, 48GX, 49G)
 
@@ -10,8 +11,9 @@ open form or menu first (SKILL.md, "Screens that catch key presses").
 2. Try the core of the program on the stack with `run_rpl` and sample values
    before you wrap it in « ».
 3. Store it: `store_variable` with a short upper-case name and the program
-   text. The user allows it in the app; a compile error comes back as the
-   calculator's message.
+   text once the user agrees, in the app or when you ask (see Confirmations
+   in the skill topic); a compile error comes back as the calculator's
+   message.
 4. `read_variable` to see what was stored.
 5. Run it on cases you can check by hand: `run_rpl` with `"3 4 SQSUM"`. Look
    at `error` and the stack. Then the edge cases.

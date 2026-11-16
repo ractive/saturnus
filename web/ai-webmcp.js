@@ -10,7 +10,8 @@
 // policy feature `tools` (default allowlist 'self') keeps cross-origin
 // frames out, and no tool names another origin in `exposedTo`.
 //
-// The tools offered: `list_calculators` and `lookup_command`, those of
+// The tools offered: `list_calculators`, `lookup_command` and
+// `read_guide`, those of
 // the shown calculator's family (`familyOf`; `update` when its model
 // changes) and those of the families the last `list_calculators` call
 // named (a 48GX the app runs but does not show), so a tool the listing
@@ -36,7 +37,10 @@
 // as `{error}`. The
 // display comes as text unless the call asks for an image (`display` or
 // `format` "image" or "both"; then the `image` data URL): a PNG in base64
-// costs a text-only agent its context.
+// costs a text-only agent its context. WebMCP has no server
+// instructions, so `list_calculators`'s result carries them
+// (`instructions`, iteration 77); its description only says so, as
+// tab-mcp's extension cuts a description at 1000 characters.
 
 import { APPROVAL, APPROVAL_NOTE, FAMILY_TOOLS, familyOf, INSTRUCTIONS } from "./ai-tools.js";
 import { invalidArguments, toCallToolResult } from "./ai-local.js";
@@ -57,10 +61,19 @@ export function modelContextOf(doc = globalThis.document, nav = globalThis.navig
 export const WEBMCP_CLIENT = Object.freeze({ kind: "webmcp", grantId: "webmcp", id: "webmcp", name: "Your browser's AI", host: "WebMCP" });
 
 /** The tools registered with no calculator shown. */
-const NONE = ["list_calculators", "lookup_command"];
+const NONE = ["list_calculators", "lookup_command", "read_guide"];
 
-/** What `list_calculators` tells the agent of WebMCP's own ways, before the instructions. */
+/** What `list_calculators` tells the agent of WebMCP's own ways, before WEBMCP_INSTRUCTIONS_NOTE. */
 export const WEBMCP_NOTE = "Here (WebMCP) the tools of a calculator's family are offered while it is shown or once list_calculators has named it: call list_calculators first, and again when the user opens another calculator. The display comes as text unless you ask for an image (display or format \"image\" or \"both\": a PNG as a data: URL).";
+
+/**
+ * The last line of `list_calculators`'s description: WebMCP has no
+ * server instructions, and tab-mcp's extension cuts a page tool's
+ * description at 1000 characters, so the instructions come in the
+ * tool's result (`instructions`, every call: an AI app's chat and the
+ * page's lifetime do not line up, so a first call cannot be told apart).
+ */
+export const WEBMCP_INSTRUCTIONS_NOTE = "Its result's \"instructions\" say how to use these tools: read them before you use the others. read_guide has more.";
 
 /** What WebMCP's agent reads in place of APPROVAL_NOTE: the app asks nothing here, so the agent confirms. */
 export const WEBMCP_APPROVAL_NOTE = "store_variable and purge_variable change the calculator's memory, and the app does not ask the user about them here: confirm with the user before calling them. press_keys and run_rpl can store and purge too, so take the same care as at the user's keyboard.";
@@ -232,8 +245,8 @@ export class WebMcp {
   /** `tool` as WebMCP takes it: its own fields, and an `execute` that checks, runs and logs. */
   wrap(tool) {
     const out = { name: tool.name, title: tool.title, description: webMcpText(tool.description), inputSchema: textByDefaultSchema(tool.inputSchema), annotations: webMcpAnnotations(tool.annotations), execute: (input, options) => this.call(tool, input, options?.signal) };
-    // WebMCP has no server instructions: the agent reads them with the first tool it should call.
-    if (tool.name === "list_calculators") out.description = `${out.description}\n\n${WEBMCP_NOTE}\n\nHow to use these tools:\n${webMcpText(INSTRUCTIONS)}`;
+    // WebMCP has no server instructions: the first tool the agent should call says so, and its result carries them.
+    if (tool.name === "list_calculators") out.description = `${out.description}\n\n${WEBMCP_NOTE}\n\n${WEBMCP_INSTRUCTIONS_NOTE}`;
     if (tool.outputSchema) out.outputSchema = tool.outputSchema;
     return out;
   }
@@ -252,9 +265,10 @@ export class WebMcp {
     this.ai.dispatchEvent(new CustomEvent("toolcallend", { detail: { id: call.id, tool: tool.name, client: { ...WEBMCP_CLIENT }, outcome, result: copy(result), durationMs: this.now() - started } }));
     if (result.isError) return { error: result.content?.find((c) => c?.type === "text")?.text ?? "The tool failed." };
     const out = webMcpResult(result);
+    if (tool.name !== "list_calculators") return out;
     // The tools of every calculator listed, registered before the agent reads the list.
-    if (tool.name === "list_calculators" && Array.isArray(out?.calculators)) await this.listing(out.calculators.map((c) => c?.family));
-    return out;
+    if (Array.isArray(out?.calculators)) await this.listing(out.calculators.map((c) => c?.family));
+    return { ...out, instructions: webMcpText(INSTRUCTIONS) };
   }
 
   /** `[outcome, MCP result]` of a call (the log's form; `call` makes WebMCP's of it). */

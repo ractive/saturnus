@@ -5,6 +5,18 @@ All notable changes to Saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `filer-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
+## Unreleased
+
+- **AI apps can read the Saturnus guide.** A new tool, read_guide,
+  gives the text of the Saturnus skill to any AI app, not only to
+  Claude Code with the plugin: the main guide, RPL programming, the
+  key-driven models and worked tasks. The instructions tell the AI app
+  to read the RPL part before it writes a program.
+- **A browser's AI now gets the whole instructions.** Through WebMCP,
+  list_calculators returns the instructions with its result. Before,
+  they were part of the tool's description, and the tab-mcp extension
+  cut that after 1000 characters.
+
 ## 0.12.1 (2026-11-16)
 
 - **The AI tools no longer call a blinking cursor a running program.**

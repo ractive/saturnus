@@ -32,7 +32,7 @@
 // `disconnect()` (turn off), `change` events. `local` tells the dialog
 // which one it has.
 
-import { aiTools, INSTRUCTIONS, titleOf } from "./ai-tools.js";
+import { aiTools, guideLoader, INSTRUCTIONS, titleOf } from "./ai-tools.js";
 import { AiLog } from "./ai-log.js";
 import { keepsRunning, screenPng, settingLook } from "./ai.js";
 
@@ -339,6 +339,7 @@ export class LocalAiAccess extends EventTarget {
         calculators: () => this.calculators(),
         target: (id) => this.target(id),
         reference: { index: (m) => this.reference().then((r) => r.index(m)) },
+        guide: guideLoader(),
         png: (frame, model, look) => this.png(frame, model, look),
       });
       for (const t of this.tools) if (t.annotations?.consequentialHint) this.consequential.add(t.name);

@@ -30,7 +30,7 @@
 // same log. Then `AiAccess` is made even without a relay (a page served
 // from this computer), `available` false.
 
-import { aiTools, INSTRUCTIONS, titleOf } from "./ai-tools.js";
+import { aiTools, guideLoader, INSTRUCTIONS, titleOf } from "./ai-tools.js";
 import { AiLog, appLabel } from "./ai-log.js";
 import { HubClient, hubRunning } from "./shared/calc-hub.js";
 import { KEYS, aiSecretKey } from "./shared/storage-names.js";
@@ -235,7 +235,7 @@ export class AiAccess extends EventTarget {
    */
   get tools() {
     if (!this.toolList) {
-      this.toolList = aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), existing: (id) => this.existing(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, png: (frame, model, look) => this.png(frame, model, look) });
+      this.toolList = aiTools({ calculators: () => this.calculators(), target: (id) => this.target(id), existing: (id) => this.existing(id), reference: { index: (m) => this.reference().then((r) => r.index(m)) }, guide: guideLoader(), png: (frame, model, look) => this.png(frame, model, look) });
       for (const tool of this.toolList) if (tool.annotations?.consequentialHint) this.consequential.add(tool.name);
     }
     return this.toolList;

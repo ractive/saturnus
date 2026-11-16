@@ -31,7 +31,7 @@ a third-party path-filter action (one less action to pin and update;
 | Output | Paths |
 | --- | --- |
 | `rust` | `crates/**` (the command reference in `crates/saturnus-cli/data/` included), `Cargo.toml`, `Cargo.lock`, `deny.toml`, `rustfmt.toml`, `LICENSE`, `web/test/protocol-script.json` and `.expected.json` (saturnus-drive's `tests/protocol_script.rs` runs them natively in `test`) |
-| `web` | `web/**`, `scripts/*.py` (the generators of the page's data) |
+| `web` | `web/**`, `scripts/*.py` (the generators of the page's data), `plugins/**` (the skill `web/guide.json` is generated from) |
 | `kb` | `kb/**`, `.hyalo.toml` |
 
 A change to `ci.yml` itself, a new branch or a range git cannot resolve

@@ -9,9 +9,9 @@
 // calls".
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiTools, APPROVAL, APPROVAL_NOTE, INSTRUCTIONS } from "../ai-tools.js";
+import { aiTools, APPROVAL, APPROVAL_NOTE, GUIDE_TOPICS, INSTRUCTIONS } from "../ai-tools.js";
 import { AiLog } from "../ai-log.js";
-import { modelContextOf, WebMcp, webMcpAnnotations, webMcpResult, webMcpText } from "../ai-webmcp.js";
+import { modelContextOf, WEBMCP_INSTRUCTIONS_NOTE, WEBMCP_NOTE, WebMcp, webMcpAnnotations, webMcpResult, webMcpText } from "../ai-webmcp.js";
 import { readFileSync } from "node:fs";
 import { buildIndex } from "../reference.js";
 
@@ -78,6 +78,9 @@ function calculator(model = "48gx") {
   return { id: model, model, backend, store: { state: { frame: FRAME, keysDown: [], busy: false, booted: model } }, calls };
 }
 
+/** The guide as web/guide.json has it. */
+const GUIDE = JSON.parse(readFileSync(new URL("../guide.json", import.meta.url), "utf8"));
+
 /** A fake AI access over calculator `c`: its tools (the real ones), its view, its events and its log. */
 function access(c = calculator()) {
   const ai = new EventTarget();
@@ -92,6 +95,7 @@ function access(c = calculator()) {
     existing: async () => c,
     reference: { index: async () => ({ supported: false }) },
     png: async () => "iVBORw0KGgo=",
+    guide: async () => GUIDE,
     pace: PACE,
   });
   ai.log = new AiLog(ai);
@@ -104,7 +108,7 @@ function webMcp(ai, { context = new FakeContext(), win = new EventTarget() } = {
   return { w, context, win };
 }
 
-const RPL = ["list_calculators", "list_keys", "list_variables", "lookup_command", "press_keys", "purge_variable", "read_display", "read_stack", "read_variable", "run_rpl", "store_variable", "to_stack"];
+const RPL = ["list_calculators", "list_keys", "list_variables", "lookup_command", "press_keys", "purge_variable", "read_display", "read_guide", "read_stack", "read_variable", "run_rpl", "store_variable", "to_stack"];
 
 test("WebMCP is found on the document, else on the navigator of early Chrome builds, else not", () => {
   const ctx = { registerTool() {} };
@@ -121,7 +125,7 @@ test("the shown calculator's tools are registered, and again when its family cha
   ai.shown = null;
   const { w, context } = webMcp(ai);
   await w.start();
-  assert.deepEqual(context.names(), ["list_calculators", "lookup_command"], "no calculator shown");
+  assert.deepEqual(context.names(), ["list_calculators", "lookup_command", "read_guide"], "no calculator shown");
   assert.equal(w.active, true);
   await w.update("48gx");
   assert.deepEqual(context.names(), RPL);
@@ -130,18 +134,18 @@ test("the shown calculator's tools are registered, and again when its family cha
   await w.update("49g");
   assert.equal(context.registrations, before);
   await w.update("28s");
-  assert.deepEqual(context.names(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "read_display", "run_rpl"]);
+  assert.deepEqual(context.names(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "read_display", "read_guide", "run_rpl"]);
   await w.update("42s");
-  assert.deepEqual(context.names(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "read_display", "run_function"]);
+  assert.deepEqual(context.names(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "read_display", "read_guide", "run_function"]);
   // A quick change while the last registration still runs: the newer wins, nothing twice.
   const a = w.update("48gx");
   const b = w.update(null);
   await Promise.all([a, b]);
-  assert.deepEqual(context.names(), ["list_calculators", "lookup_command"]);
+  assert.deepEqual(context.names(), ["list_calculators", "lookup_command", "read_guide"]);
   assert.ok(ai.changes > 0, "the sidebar hears of it");
 });
 
-test("the tools as WebMCP gets them: WebMCP's hints only, an output schema, the instructions with list_calculators", async () => {
+test("the tools as WebMCP gets them: WebMCP's hints only, an output schema, list_calculators pointing at its result's instructions", async () => {
   const ai = access();
   const { w, context } = webMcp(ai);
   await w.start();
@@ -154,8 +158,11 @@ test("the tools as WebMCP gets them: WebMCP's hints only, an output schema, the 
   assert.deepEqual(context.tools.get("read_stack").annotations, { readOnlyHint: true, untrustedContentHint: true });
   assert.deepEqual(context.tools.get("list_calculators").annotations, { readOnlyHint: true, untrustedContentHint: true });
   assert.deepEqual(context.tools.get("lookup_command").annotations, { readOnlyHint: true });
-  assert.ok(context.tools.get("list_calculators").description.endsWith(webMcpText(INSTRUCTIONS)));
-  assert.ok(!context.tools.get("read_stack").description.includes(INSTRUCTIONS));
+  assert.deepEqual(context.tools.get("read_guide").annotations, { readOnlyHint: true });
+  const list = context.tools.get("list_calculators").description;
+  assert.equal(list, `${ai.tools[0].description}\n\n${WEBMCP_NOTE}\n\n${WEBMCP_INSTRUCTIONS_NOTE}`);
+  assert.ok(!list.includes(INSTRUCTIONS.slice(0, 80)), "the instructions are in the result, not the description");
+  for (const tool of context.tools.values()) assert.ok(!tool.description.includes(INSTRUCTIONS.slice(0, 80)), tool.name);
   assert.deepEqual(webMcpAnnotations({ readOnlyHint: true, destructiveHint: true, idempotentHint: false }), { readOnlyHint: true });
 });
 
@@ -165,10 +172,15 @@ test("no WebMCP tool's description nor the instructions say the app approves; th
   await w.start();
   for (const tool of context.tools.values()) assert.doesNotMatch(tool.description, /approve|in the app first/i, tool.name);
   for (const name of ["store_variable", "purge_variable"]) assert.match(context.tools.get(name).description, /confirm with the user first\.$/, name);
-  assert.match(context.tools.get("list_calculators").description, /confirm with the user before calling them/);
+  assert.match((await context.run("list_calculators")).instructions, /confirm with the user before calling them/);
   // The texts WebMCP replaces are there to replace; tab-mcp and the desktop app keep them.
   assert.ok(INSTRUCTIONS.includes(APPROVAL_NOTE));
   for (const name of ["store_variable", "purge_variable"]) assert.ok(ai.tools.find((t) => t.name === name).description.endsWith(APPROVAL), name);
+});
+
+test("no read_guide topic says the app asks the user: read_guide serves the same text on WebMCP, where it does not", () => {
+  const guide = JSON.parse(readFileSync(new URL("../guide.json", import.meta.url), "utf8"));
+  for (const topic of GUIDE_TOPICS) assert.doesNotMatch(guide.topics[topic], /approves|in the app first|allows? (it|them) in the app|wait until the user allows/i, topic);
 });
 
 test("withdrawn when the page is hidden, back when it shows again", async () => {
@@ -184,12 +196,12 @@ test("withdrawn when the page is hidden, back when it shows again", async () => 
   assert.deepEqual(context.names(), []);
   win.dispatchEvent(new Event("pageshow"));
   await turn();
-  assert.deepEqual(context.names(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "read_display", "run_function"]);
+  assert.deepEqual(context.names(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "read_display", "read_guide", "run_function"]);
   // Hidden and shown again with no change: the same tools.
   win.dispatchEvent(new Event("pagehide"));
   win.dispatchEvent(new Event("pageshow"));
   await turn();
-  assert.equal(context.names().length, 6);
+  assert.equal(context.names().length, 7);
 });
 
 test("a call gives the agent the tool's fields; an image as a data URL; a failure as {error}; all in the log", async () => {
@@ -378,4 +390,49 @@ test("through WebMCP the display comes as text unless the call asks for an image
   }
   // tab-mcp's tools keep their own defaults.
   assert.match(ai.tools.find((t) => t.name === "read_display").inputSchema.properties.format.description, /Default: both/);
+});
+
+test("every WebMCP tool's description is at most 1000 characters: tab-mcp's extension cuts a page tool's description there", async () => {
+  // Every family's tools, the instructions note on list_calculators included.
+  const gx = calculator("48gx");
+  const ai = access(gx);
+  const { w, context } = webMcp(ai);
+  await w.start();
+  await w.listing(["rpl", "rpl-keys", "keys"]);
+  assert.deepEqual(context.names(), ai.tools.map((t) => t.name).sort(), "every tool registered");
+  for (const tool of context.tools.values()) assert.ok(tool.description.length <= 1000, `${tool.name}: ${tool.description.length} characters`);
+  assert.ok(context.tools.get("list_calculators").description.includes("read_guide"));
+});
+
+test("list_calculators's result carries the instructions on every call; tab-mcp's and the desktop app's result does not", async () => {
+  const ai = access();
+  const { w, context } = webMcp(ai);
+  await w.start();
+  for (let i = 0; i < 2; i++) {
+    const list = await context.run("list_calculators");
+    assert.equal(list.instructions, webMcpText(INSTRUCTIONS), `call ${i + 1}`);
+    assert.deepEqual(list.calculators.map((c) => c.id), ["48gx"]);
+  }
+  assert.match(webMcpText(INSTRUCTIONS), /read_guide/);
+  // The other tools' results do not carry them.
+  assert.equal((await context.run("read_stack")).instructions, undefined);
+  // The tool itself (tab-mcp, the desktop app) gives no instructions: those paths have server instructions.
+  const own = await ai.tools[0].execute({}, { signal: new AbortController().signal });
+  assert.equal(own.instructions, undefined);
+  assert.ok(ai.tools[0].outputSchema.properties.instructions, "in the output schema");
+});
+
+test("read_guide through WebMCP, with no calculator shown: a topic's text; an unknown topic as {error} naming the topics", async () => {
+  const ai = access();
+  ai.shown = null;
+  const { w, context } = webMcp(ai);
+  await w.start();
+  assert.ok(context.names().includes("read_guide"));
+  for (const topic of GUIDE_TOPICS) {
+    const r = await context.run("read_guide", { topic });
+    assert.equal(r.topic, topic);
+    assert.equal(r.text, GUIDE.topics[topic]);
+  }
+  const bad = await context.run("read_guide", { topic: "nope" });
+  assert.match(bad.error, /must be one of "skill", "rpl", "models", "workflows"/);
 });
