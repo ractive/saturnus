@@ -1,10 +1,11 @@
 ---
 title: Moving files to a real calculator
+page_title: Transfer files between a real HP 48 or 49G and a computer
 description: For owners of a real HP calculator: which cable to use, the Kermit and XModem protocols and their settings, the satx command-line tool, and Files in the app.
 section: transfer
 ---
 
-These pages are for owners of a real calculator who want to move programs and data between it and a computer: back up a calculator, load a program from the internet, or copy what you wrote in saturnus to the real thing.
+These pages are for owners of a real calculator who want to move programs and data between it and a computer: back up a calculator, load a program from the internet, or copy what you wrote in Saturnus to the real thing.
 
 You need a serial cable for your model, a USB serial adapter on most computers, and a program on the computer: Files in the app, in Chrome or Edge, or satx on the command line.
 

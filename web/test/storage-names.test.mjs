@@ -81,7 +81,7 @@ test("the service worker's cache prefix is the module's rule, with the colon tha
 
 test("the landing page stores nothing; its one script only steps between the dialogs", () => {
   const landing = readFileSync(join(WEB, "landing", "index.html"), "utf8");
-  assert.deepEqual(landing.match(/<script[^>]*>/g), ['<script type="module" src="dialogs.js">'], "one script, the dialogs'");
+  assert.deepEqual(landing.match(/<script[^>]*>/g).filter((tag) => tag !== '<script type="application/ld+json">'), ['<script type="module" src="dialogs.js">'], "one script, the dialogs' (the JSON-LD blocks are data)");
   const dialogs = readFileSync(join(WEB, "landing", "dialogs.js"), "utf8");
   assert.ok(!/localStorage|sessionStorage|indexedDB|document\.cookie|caches|fetch\(/.test(dialogs), "dialogs.js stores and fetches nothing");
 });

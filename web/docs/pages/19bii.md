@@ -1,14 +1,19 @@
 ---
 title: HP 19BII
-description: HP's clamshell business calculator of 1990 with a letter keyboard and RPN or algebraic entry, its history, what makes it special and how saturnus runs it.
+page_title: HP 19BII emulator for the browser, Mac, Windows and Linux
+description: Saturnus, a free emulator, runs the HP 19BII in your browser or as a desktop app, from a ROM file you have. With the history of HP's clamshell business calculator of 1990.
 section: models
 model: 19bii
 ---
 
 The HP 19BII is a business calculator that Hewlett-Packard introduced in January 1990, the Business Consultant II. Its case opens like a book: a letter keyboard on the left, the calculator keys and a four-line display on the right. It has money calculations, statistics, a clock with appointments, a solver for your own equations and lists of text, in six languages. It was HP's last calculator in this kind of case.
 
-![HP 19BII](../img/19bii-640.webp)
-The 19BII's display half as saturnus draws it, with its main menu.
+![The display half of an HP 19BII in Saturnus showing 3.14 above its main menu](../img/19bii-640.webp)
+The 19BII's display half as Saturnus draws it, with its main menu.
+
+Saturnus is a free emulator of the HP 19BII. It runs the 19BII's own ROM, from a file you already have, in your browser, as a desktop app for Mac, Windows and Linux, and on the command line.
+
+[Open the HP 19BII in Saturnus](../app/#/calculator/19bii)
 
 ## At a glance
 
@@ -81,9 +86,9 @@ The left half holds the letters, so equation names, variable names and text go i
 
 The INTL menu under MODES switches between six display languages. The currency exchange menu converts between two currencies at a rate you store or calculate; [the manual's example](https://literature.hpcalc.org/community/hp19bii-om-en.pdf) still uses West German marks and British pounds.
 
-## In saturnus
+## In Saturnus
 
-saturnus runs the 19BII on the same two-chip machine as the 28S, with 8 KB of RAM:
+Saturnus runs the 19BII on the same two-chip machine as the 28S, with 8 KB of RAM:
 
 - It draws the calculator open, the letter half beside the display half; on a phone or a tall window the halves stack.
 - On a first start it asks for the language, then boots and computes.
@@ -95,9 +100,35 @@ saturnus runs the 19BII on the same two-chip machine as the 28S, with 8 KB of RA
 
 What it does not do: the 19BII has no serial port, so Files has nothing for it, and the infrared printer output is not emulated. The memory view and the RPL editor are for the HP 48 and 49 only.
 
-The [command reference](commands.md#19bii) lists the 19BII's 418 functions with the keys that run them, and examples for 148 of them, run in saturnus.
+The [command reference](commands.md#19bii) lists the 19BII's 418 functions with the keys that run them, and examples for 148 of them, run in Saturnus.
 
-[Open the HP 19BII in saturnus](../app/#/calculator/19bii)
+[Open the HP 19BII in Saturnus](../app/#/calculator/19bii)
+
+## Questions and answers
+
+### Where do I get the HP 19BII's ROM?
+
+There is no download: HP never published the 19BII's ROM, and Saturnus does not include it. The 19BII also cannot send its own ROM to another calculator, as the [HP 42S](42s.md) can. Saturnus runs the 19BII only from a ROM file you already have: choose it in the app.
+
+### Can I use the HP 19BII online, in my browser?
+
+Yes, if you have its ROM file. [The app](../app/#/calculator/19bii) runs in the browser on a computer or a phone, with nothing to install. You choose the ROM file once; the calculator then runs on your device, not on a server, and the app works offline after the first visit. On a phone you can add it to the home screen.
+
+### Is there an HP 19BII emulator for Mac, Windows and Linux?
+
+Yes. The Saturnus desktop app runs the 19BII and the other eleven models. It is free and open source, for Macs with Apple silicon and for Windows and Linux on Intel, AMD or ARM processors: [the downloads](../#install) are on Saturnus's site. For a Mac with an Intel processor there is no desktop app; use the app in the browser.
+
+### Can I move programs between Saturnus and a real HP 19BII?
+
+No. The 19BII has no serial port: its infrared port only prints, and Saturnus does not emulate the printer output. [Moving files to a real calculator](transfer.md) lists what each model can do.
+
+### Does the emulated 19BII keep my work?
+
+Yes. The calculator keeps its memory when you close or reload the app, as a real one does when switched off. Save state keeps a second copy that Load state brings back, and a state saved to a file (`.sat`) opens in the browser, the desktop app and the command line.
+
+### How close is it to a real HP 19BII?
+
+It runs the 19BII's own ROM on the same two-chip machine as the [HP 28S](28s.md). Run times are an estimate: the CPU runs at 1 MHz, the figure the sources give for its chips, and no real 19BII has been timed. The infrared printer output is missing, and appointment alarms have not been tested. [How Saturnus is built](how-it-is-built.md) describes the method and the tests.
 
 ## Sources
 

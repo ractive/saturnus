@@ -1,10 +1,11 @@
 ---
 title: AI apps
-description: Let an AI app such as Claude Code, Codex, Cursor, Claude Desktop, Claude or ChatGPT use the calculators in saturnus, and add the saturnus skill and the Claude Code plugin.
+page_title: Let Claude, ChatGPT or Cursor use an HP calculator over MCP
+description: Let an AI app such as Claude, ChatGPT, Claude Code, Codex or Cursor use the HP calculators in Saturnus over MCP, and add the Saturnus skill and the Claude Code plugin.
 section: index
 ---
 
-An AI app can use the calculators you have open in saturnus: read the display, press keys, run RPL, store programs on the 48 and 49 models and look up commands in the reference. It works over [MCP](https://modelcontextprotocol.io/), the protocol AI apps use for tools. You watch the calculator while the AI app works, and you allow each store or purge of a variable in the app first.
+An AI app can use the calculators you have open in Saturnus: read the display, press keys, run RPL, store programs on the 48 and 49 models and look up commands in the reference. It works over [MCP](https://modelcontextprotocol.io/), the protocol AI apps use for tools. You watch the calculator while the AI app works, and you allow each store or purge of a variable in the app first.
 
 ## Connect an AI app
 
@@ -17,7 +18,7 @@ The tools tell the AI app what it needs to start: which calculators run, which t
 
 ## Your browser's own AI
 
-Some browsers have an AI of their own that can use a page's tools through [WebMCP](https://github.com/webmachinelearning/webmcp): [Chrome](https://www.google.com/chrome/) from version 149 and [Edge](https://www.microsoft.com/en-us/edge) from version 150 try it out on saturnus's site, and extensions for Chrome can use it too. In such a browser the app offers the same tools to the browser's AI as well, with no address or code: the tools for the calculator Calculator shows, and for every calculator the AI has listed. The display comes as text unless the AI asks for a picture. Only the browser's AI and the app itself can call them, not other sites.
+Some browsers have an AI of their own that can use a page's tools through [WebMCP](https://github.com/webmachinelearning/webmcp): [Chrome](https://www.google.com/chrome/) from version 149 and [Edge](https://www.microsoft.com/en-us/edge) from version 150 try it out on Saturnus's site, and extensions for Chrome can use it too. In such a browser the app offers the same tools to the browser's AI as well, with no address or code: the tools for the calculator Calculator shows, and for every calculator the AI has listed. The display comes as text unless the AI asks for a picture. Only the browser's AI and the app itself can call them, not other sites.
 
 The app adds no question of its own. It marks the store and purge tools as needing care, and the browser or its AI decides whether to ask you: [Brave](https://brave.com/)'s Leo asks before every call, with Allow once, Allow for this session or Deny; other browsers may not ask. The AI can press keys and run commands, as you can, so give it the page only if you trust it. The calls show in **The AI's calls** under "Your browser's AI"; choose **Calls** in the panel beside the calculator. Connecting an AI app through the dialog works as before, beside it. The desktop app has no WebMCP.
 
@@ -28,13 +29,13 @@ Claude Desktop uses the calculators of the desktop app through an extension:
 1. In the desktop app, open **Connect your AI app…** and turn on "Let AI apps on this computer use the calculators".
 2. Choose **Add to Claude Desktop**. Claude Desktop shows the extension; choose **Install**. You can also [download the extension](../app/saturnus.mcpb) and open it with Claude Desktop.
 
-When Claude needs a calculator and saturnus is closed, the extension starts it. On Windows and Linux it finds saturnus only where its installers put it; otherwise start saturnus yourself. If you moved AI access to another port, set the same port in the extension's settings in Claude Desktop. The extension holds no key: it reads the key from the file the desktop app writes for your user account, and sends it only to saturnus on this computer, after saturnus has shown that it holds the same key.
+When Claude needs a calculator and Saturnus is closed, the extension starts it. On Windows and Linux it finds Saturnus only where its installers put it; otherwise start Saturnus yourself. If you moved AI access to another port, set the same port in the extension's settings in Claude Desktop. The extension holds no key: it reads the key from the file the desktop app writes for your user account, and sends it only to Saturnus on this computer, after Saturnus has shown that it holds the same key.
 
-## The saturnus skill
+## The Saturnus skill
 
 The skill adds what the tools do not say: RPL programming, the differences between the models (the 42S's menus, the 38G's HOME view, the business models' menus), the screens that catch key presses, the known ROM bugs, and worked examples such as a program on the 48GX, a loan on the 17BII and a linear fit on the 38G. It is optional; the tools work without it.
 
-It is in the open [Agent Skills](https://agentskills.io/) format, a folder with `SKILL.md`, in the saturnus repository under [plugins/saturnus/skills/saturnus](https://github.com/ractive/saturnus/tree/main/plugins/saturnus/skills/saturnus).
+It is in the open [Agent Skills](https://agentskills.io/) format, a folder with `SKILL.md`, in the Saturnus repository under [plugins/saturnus/skills/saturnus](https://github.com/ractive/saturnus/tree/main/plugins/saturnus/skills/saturnus).
 
 | AI app | How to add it |
 |---|---|

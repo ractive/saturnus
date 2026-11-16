@@ -1,6 +1,7 @@
 ---
 title: The serial port and infrared
-description: The Saturn calculators' UART: the frame, the speeds, the line levels of the wired port, the buffers and interrupts, the infrared link through the same UART, and which model has what.
+page_title: Serial port and infrared of the HP 48 and 49G: the UART
+description: The UART of the HP 48 and 49G: the frame, the speeds and line levels of the serial port, its buffers and interrupts, and the infrared link on the same UART.
 section: saturn
 order: 6
 ---

@@ -1,6 +1,7 @@
 ---
 title: Kermit and XModem
-description: Moving files between a real HP calculator and a computer with Kermit and XModem: which model speaks which, starting the server, binary and ASCII transfers, the settings that matter, what to check when a transfer fails, and the programs on the computer.
+page_title: Kermit and XModem on the HP 48 and 49G: settings and fixes
+description: Kermit and XModem between a real HP 48 or 49G and a computer: starting the server, binary and ASCII transfers, the settings that matter and fixing a failed transfer.
 section: transfer
 order: 2
 ---
@@ -117,7 +118,7 @@ Set the file type to binary or text to match flag −35. `REMOTE DIRECTORY`, `GE
 
 ### HPComm and HPGComm
 
-HPComm is a Windows program by Jean-Pierre "James" Bergamin, the author of saturnus, for moving files between a PC and an HP 48 or 49G. It shows the calculator's directories beside the PC's folders, as Windows Explorer does, and files move between them by drag and drop, over Kermit. Version 2.4 came out as open source in February 1999.
+HPComm is a Windows program by Jean-Pierre "James" Bergamin, the author of Saturnus, for moving files between a PC and an HP 48 or 49G. It shows the calculator's directories beside the PC's folders, as Windows Explorer does, and files move between them by drag and drop, over Kermit. Version 2.4 came out as open source in February 1999.
 
 HP then approached the project. HPComm 3.0, written by James Bergamin and Mitch Davis of HP, became the software of HP's Graphing Calculator PC Connectivity Kit (F1897A) in 1999, for the 48 series and the new 49G, and HP agreed to release it under the [GNU GPL](https://en.wikipedia.org/wiki/GNU_General_Public_License). The last version, 3.0r4, came out in June 2000.
 

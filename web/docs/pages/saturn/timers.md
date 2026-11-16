@@ -1,5 +1,6 @@
 ---
 title: Timers and interrupts
+page_title: Timers and interrupts in the HP 48 and 49G
 description: The Saturn's two hardware timers, how the calculator keeps the time with them, the single interrupt and its sources, what can and cannot be masked, and sleeping with SHUTDN.
 section: saturn
 order: 5
@@ -65,7 +66,7 @@ The handler finds out which by reading the hardware registers.
 
 ## Masking
 
-INTOFF and INTON turn off and on the keyboard's interrupt, the 1 ms scan. They do not stop ON, the timers or the serial port. [Joe Ervin](https://www.hpcalc.org/details/1720) and [Duchesne](https://sites.google.com/view/mnavarrodocs/home) say so, and the ROMs run in saturnus with only the keyboard masked; [Mastracci's guide counts](https://www.hpcalc.org/details/1753) the timer and serial interrupts as maskable as well.
+INTOFF and INTON turn off and on the keyboard's interrupt, the 1 ms scan. They do not stop ON, the timers or the serial port. [Joe Ervin](https://www.hpcalc.org/details/1720) and [Duchesne](https://sites.google.com/view/mnavarrodocs/home) say so, and the ROMs run in Saturnus with only the keyboard masked; [Mastracci's guide counts](https://www.hpcalc.org/details/1753) the timer and serial interrupts as maskable as well.
 
 The system has its own way to turn off everything, ON included. It keeps a bit in the CPU's status register (ST bit 15) that says whether interrupts are allowed. When that bit is clear, the handler returns at once with an ordinary return instead of RTI, notes in ST bit 14 that an interrupt was missed, and leaves the CPU "in service". No further interrupt is taken until the system allows them again: it sets the bit, executes RSI, which makes the CPU look again at what is pending, and then RTI.
 

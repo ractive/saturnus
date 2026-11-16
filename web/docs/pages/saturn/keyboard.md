@@ -1,6 +1,7 @@
 ---
 title: The keyboard
-description: How the Saturn calculators read their keys: the key matrix on the CPU's OUT and IN ports, the hardware scan and its interrupt, debouncing, held and released keys, and the ON key on its own line.
+page_title: The HP 48 and 49G keyboard: how the Saturn reads its keys
+description: How the HP 48 and 49G read their keys: the key matrix on the Saturn's OUT and IN ports, the scan and its interrupt, debouncing, held keys and the ON key.
 section: saturn
 order: 4
 ---
@@ -80,9 +81,9 @@ With the display turned off, the keyboard does not respond. And when SHUTDN has 
 
 For an emulator, the timing matters more than the matrix:
 
-- A simulated key press has to last long enough for the debouncing. In saturnus, a key held for 15 ms is sometimes lost on the 48SX; 25 ms is reliable on the 48SX, 48GX and 49G.
+- A simulated key press has to last long enough for the debouncing. In Saturnus, a key held for 15 ms is sometimes lost on the 48SX; 25 ms is reliable on the 48SX, 48GX and 49G.
 - A second press of the same key needs a gap, since the release is seen only at the next 1/16 s check. The 49G loses repeated keys with gaps under 70 ms.
-- After some keys the system stays awake for a while: up to about 0.75 s on the 48SX after a function key, about 1 s on the 38G after ENTER. A key pressed in that time can be lost, so saturnus waits for the CPU to sleep before it sends the next key it has queued.
+- After some keys the system stays awake for a while: up to about 0.75 s on the 48SX after a function key, about 1 s on the 38G after ENTER. A key pressed in that time can be lost, so Saturnus waits for the CPU to sleep before it sends the next key it has queued.
 
 The [HP 48SX page](../48sx.md) and the [HP 49G page](../49g.md) describe the two keyboards as their owners see them.
 

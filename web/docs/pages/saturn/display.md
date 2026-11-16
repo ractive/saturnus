@@ -1,5 +1,6 @@
 ---
 title: The display
+page_title: The display of the HP 48 and 49G: LCD controller and memory
 description: The LCD controller of the Saturn calculators: the 131 × 64 screen, display memory in RAM, the main and menu areas, margins and scrolling, contrast and the annunciators.
 section: saturn
 order: 3
@@ -38,7 +39,7 @@ The screen shows two bitmaps, one under the other:
 
 Normally the main area has 56 rows and the menu area 8: the stack and the command line above, the six menu labels under them. A program that wants the whole screen sets the main area to all 64 rows. The main area cannot be empty.
 
-On every model the ROM draws the six menu labels in the menu area as boxes 21 pixels wide with a pixel between them, 22 pixels apart. saturnus places the drawn menu keys under them by that measure.
+On every model the ROM draws the six menu labels in the menu area as boxes 21 pixels wide with a pixel between them, 22 pixels apart. Saturnus places the drawn menu keys under them by that measure.
 
 ## Margins and scrolling
 
@@ -59,7 +60,7 @@ A register reports which row the controller is fetching, counting down from 63 a
 
 Contrast is a 5-bit value, 0 to 31; a higher value is darker. On the 48 series, holding ON and pressing + or − changes it. The ROM keeps it within a range: 3 to 19, according to the [Voyage book](https://literature.hpcalc.org/community/hp48gx-voyage.pdf). The 38G changes it with ON and a second key as well.
 
-After a cold start, the 48SX in saturnus sets its contrast to 11, the 48GX, 38G and 49G to 14, the 39G and 40G to 12.
+After a cold start, the 48SX in Saturnus sets its contrast to 11, the 48GX, 38G and 49G to 14, the 39G and 40G to 12.
 
 ## Annunciators
 

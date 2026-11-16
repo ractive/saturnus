@@ -164,8 +164,8 @@ test("llms.txt: the title, a summary, link lists per section to the Markdown fil
   const pages = loadPages();
   const txt = llmsTxt(pages, data);
   const lines = txt.split("\n");
-  assert.equal(lines[0], "# saturnus", "an H1 first");
-  assert.match(lines[2], /^> saturnus runs classic HP calculators in the browser/, "a summary as a blockquote");
+  assert.equal(lines[0], "# Saturnus", "an H1 first");
+  assert.match(lines[2], /^> Saturnus is an emulator of classic HP calculators: the HP 48SX, /, "a summary as a blockquote");
   assert.ok(!/^#{3,} /m.test(txt), "sections are H2");
   const sections = lines.filter((l) => l.startsWith("## "));
   assert.deepEqual(sections, ["## Docs", "## Models", "## Command reference", "## How the Saturn works", "## Moving files to a real calculator", "## Optional"]);
@@ -184,7 +184,7 @@ test("the build: each page's HTML and its Markdown as written, the command files
     const { pages, written } = build(out, { csp: "default-src 'self'" });
     const rels = pages.map((p) => p.rel).sort();
     const sub = rels.filter((r) => r.includes("/"));
-    assert.deepEqual(rels.filter((r) => !r.includes("/")), [...MODEL_ORDER, "ai-apps", "commands", "index", "saturn", "transfer"].sort());
+    assert.deepEqual(rels.filter((r) => !r.includes("/")), [...MODEL_ORDER, "ai-apps", "commands", "how-it-is-built", "index", "saturn", "transfer"].sort());
     assert.ok(sub.length && sub.every((r) => /^(saturn|transfer)\//.test(r)), "sub-pages only under the two sections");
     for (const p of pages) {
       const { html, md } = pagePaths(p.rel);
@@ -197,6 +197,7 @@ test("the build: each page's HTML and its Markdown as written, the command files
       assert.match(doc, /app\/shared\/tokens\.css"/);
       assert.match(doc, /app\/shared\/theme-boot\.js"><\/script>/);
       assert.ok(!/<script>/.test(doc), "no inline script (the CSP)");
+      for (const [tag] of doc.matchAll(/<script\b[^>]*>/g)) assert.ok(/ src="/.test(tag) || tag === '<script type="application/ld+json">', `${p.rel}: ${tag} is a script with a src or a JSON-LD data block`);
       // A model page takes its colours; the section pages keep the plain logo's.
       if (p.meta.model) assert.match(doc, new RegExp(`<html lang="en" data-logo="${p.meta.model}">`));
       else assert.match(doc, /<html lang="en">/);
@@ -222,11 +223,11 @@ test("the build: each page's HTML and its Markdown as written, the command files
     assert.ok(ref.indexOf('<h2 id="reading-an-example">') > ref.indexOf('<script type="module" src="page.js">'), "the sections after the tool");
     assert.match(ref, /<div class="docs-page docs-after">\n<div class="docs-after-notes">\n<h2 id="reading-an-example">[\s\S]*<\/div>\n<div class="docs-after-sources">\n<h2 id="sources">Sources<\/h2>\n<ul>\n<li><a href="https:/, "the notes and the sources in columns of their own");
     assert.match(readFileSync(join(out, "docs", "commands.md"), "utf8"), /\n## Sources\n\n- \[/, "the reference lists its manuals");
-    // The header: "saturnus" leads to the landing page, "docs" to the docs' index, the app's link beside them.
-    assert.match(ref, /<a class="brand" href="\.\.\/\.\.\/" title="saturnus"><svg class="logo"[^>]*>[\s\S]*?<\/svg><span>saturnus<\/span><\/a>\s*<a class="docs-brand-sub" href="\.\.\/">docs<\/a>/);
+    // The header: "Saturnus" leads to the landing page, "docs" to the docs' index, the app's link beside them.
+    assert.match(ref, /<a class="brand" href="\.\.\/\.\.\/" title="Saturnus"><svg class="logo"[^>]*>[\s\S]*?<\/svg><span>Saturnus<\/span><\/a>\s*<a class="docs-brand-sub" href="\.\.\/">docs<\/a>/);
     assert.match(ref, /<a class="docs-app" href="\.\.\/\.\.\/app\/" title="Open the app">/);
     const home = readFileSync(join(out, "docs", "index.html"), "utf8");
-    assert.match(home, /<a class="brand" href="\.\.\/" title="saturnus">/);
+    assert.match(home, /<a class="brand" href="\.\.\/" title="Saturnus">/);
     assert.match(home, /<a class="docs-brand-sub" href="\.\/">docs<\/a>/);
     assert.match(home, /<h2 id="models">Models<\/h2>/);
     assert.match(home, /<li class="docs-model-link"><a href="48gx\/"><svg class="logo"[^>]* data-logo="48gx">/);
@@ -237,9 +238,9 @@ test("the build: each page's HTML and its Markdown as written, the command files
     assert.match(cpu, /<a href="\.\.\/\.\.\/commands\/">Command reference<\/a>/, "another section is not current");
     assert.ok(cpu.includes('href="../memory/"') && cpu.includes('href="../../48gx/"'), "links to a sibling and to a page above");
     assert.ok(readFileSync(join(out, "docs", "saturn", "index.html"), "utf8").includes('href="cpu/"'), "the overview links its sub-pages");
-    // The 48GX page: its picture from the landing page's images (saturnus's drawing) with a caption, its facts table, its links into the app and the reference, its sources last.
+    // The 48GX page: its picture from the landing page's images (Saturnus's drawing) with a caption, its facts table, its links into the app and the reference, its sources last.
     const gx = readFileSync(join(out, "docs", "48gx", "index.html"), "utf8");
-    assert.match(gx, /<figure><img src="\.\.\/\.\.\/img\/48gx-640\.webp" width="1248" height="2721" decoding="async" alt="HP 48GX"><figcaption>[^<]+<\/figcaption><\/figure>/);
+    assert.match(gx, /<figure><img src="\.\.\/\.\.\/img\/48gx-640\.webp" width="1248" height="2721" decoding="async" alt="An HP 48GX in Saturnus plotting a sine curve"><figcaption>[^<]+<\/figcaption><\/figure>/);
     assert.match(gx, /<h2 id="at-a-glance">At a glance<\/h2>\n<div class="table-wrap"><table>\n<tbody>/, "the facts without a header row");
     assert.ok(gx.includes('href="../../app/#/calculator/48gx"') && gx.includes('href="../commands/#48gx"'));
     assert.match(gx, /<h2 id="sources">Sources<\/h2>\n<ul>\n(<li><a href="https:\/\/[^"]+" target="_blank" rel="noopener noreferrer">[\s\S]*?<\/li>\n)+<\/ul>\n<\/article>/, "the sources last, each linked, in a new tab");

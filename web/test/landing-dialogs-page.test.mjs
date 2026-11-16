@@ -44,14 +44,14 @@ test("each model card opens its dialog; Esc, a click outside and × close it", {
         dialogs: dlgs.map((d) => d.id),
         labelled: dlgs.every((d) => (document.getElementById(d.getAttribute("aria-labelledby"))?.textContent ?? "").includes("HP ")),
         closedby: dlgs.every((d) => d.getAttribute("closedby") === "any"),
-        scripts: document.scripts.length,
+        scripts: [...document.scripts].filter((s) => s.type !== "application/ld+json").length,
       };
     })()`);
     assert.deepEqual(markup.dupes, []);
     assert.deepEqual(markup.dialogs, MODELS.map((m) => `dlg-${m}`));
     assert.ok(markup.labelled, "every dialog is labelled by its heading");
     assert.ok(markup.closedby, "every dialog closes on Esc and a click outside");
-    assert.equal(markup.scripts, 1, "one script: dialogs.js, ← and → between the dialogs");
+    assert.equal(markup.scripts, 1, "one script: dialogs.js, ← and → between the dialogs (the JSON-LD blocks are data)");
 
     const open = (id) => ev(`document.getElementById(${JSON.stringify(id)}).open && document.getElementById(${JSON.stringify(id)}).matches(":modal")`);
     const esc = async () => {

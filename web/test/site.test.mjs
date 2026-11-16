@@ -77,7 +77,7 @@ test("the service worker precaches exactly the app's files, and a new build is a
     }
     assert.equal(docs.filter((f) => /^commands\/[a-z0-9]+\.md$/.test(f)).length, 12, "a command file per model");
     assert.match(readFileSync(join(a.out, "docs", "commands", "index.html"), "utf8"), /http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'/, "the site's CSP");
-    assert.match(readFileSync(join(a.out, "llms.txt"), "utf8"), /^# saturnus\n\n> /);
+    assert.match(readFileSync(join(a.out, "llms.txt"), "utf8"), /^# Saturnus\n\n> /);
     assert.ok(!existsSync(join(a.out, "app", ".htaccess")), "one .htaccess, at the top");
     const shipped = filesUnder(join(a.out, "app")).filter((f) => f !== "sw.js");
     assert.deepEqual(a.files, shipped);
@@ -108,9 +108,9 @@ test("the service worker precaches exactly the app's files, and a new build is a
     assert.match(landingIndex, /href="app\/"/, "the landing page links the app");
     assert.doesNotMatch(landingIndex, /href="(emulator|transfer)\/"/, "and nothing else of it");
     assert.doesNotMatch(landingIndex, /Coming soon|saturnus tx/);
-    // The headline leads with saturnus; HP only in running text (owner, 2026-10-14).
-    assert.match(landingIndex, /<title>saturnus: classic HP calculators, in your browser or as an app<\/title>/);
-    assert.match(landingIndex, /<h1>saturnus: classic HP calculators, in your browser or as an app<\/h1>/);
+    // The title and the headline lead with Saturnus (owner, 2026-10-14) and say what it is: an emulator of HP calculators (iteration 76b).
+    assert.match(landingIndex, /<title>Saturnus: HP calculator emulator for the browser, Mac, Windows and Linux<\/title>/);
+    assert.match(landingIndex, /<h1>Saturnus: an emulator of classic HP calculators, in your browser or as an app<\/h1>/);
     const manifest = JSON.parse(readFileSync(join(a.out, "app", "manifest.webmanifest"), "utf8"));
     for (const icon of manifest.icons) assert.ok(a.files.includes(icon.src), `${icon.src} shipped`);
     assert.equal(manifest.start_url, "./");

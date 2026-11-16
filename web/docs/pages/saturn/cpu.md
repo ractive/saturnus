@@ -1,5 +1,6 @@
 ---
 title: The CPU
+page_title: The HP Saturn CPU: registers, nibbles and instruction set
 description: The Saturn processor: its 4-bit data path, 64-bit registers and their fields, 20-bit addresses, the instruction set in general terms and the clock of each model.
 section: saturn
 order: 1
@@ -105,7 +106,7 @@ A benchmark on the [HP Museum forum](https://www.hpmuseum.org/forum/thread-9750.
 | HP 49G | about 4 MHz | Yorke |
 | HP 42S, 27S, 17B, 17BII | about 1 MHz | Lewis |
 
-saturnus times every instruction with the published cycle counts and the display's stalls, then scales the 48SX, 48GX and 49G by factors measured against that benchmark, so that programs take as long as on those calculators. The 38G takes the 48GX's factor and the 39G and 40G the 49G's, and the other models run at an assumed speed: none of them was timed against a real calculator. See [the HP 48GX page](../48gx.md) for how that looks in the app.
+Saturnus times every instruction with the published cycle counts and the display's stalls, then scales the 48SX, 48GX and 49G by factors measured against that benchmark, so that programs take as long as on those calculators. The 38G takes the 48GX's factor and the 39G and 40G the 49G's, and the other models run at an assumed speed: none of them was timed against a real calculator. See [the HP 48GX page](../48gx.md) for how that looks in the app.
 
 ## Sources
 

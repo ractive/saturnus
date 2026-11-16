@@ -24,7 +24,11 @@
 //                                    pages, for search engines, each with
 //                                    its lastmod from git (sitemapXml)
 //
-// A page's frontmatter: `title`, `description`, `section` (index,
+// A page's frontmatter: `title` (its heading and its name in lists),
+// `page_title` (optional: the document's <title>, in the words people
+// search with, "HP 48GX emulator for the browser, Mac, Windows and
+// Linux"; default the title), `description` (the meta description, a
+// sentence or two for a search result), `section` (index,
 // models, commands, saturn, transfer), `model` on a model page (the
 // page takes its colours), `order` (a number) on a section's sub-page
 // (`pages/saturn/cpu.md`: its place in llms.txt after the section's
@@ -36,12 +40,24 @@
 // entry), its theme script, all from app/.
 //
 // A model page may show a picture of its calculator from the landing
-// page's images (`../img/<model>-640.webp`, saturnus's own drawing),
+// page's images (`../img/<model>-640.webp`, Saturnus's own drawing),
 // as a figure with its caption (markdown.mjs).
+//
+// For search engines and link previews (iteration 76b) each page's head
+// has its canonical address, Open Graph and Twitter card tags, and
+// JSON-LD (schema.org) as data blocks, which the CSP does not count as
+// scripts: a BreadcrumbList (the landing page, the docs, the section's
+// overview, the page: `breadcrumbs`), and a FAQPage where the page has a
+// "Questions and answers" section (FAQ_HEADING): each `###` heading in
+// it is a question, the text up to the next one its answer (`faqOf`).
+// The FAQ is written in the page's Markdown, so the page, its Markdown
+// and the JSON-LD say the same.
 //
 // Checks, failing the build: every relative link and source of the HTML
 // names a file of the site, no page links into the wiki, no file is
-// empty. Pure functions exported for web/test/docs.test.mjs.
+// empty, a "Questions and answers" section has questions and each an
+// answer. Pure functions exported for web/test/docs.test.mjs and
+// web/test/seo.test.mjs.
 
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
@@ -49,7 +65,7 @@ import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { escapeHtml, parseFrontmatter, renderMarkdown } from "./markdown.mjs";
-import { LinkBudget } from "../shared/ext-links.js";
+import { EXT_MARKS_HTML, LinkBudget } from "../shared/ext-links.js";
 import { slugMap } from "./commands/slug.js";
 import { buildIndex, exampleBefore, exampleResult, exampleRun, keysText, legendText, manualLinks, placement } from "../reference.js";
 import { STACK_NONE, stackEmpty } from "../components/entry-view.js";
@@ -162,8 +178,114 @@ function headingId(text) {
   return text.toLowerCase().replace(/[`*_[\]()]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+/** The name of the site in titles, Open Graph and the breadcrumbs. */
+export const SITE_NAME = "Saturnus";
+
+/** The image of a link preview (Open Graph): the landing page's, 1200 × 630. */
+const OG_IMAGE = { path: "img/og.png", width: 1200, height: 630, alt: "The Saturnus logo beside an emulated HP 48GX showing a sine plot" };
+
+/** The heading of a page's FAQ section; its `###` headings are the questions. */
+export const FAQ_HEADING = "Questions and answers";
+
+/**
+ * The document's <title>: the page's `page_title` (else its `title`),
+ * then the site's name unless the title names it already.
+ */
+export function documentTitle(page) {
+  const head = page.meta.page_title || page.meta.title;
+  return head.includes(SITE_NAME) ? head : `${head} · ${SITE_NAME}`;
+}
+
+/**
+ * The page's trail from the landing page, as its header shows it (the
+ * brand, "docs", the section): `[{name, path}]`, `path` a site path
+ * ("" the landing page, "docs/", "docs/saturn/", "docs/saturn/cpu/").
+ * A section's sub-page has its overview before it; the models have no
+ * overview page of their own.
+ */
+export function breadcrumbs(page) {
+  const trail = [{ name: SITE_NAME, path: "" }, { name: "Docs", path: "docs/" }];
+  if (page.rel === "index") return trail;
+  const section = SECTIONS.find((s) => s.id === page.meta.section && !s.href.includes("#"));
+  const overview = section?.href.replace(/\.md$/, "");
+  if (overview && overview !== page.rel) trail.push({ name: section.title, path: pagePaths(overview).html });
+  trail.push({ name: page.meta.title, path: pagePaths(page.rel).html });
+  return trail;
+}
+
+/**
+ * The questions of a page's FAQ section (`## Questions and answers`, to
+ * the next `##` heading): `[{question, markdown}]`, each `###` heading a
+ * question and the Markdown up to the next one its answer. No such
+ * section: an empty list. A section without a question, or a question
+ * without an answer, is an error.
+ */
+export function faqOf(body, name = "the page") {
+  const out = [];
+  let inside = false;
+  let fenced = false;
+  let found = false;
+  for (const line of body.replace(/\r\n?/g, "\n").split("\n")) {
+    if (/^```/.test(line)) fenced = !fenced;
+    const h = fenced ? null : line.match(/^(#{1,3})\s+(.*?)\s*$/);
+    if (h && h[1].length <= 2) {
+      inside = h[1].length === 2 && h[2] === FAQ_HEADING;
+      found ||= inside;
+      continue;
+    }
+    if (!inside) continue;
+    if (h) out.push({ question: h[2], lines: [] });
+    else if (out.length) out.at(-1).lines.push(line);
+    else if (line.trim()) throw new Error(`docs: ${name}: text before the first question of "${FAQ_HEADING}"`);
+  }
+  if (found && !out.length) throw new Error(`docs: ${name}: "${FAQ_HEADING}" has no question (a ### heading)`);
+  return out.map(({ question, lines }) => {
+    const markdown = lines.join("\n").trim();
+    if (!markdown) throw new Error(`docs: ${name}: the question "${question}" has no answer`);
+    return { question, markdown };
+  });
+}
+
+/**
+ * Markdown as plain text, as a reader sees it: no tags (a block's end
+ * is a space, an inline tag nothing), no marks of links to other sites.
+ */
+export function plainText(markdown) {
+  return renderMarkdown(markdown)
+    .replaceAll(EXT_MARKS_HTML, "")
+    .replace(/<\/?(?:p|li|ul|ol|pre|blockquote|div|table|thead|tbody|tr|td|th|h[1-6]|figure|figcaption|hr)\b[^>]*>/g, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** `data` as a JSON-LD data block; `<` escaped, so no text in it can end the element. */
+export function jsonLd(data) {
+  return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
+}
+
+/** The page's JSON-LD blocks: its breadcrumbs, and its FAQ if it has one (`faq`, from `faqOf`). */
+export function pageJsonLd(page, { base = BASE, faq = [] } = {}) {
+  const blocks = [
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: breadcrumbs(page).map((c, i) => ({ "@type": "ListItem", position: i + 1, name: c.name, item: `${base}${c.path}` })),
+    },
+  ];
+  if (faq.length) {
+    blocks.push({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faq.map((f) => ({ "@type": "Question", name: plainText(f.question), acceptedAnswer: { "@type": "Answer", text: plainText(f.markdown) } })),
+    });
+  }
+  return blocks;
+}
+
 /** The page's HTML document: the header, the rendered body (and `extra` after it), the footer. */
-export function pageHtml(page, bodyHtml, { csp = null, extra = "", after = "" } = {}) {
+export function pageHtml(page, bodyHtml, { csp = null, extra = "", after = "", base = BASE, faq = [] } = {}) {
   const { html } = pagePaths(page.rel);
   const root = relative(html, "");
   const app = relative(html, "app/");
@@ -176,7 +298,22 @@ export function pageHtml(page, bodyHtml, { csp = null, extra = "", after = "" } 
     const current = page.meta.section === s.id && page.rel !== "index";
     return `<a href="${escapeHtml(href)}"${current ? ' aria-current="page"' : ""}>${escapeHtml(s.short ?? s.title)}</a>`;
   }).join("\n    ");
-  const title = page.rel === "index" ? page.meta.title : `${page.meta.title} · saturnus docs`;
+  const title = documentTitle(page);
+  const url = `${base}${html}`;
+  const meta = (attr, name, content) => `<meta ${attr}="${name}" content="${escapeHtml(content)}">`;
+  const social = [
+    meta("property", "og:type", page.rel === "index" ? "website" : "article"),
+    meta("property", "og:site_name", SITE_NAME),
+    meta("property", "og:title", title),
+    meta("property", "og:description", page.meta.description),
+    meta("property", "og:url", url),
+    meta("property", "og:image", `${base}${OG_IMAGE.path}`),
+    meta("property", "og:image:width", OG_IMAGE.width),
+    meta("property", "og:image:height", OG_IMAGE.height),
+    meta("property", "og:image:alt", OG_IMAGE.alt),
+    meta("name", "twitter:card", "summary_large_image"),
+  ].join("\n");
+  const ld = pageJsonLd(page, { base, faq }).map(jsonLd).join("\n");
   return `<!doctype html>
 <html lang="en"${model ? ` data-logo="${model}"` : ""}>
 <head>
@@ -185,17 +322,20 @@ ${csp ? `<meta http-equiv="Content-Security-Policy" content="${escapeHtml(csp)}"
 <meta name="color-scheme" content="light dark">
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(page.meta.description)}">
+<link rel="canonical" href="${escapeHtml(url)}">
 <link rel="icon" href="${root}favicon.svg" type="image/svg+xml">
+${social}
 <link rel="alternate" type="text/markdown" href="${md}">
 <link rel="stylesheet" href="${app}shared/tokens.css">
 <link rel="stylesheet" href="${app}style.css">
 <link rel="stylesheet" href="${docs}docs.css">
 <script src="${app}shared/theme-boot.js"></script>
+${ld}
 </head>
 <body class="docs${model ? " docs-model" : ""} docs-${escapeHtml(page.meta.section)}">
 <header class="docs-bar">
   <div class="docs-brand">
-    <a class="brand" href="${root}" title="saturnus">${logoSvg(24)}<span>saturnus</span></a>
+    <a class="brand" href="${root}" title="${SITE_NAME}">${logoSvg(24)}<span>${SITE_NAME}</span></a>
     <a class="docs-brand-sub" href="${docs}">docs</a>
   </div>
   <nav class="docs-nav" aria-label="Sections">
@@ -302,7 +442,7 @@ export function commandsMarkdown(data, model) {
   const out = [
     `# ${title} commands`,
     "",
-    `Every command of the ${title} in saturnus's reference (${index.commands.length} ${index.keyed ? "functions" : "commands"}): ${index.keyed ? "the keys that run it" : "its stack effect"}, what it does, where it is on the calculator, and examples with their results from saturnus's emulated ${title}. The same reference as a page: [the command reference](./${`#${model}`}).`,
+    `Every command of the ${title} in Saturnus's reference (${index.commands.length} ${index.keyed ? "functions" : "commands"}): ${index.keyed ? "the keys that run it" : "its stack effect"}, what it does, where it is on the calculator, and examples with their results from Saturnus's emulated ${title}. The same reference as a page: [the command reference](./${`#${model}`}).`,
     "",
     index.keyed
       ? `The ${title} has no command line: a function is pressed. An example shows the display before, the keys pressed, and the display after.`
@@ -450,9 +590,9 @@ export function llmsTxt(pages, data, base = BASE) {
   const list = `${titles.slice(0, -1).join(", ")} and ${titles.at(-1)}`;
   const url = (p) => `${base}${p}`;
   const out = [
-    "# saturnus",
+    `# ${SITE_NAME}`,
     "",
-    `> saturnus runs classic HP calculators in the browser: the HP ${list}. These docs cover the models, their commands, how the Saturn processor works and how to move files to a real calculator.`,
+    `> Saturnus is an emulator of classic HP calculators: the HP ${list}. It runs each calculator's own ROM in the browser, as a desktop app for Mac, Windows and Linux, and on the command line. These docs cover the models, their commands, how the Saturn processor works, how to move files to a real calculator and how Saturnus is built.`,
     "",
     "Every docs page is also Markdown: its address with `.md` (`/saturnus/docs/48gx/` is `/saturnus/docs/48gx.md`). The command reference has one Markdown file per model with every command, its stack effect, a description and examples with their results from the emulated calculator.",
     "",
@@ -537,7 +677,7 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
     if (page.rel === "commands") after = `<div class="docs-after-notes">\n${render(notes)}\n</div>\n<div class="docs-after-sources">\n${render(sources)}\n</div>`;
     if (page.rel === "index") bodyHtml = modelLogos(bodyHtml);
     const extra = page.rel === "commands" ? commandsExtra() : "";
-    const doc = pageHtml(page, bodyHtml, { csp, extra, after });
+    const doc = pageHtml(page, bodyHtml, { csp, extra, after, base, faq: faqOf(page.body, `${page.rel}.md`) });
     write(`${paths.html}index.html`, doc);
     write(paths.md, source);
     html.push({ dir: paths.html, doc });

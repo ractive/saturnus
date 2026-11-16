@@ -15,7 +15,7 @@
 // no header row (a list of facts, a label and a value per row).
 // A paragraph that is one link into the app (`../app/...`, `../../app/...` from a sub-page) alone is
 // its button, as the app's own, `appIcon(href)` before its text (the
-// model's mark, from the build): "[Open the HP 48GX in saturnus](../app/#/calculator/48gx)".
+// model's mark, from the build): "[Open the HP 48GX in Saturnus](../app/#/calculator/48gx)".
 //
 // Everything else is text: HTML in a page is escaped, never passed
 // through. `link(href)` lets the caller rewrite each link and image

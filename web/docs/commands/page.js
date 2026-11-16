@@ -41,6 +41,8 @@ const sheetBody = sheet.querySelector(".ref-sheet-body");
 const sentinel = document.getElementById("ref-top");
 const panes = side.parentElement;
 const baseTitle = document.title;
+/** A command's title: its name and model, the page's heading, the site ("HMS- on the HP 48GX · Command reference · Saturnus"). */
+const commandTitle = (name, model) => `${name} on the ${model} · ${document.querySelector("h1")?.textContent.trim() || "Command reference"} · Saturnus`;
 /** One column (a phone): the navigation lives in the sheet. */
 const narrow = matchMedia("(max-width: 859px)");
 
@@ -329,12 +331,12 @@ function renderEntry(name, slug) {
   // The pills lead to the same command on the other models.
   pane.replaceChildren(entryView(shown.index, command, {
     modelHref: (m) => hrefOf(m, command.name),
-    examplesNote: ` · results from saturnus's emulated ${title()}`,
+    examplesNote: ` · results from Saturnus's emulated ${title()}`,
   }));
   // The card scrolls inside itself on a desktop: a new entry from its top.
   pane.scrollTop = 0;
   delete pane.dataset.empty;
-  document.title = `${command.name} on the ${title()} · ${baseTitle}`;
+  document.title = commandTitle(command.name, title());
 }
 
 /** The command the address names on the shown model, or null. */

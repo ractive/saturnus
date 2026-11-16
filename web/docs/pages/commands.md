@@ -1,6 +1,7 @@
 ---
 title: Command reference
-description: Every command of the 12 calculators saturnus runs, with its stack effect, what it does and examples with their results from the emulated calculator.
+page_title: RPL and HP calculator command reference, with examples
+description: Every command and function of the HP 48SX, 48GX, 49G, 28S, 42S and seven more calculators: its stack effect or keys, what it does, and examples run in Saturnus.
 section: commands
 ---
 

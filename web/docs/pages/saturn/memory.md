@@ -1,6 +1,7 @@
 ---
 title: Memory
-description: How the Saturn reaches ROM, RAM, the hardware registers and the card ports: the memory controllers, their configuration at start-up, the maps of each model and the bank switching of the 48GX and the 49G.
+page_title: Memory in the HP 48 and 49G: controllers and bank switching
+description: How the HP 48 and 49G reach ROM, RAM and the card ports: the Saturn's memory controllers, each model's memory map, and bank switching on the 48GX and 49G.
 section: saturn
 order: 2
 ---
