@@ -5076,3 +5076,16 @@ saturnus".
   .deb of saturnus and of satx is `Architecture: arm64` with no
   `Depends`, its binary `ARM aarch64, statically linked`; the .rpm
   `aarch64` (kb/docs/releasing.md, "Linux packages").
+
+## 2026-11-16 (the Mac app is "Saturnus")
+
+- **Capital S on macOS only**: every other app in the Applications
+  folder starts with a capital, so `crates/saturnus-tauri/tauri.macos.conf.json`
+  sets `productName` to "Saturnus": the app is `Saturnus.app`, its menu
+  and Dock name "Saturnus", the .dmg `Saturnus_V_aarch64.dmg`. The
+  bundle id `ch.ractive.saturnus` is unchanged, so settings, data and
+  the cask's `zap` paths carry over; `brew upgrade` removes the old
+  `saturnus.app` (the previous cask's artifact) before installing the
+  new one. Windows, Linux, the window title and the project's name in
+  prose stay "saturnus"; the stable alias `saturnus-mac.dmg` is
+  unchanged (kb/docs/releasing.md, "Desktop app").

@@ -323,7 +323,7 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/notary"
           security delete-keychain "$RUNNER_TEMP/developer-id-g2.keychain-db" 2> /dev/null || true
-      # Named after the product (saturnus_V_aarch64.dmg, as the cask
+      # Named after the product (Saturnus_V_aarch64.dmg, as the cask
       # expects); a space in a name would become a dot in a release asset,
       # so it becomes a hyphen here.
       - name: Collect the installers
@@ -383,7 +383,7 @@ jobs:
             [ -f "dist/$1" ] || { echo "dist/$1 is missing, cannot copy it to $2" >&2; exit 1; }
             cp "dist/$1" "dist/$2"
           }
-          copy "saturnus_${version}_aarch64.dmg" saturnus-mac.dmg
+          copy "Saturnus_${version}_aarch64.dmg" saturnus-mac.dmg
           copy "saturnus_${version}_x64-setup.exe" saturnus-windows-x64-setup.exe
           copy "saturnus_${version}_arm64-setup.exe" saturnus-windows-arm64-setup.exe
       # One checksums file for the installers (saturnus-app-SHA256SUMS; the
@@ -477,8 +477,8 @@ jobs:
     env:
       MACOS_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
       CASK: saturnus-app
-      DMG_PREFIX: saturnus
-      BUNDLE: saturnus.app
+      DMG_PREFIX: Saturnus
+      BUNDLE: Saturnus.app
       BUNDLE_ID: ch.ractive.saturnus
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

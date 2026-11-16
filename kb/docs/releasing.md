@@ -338,7 +338,8 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `gh run download <id> -D /tmp/saturnus-app` holds the `.dmg`, the
    `.msi` and `-setup.exe` twice, the `.deb`, `.rpm` and `.AppImage`
    twice, each named with `V` and the architecture:
-   `saturnus_V_…` (`saturnus-app_V_…` on Linux; see "Desktop app").
+   `saturnus_V_…` (`Saturnus_V_…` on macOS, `saturnus-app_V_…` on
+   Linux; see "Desktop app").
 7. **Release** (this publishes: crate versions on crates.io are
    permanent):
    `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md --latest=false`.
@@ -366,7 +367,7 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `curl -sIL -o /dev/null -w '%{http_code}\n' https://github.com/ractive/saturnus/releases/latest/download/saturnus-mac.dmg`
    prints `200`; the notes start with "Download the desktop app"
    (`gh release view vV --json body -q .body | head -3`), linking
-   `saturnus_V_aarch64.dmg` and the setup `.exe`s; and with the Apple
+   `Saturnus_V_aarch64.dmg` and the setup `.exe`s; and with the Apple
    secrets the `cask` job has updated its
    cask: `gh api repos/ractive/homebrew-tap/contents/Casks/saturnus-app.rb -q .name`
    answers.
@@ -498,11 +499,18 @@ in each name, as Tauri writes it, so no two collide:
 
 | Platform | Installers |
 |---|---|
-| macOS Apple silicon | `saturnus_V_aarch64.dmg` |
+| macOS Apple silicon | `Saturnus_V_aarch64.dmg` |
 | Windows x86_64 | `saturnus_V_x64_en-US.msi`, `saturnus_V_x64-setup.exe` |
 | Windows ARM | `saturnus_V_arm64_en-US.msi`, `saturnus_V_arm64-setup.exe` |
 | Linux x86_64 | `saturnus-app_V_amd64.deb`, `saturnus-app-V-1.x86_64.rpm`, `saturnus-app_V_amd64.AppImage` |
 | Linux ARM | `saturnus-app_V_arm64.deb`, `saturnus-app-V-1.aarch64.rpm`, `saturnus-app_V_aarch64.AppImage` |
+
+The macOS names are capitalised because the Mac app is "Saturnus"
+(`productName` in `crates/saturnus-tauri/tauri.macos.conf.json`, since
+0.12.1), like every other app in the Applications folder; the bundle id
+`ch.ractive.saturnus` stays, so settings and data carry over. Windows
+and the window title keep "saturnus". Releases up to 0.12.0 have
+`saturnus_V_aarch64.dmg` holding `saturnus.app`.
 
 The ARM builds were first dry-run in run 39259881090 and needed no
 step of their own: Linux ARM took 10 min, Windows ARM 13 min (x86_64:
@@ -526,7 +534,7 @@ by hand first. With them goes one checksums file,
 `saturnus-app-SHA256SUMS` (`sha256sum --check` format).
 
 The installers most people want also go up under names without the
-version: `attach` copies `saturnus_V_aarch64.dmg` to `saturnus-mac.dmg`,
+version: `attach` copies `Saturnus_V_aarch64.dmg` to `saturnus-mac.dmg`,
 `saturnus_V_x64-setup.exe` to `saturnus-windows-x64-setup.exe` and
 `saturnus_V_arm64-setup.exe` to `saturnus-windows-arm64-setup.exe`
 (listed in the checksums file too), and fails when one of the three is
@@ -673,8 +681,8 @@ dispatch with `release-tag`), and only with the Apple secrets; otherwise its ste
 skip. A draft or pre-release, a tag that is not the latest release, or a
 version below the tap's leaves the cask alone (a notice says so), so
 dispatching an old tag cannot roll it back. It
-downloads the release's `saturnus_<version>_aarch64.dmg` and refuses to
-go on unless the `.dmg` and the `saturnus.app` in it pass `stapler
+downloads the release's `Saturnus_<version>_aarch64.dmg` and refuses to
+go on unless the `.dmg` and the `Saturnus.app` in it pass `stapler
 validate` and `spctl`, the app is signed by a Developer ID Application
 certificate, and its bundle id and version are `ch.ractive.saturnus` and
 the tag's. Then it fills `@VERSION@` and `@SHA256@` in
@@ -685,12 +693,12 @@ only through the environment for the push, and the clone is removed
 afterwards. The first such release creates `Casks/`. Change the
 cask in the template, not in the tap: the next release overwrites it.
 
-The cask: `url` the release asset, `name "saturnus"`, the
+The cask: `url` the release asset, `name "Saturnus"`, the
 `shortDescription` as `desc`, `homepage` <https://ractive.ch/saturnus/>,
 `depends_on arch: :arm64` and a bare `depends_on :macos` (the app needs
 macOS 11, Tauri's 10.13 raised to 11.0 for arm64, which is below
 Homebrew's own minimum, so `brew style` rejects a version), `app
-"saturnus.app"`, and a `zap` of the folders named after the bundle id
+"Saturnus.app"`, and a `zap` of the folders named after the bundle id
 (Application Support, which holds both Tauri's data and config dirs,
 Caches, WebKit, Saved Application State and the Preferences plist).
 Checked by `brew style` and `brew audit --cask --strict --online` in a

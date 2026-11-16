@@ -14,6 +14,10 @@ the desktop app and the web page share one version.
   calculator busy. to_stack's note says what CANCEL would lose in the
   EquationWriter, the MatrixWriter and an edit, and run_rpl's refusal
   names to_stack once.
+- **The Mac app is now called Saturnus**, with a capital S like the
+  other apps in the Applications folder (`Saturnus.app`, and
+  `Saturnus_V_aarch64.dmg`). Settings and saved calculators carry over;
+  Homebrew replaces the old `saturnus.app` on `brew upgrade`.
 
 ## 0.12.0 (2026-11-15)
 

@@ -5,8 +5,8 @@ cask "saturnus-app" do
   version "@VERSION@"
   sha256 "@SHA256@"
 
-  url "https://github.com/ractive/saturnus/releases/download/v#{version}/saturnus_#{version}_aarch64.dmg"
-  name "saturnus"
+  url "https://github.com/ractive/saturnus/releases/download/v#{version}/Saturnus_#{version}_aarch64.dmg"
+  name "Saturnus"
   desc "Emulator of the HP 48, 49, 38G, 39G, 40G, 42S, 27S, 17B, 17BII, 28S and 19BII"
   homepage "https://ractive.ch/saturnus/"
 
@@ -21,7 +21,7 @@ cask "saturnus-app" do
   depends_on arch: :arm64
   depends_on :macos
 
-  app "saturnus.app"
+  app "Saturnus.app"
 
   zap trash: [
     "~/Library/Application Support/ch.ractive.saturnus",
