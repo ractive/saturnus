@@ -666,7 +666,7 @@ fn friendly_unique(all: &[&str], name: &str) -> Option<String> {
 
 /// Our own category as text: a grouping, not where the key is.
 fn ours_label(group: &str) -> String {
-    format!("{group} (saturnus grouping; not a calculator menu)")
+    format!("{group} (Saturnus grouping; not a calculator menu)")
 }
 
 /// One model's placement as text for each kind: the ROM's menus, the

@@ -12,7 +12,7 @@ const DB_STORE = "states";
 /** The key of `model`'s auto-saved state. */
 export const autoKey = (model) => `auto:${model}`;
 /** The text a page shows when a state was saved by a newer build than its own. */
-export const TOO_NEW = "This calculator was saved by a newer version of saturnus. Reload this page to use it.";
+export const TOO_NEW = "This calculator was saved by a newer version of Saturnus. Reload this page to use it.";
 
 /**
  * The format version of `state` (the u16 after the `SATURNUS` magic,

@@ -1,12 +1,12 @@
 ---
 name: saturnus
-description: "Use the HP calculators that saturnus emulates (48SX, 48GX, 49G, 28S, 42S, 27S, 17BII, 17B, 19BII, 38G, 39G, 40G) through its MCP tools: write and run RPL programs, solve finance problems, fit statistics, move a program between models, and get out of the screens that trap key presses. Use it whenever the saturnus tools (list_calculators, run_rpl, press_keys, run_function, read_display, lookup_command) are connected or the user asks for work on one of these calculators."
+description: "Use the HP calculators that Saturnus emulates (48SX, 48GX, 49G, 28S, 42S, 27S, 17BII, 17B, 19BII, 38G, 39G, 40G) through its MCP tools: write and run RPL programs, solve finance problems, fit statistics, move a program between models, and get out of the screens that trap key presses. Use it whenever the Saturnus tools (list_calculators, run_rpl, press_keys, run_function, read_display, lookup_command) are connected or the user asks for work on one of these calculators."
 license: MIT
 ---
 
-# Working on saturnus's calculators
+# Working on Saturnus's calculators
 
-saturnus runs the real ROMs of classic HP calculators in the user's browser or
+Saturnus runs the real ROMs of classic HP calculators in the user's browser or
 desktop app. The MCP server's own instructions and tool descriptions explain
 the tools; this skill adds how to use the calculators well. The user watches
 the calculator while you work, so work as a careful person at the keyboard
@@ -128,7 +128,7 @@ Worked tasks (a program on the 48GX, a loan on the 17BII, a linear fit on the
 
 ## More
 
-- Model pages with each calculator's history and what saturnus does and does
+- Model pages with each calculator's history and what Saturnus does and does
   not emulate: <https://ractive.ch/saturnus/docs/> (every page also as
   Markdown, `/saturnus/docs/48gx.md`; the index for AI apps is
   <https://ractive.ch/saturnus/llms.txt>).

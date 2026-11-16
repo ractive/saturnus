@@ -101,8 +101,8 @@ impl CallError {
     fn message(&self) -> String {
         match self {
             // The .mcpb forwarder asks again on this start (web/mcpb/server/index.mjs NOT_READY).
-            Self::NotReady => "The saturnus app is not ready: its window is loading or closed. Try again in a moment.".into(),
-            Self::Timeout => "The saturnus app did not answer in time.".into(),
+            Self::NotReady => "The Saturnus app is not ready: its window is loading or closed. Try again in a moment.".into(),
+            Self::Timeout => "The Saturnus app did not answer in time.".into(),
             Self::Gone => "The call was cancelled.".into(),
             Self::Failed(m) => m.clone(),
             Self::Off => OFF.into(),
@@ -111,7 +111,7 @@ impl CallError {
 }
 
 /// What a request to a server that was turned off is told.
-pub const OFF: &str = "AI access is off in the saturnus app.";
+pub const OFF: &str = "AI access is off in the Saturnus app.";
 
 /// Who calls: the AI app's name for the log and the confirmation, and
 /// whether it is `stable`, taken from what the app declared in its
@@ -786,7 +786,7 @@ fn decode_header_value(value: &str) -> Option<String> {
 }
 
 fn server_info(cfg: &Config) -> Value {
-    json!({"name": "saturnus", "title": "saturnus calculators", "version": cfg.version})
+    json!({"name": "saturnus", "title": "Saturnus calculators", "version": cfg.version})
 }
 
 /// A result of the stateless era: `resultType` and the server's info added.

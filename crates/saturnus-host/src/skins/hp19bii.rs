@@ -30,7 +30,7 @@
 //! from the lens), is brought to the display half's height at 0.955 units
 //! per pixel and drawn from its hinge side. Measured: the key caps, the
 //! keyboard plates, the display housing, the name plate, the LCD glass,
-//! the HP logo's square (the saturnus logo's place), the reference card's
+//! the HP logo's square (the Saturnus logo's place), the reference card's
 //! recess and its four groups, the hinge barrel.
 //!
 //! Inferred: the corner radii, the skirts around the caps (taken from the

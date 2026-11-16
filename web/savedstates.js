@@ -61,12 +61,12 @@ const an = (title) => `an ${title}`;
  * (`loadError`).
  */
 export function stateRefusal(bytes, model, title) {
-  if (!bytes || bytes.length > MAX_STATE_FILE || bytes.length <= MODEL_AT) return "This file is not a saturnus state.";
+  if (!bytes || bytes.length > MAX_STATE_FILE || bytes.length <= MODEL_AT) return "This file is not a Saturnus state.";
   for (let i = 0; i < MAGIC.length; i++) {
-    if (bytes[i] !== MAGIC.charCodeAt(i)) return "This file is not a saturnus state.";
+    if (bytes[i] !== MAGIC.charCodeAt(i)) return "This file is not a Saturnus state.";
   }
   const of = MODEL_CODES[bytes[MODEL_AT]];
-  if (!of) return "This file is not a saturnus state.";
+  if (!of) return "This file is not a Saturnus state.";
   if (of !== model) return `This state is from ${an(title(of))}. Switch to the ${title(of)} first, then load it.`;
   return null;
 }
@@ -76,7 +76,7 @@ export function loadError(err, model, title) {
   const why = `${err?.message ?? err}`;
   if (/different ROM/.test(why)) return `This state was saved with another ROM of the ${title(model)}; it loads only with that one.`;
   if (/another model/.test(why)) return `This state is from another model, not the ${title(model)}.`;
-  if (/state version/.test(why)) return "This state is from another version of saturnus and cannot be loaded.";
-  if (/invalid saved state|bad magic|larger than/.test(why)) return "This file is damaged or not a saturnus state.";
+  if (/state version/.test(why)) return "This state is from another version of Saturnus and cannot be loaded.";
+  if (/invalid saved state|bad magic|larger than/.test(why)) return "This file is damaged or not a Saturnus state.";
   return `Could not load the state: ${why}`;
 }

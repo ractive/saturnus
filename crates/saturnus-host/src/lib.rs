@@ -1,5 +1,5 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-//! What every front end of saturnus needs around the core, with no
+//! What every front end of Saturnus needs around the core, with no
 //! bindings, no I/O and no threads (it builds for `wasm32` like the core):
 //! the browser's wasm bindings (`saturnus-web`), the desktop app and the
 //! CLI's control API (through `saturnus-drive`'s runner) all use it.

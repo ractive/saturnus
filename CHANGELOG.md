@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to saturnus. The crates (`saturnus-core`,
+All notable changes to Saturnus. The crates (`saturnus-core`,
 `saturnus-objects`, `saturnus-host`, `saturnus-drive`, `saturnus`,
 `kermit-proto`, `xmodem-proto`, `filer-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
@@ -19,6 +19,21 @@ the desktop app and the web page share one version.
   Start menu (`Saturnus.app`, the installers `Saturnus_V_…`). Settings
   and saved calculators carry over; the new installers replace the old
   app, and Homebrew does so on `brew upgrade`.
+- **Saturnus, with a capital S, wherever the text names it**: the app,
+  the installed web app's name, the desktop app's window and Linux menu
+  entry, the command line's messages, the Claude Desktop extension, the
+  AI apps' server title and the READMEs. Commands, package names, paths
+  and addresses stay lowercase (`saturnus rom fetch`, `saturnus-app`,
+  `/saturnus/app/`).
+- **The site explains more.** Each model's page answers the questions
+  people ask about it (where the ROM comes from, which computers and
+  phones run it, moving programs to a real calculator, how close it is
+  to the real one), and so does the landing page. A new page, [How
+  Saturnus is built](https://ractive.ch/saturnus/docs/how-it-is-built/),
+  is for developers: the Rust core, WebAssembly in the browser, the
+  Tauri desktop app, the clean-room method and the tests. Search
+  engines get page titles that say what each page is and structured
+  data for the app and the questions.
 
 ## 0.12.0 (2026-11-15)
 

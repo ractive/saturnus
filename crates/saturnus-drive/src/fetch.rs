@@ -1,6 +1,6 @@
 //! Downloading a known ROM image from hpcalc.org on the user's machine,
 //! for `saturnus rom fetch` and the desktop app (kb:
-//! iterations/iteration-20b-rom-download). saturnus never hosts or proxies
+//! iterations/iteration-20b-rom-download). Saturnus never hosts or proxies
 //! an image; the hosts ask the user first.
 //!
 //! The download runs the system `curl` with its own user agent (hpcalc.org

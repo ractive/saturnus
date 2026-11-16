@@ -53,7 +53,7 @@ const NEW_HINTS = {
 /** Where the ROMs come from, per host (iteration 20b). */
 const SOURCE_HINTS = {
   file: "Download opens the model's page on hpcalc.org: unzip the file from there and choose it here. The ROMs are HP's software; hpcalc.org hosts them with HP's permission.",
-  dialog: "Download… fetches a model's ROM from hpcalc.org after asking, checks its checksum and keeps it in the app's data folder. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of saturnus.",
+  dialog: "Download… fetches a model's ROM from hpcalc.org after asking, checks its checksum and keeps it in the app's data folder. The ROMs are HP's software, hosted by hpcalc.org with HP's permission for use with emulators; they are not part of Saturnus.",
 };
 /** Whether the browser keeps them for good (`storage`, `StorageChoice` in web/pwa.js). */
 const STORAGE_STATES = {

@@ -6,7 +6,7 @@ palmtop and your computer (`satx lx`). satx uses the calculator's Kermit
 server, XModem or the 49G's XSERV, runs RPL commands on the calculator, and backs up and
 restores HOME. Its output is text for people and JSON for scripts and AI
 agents. Files, the view for moving files in the
-[saturnus](https://ractive.ch/saturnus/) app, uses the same code.
+[Saturnus](https://ractive.ch/saturnus/) app, uses the same code.
 
 The Kermit client is `crates/kermit-proto`, the XModem one
 `crates/xmodem-proto`, the HP 100LX/200LX Filer one `crates/filer-proto`,
@@ -16,7 +16,7 @@ PICT, backup and restore) is `crates/satx-core`. They are tested against
 recorded replies and the emulated 48SX, 48GX and 49G. The end-to-end tests
 talk to the real calculator ROMs running in the saturnng emulator, in a
 Docker container with the serial port on TCP (`tools/saturnng-oracle/`).
-The design notes and plans are in saturnus's `kb/satx/`.
+The design notes and plans are in Saturnus's `kb/satx/`.
 
 `satx-core` is also a library for other hosts. Besides the blocking API the
 CLI uses, `satx_core::Machine` runs the same operations sans-I/O: fed bytes
@@ -68,7 +68,7 @@ in the current directory: `NAME.hp` (binary) or `NAME.txt` (`--ascii`) for
 with a new extension for `object convert` and `grob to-png` (not beside the
 input). An existing file is never replaced without `--force`.
 
-`get` and `put` name files as Files in the saturnus app does. Calculator
+`get` and `put` name files as Files in the Saturnus app does. Calculator
 names such as `A→B` stay as they are; the characters a file system refuses
 (`/ \ : * ? " < > |`), `%` itself, control characters, a trailing dot or
 space and the first letter of a Windows device name (`AUX`) are written
@@ -193,7 +193,7 @@ just test               # the workspace's fast suite, satx's included
 just lint               # rustfmt check, clippy and cargo-deny
 just satx-oracle-up     # build and start the emulated HP 48SX on tcp://localhost:4848
 just satx-e2e           # end-to-end tests against it
-just satx-e2e-saturnus  # the same suite against saturnus in-process (ROMs in roms/)
+just satx-e2e-saturnus  # the same suite against Saturnus in-process (ROMs in roms/)
 just satx-record-trace host "6 7 *"   # record a Kermit trace from the oracle
 just lx-oracle-up       # BSD Filer (HP 100LX/200LX) on tcp://localhost:4853
 just lx-e2e             # satx lx against it and the in-process server
@@ -203,4 +203,4 @@ Not affiliated with HP. HP, HP48 and HP49 are trademarks of HP Inc.
 HP's calculator ROMs are not included; the emulator container downloads them
 from hpcalc.org at build time for local use only.
 
-License: MIT, see `LICENSE` and saturnus's `AI_NOTICE`.
+License: MIT, see `LICENSE` and Saturnus's `AI_NOTICE`.

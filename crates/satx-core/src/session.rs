@@ -188,7 +188,7 @@ impl KermitCore {
     /// Discard input that arrived between transactions, before a host
     /// command goes out: a stale NAK of the idle server (it NAKs once, a
     /// server timeout after its last packet, and then stays silent; measured
-    /// on saturnus and saturnng, real hardware unverified) that would
+    /// on Saturnus and saturnng, real hardware unverified) that would
     /// otherwise be read right after the `C`, inside the immediate-NAK
     /// window of host commands. Nothing of the coming transaction can be in
     /// it yet.

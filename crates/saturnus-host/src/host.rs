@@ -57,7 +57,7 @@ pub fn busy_gap_ms(model: Model) -> f64 {
 /// Shortest pause before a key is pressed again right after its own
 /// release, in emulated ms. The 39G and 40G ROM takes a key pressed again
 /// within about 95 ms of its release as the same press and drops it (in
-/// saturnus, 1133 typed as 13, twelve 1s in a row as six; seen before and
+/// Saturnus, 1133 typed as 13, twelve 1s in a row as six; seen before and
 /// after the held-keys fix of 2026-10-13); 150 ms leaves a margin. The
 /// other models take [`GAP_MS`] (tried on the 38G, 27S, 17B, 17BII and
 /// 19BII: 1133.555 typed whole).

@@ -1,6 +1,6 @@
 # saturnus-host
 
-What every front end of [saturnus](https://github.com/ractive/saturnus)
+What every front end of [Saturnus](https://github.com/ractive/saturnus)
 needs around the emulator core ([`saturnus-core`](https://crates.io/crates/saturnus-core)):
 the app's WebAssembly bindings, the desktop app and the command-line
 tool's control API all use it. No bindings, no I/O and no
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 No ROM is included; see the
-[saturnus repository](https://github.com/ractive/saturnus) for where to
+[Saturnus repository](https://github.com/ractive/saturnus) for where to
 get one legitimately.
 
 ## Licence

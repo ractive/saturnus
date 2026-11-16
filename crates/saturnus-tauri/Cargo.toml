@@ -1,7 +1,7 @@
 [package]
 name = "saturnus-tauri"
 version.workspace = true
-description = "Desktop app of saturnus: the web app with the emulator core linked natively, native serial ports and the computer's files (Tauri 2)"
+description = "Desktop app of Saturnus: the web app with the emulator core linked natively, native serial ports and the computer's files (Tauri 2)"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

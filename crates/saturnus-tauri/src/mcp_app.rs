@@ -60,9 +60,9 @@ pub const APP_FRESH: Duration = Duration::from_secs(10 * 60);
 /// Longest instructions the window may set.
 const MAX_INSTRUCTIONS: usize = 64 * 1024;
 /// What the calls in progress are told when the setting goes off.
-pub const TURNED_OFF: &str = "AI access was turned off in the saturnus app.";
+pub const TURNED_OFF: &str = "AI access was turned off in the Saturnus app.";
 /// What they are told when the endpoint moves to another port.
-pub const MOVED: &str = "AI access moved to another port in the saturnus app.";
+pub const MOVED: &str = "AI access moved to another port in the Saturnus app.";
 /// Lowest port the setting takes (below are the system's).
 const MIN_PORT: u16 = 1024;
 
@@ -584,7 +584,7 @@ pub async fn mcpb_open(app: AppHandle) -> Result<String, String> {
         .get(MCPB_FILE.to_string())
         .map(|a| a.bytes)
         .filter(|b| b.starts_with(b"PK\x03\x04"))
-        .ok_or("This copy of saturnus came without the Claude Desktop extension. Download it from the saturnus docs (AI apps) instead.")?;
+        .ok_or("This copy of Saturnus came without the Claude Desktop extension. Download it from the Saturnus docs (AI apps) instead.")?;
     let dir = app
         .path()
         .app_cache_dir()

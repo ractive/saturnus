@@ -5,5 +5,5 @@
 export function startFailure(err, app) {
   const why = String(err?.message ?? err).replace(/[.\s]+$/, "");
   const next = app ? "Restart the app." : "Reload the page; if it keeps failing, your browser may be too old for WebAssembly.";
-  return `saturnus could not start: ${why}. ${next}`;
+  return `Saturnus could not start: ${why}. ${next}`;
 }

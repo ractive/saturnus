@@ -114,8 +114,8 @@ test("the service worker precaches exactly the app's files, and a new build is a
     const manifest = JSON.parse(readFileSync(join(a.out, "app", "manifest.webmanifest"), "utf8"));
     for (const icon of manifest.icons) assert.ok(a.files.includes(icon.src), `${icon.src} shipped`);
     assert.equal(manifest.start_url, "./");
-    assert.equal(manifest.short_name, "saturnus");
-    assert.match(manifest.name, /^saturnus/);
+    assert.equal(manifest.short_name, "Saturnus");
+    assert.match(manifest.name, /^Saturnus/);
     assert.match(manifest.description, /calculators/);
 
     // The same files, the same build; one changed byte, another.

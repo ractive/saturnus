@@ -1,4 +1,4 @@
-//! Typed calculator objects (the JSON model of saturnus's tools) and the
+//! Typed calculator objects (the JSON model of Saturnus's tools) and the
 //! exact decoder for objects in the calculator's nibble format, whether
 //! from a binary transfer or read straight from memory.
 //!

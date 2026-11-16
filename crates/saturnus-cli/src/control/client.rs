@@ -343,7 +343,7 @@ impl Client {
         let mut s = TcpStream::connect_timeout(&SocketAddr::V4(self.addr), CONNECT_TIMEOUT)
             .with_context(|| {
                 format!(
-                    "no saturnus control API on {}: start `saturnus run --serve` first, or \
+                    "no Saturnus control API on {}: start `saturnus run --serve` first, or \
                      choose its port with --control or SATURNUS_CONTROL",
                     self.addr
                 )

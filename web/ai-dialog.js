@@ -349,7 +349,7 @@ export async function openLocalDialog(ai, doc = document) {
   const address = el("input", { name: "mcp-address", class: "input ai-address", type: "text", readonly: true, "aria-label": "MCP address", spellcheck: "false" });
   const copy = copyButton("Copy");
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
-  const block = installBlock({ connector: "Add to Claude Desktop installs an extension in Claude Desktop that starts saturnus when Claude needs a calculator. Claude on the web and ChatGPT connect from the internet, so they cannot use this address." });
+  const block = installBlock({ connector: "Add to Claude Desktop installs an extension in Claude Desktop that starts Saturnus when Claude needs a calculator. Claude on the web and ChatGPT connect from the internet, so they cannot use this address." });
   // Claude Desktop runs local servers as programs, so it gets the extension
   // the app carries (saturnus.mcpb, iteration 59) instead of the address.
   const forClaudeDesktop = el("button", { type: "button", class: "small ai-claude", text: "Add to Claude Desktop" });

@@ -39,7 +39,7 @@
 //! strip, [`lcd_rows`]); its display is narrower than its key row, so its
 //! labels sit within half a key pitch of their keys, not over them.
 //!
-//! The HP logo and wordmark are left off: the saturnus logo sits where the
+//! The HP logo and wordmark are left off: the Saturnus logo sits where the
 //! logo was ([`Skin::logo`]) and the model name is plain text.
 //!
 //! **Clamshell.** The 28S and the 19BII open like a book ([`Fold`]): one drawing of
@@ -515,7 +515,7 @@ pub struct Skin {
     /// `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fold: Option<Fold>,
-    /// Where the saturnus logo goes (the HP logo's place).
+    /// Where the Saturnus logo goes (the HP logo's place).
     pub logo: Rect,
     /// Text drawn on the case.
     pub marks: &'static [Mark],

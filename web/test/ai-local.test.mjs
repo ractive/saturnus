@@ -274,7 +274,7 @@ test("MCP's shape of tools and results, as tab-mcp's client makes it", () => {
   assert.equal(toCallToolResult(new Date(0)).structuredContent, undefined, "a Date's JSON is a string");
   // The consequential tool's description says where it is asked (the app's window, not tab-mcp's browser tab); outputSchema listed.
   const [asks] = listTools([{ name: "s", description: "Stores.", outputSchema: { type: "object" }, annotations: { consequentialHint: true }, execute() {} }]);
-  assert.equal(asks.description, "Stores. The app may ask the user to allow each call, in the saturnus window.");
+  assert.equal(asks.description, "Stores. The app may ask the user to allow each call, in the Saturnus window.");
   assert.deepEqual(asks.outputSchema, { type: "object" });
 });
 

@@ -1,5 +1,5 @@
 //! What the page's Files view needs of the computer (iteration 51; the
-//! commands of the former saturnus tx app, iteration 40): its protocol
+//! commands of the former Saturnus tx app, iteration 40): its protocol
 //! stays in the page's wasm (kb/docs/saturnus-tx.md, "Crates and folders");
 //! this side only moves bytes and files.
 //!

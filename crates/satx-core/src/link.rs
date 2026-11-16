@@ -43,7 +43,7 @@ pub enum Progress {
 /// Input kept while nothing reads it (between operations of a
 /// [`Machine`](crate::machine::Machine)); the oldest bytes go first. The idle
 /// server NAKs once (6 bytes), a server timeout after its last packet, and
-/// then stays silent (saturnus and saturnng; real hardware unverified; wiki:
+/// then stays silent (Saturnus and saturnng; real hardware unverified; wiki:
 /// protocols/server-commands), so this is far more than idling leaves.
 const MAX_IDLE_INPUT: usize = 64 * 1024;
 

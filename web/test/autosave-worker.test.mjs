@@ -43,7 +43,7 @@ export class Host {
   check() {}
   boot(model, rom, name, kept) {
     log.push(["boot", model, kept ? [...kept] : kept]);
-    return kept && kept[0] === 0xEE ? { model, romName: name, restoreError: "not a saturnus state" } : { model, romName: name, ...(kept ? { restored: true } : {}) };
+    return kept && kept[0] === 0xEE ? { model, romName: name, restoreError: "not a Saturnus state" } : { model, romName: name, ...(kept ? { restored: true } : {}) };
   }
   timer() {}
   deadline() { return undefined; }
@@ -165,7 +165,7 @@ test("a kept state that does not load boots cold, without an error", async () =>
   await send({ cmd: "unload" });
   const r = await send({ cmd: "bootModel", model: "48sx" });
   assert.equal(r.ok, true);
-  assert.equal(r.result.booted.restoreError, "not a saturnus state");
+  assert.equal(r.result.booted.restoreError, "not a Saturnus state");
 });
 
 test("after Forget ROMs the 49G's state is not written again until it boots", async () => {

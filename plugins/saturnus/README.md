@@ -1,15 +1,15 @@
-# The saturnus plugin
+# The Saturnus plugin
 
-For [saturnus](https://ractive.ch/saturnus/), which runs classic HP calculators
+For [Saturnus](https://ractive.ch/saturnus/), which runs classic HP calculators
 (48SX, 48GX, 49G, 28S, 42S, 27S, 17BII, 17B, 19BII, 38G, 39G, 40G) with their
 real ROMs. The plugin gives an AI app two things:
 
-- **The saturnus skill** (`skills/saturnus/`): how to use the calculators well
-  through saturnus's MCP tools. RPL programming, the models' differences, the
+- **The Saturnus skill** (`skills/saturnus/`): how to use the calculators well
+  through Saturnus's MCP tools. RPL programming, the models' differences, the
   screens that catch key presses, the documented ROM bugs, and worked tasks.
   The tools' own descriptions stay the core; the skill adds to them.
 - **The desktop app's calculators as tools** (`.mcp.json`, Claude Code only):
-  the MCP server the saturnus desktop app runs on this computer.
+  the MCP server the Saturnus desktop app runs on this computer.
 
 ## Claude Code
 
@@ -18,7 +18,7 @@ real ROMs. The plugin gives an AI app two things:
 /plugin install saturnus@saturnus
 ```
 
-Then, in the saturnus desktop app, open **Connect your AI app…** and turn on
+Then, in the Saturnus desktop app, open **Connect your AI app…** and turn on
 "Let AI apps on this computer use the calculators". Start Claude Code (or run
 `/mcp` and reconnect `saturnus`) and ask it to work on a calculator.
 
@@ -47,7 +47,7 @@ goes into the plugin, your settings or the project.
   shell to be one, such as Git Bash. It has not been tried on Windows yet.
 - The desktop app not running, or AI access off: `/mcp` shows the server as
   failed. Turn AI access on and reconnect.
-- If you also added saturnus with the dialog's `claude mcp add` command, you
+- If you also added Saturnus with the dialog's `claude mcp add` command, you
   have its tools twice; remove one with `claude mcp remove saturnus`.
 
 ### The calculators in the browser

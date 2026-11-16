@@ -75,7 +75,7 @@ const RESTORE_TIMEOUT: Duration = Duration::from_secs(3);
 /// rejecting it, not the idle server's NAK
 /// (`Config::first_packet_nak_window`): a `C` of up to ~90 bytes takes
 /// ~94 ms at 9600 baud, and the idle server NAKs once, a server timeout
-/// after its last packet, and then stays silent (measured on saturnus and
+/// after its last packet, and then stays silent (measured on Saturnus and
 /// saturnng; real hardware unverified; wiki: protocols/server-commands), so
 /// one that crosses the `C` lands inside 250 ms only by coincidence (the
 /// residual risk, security.md invariant 6).
@@ -801,7 +801,7 @@ impl CalcOps<'_> {
     /// `RESTORE`: the warm start ends server mode, so a host that changed
     /// the flag for its session cannot put it back afterwards. RESTORE
     /// keeps the calculator's flags (a backup made with -35 clear restored
-    /// onto a calculator with it set leaves it set; saturnus, 48SX and
+    /// onto a calculator with it set leaves it set; Saturnus, 48SX and
     /// 48GX, 2026-10-11).
     pub(crate) async fn restore_leaving(
         &mut self,
@@ -1836,7 +1836,7 @@ pub(crate) mod tests {
         assert_eq!(c.session().config().first_packet_retries, None);
     }
 
-    /// Iteration 13 (saturnus trace, 48SX): the calculator NAKs a `C` at
+    /// Iteration 13 (Saturnus trace, 48SX): the calculator NAKs a `C` at
     /// once and never answers it (it rejected the packet; the command did
     /// not run). The `C` is resent once after the immediate-NAK grace, and
     /// the answer to the resend completes the command, which ran once. The

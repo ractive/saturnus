@@ -34,7 +34,7 @@ READMEs, crate docs on docs.rs and the changelog's unreleased section.
   where a developer needs them.
 - In the user docs (`web/docs/pages/`), a product, program, company,
   protocol, standard or other calculator named in the text gets a link on
-  its first mention per page: a saturnus docs page if one covers it, else
+  its first mention per page: a Saturnus docs page if one covers it, else
   the official site, else Wikipedia. Not in headings, code, key tables or
   the Sources lists, and not so many that a paragraph turns blue. Check
   each URL returns 200 and is about the thing before committing; check
@@ -65,6 +65,7 @@ READMEs, crate docs on docs.rs and the changelog's unreleased section.
 
 | Use | Not | Notes |
 |---|---|---|
+| Saturnus | saturnus (in prose) | the product, with a capital S wherever a text names it: "Saturnus emulates…", "the Saturnus desktop app", titles, the PWA's name, the Linux menu entry, crate descriptions, READMEs, help and messages. Lowercase only where it is an identifier: the command and its examples (`saturnus rom fetch`), crate and package names (`saturnus-core`, `saturnus-app`), URLs and paths (`/saturnus/app/`), the bundle id `ch.ractive.saturnus`, `saturnus://`, `SATURNUS_ROM_DIR`, file names (`saturnus.mcpb`), the GitHub repository, the MCP server name, storage keys and anything in code. `satx` stays lowercase (a command) |
 | ROM, ROM file | ROM image, ROM dump, firmware | "read the ROM out of your calculator" for dumping |
 | saved state | snapshot, save game | actions: "Save state", "Load state"; the file is a state file (`.sat`) |
 | the app | the web app, the page, the site | the calculator app at /saturnus/app/; "the desktop app" for the native one; "in the browser" for where it runs |

@@ -162,7 +162,7 @@ test("the token is read as token.rs reads it, and problems never show it", () =>
     assert.equal(readToken(join(t.dir, "none")).missing, true);
     writeFileSync(t.file, "not a token secret-ish\n", { mode: 0o600 });
     const bad = readToken(t.file);
-    assert.match(bad.problem, /not a saturnus key/);
+    assert.match(bad.problem, /not a Saturnus key/);
     assert.ok(!bad.problem.includes("secret-ish"));
     if (process.platform !== "win32") {
       writeFileSync(t.file, `${TOKEN}\n`);
@@ -345,7 +345,7 @@ test("AI access off, a refused key and a missing key file give clear errors with
   let mode = "off";
   const ep = await fakeEndpoint(port, {
     answer: (msg) => (mode === "off"
-      ? { status: 503, body: { jsonrpc: "2.0", id: msg.id, error: { code: -32001, message: "AI access is off in the saturnus app." } } }
+      ? { status: 503, body: { jsonrpc: "2.0", id: msg.id, error: { code: -32001, message: "AI access is off in the Saturnus app." } } }
       : { status: 401, body: {} }),
   });
   const f = forwarder({ SATURNUS_TOKEN_FILE: t.file, SATURNUS_MCP_PORT: String(port) });

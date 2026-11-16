@@ -1,4 +1,4 @@
-//! The saturnus desktop app: the page in `web/` as its front end, the
+//! The Saturnus desktop app: the page in `web/` as its front end, the
 //! emulator core linked natively and run on its own thread ([`runner`]).
 //!
 //! The page talks to it through one Tauri command, `command`, which
@@ -238,11 +238,11 @@ fn ask_for_file(app: &AppHandle, need: Need) -> Result<Option<PathBuf>, String> 
         Need::SaveState(name) => dialog
             .set_title("Save state to a file")
             .set_file_name(name)
-            .add_filter("saturnus state", &STATE_EXTENSIONS)
+            .add_filter("Saturnus state", &STATE_EXTENSIONS)
             .blocking_save_file(),
         Need::OpenState => dialog
             .set_title("Load state from a file")
-            .add_filter("saturnus state", &STATE_EXTENSIONS)
+            .add_filter("Saturnus state", &STATE_EXTENSIONS)
             .blocking_pick_file(),
         Need::StateSlot(_) => None,
         Need::StoreFile => dialog
@@ -450,7 +450,7 @@ fn confirm_download(app: &AppHandle, model: saturnus_core::Model, known: &KnownR
     let text = format!(
         "Download {file} ({kb} KB) from hpcalc.org? It is kept in the app's data folder.\n\n\
          The ROM is HP's software, hosted by hpcalc.org with HP's permission for use with \
-         emulators. It is not part of saturnus.\n\nMore about this file: {page}",
+         emulators. It is not part of Saturnus.\n\nMore about this file: {page}",
         file = known.file,
         kb = known.size / 1024,
         page = known.page,
@@ -632,7 +632,7 @@ fn rom_work(
             let model = roms::model_field(msg)?;
             let known = romid::download(model).ok_or_else(|| {
                 if model == saturnus_core::Model::Hp19bii {
-                    return "There is no download for the 19BII, and saturnus has no way to \
+                    return "There is no download for the 19BII, and Saturnus has no way to \
                             get this ROM for you: the calculator cannot read its own ROM out. \
                             If you have the file, choose it"
                         .to_string();

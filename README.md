@@ -1,8 +1,8 @@
-<img src="web/logo.svg" alt="saturnus logo: a planet with a ring" width="72" height="72">
+<img src="web/logo.svg" alt="Saturnus logo: a planet with a ring" width="72" height="72">
 
-# saturnus
+# Saturnus
 
-saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B,
+Saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B,
 28S and 19BII calculators. Use it in your browser, as a desktop app or from the
 command line. It is written in Rust from published documentation and the
 behaviour of the calculators' own ROMs.
@@ -30,7 +30,7 @@ included ("Getting the ROM").
   (48SX, 48GX, 49G).
 - Search (Cmd/Ctrl+K), a command palette with a reference of every
   built-in command of the 48SX, 48GX, 49G and 28S and examples run in
-  saturnus.
+  Saturnus.
 - Files: moves files between a calculator, emulated or on a serial
   cable, and your computer.
 - On the command line: run a ROM with a key script and save the screen,
@@ -157,9 +157,9 @@ screen dumps) on top.
 
 ## Getting the ROM
 
-saturnus does not include HP's ROM files. They are HP's software, hosted
+Saturnus does not include HP's ROM files. They are HP's software, hosted
 by hpcalc.org with HP's permission for use with emulators; they are not
-part of saturnus, and saturnus does not host or pass them on.
+part of Saturnus, and Saturnus does not host or pass them on.
 
 - **Desktop app**: each model without a ROM has a "Download…" button. The
   app says what it downloads, from where and under what terms. Once you
@@ -205,12 +205,12 @@ as the 1.19-6 beta's `rom.49g` from `beta1196.zip`.
 
 The 39G/40G `rom.39g` (from `rom3940.zip`) holds the 1 MB ROM unpacked,
 one nibble per byte, and carries the I/O registers of the calculator it
-was read from at #00100-#0013F; saturnus zeroes them when it loads the
+was read from at #00100-#0013F; Saturnus zeroes them when it loads the
 file. `--model 39g` and `--model 40g` also take the 1 MB packed form.
 
 The download uses the system `curl` with its own user agent (hpcalc.org
 serves junk to agents posing as a browser) and takes at most 8 MiB.
-saturnus unpacks the zip itself and writes the file only once it
+Saturnus unpacks the zip itself and writes the file only once it
 verifies; an existing file that verifies is kept. `--yes` skips the
 question. The command line and the desktop app share this code
 (`crates/saturnus-drive/src/fetch.rs`) and one table of the known ROM
@@ -229,7 +229,7 @@ computer with Kermit. The tested 42S file is revision C (64 KB, SHA-256
 `f4c5f9f0e1d89074b7ca49add99b3ea72ed7fae9370b421de20a0cd8384c08f3`); its
 self-test (EXIT + LN) shows "ROM OK".
 
-**HP 19BII.** There is no download, and saturnus has no way to get this
+**HP 19BII.** There is no download, and Saturnus has no way to get this
 ROM for you: the 19BII has no memory scanner, so it cannot read its own
 ROM out the way the 42S can. Pass a 128 KB ROM file you have with
 `--model 19bii --rom FILE` (or choose it in the app);
@@ -258,7 +258,7 @@ our own SVG drawings: the 48SX, 49G, 38G and 42S measured from
 photographs of the owner's calculators (the 48GX shares the 48SX's
 mould), the 27S, 17BII, 28S and 19BII from photographs on Wikimedia
 Commons, the 39G/40G and every model's labels from the keyboard figures
-in HP's manuals. No HP logo or wordmark appears; the saturnus logo sits
+in HP's manuals. No HP logo or wordmark appears; the Saturnus logo sits
 in its place. The display shows the LCD with its annunciators and its
 contrast ("Darker display" and "Lighter display" press ON + and ON -).
 Without a calculator running, the display says so and links to the home
@@ -349,7 +349,7 @@ Emulated programs take as long as on the real calculators, within a few
 percent, on the HP Museum summation benchmark
 (`'Σ(X=1,n,XROOT(3,EXP(SIN(ATAN(X)))))'`):
 
-| Model | Run | Real | saturnus |
+| Model | Run | Real | Saturnus |
 | --- | --- | --- | --- |
 | HP 48SX | n = 1000 | 95.5 s | 95.5 s |
 | HP 48GX | n = 100 | 5.9 s | 5.9 s |
@@ -457,7 +457,7 @@ per pixel, dark pixels black.
 
 A serving `run` bridges the calculator's wired serial port (`--serial`,
 or `tcp:4841` with `--serve`), so Kermit clients such as
-[satx](crates/satx-cli/README.md) talk to saturnus as they talk to the
+[satx](crates/satx-cli/README.md) talk to Saturnus as they talk to the
 saturnng container or a real HP 48SX:
 
 ```sh
@@ -480,7 +480,7 @@ ENTER; the screen then shows "Awaiting Server Cmd.". On the 49G it
 answers NO and then OK on the "Memory Clear" box, and types SERVER with
 the 49G's letter keys. The 38G, 39G and 40G have no Kermit server
 command, so `--autostart` refuses them. When the port is listening,
-saturnus prints `serial bridged on tcp:HOST:PORT` on stdout (stderr for
+Saturnus prints `serial bridged on tcp:HOST:PORT` on stdout (stderr for
 `stdio`), so scripts can wait for that line.
 
 While serving, the calculator runs in real time on its own thread (the
@@ -524,13 +524,13 @@ computer can still connect to the port; on a shared computer, do not serve
 the serial port while it matters (`--no-serial`).
 
 ```sh
-# satx's end-to-end suite against saturnus
+# satx's end-to-end suite against Saturnus
 $S run --rom roms/sxrom-j --serial tcp:4850 --autostart &
 SATX_E2E_ADDR=tcp://localhost:4850 \
     cargo test -p satx-core --test e2e -- --nocapture
 ```
 
-satx can also run saturnus in-process, without a socket: its address
+satx can also run Saturnus in-process, without a socket: its address
 `saturnus:///path/to/sxrom-j` (or `saturnus://48gx@/path/to/gxrom-r`)
 does that, and `just satx-e2e-saturnus` runs the same suite that way.
 
@@ -644,7 +644,7 @@ there). So:
     folder of mode 0700; a token file other users can read is refused.
   - Windows: `%LOCALAPPDATA%\saturnus\control-token`, inside your user
     profile, which only you (and SYSTEM and the administrators) can read
-    by its default ACL; saturnus sets no ACL of its own.
+    by its default ACL; Saturnus sets no ACL of its own.
   - `--token-file` or `SATURNUS_TOKEN_FILE` choose another file. Delete
     the file to get a new token on the next start.
 - **Only its own name.** The `Host` header must be `127.0.0.1:PORT` or
@@ -794,7 +794,7 @@ Where a command is found:
 - `key:` the key or menu a manual names, with the manual and page, or,
   without one, the key whose legend is the command's name;
 - `group:` only where none of these exists, our own grouping for
-  browsing, printed as `group: X (saturnus grouping; not a calculator
+  browsing, printed as `group: X (Saturnus grouping; not a calculator
   menu)`.
 
 `--json` gives them per model (`categories`), the first as `category`
@@ -1088,7 +1088,7 @@ dropped. The objects as JSON (`saturnus_objects::Object`):
 ## Differential tests against saturnng
 
 `scripts/diff-vs-saturnng.sh` replays each scenario in
-`scripts/scenarios/<name>/keys.txt` on saturnus and on the saturnng emulator
+`scripts/scenarios/<name>/keys.txt` on Saturnus and on the saturnng emulator
 in Docker. It then compares the final screens pixel for pixel and the lit
 annunciators. saturnng is used as a black box only.
 
@@ -1110,7 +1110,7 @@ to `keys.txt`:
   40G have no oracle and are tested by golden screens instead.
 - `ORACLE_CARDS=1` keeps the oracle's default cards (128 KB in port 1,
   plus 4 MB in port 2 on the 48GX).
-- `SATURNUS_CARD1=1` or `SATURNUS_CARD2=1` gives saturnus a fresh zeroed
+- `SATURNUS_CARD1=1` or `SATURNUS_CARD2=1` gives Saturnus a fresh zeroed
   card in that port, 128 KB unless `SATURNUS_CARD1_KB` or
   `SATURNUS_CARD2_KB` says otherwise.
 
@@ -1193,15 +1193,15 @@ OUT and IN events and I/O register accesses with their values.
 
 ## Legal
 
-saturnus is an independent, clean-room project. It shares no code with
+Saturnus is an independent, clean-room project. It shares no code with
 Emu48, Emu42, jsEmu48, x48, x48ng, x50ng, ui4x, saturnng or HP EMU. It
 does not include HP's ROM files; you download them yourself from
 hpcalc.org, where HP has allowed them to be downloaded since 2000. Not
 affiliated with HP. HP, HP48 and HP49 are trademarks of HP Inc.
 
-saturnus was written from documentation and the ROMs' observed
+Saturnus was written from documentation and the ROMs' observed
 behaviour. The other emulators' source code is off limits to anyone
-implementing saturnus. Facts about them come from their documentation
+implementing Saturnus. Facts about them come from their documentation
 and change logs and from black-box runs (saturnng, GPL, run as an
 oracle: same ROM, same keys, the screens compared). These facts are
 written down with citations in the project's hardware wiki, and the code

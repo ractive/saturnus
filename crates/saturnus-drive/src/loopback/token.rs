@@ -6,7 +6,7 @@
 //! with mode 0600 in a directory created with mode 0700, and a file that
 //! other users may read is refused. On Windows it lives under the user's
 //! profile (`%LOCALAPPDATA%`), whose default ACL gives only the user (and
-//! SYSTEM and the administrators) access; no ACL is set by saturnus.
+//! SYSTEM and the administrators) access; no ACL is set by Saturnus.
 //!
 //! The token never leaves this module in readable form except as the
 //! `Authorization` header the client sends: its `Debug` is redacted, and

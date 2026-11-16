@@ -1,7 +1,7 @@
 [package]
 name = "saturnus-host"
 version.workspace = true
-description = "Host-side pieces shared by the saturnus emulator's front ends: the emulator with its key queue, command-line typing, hidden Kermit transfers, key layouts and skins, ROM identification"
+description = "Host-side pieces shared by the Saturnus emulator's front ends: the emulator with its key queue, command-line typing, hidden Kermit transfers, key layouts and skins, ROM identification"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

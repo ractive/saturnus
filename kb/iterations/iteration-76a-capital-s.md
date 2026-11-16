@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 76a: the product is Saturnus, with a capital S"
 date: 2026-11-16
-status: in-progress
+status: completed
 tags:
   - iteration
   - copy
@@ -39,20 +39,20 @@ read **except the content pages** (`web/landing/`, `web/docs/`), which
 
 ## Tasks
 
-- [ ] `README.md`, `web/README.md`, the crate READMEs, the
+- [x] `README.md`, `web/README.md`, the crate READMEs, the
   `description` fields of every `Cargo.toml`, crate-level docs
   (`//!`) shown on docs.rs.
-- [ ] The CLIs' (`saturnus`, `satx`) help and messages where they name
+- [x] The CLIs' (`saturnus`, `satx`) help and messages where they name
   the product; MCP server name/instructions and tool descriptions where
   they name the product (not the server id if clients key on it).
-- [ ] The desktop app: the window title in `tauri.conf.json`, its menus
+- [x] The desktop app: the window title in `tauri.conf.json`, its menus
   and dialogs, `crates/saturnus-tauri/linux/saturnus.desktop`
   (`Name=Saturnus`), the bundle's `shortDescription`/`longDescription`.
-- [ ] The web app (`web/*.js`, `web/index.html`, `web/tx/`,
+- [x] The web app (`web/*.js`, `web/index.html`, `web/tx/`,
   `web/shared/`, `web/components/`, `web/pwa/` manifest name and
   short_name, `web/mcpb/`), and the sources of generated texts
   (`scripts/about-json.py`, `crates/saturnus-cli/data/commands/reference.json`
   then `just commands`), the Homebrew/Scoop/cask templates' `name`/`desc`.
-- [ ] `CHANGELOG.md` intro and Unreleased; `kb/docs/writing-style.md`
+- [x] `CHANGELOG.md` intro and Unreleased; `kb/docs/writing-style.md`
   gets the rule above in its glossary.
-- [ ] Tests that assert the old strings are updated, not deleted.
+- [x] Tests that assert the old strings are updated, not deleted.

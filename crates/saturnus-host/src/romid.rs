@@ -3,7 +3,7 @@
 //! host (the Worker through `saturnus-web`'s `identify_rom` and
 //! `plan_roms`, the desktop app natively). No I/O, so it builds for `wasm32`.
 //!
-//! An image is **exact** when its SHA-256 is one of the images saturnus
+//! An image is **exact** when its SHA-256 is one of the images Saturnus
 //! knows ([`KNOWN`]: those `saturnus rom fetch` downloads and the 49G
 //! fallback), which names its models and revision. The same table holds
 //! where hpcalc.org offers each image ([`download`]), for the CLI's `rom
@@ -18,10 +18,10 @@ use serde_json::{Value, json};
 
 use crate::sha256;
 
-/// A ROM image saturnus knows, and where hpcalc.org offers it. hpcalc.org
+/// A ROM image Saturnus knows, and where hpcalc.org offers it. hpcalc.org
 /// hosts the 48 and 49 images with HP's permission for emulator use (since
 /// 2000); the 38G and 39G/40G images are HP's update files mirrored there.
-/// saturnus never hosts or proxies an image: the CLI and the desktop app
+/// Saturnus never hosts or proxies an image: the CLI and the desktop app
 /// download from `url` on the user's machine after a confirmation, the web
 /// page links to `page` (kb: iterations/iteration-20b-rom-download).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,7 +42,7 @@ pub struct KnownRom {
     pub page: &'static str,
 }
 
-/// The ROM images saturnus knows; per model the first one listed is the
+/// The ROM images Saturnus knows; per model the first one listed is the
 /// one it downloads ([`download`]). Observed on hpcalc.org on 2026-10-05
 /// (the pages on 2026-10-08).
 pub const KNOWN: [KnownRom; 6] = [
@@ -111,7 +111,7 @@ pub const KNOWN: [KnownRom; 6] = [
     },
 ];
 
-/// The revision of the image with SHA-256 `sha256`, if saturnus knows it.
+/// The revision of the image with SHA-256 `sha256`, if Saturnus knows it.
 pub fn revision(sha256: &str) -> Option<&'static str> {
     KNOWN
         .iter()
@@ -119,7 +119,7 @@ pub fn revision(sha256: &str) -> Option<&'static str> {
         .map(|k| k.revision)
 }
 
-/// The image saturnus downloads for `model`, or `None` for the Pioneers
+/// The image Saturnus downloads for `model`, or `None` for the Pioneers
 /// (42S, 27S, 17BII, 17B): HP never released their ROMs and no site may offer them; the owner
 /// dumps their own calculator (kb: iteration 15).
 pub fn download(model: Model) -> Option<&'static KnownRom> {
@@ -188,7 +188,7 @@ impl RomId {
 /// The 19BII's self-test passes with "OK-19B II", which its ROM keeps
 /// whole (wiki: hardware/hp19bii "Self-test"; seen on the owner's image).
 /// Its two halves end "OK-19B-1DK" and "OK-19B-2A", but a bare "OK-19B"
-/// could name a 19B ROM too, which saturnus does not run.
+/// could name a 19B ROM too, which Saturnus does not run.
 pub const SIGNATURES: [(Model, &str); 6] = [
     (Model::Hp42s, "OK-42S-"),
     (Model::Hp27s, "OK-27S-"),
@@ -212,7 +212,7 @@ fn holds_text(rom: &[u8], shifted: &[u8], text: &str) -> bool {
 /// and a 96 KB one the 17B and 17BII, unless it carries exactly one
 /// model's [`SIGNATURES`] text, which names it. A 128 KB image fits the
 /// 28S or the 19BII only with that model's text: the 28C and 19B ROMs are
-/// 128 KB too, and saturnus runs neither.
+/// 128 KB too, and Saturnus runs neither.
 pub fn fitting_models(rom: &[u8]) -> Vec<Model> {
     const TWO_MB: usize = 2 * 1024 * 1024;
     let nibbles = || rom.iter().all(|&b| b < 16);
@@ -370,7 +370,7 @@ pub fn plan(selected: Model, files: &[Candidate], filled: &[Model]) -> Plan {
             .collect();
         match (&f.identity, f.chosen) {
             (Identity::Unknown, true) => refused.push(format!(
-                "{} is not a ROM for any model saturnus supports",
+                "{} is not a ROM for any model Saturnus supports",
                 f.name
             )),
             (Identity::Unknown, false) => {}
@@ -769,7 +769,7 @@ mod tests {
         assert!(p.assign.is_empty() && p.boot.is_none());
         assert_eq!(
             p.notice,
-            "a.txt is not a ROM for any model saturnus supports."
+            "a.txt is not a ROM for any model Saturnus supports."
         );
         // Several chosen at once (the page's picker): each to its model;
         // the selected one boots; the second file for a slot is not used.

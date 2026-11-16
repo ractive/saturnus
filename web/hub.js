@@ -44,7 +44,7 @@ export { SERIAL_SHARED };
 /** The serial commands refused on a shared calculator (`serialClose` is answered and does nothing). */
 const SERIAL_REFUSED = new Set(["serialOpen", "serialWrite"]);
 /** What a page hears when another tab keeps `model`'s state (its auto-save lock is taken). */
-export const autoSaveOff = (model) => `The ${globalThis.SATURNUS_MODEL_TITLES[model] ?? model} is also open in another saturnus tab, which saves its state. This tab does not.`;
+export const autoSaveOff = (model) => `The ${globalThis.SATURNUS_MODEL_TITLES[model] ?? model} is also open in another Saturnus tab, which saves its state. This tab does not.`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

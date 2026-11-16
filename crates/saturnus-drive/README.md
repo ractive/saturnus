@@ -1,6 +1,6 @@
 # saturnus-drive
 
-Drives a machine of the [saturnus](https://github.com/ractive/saturnus)
+Drives a machine of the [Saturnus](https://github.com/ractive/saturnus)
 emulator core ([`saturnus-core`](https://crates.io/crates/saturnus-core)) from a
 native host, in emulated time. It is what the `saturnus` command-line
 tool ([`saturnus`](https://crates.io/crates/saturnus)) and the
@@ -46,7 +46,7 @@ fn main() -> anyhow::Result<()> {
 ```
 
 No ROM is included; see the
-[saturnus repository](https://github.com/ractive/saturnus) for where to
+[Saturnus repository](https://github.com/ractive/saturnus) for where to
 get one legitimately.
 
 ## Licence
