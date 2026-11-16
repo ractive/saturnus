@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 77: read_guide, and WebMCP instructions past the 1000-character cut"
 date: 2026-11-16
-status: in-progress
+status: completed
 tags: [iteration, web, ai]
 branch: iter-77/read-guide
 ---
