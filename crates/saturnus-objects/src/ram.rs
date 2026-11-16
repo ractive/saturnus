@@ -829,7 +829,7 @@ mod tests {
         }
     }
 
-    /// HOME of a 48SX (ROM J in saturnus, 2026-10-05) after `42 'X' STO
+    /// HOME of a 48SX (ROM J in Saturnus, 2026-10-05) after `42 'X' STO
     /// "HI" 'YY' STO 'DIRA' CRDIR DIRA 5 'Z' STO`, with IOPAR from the
     /// Kermit server and the hidden directory; current directory DIRA.
     fn sx() -> Ram {

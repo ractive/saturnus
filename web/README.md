@@ -1,10 +1,10 @@
-# The saturnus app
+# The Saturnus app
 
 The app is one HTML document, `index.html`, with a home page (the
 calculators this browser keeps) and two views, **Calculator** and
 **Files** (moving files between calculators and the computer), reached
 by routes in the address's hash. It is a static page around the
-WebAssembly build of the saturnus core (`crates/saturnus-web`, bindings
+WebAssembly build of the Saturnus core (`crates/saturnus-web`, bindings
 over `crates/saturnus-host`): plain HTML, CSS and ES modules, no
 framework or bundler. The same page is the front end of the desktop app
 (`crates/saturnus-tauri`, see the main README), with Calculator and
@@ -232,7 +232,7 @@ a disconnect).
 The published site is installable ("Add to Home Screen", Chrome's
 Install): `web/site.sh` adds what lives in `web/pwa/`:
 
-- `manifest.webmanifest` (the one app, "saturnus"; standalone, any
+- `manifest.webmanifest` (the one app, "Saturnus"; standalone, any
   orientation, relative URLs so it works under `/saturnus/app/`), the icons in `pwa/icons/` drawn from
   `logo.svg` by `pwa/icons.sh` (committed PNGs: plain, maskable, Apple's
   touch icon), and `pwa/head.html`, the manifest link and Apple's tags,
@@ -324,8 +324,8 @@ Escape so it keeps working as ON, and holding Escape leaves instead. The
 ## Use
 
 First get the ROM. The ROMs are HP's software, hosted by hpcalc.org with
-HP's permission for use with emulators; they are not part of saturnus,
-and saturnus does not host or pass them on. The home page's New
+HP's permission for use with emulators; they are not part of Saturnus,
+and Saturnus does not host or pass them on. The home page's New
 calculator links each model without a ROM to its download page on
 hpcalc.org, in the order of `shared/models.js`, with the file name to
 expect in the link's tooltip. Download the zip there, unzip it and
@@ -338,7 +338,7 @@ and 28S ROMs were never published: read them out of your own calculator
 (the 28S's over its infrared printer port into an HP 48, wiki:
 sources/emu42-pioneer-dump). The 19BII's ROM was never published either
 and cannot be read out (it has no memory scanner): the app says there is
-no download and that saturnus has no way to get it, and runs it from a
+no download and that Saturnus has no way to get it, and runs it from a
 file you already have. These ROM files are accepted in either of the
 two byte orders they come in (wiki: hardware/saturn-models "ROM image
 forms").
@@ -350,7 +350,7 @@ forms").
    last calculator when "Start the last calculator when the app opens"
    is on (under the home page's ROMs). Several files may be chosen at
    once, or dropped on the home page (on a model's row: for that model).
-   saturnus recognises each file and gives it to its model. If a file
+   Saturnus recognises each file and gives it to its model. If a file
    fits more than one model, a button lets you choose. Unknown files are
    named and skipped (the rules: `protocol.md`, "ROM slots"), and a
    dropped file that is not a ROM is reported there. The desktop app
@@ -596,7 +596,7 @@ command row shows its stack effect and description; the selected row's
 full entry is beside the list: stack
 effect, description, a "Note:" line where the reference has one (a ROM
 bug), the models that have it, the ROM's menu and the
-manual's key for it, the examples run in saturnus (the stack before, the command,
+manual's key for it, the examples run in Saturnus (the stack before, the command,
 the stack after, as the calculator displays them) with **Try it**, and links into the manuals' pages.
 
 On a phone (below 760 px) the palette is a sheet: the input at the top,
@@ -886,7 +886,7 @@ last one seen. Without a calculator running, an empty state over the LCD
 says "No calculator is running" (the route names no model), that the
 model's calculator is not running, or that there is no ROM for it (for
 the 42S, 27S, 17BII, 17B and 28S, that the ROM must be read out of one's
-own calculator; for the 19BII, that there is no download and saturnus
+own calculator; for the 19BII, that there is no download and Saturnus
 has no way to get it), with "Your calculators" (the home page), and a
 drawn or computer-keyboard key makes it pulse. The page's old view
 setting (`saturnus.view`) is removed on load.
@@ -933,7 +933,7 @@ setting (`saturnus.view`) is removed on load.
   filter blended `overlay`); every other panel is flat, raised (a thin
   lit edge) or sunk (a shaded edge) by its `relief`; the glass is sunk
   into its bezel by an inset shadow on the `.glass` element over the
-  canvas. Fonts, the saturnus logo where the HP logo was, the model name
+  canvas. Fonts, the Saturnus logo where the HP logo was, the model name
   as plain text.
 
 Which figure and photo each model comes from, and what is inferred, is in
@@ -1061,7 +1061,7 @@ browser and the app, so a change that breaks a step fails.
 
 ## About
 
-"About saturnus and its sources" in the panel opens `<sat-about>`: the
+"About Saturnus and its sources" in the panel opens `<sat-about>`: the
 project statement (clean room, MIT, AI notice, no ROMs, not affiliated
 with HP) and every source the emulator was built from, read from
 `about.json`. That file is generated from the hardware wiki's source pages
@@ -1329,7 +1329,7 @@ folders are found again: the states `saturnus`, the ROMs
 `saturnus.transfer.`). `web/test/storage-names.test.mjs` pins the values
 and checks that the code uses only these.
 
-## Files (formerly saturnus tx)
+## Files (formerly Saturnus tx)
 
 `web/tx/` is Files, the app's view at `#/files` (`kb/docs/saturnus-tx.md`;
 `mountFiles(root, {shown})` in `tx/app.js`, its markup `#files-view` in
@@ -1352,7 +1352,7 @@ with a switch above them.
   the emulated calculator's), into `web/pkg/` (gitignored).
   Served from `web/` with the rest of the app: <http://127.0.0.1:4860/#/files>.
 - **The layers**: `links.js` holds the bytes' way (`WebSerialLink`;
-  `EmulatorLink` over the saturnus Worker's `serialOpen`, `serialWrite`,
+  `EmulatorLink` over the Saturnus Worker's `serialOpen`, `serialWrite`,
   `serial` event and `serialClose`, `protocol.md`, "The serial port";
   `FakeLink` playing a recorded trace, `RecordingLink` writing one,
   `trace.js` the format); `protocol.js` is the page's side of the
@@ -1372,7 +1372,7 @@ with a switch above them.
   true, folder, device}` (one object);
   `folder.js` is the folder (a picked one, or the files in this browser:
   OPFS or memory); `emulator.js` and `emulator-worker.js` are the private
-  emulated calculator (saturnus's core booted from a ROM file chosen in
+  emulated calculator (Saturnus's core booted from a ROM file chosen in
   Files, keeping nothing; Max while it transfers, SERVER typed unless one I
   packet finds the server running), which tests the same path as a cable;
   `shared/hub-device.js` is Calculator's own calculator of a kept ROM

@@ -251,7 +251,7 @@ const DIGITS: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 /// The nibble of the TIME SET modes on the Pioneers and the 19BII: bit 0
 /// set for day.month.year, bit 2 set for the 24-hour clock. Found by
-/// pressing M/D and 12/24 in saturnus and watching RAM (the owner's ROMs;
+/// pressing M/D and 12/24 in Saturnus and watching RAM (the owner's ROMs;
 /// wiki: hardware/clocks, hardware/hp19bii "Clock").
 fn pioneer_modes(model: Model) -> Option<u32> {
     match model {
@@ -272,7 +272,7 @@ pub const NO_LANGUAGE: &str = "Choose the calculator's language first.";
 /// ROM (its language ROM ends "OK-17B-L" at #2FFE6, wiki:
 /// hardware/clocks) whose nibble at #50092 (17BII) or #50091 (17B)
 /// reads 0. That nibble is 0 only on the language prompt and 2 in every
-/// menu after it (seen in saturnus on the owner's ROMs; what else it
+/// menu after it (seen in Saturnus on the owner's ROMs; what else it
 /// holds is not known). Every 19BII image known is international and
 /// asks after a memory loss; its nibble is #C402B, 0 only on that prompt
 /// and 2 after it (seen the same way; wiki: hardware/hp19bii).

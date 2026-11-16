@@ -161,7 +161,7 @@ test("the ⋯ menu's files in the browser: a dated download; a file refused, ask
   assert.equal(await p.ev("window.saturnus.store.state.messageError"), true);
   await pick(`new TextEncoder().encode("not a state at all, just text")`, "notes.txt");
   await sleep(300);
-  assert.equal(await p.message(), "This file is not a saturnus state.");
+  assert.equal(await p.message(), "This file is not a Saturnus state.");
   assert.deepEqual(await p.calls(), []);
 
   await pick("window.__state(1)", "48gx-2026-10-09-1640.sat");
@@ -190,7 +190,7 @@ test("the app's page: the open dialog's file is checked and asked about; the pal
   await p.menu();
   await p.choose("Load state from a file…");
   await sleep(200);
-  assert.equal(await p.message(), "This file is not a saturnus state.");
+  assert.equal(await p.message(), "This file is not a Saturnus state.");
   await p.ev(`window.__open = { name: "old.state", bytes: window.__state(1) }; true`);
   await p.menu();
   await p.choose("Load state from a file…");
@@ -203,7 +203,7 @@ test("the app's page: the open dialog's file is checked and asked about; the pal
   await p.menu();
   await p.choose("Load state from a file…");
   await sleep(200);
-  assert.equal(await p.message(), "This file is damaged or not a saturnus state.");
+  assert.equal(await p.message(), "This file is damaged or not a Saturnus state.");
   assert.equal(await p.ev("window.saturnus.store.state.messageError"), true);
   await p.ev(`window.saturnus.backend.openStateFile = async () => { throw new Error("cannot read x.sat: Permission denied"); }; true`);
   await p.menu();

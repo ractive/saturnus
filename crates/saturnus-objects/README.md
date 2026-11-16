@@ -1,7 +1,7 @@
 # saturnus-objects
 
 HP 48 and HP 49 RPL objects for hosts of the
-[saturnus](https://github.com/ractive/saturnus) emulator core
+[Saturnus](https://github.com/ractive/saturnus) emulator core
 ([`saturnus-core`](https://crates.io/crates/saturnus-core)), with no I/O or
 protocol stack: like the core it builds for `wasm32-unknown-unknown`.
 
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 No ROM is included; see the
-[saturnus repository](https://github.com/ractive/saturnus) for where to
+[Saturnus repository](https://github.com/ractive/saturnus) for where to
 get one legitimately.
 
 ## Licence

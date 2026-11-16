@@ -1,6 +1,6 @@
 {
-  "name": "saturnus: classic HP calculators",
-  "short_name": "saturnus",
+  "name": "Saturnus: classic HP calculators",
+  "short_name": "Saturnus",
   "description": "Classic HP calculators in your browser. Move files between them, a calculator on a cable and your computer.",
   "id": "./",
   "start_url": "./",

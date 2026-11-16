@@ -1769,7 +1769,7 @@ mod tests {
         }
     }
 
-    /// The saturnus trace (48SX, link clock in seconds): our `C` at 0.000,
+    /// The Saturnus trace (48SX, link clock in seconds): our `C` at 0.000,
     /// the server's NAK seq 0 at 0.011, no `S` ever. Returns the client
     /// with the NAK fed, the start time and the `C` packet.
     fn nak_11ms_after_c(config: Config) -> (Client, Instant, Vec<u8>) {
@@ -1783,7 +1783,7 @@ mod tests {
         (c, now, cmd)
     }
 
-    /// Iteration 13: the saturnus trace. A NAK 11 ms after the `C` is a
+    /// Iteration 13: the Saturnus trace. A NAK 11 ms after the `C` is a
     /// rejection: with `first_packet_retries = Some(0)` the `C` is resent
     /// once, after the immediate-NAK grace (not the 20 s `nak_grace`), and
     /// the server's answer to the resend completes the command.

@@ -25,7 +25,7 @@
 //! [`SKIRT`]), the display surround (33-641 x 128-466), the LCD bezel
 //! (50-624 x 200-418), the LCD glass (64-610 x 226-384), the band behind
 //! the menu row (478-583) and the keyboard plate from 478, the HP badge
-//! (whose logo square, centred at (100, 78), gives the saturnus logo's
+//! (whose logo square, centred at (100, 78), gives the Saturnus logo's
 //! place), and the 27S's grey bars (19 units tall, 3 above the footprint,
 //! 3 wider on the left).
 //!
@@ -51,7 +51,7 @@ pub const LCD: Rect = r(77, 258, 520, 95);
 pub const LCD_FILL: &str = "#b7c2a2";
 /// The LCD glass, measured: taller than the canvas, which is centred in it.
 pub const GLASS: Rect = r(64, 226, 546, 158);
-/// The saturnus logo, on the HP logo's square.
+/// The Saturnus logo, on the HP logo's square.
 pub const LOGO: Rect = r(74, 52, 52, 52);
 
 /// Cap of a key in rows 1-3, column `col` (0-5): footprints at 53 + 100

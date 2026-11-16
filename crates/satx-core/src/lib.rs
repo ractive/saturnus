@@ -9,7 +9,7 @@
 //!
 //! - **Blocking**: [`Calculator`], [`Session`], [`XmodemSession`] and
 //!   [`XservSession`] over a
-//!   [`transport::Transport`] (serial port, TCP, the in-process saturnus
+//!   [`transport::Transport`] (serial port, TCP, the in-process Saturnus
 //!   emulator, memory), with the system clock. This is what the satx CLI
 //!   uses.
 //! - **Sans-I/O**: [`Machine`] is fed bytes and the caller's time and hands
@@ -22,7 +22,7 @@
 //!
 //! - `native` (default): serial ports (`serialport`) and TCP, opened by
 //!   [`transport::open`].
-//! - `saturnus` (opt-in; satx turns it on): the saturnus emulator
+//! - `saturnus` (opt-in; satx turns it on): the Saturnus emulator
 //!   in-process (`saturnus://[MODEL@]ROM` addresses), through
 //!   `saturnus-core` and `saturnus-drive`.
 //!

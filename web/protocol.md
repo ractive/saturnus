@@ -1,4 +1,4 @@
-# saturnus front-end protocol, version 1
+# Saturnus front-end protocol, version 1
 
 The page (`web/`) talks to the emulator only through a **backend** object,
 and the backend talks to its host in the messages below. Three hosts speak
@@ -96,14 +96,14 @@ settings file (`settings.json` in the platform's config directory for
 a slot tells only the file's name. `saturnus run` takes its ROM on the
 command line and does not serve these commands.
 
-The images saturnus knows, with where hpcalc.org offers them, are one
+The images Saturnus knows, with where hpcalc.org offers them, are one
 table in `crates/saturnus-host/src/romid.rs` (`KNOWN`), which the CLI's
 `rom fetch`, the app's `downloadRom` and the page's links (each slot's
-`download`) all read. saturnus never hosts or proxies an image.
+`download`) all read. Saturnus never hosts or proxies an image.
 
 A ROM is **identified by its content**
 (`crates/saturnus-host/src/romid.rs`, shared by every host): its SHA-256
-against the images saturnus knows (exact: models and revision; the 39G
+against the images Saturnus knows (exact: models and revision; the 39G
 and 40G share one image), otherwise its size and form against the models
 whose loader takes it (fits: the 512 KB 48GX and 38G images cannot be told
 apart this way), otherwise unknown. A batch of files is assigned by one
@@ -235,7 +235,7 @@ refuse them, as they refuse the reads.
 | --- | --- | --- | --- |
 | `storeFile` | `dir`, `name`, and the file: `data` (*bytes*; Worker and HTTP; the Tauri app takes it too, from a file dropped on the page); Tauri without `data`: nothing, it asks in a file dialog and names the variable after the file; `replace` (optional) | `{name, emulatedMs, keys}`, `name` as the calculator stored it; Tauri: `null` if the dialog was cancelled | Stores the file as variable `name` in directory `dir`. An HP binary file (`HPHP48-x`, `HPHP49-x`) travels in binary; anything else as text, converted from UTF-8 into the calculator's character set when it can be (a `%%HP:` header makes the calculator compile it, otherwise it is a string). At most 512 KiB. Without `replace`, an existing name is replaced or kept with `.1` added, as the calculator's flag -36 says (the emulator's own drops). With `replace: false` an existing name is refused (`"X already exists in { HOME D }"`); with `replace: true` the file goes in under a free temporary name (`SATREPL`, `SATREPL2`, …), is recalled and stored over the old variable (STO replaces it), and the temporary one is purged once the name holds the new object; a failed transfer leaves the old variable as it was, and an error after the transfer names the temporary variable that holds the new object. A directory replaces a variable only after `MEM` showed room for two copies of it (else `"replacing X needs N bytes free and the calculator has F"`), then the old variable is purged first. With either, a directory of that name is refused. |
 | `fetchFile` | `dir`, `name`, `text` (optional, false); Tauri also `inline` (optional, false) | `{name, size, emulatedMs, keys}` and the file: `data` (*bytes*); Tauri without `inline`: `file` (the file's name) instead, written where its save dialog said, or `null` if cancelled; with `inline` (Files) `data` as on the other hosts | The variable as an HP binary file (the header the ROM writes, then the object, without the padding of the last packet): stored again it gives the same bytes back. With `text: true` the calculator's text form instead (a Kermit get in ASCII mode, flag -35 cleared and put back): the `%%HP:` header and the object's source, as the calculator sent it. |
-| `backup` | | `{size, free, needed, emulatedMs, keys}` and the file: `data` (*bytes*) | HOME as one binary file of a directory object, as a cable's backup gives it (saturnus tx's "Back up"): in HOME, `MEM` read first; refused with `"a backup needs N bytes free and the calculator has F"` when the free memory is less than twice what HOME holds and 1024 bytes more. Then `:0:SATBKUP ARCHIVE`, the archive recalled into a variable, the port's copy purged, the variable got in binary and purged (a number is added to `SATBKUP` when HOME has one). The port and HOME keep nothing of it, also after an error or a stop (a stop types the purges once the server has ended); a `:0:SATBKUP` the port held before makes `ARCHIVE` fail ("Object In Use") and is left alone. |
+| `backup` | | `{size, free, needed, emulatedMs, keys}` and the file: `data` (*bytes*) | HOME as one binary file of a directory object, as a cable's backup gives it (Saturnus tx's "Back up"): in HOME, `MEM` read first; refused with `"a backup needs N bytes free and the calculator has F"` when the free memory is less than twice what HOME holds and 1024 bytes more. Then `:0:SATBKUP ARCHIVE`, the archive recalled into a variable, the port's copy purged, the variable got in binary and purged (a number is added to `SATBKUP` when HOME has one). The port and HOME keep nothing of it, also after an error or a stop (a stop types the purges once the server has ended); a `:0:SATBKUP` the port held before makes `ARCHIVE` fail ("Object In Use") and is left alone. |
 | `purge` | `dir`, `name` | `{emulatedMs, keys}` | Purges the variable; a directory with everything in it (`PGDIR`). Refused for a directory that holds the current one. |
 | `rename` | `dir`, `name`, `to` | `{emulatedMs, keys}` | `'name' RCL 'to' STO`, then the old name purged. Refused when `to` exists or the directory holds the current one. |
 | `createDir` | `dir`, `name` | `{emulatedMs, keys}` | `'name' CRDIR` in `dir`: a new, empty directory. Refused when `name` exists in `dir`. |
@@ -247,7 +247,7 @@ refuse them, as they refuse the reads.
 | `storeScreen` | `name` (optional), with it `dir` and `replace` (optional, false); `pixels` (optional: base64, packed as `frame`'s, with `width` and `height` if given the display's) | `{name?, emulatedMs, keys}` | The screen as a GROB of the display's size (131 × 64; no annunciators), the pixels LCD→ gives on the same screen: `pixels` (the frame the page showed when it was asked for), else the display as it is now. With `name`, stored as that variable in `dir`; refused when the name is taken (unless `replace`) and always when it is a directory's. Without `name`, put on stack level 1: the stack has one level more, the only write that changes it. The GROB travels in binary under a free temporary name (`SATSCRN`, `SATSCRN2`, …), then `'T' RCL 'T' PURGE`, and `'name' STO` for a variable, so nothing else stays in the user memory. |
 
 - **A server left running** (a state saved while Files'
-  private calculator, or an older build of the former saturnus tx, served it): `probeServer` asks whether the Kermit server runs, one I
+  private calculator, or an older build of the former Saturnus tx, served it): `probeServer` asks whether the Kermit server runs, one I
   packet over the emulated serial port with nothing typed and no key
   pressed, and leaves a server that answers running; `endServer` asks
   the same and ends a server that answers with `G F`, then waits for the
@@ -659,7 +659,7 @@ machine), the bytes `saturnus run --save` writes and `--load` reads and
   the Tauri app writes it after a save dialog (`saveState` with `name`)
   and reads it after an open dialog (`openState`). The page reads the
   header first: a file without the magic, or of an unknown model, is
-  "not a saturnus state"; a state of another model is refused before
+  "not a Saturnus state"; a state of another model is refused before
   the question. Another ROM of the same model is the core's refusal.
 - **Backends.** `stateSlot(model)`, `saveStateSlot(model)`,
   `loadStateSlot(model)`, `saveStateFile(model, name)`,

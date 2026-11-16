@@ -63,7 +63,7 @@ enum Cmd {
     /// Look up a built-in command in the reference (48SX, 48GX, 49G, 28S;
     /// the functions of the 42S, 27S, 17BII, 17B, 19BII, 38G, 39G and 40G
     /// with --model): description, stack effect,
-    /// menu or keys, examples run in saturnus, manual pages. ASCII
+    /// menu or keys, examples run in Saturnus, manual pages. ASCII
     /// spellings work (->LIST, SIGMA+, or the calculator's codes such
     /// as \->LIST and \.S); a query that names several commands lists
     /// them and exits with status 2.
@@ -227,7 +227,7 @@ fn model_parser() -> impl clap::builder::TypedValueParser<Value = Model> {
             Model::Hp28s => {
                 "HP 28S (no download: read the 128 KB ROM out of your own 28S)".to_string()
             }
-            Model::Hp19bii => "HP 19BII (no download, and saturnus has no way to get this ROM \
+            Model::Hp19bii => "HP 19BII (no download, and Saturnus has no way to get this ROM \
                  for you: pass a 128 KB ROM file you have)"
                 .to_string(),
             Model::Hp17bii | Model::Hp17b => format!(

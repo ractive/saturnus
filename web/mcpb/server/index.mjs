@@ -49,7 +49,7 @@ import { pathToFileURL } from "node:url";
 export const DEFAULT_PORT = 4842;
 export const BUNDLE_ID = "ch.ractive.saturnus";
 /** The answer when the app does not answer: closed, starting too slowly, or AI access off. */
-export const START = "Start saturnus and turn on AI access in its settings.";
+export const START = "Start Saturnus and turn on AI access in its settings.";
 /** The legacy handshake's revisions the endpoint speaks, oldest first (mcp.rs LEGACY). */
 export const LEGACY = ["2025-03-26", "2025-06-18", "2025-11-25"];
 export const MODERN = "2026-07-28";
@@ -95,7 +95,7 @@ export function tokenPath(env = process.env, platform = process.platform) {
  * no file.
  */
 export function readToken(path, platform = process.platform) {
-  if (!path) return { problem: "No home folder: the key file of saturnus cannot be found.", missing: true };
+  if (!path) return { problem: "No home folder: the key file of Saturnus cannot be found.", missing: true };
   let meta;
   try {
     meta = statSync(path);
@@ -105,7 +105,7 @@ export function readToken(path, platform = process.platform) {
   }
   if (!meta.isFile()) return { problem: `The key file ${path} is not a regular file.` };
   if (platform !== "win32" && (meta.mode & 0o077) !== 0) {
-    return { problem: `The key file ${path} can be read by other users. Run chmod 600 on it, or delete it and turn AI access off and on in saturnus for a new one.` };
+    return { problem: `The key file ${path} can be read by other users. Run chmod 600 on it, or delete it and turn AI access off and on in Saturnus for a new one.` };
   }
   let text;
   try {
@@ -114,7 +114,7 @@ export function readToken(path, platform = process.platform) {
     return { problem: `Cannot read the key file ${path} (${e.code ?? "error"}).` };
   }
   if (!/^[0-9a-fA-F]{64}$/.test(text)) {
-    return { problem: `The key file ${path} is not a saturnus key. Delete it, then turn AI access off and on in saturnus for a new one.` };
+    return { problem: `The key file ${path} is not a Saturnus key. Delete it, then turn AI access off and on in Saturnus for a new one.` };
   }
   return { token: text.toLowerCase() };
 }
@@ -203,7 +203,7 @@ export function launch(env = process.env, platform = process.platform) {
     cmd = "saturnus-app";
   }
   if (!cmd) {
-    log("the saturnus app was not found in its usual places; start it yourself");
+    log("the Saturnus app was not found in its usual places; start it yourself");
     return Promise.resolve(false);
   }
   return new Promise((resolve) => {
@@ -214,11 +214,11 @@ export function launch(env = process.env, platform = process.platform) {
         resolve(true);
       });
       child.once("error", (e) => {
-        log(`cannot start the saturnus app (${e.code ?? e.message})`);
+        log(`cannot start the Saturnus app (${e.code ?? e.message})`);
         resolve(false);
       });
     } catch (e) {
-      log(`cannot start the saturnus app (${e.code ?? e.message})`);
+      log(`cannot start the Saturnus app (${e.code ?? e.message})`);
       resolve(false);
     }
   });
@@ -247,7 +247,7 @@ export function sseMessages(text) {
 }
 
 /** The start of the endpoint's answer while its window loads (mcp.rs `CallError::NotReady`). */
-export const NOT_READY = "The saturnus app is not ready";
+export const NOT_READY = "The Saturnus app is not ready";
 
 /** Whether `m` is the endpoint's "not ready" answer: a tool result with isError, or an error. */
 function notReady(m) {
@@ -298,7 +298,7 @@ export class Forwarder {
       await this.request(msg);
     } catch (e) {
       log(`a call failed (${e.code ?? e.message})`);
-      this.write(this.error(msg.id, "The call to saturnus failed. Try again."));
+      this.write(this.error(msg.id, "The call to Saturnus failed. Try again."));
     }
   }
 
@@ -375,14 +375,14 @@ export class Forwarder {
       if (signal.aborted) return; // cancelled: no answer
       if (e.code === "ENOPROOF") return write(toolError(e.state === "other" ? this.otherMessage() : START));
       log(`the app closed the connection (${e.code ?? e.message})`);
-      write(this.error(id, "saturnus closed during the call. Start it again, then try again."));
+      write(this.error(id, "Saturnus closed during the call. Start it again, then try again."));
     } finally {
       this.inFlight.delete(id);
     }
   }
 
   otherMessage() {
-    return `Something else answers on port ${this.port} instead of saturnus, so the key was not sent. If saturnus runs, update it; otherwise check the port in its AI settings and in this extension's settings.`;
+    return `Something else answers on port ${this.port} instead of Saturnus, so the key was not sent. If Saturnus runs, update it; otherwise check the port in its AI settings and in this extension's settings.`;
   }
 
   /** Start the app (not again within a minute) and wait for its endpoint; "up", "down" or "other". */
@@ -398,7 +398,7 @@ export class Forwarder {
       for (;;) {
         const s = await hello(this.port, token);
         if (s !== "down" || Date.now() >= end) {
-          if (s === "down") log(`no answer from saturnus on port ${this.port}: is AI access on in its settings?`);
+          if (s === "down") log(`no answer from Saturnus on port ${this.port}: is AI access on in its settings?`);
           return s;
         }
         await sleep(POLL_MS);
@@ -464,17 +464,17 @@ export class Forwarder {
     if (type === "text/event-stream") {
       const events = sseMessages(r.body.toString("utf8"));
       // The stream must end with the request's answer, or the client would wait for ever.
-      if (!events.some((m) => m && m.id === msg.id && ("result" in m || "error" in m))) events.push(this.error(msg.id, "saturnus ended the call without an answer. Try again."));
+      if (!events.some((m) => m && m.id === msg.id && ("result" in m || "error" in m))) events.push(this.error(msg.id, "Saturnus ended the call without an answer. Try again."));
       return events;
     }
-    if (r.status === 202 || r.body.length === 0) return [this.error(msg.id, r.status < 300 ? "saturnus gave no answer. Try again." : START)];
+    if (r.status === 202 || r.body.length === 0) return [this.error(msg.id, r.status < 300 ? "Saturnus gave no answer. Try again." : START)];
     let v;
     try {
       v = JSON.parse(r.body.toString("utf8"));
     } catch {
-      return [this.error(msg.id, `saturnus answered with HTTP ${r.status} and no message.`)];
+      return [this.error(msg.id, `Saturnus answered with HTTP ${r.status} and no message.`)];
     }
-    if (r.status === 401) return [this.error(msg.id, "saturnus did not accept the key. Turn AI access off and on in saturnus, then try again.")];
+    if (r.status === 401) return [this.error(msg.id, "Saturnus did not accept the key. Turn AI access off and on in Saturnus, then try again.")];
     if (r.status === 503 && /AI access is off/.test(v?.error?.message ?? "")) return [this.error(msg.id, START)];
     // Refusals before the body was read carry no id: give them the request's.
     if (v && typeof v === "object" && v.error && (v.id === null || v.id === undefined)) v.id = msg.id;
@@ -485,7 +485,7 @@ export class Forwarder {
   offlineAnswer(msg) {
     const { id, method } = msg;
     const o = this.offline;
-    const serverInfo = { name: "saturnus", title: "saturnus calculators", version: o.version };
+    const serverInfo = { name: "saturnus", title: "Saturnus calculators", version: o.version };
     const modern = isModern(msg);
     const result = (value) => {
       if (modern) {

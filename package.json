@@ -1,6 +1,6 @@
 {
   "name": "saturnus-pi",
-  "description": "The saturnus skill for pi: using the HP calculators that saturnus emulates through its MCP tools",
+  "description": "The Saturnus skill for pi: using the HP calculators that Saturnus emulates through its MCP tools",
   "keywords": ["pi-package", "saturnus", "hp48", "rpl", "calculator", "mcp"],
   "license": "MIT",
   "private": true,

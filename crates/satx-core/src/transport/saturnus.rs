@@ -41,7 +41,7 @@ use crate::{Error, Result};
 /// Longest wall-clock gap between transport calls that is replayed as
 /// emulated time before a write.
 pub const MAX_CATCH_UP: Duration = Duration::from_secs(2);
-/// A saturnus calculator emulated in-process.
+/// A Saturnus calculator emulated in-process.
 pub struct SaturnusTransport {
     machine: Machine,
     cycles_per_sec: u64,
@@ -69,7 +69,7 @@ fn halt(e: impl std::fmt::Display) -> io::Error {
     io::Error::other(format!("emulated CPU halted: {e}"))
 }
 
-/// The saturnus model for `model`, or [`Error::Emulator`] when satx cannot
+/// The Saturnus model for `model`, or [`Error::Emulator`] when satx cannot
 /// talk to it: the 42S, 27S, 17BII, 17B, 28S and 19BII have no serial port, the 38G, 39G and 40G have no
 /// Kermit server command (their PC link is started on the calculator).
 pub fn boot_model(model: EmulatorModel) -> Result<Model> {
@@ -78,7 +78,7 @@ pub fn boot_model(model: EmulatorModel) -> Result<Model> {
         .find(|m| m.name() == model.name())
         .ok_or_else(|| {
             Error::Emulator(format!(
-                "saturnus does not emulate the {}",
+                "Saturnus does not emulate the {}",
                 model.name().to_uppercase()
             ))
         })?;
@@ -193,7 +193,7 @@ impl SaturnusTransport {
 /// Cold-boot `machine` and type `SERVER` with the model's autostart script.
 /// The boot prompt not showing up within the script's cap is an error;
 /// a key after it that leaves the screen busy is only noted (the NAK wait
-/// decides), as the saturnus CLI does.
+/// decides), as the Saturnus CLI does.
 fn autostart(machine: Machine) -> std::result::Result<Machine, String> {
     let script = autostart_script(machine.model(), true).map_err(|e| format!("{e:#}"))?;
     let mut session = Session::new(machine, 0, false);

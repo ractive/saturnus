@@ -46,7 +46,7 @@ function header(code, magic = "SATURNUS") {
 }
 
 test("a broken file and another model are refused before the question", () => {
-  const broken = "This file is not a saturnus state.";
+  const broken = "This file is not a Saturnus state.";
   assert.equal(stateRefusal(header(1), "48gx", title), null);
   assert.equal(stateRefusal(header(2), "49g", title), null);
   assert.equal(stateRefusal(header(6), "42s", title), null);
@@ -69,7 +69,7 @@ test("a broken file and another model are refused before the question", () => {
 
 test("the core's refusals in plain words", () => {
   assert.equal(loadError(new Error("saved state was made with a different ROM"), "48gx", title), "This state was saved with another ROM of the HP 48GX; it loads only with that one.");
-  assert.equal(loadError(new Error("invalid saved state at byte 12: unsupported state version"), "48gx", title), "This state is from another version of saturnus and cannot be loaded.");
-  assert.equal(loadError(new Error("invalid saved state at byte 900: trailing bytes"), "48gx", title), "This file is damaged or not a saturnus state.");
+  assert.equal(loadError(new Error("invalid saved state at byte 12: unsupported state version"), "48gx", title), "This state is from another version of Saturnus and cannot be loaded.");
+  assert.equal(loadError(new Error("invalid saved state at byte 900: trailing bytes"), "48gx", title), "This file is damaged or not a Saturnus state.");
   assert.equal(loadError(new Error("no ROM loaded"), "48gx", title), "Could not load the state: no ROM loaded");
 });

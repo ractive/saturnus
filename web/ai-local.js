@@ -101,7 +101,7 @@ export function mapAnnotations(hints = {}) {
  * usually in the page's browser tab"): here the question is in the
  * app's window, not a browser tab.
  */
-export const CONFIRMED_IN_APP = "The app may ask the user to allow each call, in the saturnus window.";
+export const CONFIRMED_IN_APP = "The app may ask the user to allow each call, in the Saturnus window.";
 
 /** The tools as the desktop app's `tools/list` gives them. */
 export function listTools(tools) {

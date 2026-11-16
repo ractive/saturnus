@@ -17,7 +17,7 @@ redistribution only unmodified (its readme's disclaimer; see
   (`http://vvvvvv.wheel.gr.jp/~dai/software/bsdfil03.lzh`) and checks its
   SHA-256 (`fdca9760...3404`, the archive of 2026-11-08);
 - nothing of it is in this repository, and its source is not read for
-  saturnus (MIT); only its behaviour on the wire is used;
+  Saturnus (MIT); only its behaviour on the wire is used;
 - the image is local only: never pushed, cached or shipped.
 
 The build compiles the C files as they are (GNU C89) with

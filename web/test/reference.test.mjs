@@ -158,7 +158,7 @@ const PAGE_ACTIONS = [
   { id: "theme-dark", title: "Theme: Dark", keywords: "theme colours colors dark light mode system appearance" },
   { id: "shortcuts", title: "Keyboard shortcuts", keywords: "keyboard shortcuts keys bindings rebind hotkeys layout" },
   { id: "panel", title: "Hide the controls panel", keywords: "panel controls sidebar toggle" },
-  { id: "about", title: "About saturnus", keywords: "about sources manuals licence" },
+  { id: "about", title: "About Saturnus", keywords: "about sources manuals licence" },
   { id: "open-tx", title: "Open Files", keywords: "files tx transfer files send receive kermit serial cable backup computer" },
 ];
 

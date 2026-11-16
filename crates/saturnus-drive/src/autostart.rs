@@ -80,7 +80,7 @@ fn numbered(actions: Vec<Action>) -> Vec<Line> {
 /// matrix and the alpha letters' positions (wiki: hardware/keyboard "HP48
 /// matrix"); the GX's right-shift right-arrow SERVER key is not used, to
 /// match the container. The 49G's letters sit on other keys: S = SIN,
-/// E = softkey E, R = square root, V = EEX (typed on saturnus with ALPHA
+/// E = softkey E, R = square root, V = EEX (typed on Saturnus with ALPHA
 /// locked: the keys from APPS to the divide key give G to Z).
 pub fn autostart_script(model: Model, fresh_boot: bool) -> Result<Vec<Line>> {
     if model.is_lewis() {

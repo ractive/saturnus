@@ -31,7 +31,7 @@ else
 fi
 
 if [ ! -r "$file" ]; then
-  echo "saturnus: no token file at $file. In the saturnus desktop app, open \"Connect your AI app\" and turn on \"Let AI apps on this computer use the calculators\"." >&2
+  echo "saturnus: no token file at $file. In the Saturnus desktop app, open \"Connect your AI app\" and turn on \"Let AI apps on this computer use the calculators\"." >&2
   exit 1
 fi
 
@@ -42,7 +42,7 @@ case "$token" in
   *) ok=1 ;;
 esac
 if [ "$ok" = 0 ] || [ "${#token}" -ne 64 ]; then
-  echo "saturnus: the token file at $file is not a saturnus token (64 hex digits)." >&2
+  echo "saturnus: the token file at $file is not a Saturnus token (64 hex digits)." >&2
   exit 1
 fi
 

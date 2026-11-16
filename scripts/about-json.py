@@ -150,14 +150,14 @@ def main():
         "wiki": "calculator-knowledgebase (the project's hardware wiki, "
         "https://github.com/ractive/calculator-knowledgebase)",
         "statement": [
-            "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII.",
+            "Saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII.",
             "It was written from HP's documentation, the hardware literature listed below, "
             "other emulators' documentation and change logs, and black-box runs of the "
             "calculators' ROMs. Each fact is recorded with its source in the project's "
             "hardware wiki.",
             "It contains no code from Emu48, Emu42, jsEmu48, x48, x48ng, x50ng, ui4x, "
             "saturnng or HP EMU.",
-            "The calculator drawings are saturnus's own, measured from photographs of the "
+            "The calculator drawings are Saturnus's own, measured from photographs of the "
             "calculators and from the keyboard figures in HP's manuals (see Calculator drawings).",
             "No ROM is included. HP has allowed its ROM files to be downloaded from "
             "hpcalc.org since 2000.",
@@ -170,7 +170,7 @@ def main():
                 "name": "saturnng",
                 "url": "https://codeberg.org/gwh/saturnng",
                 "licence": "GPL",
-                "use": "The same ROM and keys are run in saturnng and in saturnus, and the "
+                "use": "The same ROM and keys are run in saturnng and in Saturnus, and the "
                 "screens are compared.",
             },
         ],
@@ -228,13 +228,13 @@ def main():
                 "name": "satx",
                 "url": "https://github.com/ractive/saturnus/tree/main/crates/satx-cli",
                 "use": "The author's Kermit and XModem transfer tool, part of this project; its "
-                "protocol code moves objects in and out of saturnus, and its emulator image "
+                "protocol code moves objects in and out of Saturnus, and its emulator image "
                 "runs saturnng for the comparison.",
             },
         ],
         "roms": [
-            "saturnus includes no ROM. The ROMs are HP's software. hpcalc.org hosts them "
-            "with HP's permission for use with emulators; saturnus does not host or pass "
+            "Saturnus includes no ROM. The ROMs are HP's software. hpcalc.org hosts them "
+            "with HP's permission for use with emulators; Saturnus does not host or pass "
             "them on.",
             "In the browser, the app links each model to its download on hpcalc.org: "
             "download it, unzip it and drop the file into the app. The desktop app downloads "

@@ -1,6 +1,6 @@
 # saturnus-core
 
-Core library of [saturnus](https://github.com/ractive/saturnus), a
+Core library of [Saturnus](https://github.com/ractive/saturnus), a
 headless emulator of the HP Saturn calculators: HP 48SX, 48GX, 49G, 38G,
 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII. It models the Saturn CPU, the bus with its
 memory-mapped modules, the display, keyboard, timers and serial port, and

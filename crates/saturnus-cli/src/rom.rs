@@ -26,7 +26,7 @@ pub fn fetch(model: Model, dir: &Path, yes: bool) -> Result<PathBuf> {
             // No memory scanner: an owner cannot read this ROM out
             // (wiki: hardware/saturn-models "ROM availability").
             bail!(
-                "there is no download for the 19BII, and saturnus has no way to get this ROM \
+                "there is no download for the 19BII, and Saturnus has no way to get this ROM \
                  for you: the calculator cannot read its own ROM out. Pass a ROM file you have \
                  with --rom"
             );
@@ -74,7 +74,7 @@ pub fn fetch(model: Model, dir: &Path, yes: bool) -> Result<PathBuf> {
 fn confirm(known: &KnownRom, dir: &Path) -> Result<bool> {
     print!(
         "Download {} into {}?\nThe ROM is HP's copyrighted software, hosted by hpcalc.org with \
-         HP's permission for use with emulators; it is not part of saturnus. [y/N] ",
+         HP's permission for use with emulators; it is not part of Saturnus. [y/N] ",
         known.url,
         dir.display()
     );

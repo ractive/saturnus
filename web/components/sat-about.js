@@ -17,7 +17,7 @@ const TEMPLATE = `
     <div class="dialog-head about-head">
       <img class="logo" src="logo.svg" alt="" width="36" height="36">
       <div class="about-title">
-        <h2 id="about-title">About saturnus</h2>
+        <h2 id="about-title">About Saturnus</h2>
         <span class="about-sub">What it is, where it comes from, the manuals</span>
       </div>
       <button type="button" class="icon about-close" title="Close" aria-label="Close">${icon("close")}</button>
@@ -36,7 +36,7 @@ const TEMPLATE = `
       <h3>ROMs</h3>
       <div class="about-roms"></div>
       <h3>Manuals</h3>
-      <p class="hint">HP's manuals as hosted today; Search links each command to its page. The descriptions are saturnus's own, written from how the ROMs behave, with the manuals as the source of facts.</p>
+      <p class="hint">HP's manuals as hosted today; Search links each command to its page. The descriptions are Saturnus's own, written from how the ROMs behave, with the manuals as the source of facts.</p>
       <ul class="about-manuals"></ul>
       <details class="about-literature">
         <summary><h3>${icon("chevron-right")}Literature <span class="about-count muted"></span></h3></summary>
@@ -92,13 +92,13 @@ export class SatAbout extends HTMLElement {
   }
 
   /**
-   * "saturnus 0.1.0, build 3f2a9c1e0b7d4a55" (the site), "…, desktop
+   * "Saturnus 0.1.0, build 3f2a9c1e0b7d4a55" (the site), "…, desktop
    * app", or "…, build unknown" until the service worker has said (a
    * first visit, a reload past it, a local copy without one).
    */
   showVersion() {
     const s = this.store?.state ?? {};
-    const parts = [`saturnus ${s.version ?? "(version unknown)"}`];
+    const parts = [`Saturnus ${s.version ?? "(version unknown)"}`];
     if (s.host === "tauri") parts.push("desktop app");
     else if (s.build) parts.push(`build ${s.build}`);
     else parts.push("build unknown");

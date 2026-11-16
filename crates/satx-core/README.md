@@ -24,7 +24,7 @@ run it:
 | Feature | Default | What it adds |
 |---|---|---|
 | `native` | yes | Serial ports (`serialport`) and TCP in `transport::open` |
-| `saturnus` | no | The saturnus emulator in-process, `saturnus://[MODEL@]ROM` (`saturnus-core`, `saturnus-drive`) |
+| `saturnus` | no | The Saturnus emulator in-process, `saturnus://[MODEL@]ROM` (`saturnus-core`, `saturnus-drive`) |
 
 For the browser, or for any crate that brings its own I/O:
 

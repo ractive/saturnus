@@ -27,7 +27,7 @@
 //! size (836 x 1414 units; P1 shows the letter half 2% larger, nearer the
 //! lens). Measured: the key footprints (cap and skirt, [`SKIRT`]), the
 //! keyboard plates, the display housing, the name plate, the LCD glass,
-//! the HP logo's square (the saturnus logo's place), the reference card's
+//! the HP logo's square (the Saturnus logo's place), the reference card's
 //! recess and boxes, the label bands, the hinge barrel.
 //!
 //! Inferred: the corner radii, the 14-unit gap between the halves; the

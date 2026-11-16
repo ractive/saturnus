@@ -115,7 +115,7 @@ function showUpdate(reload) {
   box.className = "update-notice";
   box.setAttribute("role", "status");
   const text = document.createElement("p");
-  text.textContent = "A new version of saturnus is ready. Reloading restarts the calculator, so save its state first. Otherwise the new version starts once every saturnus tab is closed.";
+  text.textContent = "A new version of Saturnus is ready. Reloading restarts the calculator, so save its state first. Otherwise the new version starts once every Saturnus tab is closed.";
   const later = document.createElement("button");
   later.type = "button";
   later.textContent = "Later";
@@ -139,7 +139,7 @@ function showUpdate(reload) {
 function showOthers() {
   const box = document.querySelector(".update-notice");
   if (!box) return;
-  box.querySelector("p").textContent = "A new version of saturnus is ready. Other saturnus tabs are open and keep this version; the new one starts once every saturnus tab is closed.";
+  box.querySelector("p").textContent = "A new version of Saturnus is ready. Other Saturnus tabs are open and keep this version; the new one starts once every Saturnus tab is closed.";
   box.querySelector("button.primary")?.remove();
   const later = box.querySelector("button");
   if (later) later.textContent = "OK";

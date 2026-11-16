@@ -4,7 +4,7 @@
 //!
 //! **Tested on a real 49G** (ROM 1.18, 2026-11-08): `satx xserv mem`, `ls`,
 //! `get`, `put` and `eval` worked, and 4 KB took 8.4 s against
-//! Kermit's 16.7 s. **And on the emulated 49G** (saturnus, ROM 2.15,
+//! Kermit's 16.7 s. **And on the emulated 49G** (Saturnus, ROM 2.15,
 //! 2026-11-08): typed `XSERV` shows "Xmodem server"; every command below,
 //! `Q` included, and the Kermit server nested through `E` (`SERVER`, then
 //! Kermit's FINISH returns to XSERV). Not yet tried on a 49g+ or 50g. The

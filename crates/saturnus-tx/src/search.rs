@@ -11,7 +11,7 @@
 //!
 //! Why probe instead of only listening: an idle NAK is not something to
 //! count on. Kermit does not oblige a server to NAK while it waits, and
-//! saturnus's emulated 48SX, 48GX and 49G send one NAK per server timeout
+//! Saturnus's emulated 48SX, 48GX and 49G send one NAK per server timeout
 //! (after `SERVER`, after an I exchange, after half a packet) and then
 //! none for at least 120 s, in the native runner (`saturnus run --serial`)
 //! as in satx-core's in-process transport (2026-10-11), while the wiki has

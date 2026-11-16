@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to saturnus. The crates (`saturnus-core`,
+All notable changes to Saturnus. The crates (`saturnus-core`,
 `saturnus-objects`, `saturnus-host`, `saturnus-drive`, `saturnus`,
 `kermit-proto`, `xmodem-proto`, `filer-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
@@ -19,6 +19,12 @@ the desktop app and the web page share one version.
   Start menu (`Saturnus.app`, the installers `Saturnus_V_…`). Settings
   and saved calculators carry over; the new installers replace the old
   app, and Homebrew does so on `brew upgrade`.
+- **Saturnus, with a capital S, wherever the text names it**: the app,
+  the installed web app's name, the desktop app's window and Linux menu
+  entry, the command line's messages, the Claude Desktop extension, the
+  AI apps' server title and the READMEs. Commands, package names, paths
+  and addresses stay lowercase (`saturnus rom fetch`, `saturnus-app`,
+  `/saturnus/app/`).
 
 ## 0.12.0 (2026-11-15)
 

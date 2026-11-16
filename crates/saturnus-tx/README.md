@@ -35,7 +35,7 @@ and in the desktop app (`kb/docs/saturnus-tx.md`): what a user does with an HP 4
   parity 500 ms apart (bit 7 as the parity bit: a calculator with parity
   checks it), listening 6 s (the probes again halfway) for the ACK or an
   idle server's NAK; then 4800, 2400 and 1200. Probing rather than only
-  listening: a server need not NAK while idle (saturnus's emulated server
+  listening: a server need not NAK while idle (Saturnus's emulated server
   NAKs once per timeout, then waits). The packet heard tells the parity
   too: odd or even, the port is reopened with 7 data bits and that parity
   and Kermit asks for 8th-bit prefixing. Then the sync, `VERSION` (the
@@ -95,7 +95,7 @@ and in the desktop app (`kb/docs/saturnus-tx.md`): what a user does with an HP 4
 ## Traces
 
 `traces/MODEL-session.trace` and `traces/MODEL-ops.trace` are the
-session and the ops session of `tests/scenario` recorded from saturnus
+session and the ops session of `tests/scenario` recorded from Saturnus
 in-process on the 48SX, 48GX and 49G by `just tx-traces DIR` (the example
 `record-traces`, with the ROMs in DIR; it refuses to write a trace whose
 transferred data, decoded from the Kermit packets, holds a 16-byte run of

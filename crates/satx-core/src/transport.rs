@@ -1,5 +1,5 @@
 //! Blocking links to a calculator: serial port and TCP (emulator) with the
-//! `native` feature (default), the saturnus emulator in-process (HP 48SX,
+//! `native` feature (default), the Saturnus emulator in-process (HP 48SX,
 //! 48GX or 49G, chosen in the `saturnus://MODEL@ROM` address) with the
 //! `saturnus` feature, and in-memory (tests).
 //!
@@ -51,7 +51,7 @@ pub const BAUD: u32 = 9600;
 const MIN_TIMEOUT: Duration = Duration::from_millis(1);
 
 /// Open a link: `tcp://host:port` for an emulator, `saturnus://[MODEL@]ROM`
-/// for the in-process saturnus emulator booted from the ROM image at the
+/// for the in-process Saturnus emulator booted from the ROM image at the
 /// path `ROM` (needs the `saturnus` feature; see [`parse_saturnus`]), e.g.
 /// `saturnus:///abs/sxrom-j` (an HP 48SX) or
 /// `saturnus://49g@/abs/rom.49g`; anything else without a `scheme://`
@@ -209,7 +209,7 @@ pub fn parse_saturnus(addr: &str) -> Result<(EmulatorModel, &std::path::Path)> {
     Ok((model, std::path::Path::new(rom)))
 }
 
-/// Boot the saturnus emulator in-process as `model` from the ROM image at
+/// Boot the Saturnus emulator in-process as `model` from the ROM image at
 /// `rom` and start its Kermit server (48SX, 48GX and 49G; other models are
 /// [`Error::Emulator`]).
 #[cfg(feature = "saturnus")]

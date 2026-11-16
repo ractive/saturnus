@@ -514,7 +514,7 @@ impl Machine {
         let mut rd = Reader { data, pos: 0 };
         if rd.take(MAGIC.len())? != MAGIC {
             return Err(Error::InvalidState {
-                reason: "not a saturnus state (bad magic)",
+                reason: "not a Saturnus state (bad magic)",
                 offset: 0,
             });
         }
