@@ -5099,3 +5099,26 @@ saturnus".
   still fails on a wiki link anywhere else. The developer page
   (`how-it-is-built.md`) uses it, because the knowledge base is part of
   the method it describes (owner, 2026-11-16).
+
+## 2026-11-16 (AI guide and service worker installs)
+
+- **read_guide serves the plugin's skill as a committed, generated
+  file** (iteration 77): `scripts/guide-json.py` writes `web/guide.json`
+  from `plugins/saturnus/skills/saturnus/`, and CI's quality gates check
+  that it is current. It is committed rather than built at deploy time
+  because the site test builds from a copy of `web/` alone, the desktop
+  build would need its own step, and the local page tests serve `web/`
+  directly. Links between the skill's files become `read_guide("…")`.
+  Under WebMCP, `list_calculators` returns the instructions in its
+  result: tab-mcp's extension cuts a page tool's description at 1000
+  characters.
+- **The service worker fetches its build 6 files at a time and retries
+  failures in transit**: ractive.ch's shared host answers a burst of all
+  142 files with dropped connections and 500s, so installs failed
+  silently and one browser stayed on a build from before 0.12.1 through
+  four deploys. A dropped connection, a 5xx or a 429 is tried again
+  after 0.5, 2 and 5 s; a 4xx and a hash mismatch stay final. A failed
+  install posts `install-failed` to the open pages, which log why. The
+  page also offers a build still installing when it registered (its
+  `updatefound` had gone by), and looks for a new build on window focus,
+  at most every five minutes, not on a timer.
