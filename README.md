@@ -13,7 +13,8 @@ behaviour of the calculators' own ROMs.
 <a href="https://ractive.ch/saturnus/app/"><img src=".github/readme/open-in-browser.svg" alt="Open in your browser" width="200" height="36"></a>
 </p>
 
-The desktop app runs on Macs with Apple silicon and on Windows with Intel
+The desktop app runs on Macs with Apple silicon (there is no build for
+Intel Macs: use the app in the browser there) and on Windows with Intel
 or AMD processors; for ARM, take the
 [Windows on ARM installer](https://github.com/ractive/saturnus/releases/latest/download/saturnus-windows-arm64-setup.exe).
 [Other downloads](https://github.com/ractive/saturnus/releases/latest):
