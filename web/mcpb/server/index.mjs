@@ -249,10 +249,13 @@ export function sseMessages(text) {
 /** The start of the endpoint's answer while its window loads (mcp.rs `CallError::NotReady`). */
 export const NOT_READY = "The Saturnus app is not ready";
 
-/** Whether `m` is the endpoint's "not ready" answer: a tool result with isError, or an error. */
+/**
+ * Whether `m` is the endpoint's "not ready" answer: a tool result with isError, or an error.
+ * Case-insensitive, so an app from before the capital S ("The saturnus app …") still matches.
+ */
 function notReady(m) {
   const text = m?.result?.isError ? m.result.content?.[0]?.text : m?.error?.message;
-  return typeof text === "string" && text.startsWith(NOT_READY);
+  return typeof text === "string" && text.toLowerCase().startsWith(NOT_READY.toLowerCase());
 }
 
 const isModern = (msg) => typeof msg?.params?._meta?.[META_VERSION] === "string";
