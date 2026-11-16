@@ -67,18 +67,8 @@ export async function installServiceWorker(host, store) {
     if (!touched) take(worker);
     else showUpdate(() => take(worker));
   };
-  if (reg.waiting) offer(reg.waiting);
-  reg.addEventListener("updatefound", () => {
-    const w = reg.installing;
-    w?.addEventListener("statechange", () => {
-      if (w.state === "installed") offer(w);
-    });
-  });
-  // An installed app comes back from the background without navigating:
-  // look for a new build then, as a navigation would.
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) reg.update().catch(() => { /* offline */ });
-  });
+  watchUpdates(reg, offer);
+  lookOnReturn(reg);
   await sw.ready;
   // On the first install the worker claims the page a moment after it is ready.
   if (!ownController(sw.controller)) {
@@ -90,6 +80,51 @@ export async function installServiceWorker(host, store) {
   const build = await askBuild();
   store.set({ build });
   return { build };
+}
+
+/**
+ * Call `offer(worker)` for each new build of `reg` once it has installed:
+ * one already waiting, one still installing when the page registered (the
+ * browser starts its update check with the navigation, before this
+ * script runs, so its `updatefound` has gone by), and every later one.
+ */
+export function watchUpdates(reg, offer) {
+  // updatefound may still come for the worker found installing: watch it once.
+  const seen = new WeakSet();
+  const whenInstalled = (w) => {
+    if (!w || seen.has(w)) return;
+    seen.add(w);
+    if (w.state === "installed") {
+      offer(w);
+      return;
+    }
+    w.addEventListener("statechange", () => {
+      if (w.state === "installed") offer(w);
+    });
+  };
+  if (reg.waiting) offer(reg.waiting);
+  whenInstalled(reg.installing);
+  reg.addEventListener("updatefound", () => whenInstalled(reg.installing));
+}
+
+/** The shortest time between two looks for a new build on return, in ms. */
+export const LOOK_EVERY_MS = 5 * 60_000;
+
+/**
+ * Look for a new build when the user comes back to the page: the tab
+ * shown again (an installed app back from the background) or the window
+ * focused (back from another app, where the tab may never have counted
+ * as hidden). At most once per LOOK_EVERY_MS; no timer runs meanwhile.
+ */
+export function lookOnReturn(reg, doc = document, win = window, now = () => Date.now()) {
+  let last = now();
+  const look = () => {
+    if (doc.hidden || now() - last < LOOK_EVERY_MS) return;
+    last = now();
+    reg.update().catch(() => { /* offline */ });
+  };
+  doc.addEventListener("visibilitychange", look);
+  win.addEventListener("focus", look);
 }
 
 /** The build of this page's own worker, if it controls the page; else null. */

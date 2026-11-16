@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Store } from "../store.js";
-import { StorageChoice, keepScreenOnWhileComputing, ownController, serviceWorkerAllowed } from "../pwa.js";
+import { LOOK_EVERY_MS, StorageChoice, keepScreenOnWhileComputing, lookOnReturn, ownController, serviceWorkerAllowed, watchUpdates } from "../pwa.js";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const nav = { serviceWorker: {} };
@@ -218,3 +218,86 @@ test("the desktop app and browsers without persist(): nothing shown, nothing ask
   }
 });
 
+
+/** A service worker in `state`; `to(state)` moves it on, as the browser does. */
+function fakeWorker(state) {
+  const t = new EventTarget();
+  t.state = state;
+  t.to = (next) => {
+    t.state = next;
+    t.dispatchEvent(new Event("statechange"));
+  };
+  return t;
+}
+
+/** A registration; `found(worker)` starts an update, as the browser does. */
+function fakeRegistration({ waiting = null, installing = null } = {}) {
+  const r = new EventTarget();
+  r.waiting = waiting;
+  r.installing = installing;
+  r.updates = 0;
+  r.update = async () => { r.updates += 1; };
+  r.found = (w) => {
+    r.installing = w;
+    r.dispatchEvent(new Event("updatefound"));
+  };
+  return r;
+}
+
+test("a new build is offered once installed: waiting, still installing at registration, or found later", () => {
+  const waiting = fakeWorker("installed");
+  const early = fakeWorker("installing");
+  const reg = fakeRegistration({ waiting, installing: early });
+  const offered = [];
+  watchUpdates(reg, (w) => offered.push(w));
+  assert.deepEqual(offered, [waiting]);
+  // The race: its updatefound went by before the page listened.
+  early.to("installed");
+  assert.deepEqual(offered, [waiting, early]);
+  // A late updatefound for the same worker does not watch it twice.
+  const twice = fakeWorker("installing");
+  const reg2 = fakeRegistration({ installing: twice });
+  const offered2 = [];
+  watchUpdates(reg2, (w) => offered2.push(w));
+  reg2.found(twice);
+  twice.to("installed");
+  assert.deepEqual(offered2, [twice]);
+  const later = fakeWorker("installing");
+  reg.found(later);
+  later.to("activating");
+  assert.equal(offered.length, 2, "only an installed worker is offered");
+  const next = fakeWorker("installing");
+  reg.found(next);
+  next.to("installed");
+  assert.deepEqual(offered, [waiting, early, next]);
+});
+
+test("a new build is looked for on return (shown or focused), at most once per LOOK_EVERY_MS, never while hidden", async () => {
+  const reg = fakeRegistration();
+  const doc = new EventTarget();
+  doc.hidden = false;
+  const win = new EventTarget();
+  let t = 0;
+  lookOnReturn(reg, doc, win, () => t);
+  const back = async (target, type) => {
+    target.dispatchEvent(new Event(type));
+    await sleep(0);
+  };
+  await back(win, "focus");
+  assert.equal(reg.updates, 0, "the load itself just looked");
+  t = LOOK_EVERY_MS;
+  await back(win, "focus");
+  assert.equal(reg.updates, 1);
+  await back(doc, "visibilitychange");
+  assert.equal(reg.updates, 1, "too soon after the last look");
+  t = 2 * LOOK_EVERY_MS;
+  doc.hidden = true;
+  await back(doc, "visibilitychange");
+  assert.equal(reg.updates, 1, "hidden");
+  doc.hidden = false;
+  await back(doc, "visibilitychange");
+  assert.equal(reg.updates, 2);
+  reg.update = async () => { throw new Error("offline"); };
+  t = 3 * LOOK_EVERY_MS;
+  await back(win, "focus");
+});

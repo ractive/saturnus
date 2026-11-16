@@ -16,6 +16,11 @@ the desktop app and the web page share one version.
   list_calculators returns the instructions with its result. Before,
   they were part of the tool's description, and the tab-mcp extension
   cut that after 1000 characters.
+- **The web app finds a new version more reliably.** A new version
+  that was still downloading when the page opened was never offered:
+  no Reload notice, and the page did not take it by itself either.
+  The app now also looks for one when you come back to its window from
+  another app, at most every five minutes.
 
 ## 0.12.1 (2026-11-16)
 
