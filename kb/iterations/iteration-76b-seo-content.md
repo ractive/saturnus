@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 76b: the content pages, found by search and worth reading"
 date: 2026-11-16
-status: in-progress
+status: completed
 tags:
   - iteration
   - web
