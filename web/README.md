@@ -1317,7 +1317,8 @@ link or a link into the wiki. Tests: `docs.test.mjs`,
 
 The calculator images in `web/landing/img/` are screenshots of the app
 with each model's ROM running, made by `web/landing/shots.mjs`
-(see its header for the WebP step); `img/og.png` is the Open Graph image.
+(see its header for the WebP step); `img/og.png` is the Open Graph image,
+made by `web/landing/og-shot.mjs`.
 
 **Names on the origin.** Every IndexedDB database, localStorage key,
 OPFS directory and cache prefix of the app is in

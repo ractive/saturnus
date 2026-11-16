@@ -7,7 +7,7 @@
 // script packs the pixels into an HP 48 graphics object as text,
 // "GROB 131 64 <hex>" (each row 17 bytes, low nibble first, the low bit
 // of each nibble the leftmost pixel), and RPL on the calculator compiles
-// it, stores it as PICT, writes "saturnus" beside the planet in the
+// it, stores it as PICT, writes "Saturnus" beside the planet in the
 // calculator's own large font (→GROB, REPL) and shows PICT full screen
 // with { } PVIEW. Writes web/landing/raw/app.png (gitignored); the landing
 // page does not use this plain variant. With MEMORY=1, the one it uses: the variant with the memory view open on the right, at
@@ -140,7 +140,7 @@ try {
   const RPL = [
     text,
     "PICT STO",
-    `PICT { #${wordX}d #28d } "saturnus" 3 →GROB REPL`,
+    `PICT { #${wordX}d #28d } "Saturnus" 3 →GROB REPL`,
     "{ } PVIEW",
   ];
   for (const t of RPL) {
