@@ -1285,7 +1285,8 @@ layout.
 **The docs** (iteration 57). `web/docs/build.mjs`, run by `site.sh`
 after the app (with Node, no dependencies), renders the Markdown pages
 of `web/docs/pages/` (frontmatter: `title`, `description`, `section`,
-`model` on a model page, `status: placeholder` until written) into
+`model` on a model page, `page_title` for a `<title>` in the words
+people search, `status: placeholder` until written) into
 `docs/<page>/index.html` with the Markdown beside it as
 `docs/<page>.md` (the index: `docs/index.html`, `docs/index.md`), and
 writes `llms.txt` (<https://llmstxt.org>) and `sitemap.xml` at the
