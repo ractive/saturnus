@@ -178,6 +178,11 @@ test("no WebMCP tool's description nor the instructions say the app approves; th
   for (const name of ["store_variable", "purge_variable"]) assert.ok(ai.tools.find((t) => t.name === name).description.endsWith(APPROVAL), name);
 });
 
+test("no read_guide topic says the app asks the user: read_guide serves the same text on WebMCP, where it does not", () => {
+  const guide = JSON.parse(readFileSync(new URL("../guide.json", import.meta.url), "utf8"));
+  for (const topic of GUIDE_TOPICS) assert.doesNotMatch(guide.topics[topic], /approves|in the app first|allows? (it|them) in the app|wait until the user allows/i, topic);
+});
+
 test("withdrawn when the page is hidden, back when it shows again", async () => {
   const ai = access();
   const { w, context, win } = webMcp(ai);
