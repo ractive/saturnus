@@ -3,6 +3,7 @@ title: How Saturnus is built
 page_title: How Saturnus is built: an HP emulator in Rust and WebAssembly
 description: How Saturnus, an emulator of HP calculators, is built: a Rust core that also runs as WebAssembly, a browser app, a Tauri desktop app, the clean-room method and the tests.
 section: index
+wiki_link: true
 ---
 
 Saturnus is an emulator of twelve HP calculators, written in [Rust](https://www.rust-lang.org/). One core runs in the browser as [WebAssembly](https://webassembly.org/), natively in a desktop app and in two command-line tools. It was written from documentation and from the behaviour of the calculators' own ROMs, not from the code of other emulators. This page says how it is put together and where its limits are. The code is [on GitHub](https://github.com/ractive/saturnus) under the MIT licence.
@@ -81,7 +82,7 @@ The desktop app is a Tauri 2 app with the same page as its front end. The core i
 
 Other emulators of these calculators exist, most of them under the GPL. Their source code is off limits to anyone writing Saturnus's code, human or AI, even to look up one fact. Only a reviewer who checks that Saturnus is independent of them may compare the two. Facts come from what is published: HP's manuals and journal articles, the hardware literature, the documentation and change logs of other emulators, forum posts by their authors, and runs of the ROMs themselves.
 
-Each fact is first written down with its source in a public knowledge base, which [Saturnus's site](../#about) links, and the code is written from there. A comment in the code names the page it relies on. Where the sources disagree, the comment says so and which one was followed.
+Each fact is first written down with its source in a public knowledge base, [calculator-knowledgebase](https://github.com/ractive/calculator-knowledgebase), and the code is written from there. A comment in the code names the page it relies on. Where the sources disagree, the comment says so and which one was followed.
 
 One other emulator is used, as a black box: [saturnng](https://codeberg.org/gwh/saturnng) runs in a container with the same ROM and the same keys, and the two screens are compared pixel by pixel. That comparison found a real bug: the status bits of the 48SX's card ports pair with the chip-select lines, not with the port numbers one document gives.
 

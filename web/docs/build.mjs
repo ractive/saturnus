@@ -32,7 +32,8 @@
 // models, commands, saturn, transfer), `model` on a model page (the
 // page takes its colours), `order` (a number) on a section's sub-page
 // (`pages/saturn/cpu.md`: its place in llms.txt after the section's
-// overview, `pages/saturn.md`), `status: placeholder` for a page not
+// overview, `pages/saturn.md`), `wiki_link: true` on a page that
+// deliberately links the hardware wiki (see WIKI), `status: placeholder` for a page not
 // written yet (llms.txt leaves it out). A page links others by their .md path
 // (`[48GX](48gx.md)`), which works in the Markdown as published; the
 // HTML gets the page's address. The pages look like the app: its
@@ -54,7 +55,8 @@
 // and the JSON-LD say the same.
 //
 // Checks, failing the build: every relative link and source of the HTML
-// names a file of the site, no page links into the wiki, no file is
+// names a file of the site, no page links into the wiki unless its
+// frontmatter says `wiki_link: true`, no file is
 // empty, a "Questions and answers" section has questions and each an
 // answer. Pure functions exported for web/test/docs.test.mjs and
 // web/test/seo.test.mjs.
@@ -84,7 +86,12 @@ export const SECTIONS = [
   { id: "transfer", title: "Moving files to a real calculator", short: "Moving files", href: "transfer.md" },
 ];
 
-/** Links that must never appear: the hardware wiki (owner, 2026-10-21). */
+/**
+ * Links into the hardware wiki. Normally a docs page does not link it, so
+ * pages do not send readers into a reference of loose facts (owner,
+ * 2026-10-21); a page that means to, such as how-it-is-built.md, says
+ * `wiki_link: true` in its frontmatter (owner, 2026-11-16).
+ */
 const WIKI = /calculator-knowledgebase|github\.com\/ractive\/calculator/i;
 
 /** Every page under `dir`: `{rel, meta, body, source}`, `rel` its path without `.md` ("index", "48gx", "saturn/cpu"). */
@@ -652,8 +659,10 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
     written.push(path);
   };
   const html = [];
+  const wikiAllowed = new Set();
   for (const page of pages) {
     const paths = pagePaths(page.rel);
+    if (page.meta.wiki_link === "true") wikiAllowed.add(`${paths.html}index.html`).add(paths.md);
     let source = page.source;
     let body = page.body;
     let after = "";
@@ -710,7 +719,7 @@ export function build(out, { csp = null, base = BASE, pagesDir = PAGES, commands
   for (const path of written) {
     const text = readFileSync(join(out, path), "utf8");
     if (!text.length) problems.push(`${path} is empty`);
-    if (WIKI.test(text)) problems.push(`${path} links into the wiki`);
+    if (WIKI.test(text) && !wikiAllowed.has(path)) problems.push(`${path} links into the wiki (only a page with \`wiki_link: true\` may)`);
   }
   if (problems.length) throw new Error(`docs:\n${problems.join("\n")}`);
   return { pages, written: written.sort() };

@@ -5092,3 +5092,10 @@ saturnus".
   new one. Linux (`saturnus-app`), the window title and the project's
   name in prose stay as they were; the stable alias `saturnus-mac.dmg` is
   unchanged (kb/docs/releasing.md, "Desktop app").
+- **Links into the wiki: normally not, by choice yes**: the docs build
+  refused any link into the calculator wiki (2026-10-21), so pages do
+  not send readers into a reference of loose facts. A page that means
+  to link it now says `wiki_link: true` in its frontmatter; the build
+  still fails on a wiki link anywhere else. The developer page
+  (`how-it-is-built.md`) uses it, because the knowledge base is part of
+  the method it describes (owner, 2026-11-16).

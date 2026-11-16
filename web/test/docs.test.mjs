@@ -259,7 +259,9 @@ test("the build: each page's HTML and its Markdown as written, the command files
     for (const f of written) {
       const text = readFileSync(join(out, f), "utf8");
       assert.ok(text.length > 0, `${f} is not empty`);
-      assert.doesNotMatch(text, /calculator-knowledgebase/i, `${f} has no link into the wiki`);
+      // Only the page that opts in (`wiki_link: true`) links the wiki.
+      if (/^docs\/how-it-is-built(\/index\.html|\.md)$/.test(f)) assert.match(text, /github\.com\/ractive\/calculator-knowledgebase/, f);
+      else assert.doesNotMatch(text, /calculator-knowledgebase/i, `${f} has no link into the wiki`);
     }
   } finally {
     rmSync(out, { recursive: true, force: true });
@@ -282,6 +284,11 @@ test("a broken link or a link into the wiki fails the build", () => {
     ];
     for (const [n, text] of base) writeFile(join(pages, n), text);
     assert.throws(() => build(out, { pagesDir: pages }), (err) => /docs\/index\.html refers to gone\.md/.test(err.message) && /commands\.md links into the wiki/.test(err.message));
+    // With `wiki_link: true` the same link is allowed on that page.
+    for (const [n, text] of base) writeFile(join(pages, n), text);
+    writeFile(join(pages, "index.md"), page("index.md", { title: "Docs", description: "d", section: "index" }, "x")[1]);
+    writeFile(join(pages, "commands.md"), page("commands.md", { title: "C", description: "d", section: "commands", wiki_link: "true" }, "See [the wiki](https://github.com/ractive/calculator-knowledgebase).")[1]);
+    assert.doesNotThrow(() => build(out, { pagesDir: pages }));
   } finally {
     rmSync(pages, { recursive: true, force: true });
     rmSync(out, { recursive: true, force: true });

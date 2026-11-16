@@ -1312,7 +1312,9 @@ the entry is read-only (no Run, Type or Try it), the address names the
 model and command (`#48gx/hms-`, `web/docs/commands/slug.js`). The
 build also writes every model's commands as one Markdown file
 (`docs/commands/<model>.md`) for `llms.txt`, and fails on a broken
-link or a link into the wiki. Tests: `docs.test.mjs`,
+link or a link into the wiki from a page whose frontmatter does not
+say `wiki_link: true` (normally no page links it; the developer page
+does on purpose). Tests: `docs.test.mjs`,
 `docs-page.test.mjs`.
 
 The calculator images in `web/landing/img/` are screenshots of the app
