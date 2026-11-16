@@ -5,7 +5,7 @@ All notable changes to Saturnus. The crates (`saturnus-core`,
 `kermit-proto`, `xmodem-proto`, `filer-proto`, `satx-core`, `satx`), the CLI archives,
 the desktop app and the web page share one version.
 
-## Unreleased
+## 0.12.1 (2026-11-16)
 
 - **The AI tools no longer call a blinking cursor a running program.**
   Right after a key opened a command line (a cell of the MatrixWriter,

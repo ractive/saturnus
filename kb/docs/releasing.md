@@ -341,7 +341,7 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `Saturnus_V_…` (`saturnus-app_V_…` on Linux; see "Desktop app").
 7. **Release** (this publishes: crate versions on crates.io are
    permanent):
-   `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md --latest=false`.
+   `gh release create vV --target main --title "Saturnus V" --notes-file .github/release-notes/vV.md --latest=false`.
    `--latest=false`: `desktop.yml` makes the release the latest once its
    installers are up (step 8, "Desktop app"). The notes file needs no
    download links for the desktop app: `desktop.yml` puts them at the
