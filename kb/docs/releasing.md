@@ -338,8 +338,7 @@ first release `V=0.1.0`. Every step says what to check before the next.
    `gh run download <id> -D /tmp/saturnus-app` holds the `.dmg`, the
    `.msi` and `-setup.exe` twice, the `.deb`, `.rpm` and `.AppImage`
    twice, each named with `V` and the architecture:
-   `saturnus_V_…` (`Saturnus_V_…` on macOS, `saturnus-app_V_…` on
-   Linux; see "Desktop app").
+   `Saturnus_V_…` (`saturnus-app_V_…` on Linux; see "Desktop app").
 7. **Release** (this publishes: crate versions on crates.io are
    permanent):
    `gh release create vV --target main --title "saturnus V" --notes-file .github/release-notes/vV.md --latest=false`.
@@ -500,17 +499,23 @@ in each name, as Tauri writes it, so no two collide:
 | Platform | Installers |
 |---|---|
 | macOS Apple silicon | `Saturnus_V_aarch64.dmg` |
-| Windows x86_64 | `saturnus_V_x64_en-US.msi`, `saturnus_V_x64-setup.exe` |
-| Windows ARM | `saturnus_V_arm64_en-US.msi`, `saturnus_V_arm64-setup.exe` |
+| Windows x86_64 | `Saturnus_V_x64_en-US.msi`, `Saturnus_V_x64-setup.exe` |
+| Windows ARM | `Saturnus_V_arm64_en-US.msi`, `Saturnus_V_arm64-setup.exe` |
 | Linux x86_64 | `saturnus-app_V_amd64.deb`, `saturnus-app-V-1.x86_64.rpm`, `saturnus-app_V_amd64.AppImage` |
 | Linux ARM | `saturnus-app_V_arm64.deb`, `saturnus-app-V-1.aarch64.rpm`, `saturnus-app_V_aarch64.AppImage` |
 
-The macOS names are capitalised because the Mac app is "Saturnus"
-(`productName` in `crates/saturnus-tauri/tauri.macos.conf.json`, since
-0.12.1), like every other app in the Applications folder; the bundle id
-`ch.ractive.saturnus` stays, so settings and data carry over. Windows
-and the window title keep "saturnus". Releases up to 0.12.0 have
-`saturnus_V_aarch64.dmg` holding `saturnus.app`.
+The macOS and Windows names are capitalised because the app is
+"Saturnus" there (`productName` in `crates/saturnus-tauri/tauri.conf.json`,
+since 0.12.1), like the other apps in the Applications folder and the
+Start menu; Linux keeps `saturnus-app` (`tauri.linux.conf.json`). The
+bundle id `ch.ractive.saturnus` stays, so settings and data carry over;
+NSIS's registry keys and install folder are case-insensitive. The MSI's
+`UpgradeCode` is Tauri's UUID v5 of `<productName>.exe.app.x64`, which
+is case-sensitive, so `bundle.windows.wix.upgradeCode` pins the value
+from "saturnus" (`acb4efce-b545-51db-814b-9fef83a8b360`) and a new .msi
+still upgrades an old install instead of landing beside it. The window
+title keeps "saturnus". Releases up to 0.12.0 have `saturnus_V_…`
+(`saturnus.app` in the .dmg).
 
 The ARM builds were first dry-run in run 39259881090 and needed no
 step of their own: Linux ARM took 10 min, Windows ARM 13 min (x86_64:
@@ -535,8 +540,8 @@ by hand first. With them goes one checksums file,
 
 The installers most people want also go up under names without the
 version: `attach` copies `Saturnus_V_aarch64.dmg` to `saturnus-mac.dmg`,
-`saturnus_V_x64-setup.exe` to `saturnus-windows-x64-setup.exe` and
-`saturnus_V_arm64-setup.exe` to `saturnus-windows-arm64-setup.exe`
+`Saturnus_V_x64-setup.exe` to `saturnus-windows-x64-setup.exe` and
+`Saturnus_V_arm64-setup.exe` to `saturnus-windows-arm64-setup.exe`
 (listed in the checksums file too), and fails when one of the three is
 missing. So
 `https://github.com/ractive/saturnus/releases/latest/download/<name>`

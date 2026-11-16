@@ -384,8 +384,8 @@ jobs:
             cp "dist/$1" "dist/$2"
           }
           copy "Saturnus_${version}_aarch64.dmg" saturnus-mac.dmg
-          copy "saturnus_${version}_x64-setup.exe" saturnus-windows-x64-setup.exe
-          copy "saturnus_${version}_arm64-setup.exe" saturnus-windows-arm64-setup.exe
+          copy "Saturnus_${version}_x64-setup.exe" saturnus-windows-x64-setup.exe
+          copy "Saturnus_${version}_arm64-setup.exe" saturnus-windows-arm64-setup.exe
       # One checksums file for the installers (saturnus-app-SHA256SUMS; the
       # CLIs' release has saturnus-SHA256SUMS and satx-SHA256SUMS), in
       # `sha256sum --check` format, uploaded with them; it lists the

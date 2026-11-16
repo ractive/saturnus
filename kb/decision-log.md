@@ -5077,15 +5077,18 @@ saturnus".
   `Depends`, its binary `ARM aarch64, statically linked`; the .rpm
   `aarch64` (kb/docs/releasing.md, "Linux packages").
 
-## 2026-11-16 (the Mac app is "Saturnus")
+## 2026-11-16 (the app is "Saturnus" on macOS and Windows)
 
-- **Capital S on macOS only**: every other app in the Applications
-  folder starts with a capital, so `crates/saturnus-tauri/tauri.macos.conf.json`
-  sets `productName` to "Saturnus": the app is `Saturnus.app`, its menu
-  and Dock name "Saturnus", the .dmg `Saturnus_V_aarch64.dmg`. The
+- **Capital S on macOS and Windows**: the other apps in the
+  Applications folder and the Start menu start with a capital, so
+  `productName` in `crates/saturnus-tauri/tauri.conf.json` is
+  "Saturnus": `Saturnus.app`, the Start menu entry and Installed apps
+  "Saturnus", the installers `Saturnus_V_…`. The MSI `UpgradeCode`
+  (Tauri derives it from the product name, case-sensitively) is pinned
+  to the old one so a new .msi upgrades an old install. The
   bundle id `ch.ractive.saturnus` is unchanged, so settings, data and
   the cask's `zap` paths carry over; `brew upgrade` removes the old
   `saturnus.app` (the previous cask's artifact) before installing the
-  new one. Windows, Linux, the window title and the project's name in
-  prose stay "saturnus"; the stable alias `saturnus-mac.dmg` is
+  new one. Linux (`saturnus-app`), the window title and the project's
+  name in prose stay as they were; the stable alias `saturnus-mac.dmg` is
   unchanged (kb/docs/releasing.md, "Desktop app").

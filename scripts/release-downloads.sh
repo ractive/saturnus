@@ -45,16 +45,15 @@ asset_url() {
   awk -v name="$1" '$1 == name { print $2 }' <<< "$assets"
 }
 
-# The Mac app is "Saturnus" since 0.12.1 (tauri.macos.conf.json), so its
-# .dmg is capitalised; older releases have saturnus_V_aarch64.dmg.
-mac="Saturnus_${version}_aarch64.dmg"
-win="saturnus_${version}_x64-setup.exe"
-win_arm="saturnus_${version}_arm64-setup.exe"
+# The app is "Saturnus" on macOS and Windows since 0.12.1 (productName in
+# tauri.conf.json), so the installers are capitalised; older releases
+# have saturnus_V_….
+prefix=Saturnus
+[ -n "$(asset_url "${prefix}_${version}_aarch64.dmg")" ] || prefix=saturnus
+mac="${prefix}_${version}_aarch64.dmg"
+win="${prefix}_${version}_x64-setup.exe"
+win_arm="${prefix}_${version}_arm64-setup.exe"
 mac_url=$(asset_url "$mac")
-if [ -z "$mac_url" ]; then
-  mac="saturnus_${version}_aarch64.dmg"
-  mac_url=$(asset_url "$mac")
-fi
 win_url=$(asset_url "$win")
 win_arm_url=$(asset_url "$win_arm")
 

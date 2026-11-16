@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "saturnus",
+  "productName": "Saturnus",
   "identifier": "ch.ractive.saturnus",
   "build": {
     "frontendDist": "../../web",
@@ -34,6 +34,11 @@
     "longDescription": "saturnus emulates the HP 48SX, 48GX, 49G, 38G, 39G, 40G, 42S, 27S, 17BII, 17B, 28S and 19BII calculators from ROM files you download or read out of your own calculator, and moves files between calculators (emulated or on a serial cable, Kermit and XModem) and the computer. Not affiliated with HP; HP, HP48 and HP49 are trademarks of HP Inc.",
     "copyright": "Copyright © 2026 James Bergamin. MIT License.",
     "license": "MIT",
+    "windows": {
+      "wix": {
+        "upgradeCode": "acb4efce-b545-51db-814b-9fef83a8b360"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
