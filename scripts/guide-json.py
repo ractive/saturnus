@@ -4,6 +4,8 @@
 The plugin's skill (plugins/saturnus/skills/saturnus/) is the one source:
 SKILL.md without its frontmatter is the topic `skill`, and each file of
 its references/ is the topic of its name (`rpl`, `models`, `workflows`).
+A link from one file to another (`[rpl](references/rpl.md#the-28s)`)
+becomes `read_guide("rpl")`: read_guide has no files to follow.
 The page loads web/guide.json when read_guide is first called
 (web/ai-tools.js `guideLoader`); web/site.sh and the desktop app's build
 ship it with the other page files, and the web app's service worker
@@ -14,6 +16,7 @@ precaches it. The JSON is committed and refreshed by running this script:
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -23,6 +26,11 @@ OUT = REPO / "web" / "guide.json"
 
 # The topics in the order read_guide names them (web/ai-tools.js GUIDE_TOPICS).
 TOPICS = ["skill", "rpl", "models", "workflows"]
+
+
+def topic_links(text):
+    """`text` with each Markdown link to another topic's file as a read_guide call."""
+    return re.sub(r"\[[^\]]*\]\((?:references/)?([a-z]+)\.md(?:#[^)]*)?\)", lambda m: f'read_guide("{m[1]}")', text)
 
 
 def without_frontmatter(text):
@@ -42,6 +50,11 @@ def build():
         sys.exit(f"references/ has {refs}, not the topics {TOPICS[1:]}: update TOPICS here and GUIDE_TOPICS in web/ai-tools.js")
     for topic in TOPICS[1:]:
         topics[topic] = (SKILL / "references" / f"{topic}.md").read_text(encoding="utf-8")
+    for topic, text in topics.items():
+        topics[topic] = topic_links(text)
+        for name in re.findall(r'read_guide\("([a-z]+)"\)', topics[topic]):
+            if name not in TOPICS:
+                sys.exit(f"{topic}: a link to {name}.md, which is no topic")
     return {"topics": topics}
 
 

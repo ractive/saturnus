@@ -78,7 +78,8 @@ test("the tools, their schemas and which the page confirms", () => {
 test("read_guide: each topic is the plugin's file (SKILL.md without its frontmatter); an unknown topic names the topics", async () => {
   const t = tools({ "48gx": fake("48gx") });
   const skill = new URL("../../plugins/saturnus/skills/saturnus/", import.meta.url);
-  const file = (path) => readFileSync(new URL(path, skill), "utf8");
+  // Links between the files become read_guide calls (scripts/guide-json.py topic_links).
+  const file = (path) => readFileSync(new URL(path, skill), "utf8").replace(/\[[^\]]*\]\((?:references\/)?([a-z]+)\.md(?:#[^)]*)?\)/g, 'read_guide("$1")');
   const want = {
     skill: file("SKILL.md").replace(/^---\n[\s\S]*?\n---\n+/, ""),
     rpl: file("references/rpl.md"),
@@ -91,6 +92,8 @@ test("read_guide: each topic is the plugin's file (SKILL.md without its frontmat
     // A difference here: web/guide.json is stale, run `just guide`.
     assert.deepEqual(r, { topic, text: want[topic] }, topic);
   }
+  for (const topic of GUIDE_TOPICS) assert.doesNotMatch(want[topic], /\]\((?!https?:)[^)]*\.md/, `${topic}: a link read_guide cannot follow`);
+  assert.match(want.rpl, /in read_guide\("workflows"\)\.\n$/);
   assert.match(want.skill, /^# Working on Saturnus's calculators\n/);
   assert.doesNotMatch(want.skill, /^---|^name: saturnus/m);
   assert.deepEqual(t.read_guide.inputSchema.properties.topic.enum, [...GUIDE_TOPICS]);
