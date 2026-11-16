@@ -16,11 +16,14 @@ the desktop app and the web page share one version.
   list_calculators returns the instructions with its result. Before,
   they were part of the tool's description, and the tab-mcp extension
   cut that after 1000 characters.
-- **The web app finds a new version more reliably.** A new version
-  that was still downloading when the page opened was never offered:
-  no Reload notice, and the page did not take it by itself either.
-  The app now also looks for one when you come back to its window from
-  another app, at most every five minutes.
+- **The web app gets new versions again.** Its offline copy fetched
+  all of a new version's files at once, and the web server answered
+  such a burst with dropped connections and errors, so the update
+  failed silently and the browser stayed on the old version. It now
+  fetches six files at a time and tries a failed file again. A new
+  version that was still downloading when the page opened is now
+  offered too, and the app also looks for one when you come back to
+  its window from another app, at most every five minutes.
 
 ## 0.12.1 (2026-11-16)
 

@@ -48,6 +48,10 @@ export async function installServiceWorker(host, store) {
     if (reloading) location.reload();
   });
   sw.addEventListener("message", (e) => {
+    if (e.data?.type === "install-failed") {
+      console.warn(`Saturnus: the new version (build ${e.data.build}) did not install: ${e.data.error}. The browser tries again on a later visit.`);
+      return;
+    }
     if (e.data?.type !== "others") return;
     reloading = false;
     showOthers();

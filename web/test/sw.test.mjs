@@ -15,7 +15,7 @@ const SOURCE = readFileSync(new URL("../pwa/sw.js", import.meta.url), "utf8");
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
 
 /** sw.js run as `site.sh` ships it, under /saturnus/, with fake caches and clients; `served` maps a URL to the body the server sends (else a 404), `files` is FILES. */
-function worker({ cacheNames = [], windows = [], served = {}, files = [["index.html", sha256("page")]], putFails = null } = {}) {
+function worker({ cacheNames = [], windows = [], served = {}, files = [["index.html", sha256("page")]], putFails = null, failures = {} } = {}) {
   const listeners = {};
   const log = [];
   const names = new Set(cacheNames);
@@ -44,18 +44,29 @@ function worker({ cacheNames = [], windows = [], served = {}, files = [["index.h
     },
   };
   const fetched = [];
+  let open = 0;
+  const flight = { most: 0 };
+  // `failures[url]`: what the first tries of that URL get, in order (a status, or "drop" for a network error).
+  const left = Object.fromEntries(Object.entries(failures).map(([u, f]) => [u, [...f]]));
   const fetch = async (req) => {
     fetched.push([req.url, req.cache]);
+    open += 1;
+    flight.most = Math.max(flight.most, open);
+    await new Promise((r) => setImmediate(r));
+    open -= 1;
+    const fail = left[req.url]?.shift();
+    if (fail === "drop") throw new TypeError("NetworkError when attempting to fetch resource.");
+    if (fail) return new Response("busy", { status: fail });
     return req.url in served ? new Response(served[req.url], { headers: { "content-type": "text/plain" } }) : new Response("not here", { status: 404 });
   };
-  vm.runInNewContext(`const BUILD = "b2"; const FILES = ${JSON.stringify(files)};\n${SOURCE}`, { self, caches, URL, Request, Response, fetch, crypto: globalThis.crypto });
+  vm.runInNewContext(`const BUILD = "b2"; const FILES = ${JSON.stringify(files)};\n${SOURCE}`, { self, caches, URL, Request, Response, fetch, crypto: globalThis.crypto, setTimeout: (fn) => setImmediate(fn) });
   /** Fire `type` with `data`; resolves once its waitUntil work is done. */
   const fire = async (type, extra = {}) => {
     let work = Promise.resolve();
     listeners[type]({ ...extra, waitUntil: (p) => { work = p; } });
     await work;
   };
-  return { fire, log, names, stored, fetched };
+  return { fire, log, names, stored, fetched, flight };
 }
 
 const page = (id) => {
@@ -136,4 +147,33 @@ test("a put that fails (the quota) leaves no cache behind, but never deletes one
   const same = worker({ ...opts, cacheNames: ["saturnus:/saturnus/:b2"] });
   await assert.rejects(same.fire("install"), /QuotaExceededError/);
   assert.deepEqual([...same.names], ["saturnus:/saturnus/:b2"]);
+});
+
+test("install fetches at most 6 files at once, and tries a dropped connection or a 5xx again", async () => {
+  const base = "https://example.org/saturnus/";
+  const names = Array.from({ length: 20 }, (_, i) => `f${i}.js`);
+  const w = worker({
+    files: names.map((f) => [f, sha256(f)]),
+    served: Object.fromEntries(names.map((f) => [`${base}${f}`, f])),
+    failures: { [`${base}f3.js`]: [500, "drop"], [`${base}f7.js`]: [429] },
+  });
+  await w.fire("install");
+  assert.equal(w.stored.size, 20);
+  assert.ok(w.flight.most <= 6, `at most 6 at once, not ${w.flight.most}`);
+  assert.equal(w.fetched.filter(([u]) => u === `${base}f3.js`).length, 3);
+  assert.equal(w.fetched.filter(([u]) => u === `${base}f7.js`).length, 2);
+});
+
+test("a 404 is not tried again; a 5xx that lasts fails after 3 more tries; the open pages hear why", async () => {
+  const base = "https://example.org/saturnus/";
+  const p = page("p1");
+  const gone = worker({ windows: [p], files: [["gone.js", sha256("x")]] });
+  await assert.rejects(gone.fire("install"), /gone\.js: HTTP 404/);
+  assert.equal(gone.fetched.length, 1);
+  assert.deepEqual(p.got, [{ type: "install-failed", build: "b2", error: "gone.js: HTTP 404" }]);
+
+  const busy = worker({ files: [["a.js", sha256("a")]], served: { [`${base}a.js`]: "a" }, failures: { [`${base}a.js`]: [500, 500, 503, 500] } });
+  await assert.rejects(busy.fire("install"), /a\.js: HTTP 500/);
+  assert.equal(busy.fetched.length, 4);
+  assert.equal(busy.stored.size, 0);
 });

@@ -33,26 +33,69 @@ const CACHE = `${PREFIX}${BUILD}`;
 const urlOf = (f) => new URL(f, SCOPE).href;
 const KNOWN = new Set(FILES.map(([f]) => urlOf(f)));
 
+/** How many of the build's files install fetches at once: the server drops connections and answers 500 to a burst of all of them. */
+const PARALLEL = 6;
+/** The waits before each new try of a file that failed in transit (a dropped connection, a 5xx, a 429), in ms. */
+const RETRY_MS = [500, 2000, 5000];
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(precache());
+  // A failed install is silent otherwise (the browser keeps the old
+  // worker and tries again on a later visit): the open pages hear why.
+  event.waitUntil(precache().catch(async (err) => {
+    const error = String(err?.message ?? err);
+    for (const p of await self.clients.matchAll({ type: "window" })) p.postMessage({ type: "install-failed", build: BUILD, error });
+    throw err;
+  }));
 });
 
+/** `f`'s response, tried again after RETRY_MS while the network or the server fails; a 404 or another 4xx is final. */
+async function fetchFile(f) {
+  for (let i = 0; ; i += 1) {
+    let res = null;
+    let failed;
+    try {
+      res = await fetch(new Request(urlOf(f), { cache: "reload" }));
+      if (res.ok) return res;
+      failed = new Error(`${f}: HTTP ${res.status}`);
+    } catch (err) {
+      failed = new Error(`${f}: ${err?.message ?? err}`);
+    }
+    const transient = !res || res.status >= 500 || res.status === 429;
+    if (!transient || i >= RETRY_MS.length) throw failed;
+    await new Promise((r) => setTimeout(r, RETRY_MS[i]));
+  }
+}
+
+/** `fn` over `items`, at most `n` at a time, in order; rejects on the first failure. */
+async function inBatches(items, n, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const lane = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, lane));
+  return out;
+}
+
 /**
- * Every file of FILES, checked against its hash, into CACHE; throws,
+ * Every file of FILES (PARALLEL at a time, each tried again on a failure
+ * in transit), checked against its hash, into CACHE; throws,
  * caching nothing, on the first that does not match. Each body is read
  * once (no clone: a tee would hold the build twice). A put that fails
  * (the storage quota) deletes the cache again, unless it was there before
  * (a new worker of the same BUILD fills the cache the active one serves).
  */
 async function precache() {
-  const checked = await Promise.all(FILES.map(async ([f, hash]) => {
-    const res = await fetch(new Request(urlOf(f), { cache: "reload" }));
-    if (!res.ok) throw new Error(`${f}: HTTP ${res.status}`);
+  const checked = await inBatches(FILES, PARALLEL, async ([f, hash]) => {
+    const res = await fetchFile(f);
     const body = await res.arrayBuffer();
     const got = hex(await crypto.subtle.digest("SHA-256", body));
     if (got !== hash) throw new Error(`${f} is not this build's (SHA-256 ${got}, not ${hash})`);
     return [f, new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers })];
-  }));
+  });
   const existed = await caches.has(CACHE);
   const cache = await caches.open(CACHE);
   try {
