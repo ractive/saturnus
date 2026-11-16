@@ -81,8 +81,9 @@ jobs:
           # protocol script that saturnus-drive's tests/protocol_script.rs
           # runs natively.
           out rust '^(crates/|Cargo\.(toml|lock)$|deny\.toml$|rustfmt\.toml$|LICENSE$|web/test/protocol-script\.(expected\.)?json$)'
-          # The page, its tests and the scripts that generate its data.
-          out web '^(web/|scripts/[^/]*\.py$)'
+          # The page, its tests, the scripts that generate its data and
+          # the plugin's skill (web/guide.json is generated from it).
+          out web '^(web/|plugins/|scripts/[^/]*\.py$)'
           out kb '^(kb/|\.hyalo\.toml$)'
 
   fmt:
@@ -459,6 +460,10 @@ jobs:
       # scripts/commands-json.py; the committed file must be current.
       - name: Command palette data is current
         run: python3 scripts/commands-json.py --check
+      # web/guide.json is read_guide's copy of the plugin's skill
+      # (scripts/guide-json.py); the committed file must be current.
+      - name: AI guide is current
+        run: python3 scripts/guide-json.py --check
       # The examples' comments follow kb/docs/example-comments.md.
       - name: Example comments follow the rules
         run: python3 scripts/check-comments.py

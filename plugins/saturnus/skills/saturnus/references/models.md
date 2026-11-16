@@ -83,6 +83,6 @@ Algebraic graphing calculators built around aplets.
 
 ## HP 28S
 
-RPL, typed through its keys. See [rpl.md](rpl.md#the-28s). It draws the
+RPL, typed through its keys. See "The 28S" in [rpl](rpl.md#the-28s). It draws the
 calculator open, with the letter keys on the left half; `list_keys` names
 them. Docs: <https://ractive.ch/saturnus/docs/28s.md>.

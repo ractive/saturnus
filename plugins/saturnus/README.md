@@ -7,7 +7,9 @@ real ROMs. The plugin gives an AI app two things:
 - **The Saturnus skill** (`skills/saturnus/`): how to use the calculators well
   through Saturnus's MCP tools. RPL programming, the models' differences, the
   screens that catch key presses, the documented ROM bugs, and worked tasks.
-  The tools' own descriptions stay the core; the skill adds to them.
+  The tools' own descriptions stay the core; the skill adds to them. The
+  app's `read_guide` tool gives the same text to AI apps without the
+  plugin.
 - **The desktop app's calculators as tools** (`.mcp.json`, Claude Code only):
   the MCP server the Saturnus desktop app runs on this computer.
 

@@ -211,3 +211,24 @@ test("a consequential call asks in tab-mcp's dialog; Allow until reload lets the
   const third = await until(`window.t.third.then((r) => JSON.stringify(r))`, "the third call");
   assert.match(JSON.parse(third).result.content[0].text, /declined/);
 });
+
+test("read_guide on the desktop app's endpoint: the page's guide.json, no question; the instructions point at it", { timeout: 60_000 }, async (t) => {
+  const c = await session(t);
+  if (!c) return;
+  const { send, ev, port } = c;
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Page.navigate", { url: `http://127.0.0.1:${port}/shared/mcp-install.js` });
+  await sleep(300);
+  assert.equal(await ev(SETUP), true);
+  const attach = await ev(`window.t.calls.find(([cmd]) => cmd === "mcp_attach")[1].instructions`);
+  assert.match(attach, /read_guide/);
+  const r = JSON.parse(await ev(`window.t.call(1, { name: "read_guide", arguments: { topic: "models" } }, "Cursor").then((r) => JSON.stringify(r))`));
+  assert.equal(r.result.isError, undefined, JSON.stringify(r));
+  assert.equal(r.result.structuredContent.topic, "models");
+  assert.match(r.result.structuredContent.text, /^# The key-driven models\n/);
+  assert.equal(await ev(`document.querySelectorAll("dialog.tab-mcp-confirm").length`), 0, "not asked");
+  const bad = JSON.parse(await ev(`window.t.call(2, { name: "read_guide", arguments: { topic: "nope" } }, "Cursor").then((r) => JSON.stringify(r))`));
+  assert.equal(bad.result.isError, true);
+  assert.match(bad.result.content[0].text, /must be one of "skill", "rpl", "models", "workflows"/);
+});

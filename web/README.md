@@ -1181,7 +1181,13 @@ through the relay while the tab is open. Nothing is installed.
 - **Tools** (`ai-tools.js`, WebMCP's `registerTool` shape; the server's
   instructions carry how to use them): `list_calculators`, `list_keys`,
   `read_display` (a PNG and/or text), `press_keys`, `lookup_command`
-  (`commands.json`) on every model; `run_rpl` on the 48SX, 48GX, 49G and
+  (`commands.json`) on every model; `read_guide` with or without a
+  calculator (the plugin's skill as topics `skill`, `rpl`, `models`,
+  `workflows`: `guide.json`, generated from
+  `plugins/saturnus/skills/saturnus/` by `scripts/guide-json.py`, `just
+  guide`, committed and checked in CI like `commands.json`, so the site,
+  the service worker's precache and the desktop app's page ship it as a
+  page file); `run_rpl` on the 48SX, 48GX, 49G and
   28S (the 28S through its keys, as Search types); `read_stack`,
   `list_variables`, `read_variable`, `store_variable` and
   `purge_variable` on the 48SX, 48GX and 49G (the protocol's `stack`,
@@ -1227,7 +1233,12 @@ through the relay while the tab is open. Nothing is installed.
   `toolcall`/`toolcallend` on the `AiAccess` for the log. A result is the tool's JSON, a failure
   `{error}` (Chrome hides a rejection's message); the display comes as
   text unless the call asks for an image (`display`/`format`), then as
-  the `image` data URL. Without a relay (127.0.0.1) `AiAccess` is still made for it,
+  the `image` data URL. WebMCP has no server instructions, and
+  tab-mcp's extension cuts a tool's description at 1000 characters, so
+  `list_calculators`'s description only says that its result carries
+  them: every WebMCP call of it returns `instructions` (`webMcpText` of
+  `INSTRUCTIONS`); tab-mcp and the desktop app send them as the server's
+  instructions instead. Without a relay (127.0.0.1) `AiAccess` is still made for it,
   `available` false, and the sidebar's entry stays hidden. Tests:
   `test/ai-webmcp.test.mjs` (a fake `document.modelContext`),
   `test/ai-webmcp-page.test.mjs` (Chrome with

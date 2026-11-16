@@ -1,7 +1,8 @@
 # Workflows
 
 Each starts with `list_calculators` and `read_display`, and gets out of any
-open form or menu first (SKILL.md, "Screens that catch key presses").
+open form or menu first ("Screens that catch key presses" in the skill,
+`read_guide` topic `skill`).
 
 ## Write, store and test a program (48SX, 48GX, 49G)
 

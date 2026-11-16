@@ -58,19 +58,19 @@ where the transport has them, the server instructions.
 
 ## Tasks
 
-- [ ] A test asserts every WebMCP tool description is at most 1000
+- [x] A test asserts every WebMCP tool description is at most 1000
   characters (after `webMcpText` and the list_calculators additions).
-- [ ] `list_calculators` under WebMCP: short description, `instructions`
+- [x] `list_calculators` under WebMCP: short description, `instructions`
   in the result, `OUT.calculators` updated; tests in
   web/test/ai-webmcp.test.mjs.
-- [ ] `read_guide` in web/ai-tools.js with its topics, served from the
+- [x] `read_guide` in web/ai-tools.js with its topics, served from the
   plugin's files through the build; tests in web/test/ai-tools.test.mjs
   (each topic returns the file's text, unknown topic errors).
-- [ ] read_guide works on the desktop endpoint (web/ai-local.js) and
+- [x] read_guide works on the desktop endpoint (web/ai-local.js) and
   through tab-mcp (web/ai.js); existing tool-list tests updated.
-- [ ] INSTRUCTIONS points at read_guide; docs and the skill's tool list
+- [x] INSTRUCTIONS points at read_guide; docs and the skill's tool list
   updated.
-- [ ] `just web-test` and the touched page tests pass; CHANGELOG
+- [x] `just web-test` and the touched page tests pass; CHANGELOG
   Unreleased entry.
 
 ## Out of scope

@@ -33,7 +33,7 @@ When Claude needs a calculator and Saturnus is closed, the extension starts it. 
 
 ## The Saturnus skill
 
-The skill adds what the tools do not say: RPL programming, the differences between the models (the 42S's menus, the 38G's HOME view, the business models' menus), the screens that catch key presses, the known ROM bugs, and worked examples such as a program on the 48GX, a loan on the 17BII and a linear fit on the 38G. It is optional; the tools work without it.
+The skill adds what the tools do not say: RPL programming, the differences between the models (the 42S's menus, the 38G's HOME view, the business models' menus), the screens that catch key presses, the known ROM bugs, and worked examples such as a program on the 48GX, a loan on the 17BII and a linear fit on the 38G. It is optional; the tools work without it. AI apps without the skill can read the same text through the `read_guide` tool, one topic at a time.
 
 It is in the open [Agent Skills](https://agentskills.io/) format, a folder with `SKILL.md`, in the Saturnus repository under [plugins/saturnus/skills/saturnus](https://github.com/ractive/saturnus/tree/main/plugins/saturnus/skills/saturnus).
 

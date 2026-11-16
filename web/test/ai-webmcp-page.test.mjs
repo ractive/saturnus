@@ -66,8 +66,9 @@ test("the app registers its tools with WebMCP on load, without a relay", { timeo
   const { send, ev, port } = c;
   await send("Page.navigate", { url: `http://127.0.0.1:${port}/index.html#/calculator` });
   await until(ev, "!!window.saturnus", 15_000, "the page started");
-  assert.equal(await until(ev, `${NAMES}.then((n) => n.includes('list_calculators') && n)`, 15_000, "the tools registered"), "list_calculators lookup_command");
-  const tools = await ev("document.modelContext.getTools().then((ts) => ts.map((t) => ({ name: t.name, title: t.title, annotations: t.annotations, origin: t.origin })))");
+  assert.equal(await until(ev, `${NAMES}.then((n) => n.includes('read_guide') && n)`, 15_000, "the tools registered"), "list_calculators lookup_command read_guide");
+  const tools = await ev("document.modelContext.getTools().then((ts) => ts.map((t) => ({ name: t.name, title: t.title, description: t.description, annotations: t.annotations, origin: t.origin })))");
+  for (const tool of tools) assert.ok(tool.description.length <= 1000, `${tool.name}: ${tool.description.length} characters`);
   const list = tools.find((x) => x.name === "list_calculators");
   assert.equal(list.title, "List calculators");
   assert.equal(list.annotations.readOnlyHint, true);
@@ -75,6 +76,11 @@ test("the app registers its tools with WebMCP on load, without a relay", { timeo
   const none = await ev(run("list_calculators"));
   assert.deepEqual(none.calculators, []);
   assert.match(none.note, /No calculator is running/);
+  assert.match(none.instructions, /^Saturnus runs emulated HP calculators/);
+  // The guide, from the page's guide.json.
+  const guide = await ev(run("read_guide", { topic: "workflows" }));
+  assert.equal(guide.topic, "workflows");
+  assert.match(guide.text, /^# Workflows\n/);
   const sin = await ev(run("lookup_command", { model: "48gx", name: "SIN" }));
   assert.equal(sin.name, "SIN");
   assert.equal(sin.model, "48gx");
@@ -162,7 +168,7 @@ test("an agent in Chrome reads the 48GX's display, runs RPL and stores", { timeo
   await until(ev, "window.saturnus.backend.stack().then(() => window.saturnus.backend.stats()).then((s) => s.loop === 'sleep' && s.emulatedMs > 4000, () => false)", 30_000, "the 48GX settled");
   // The 48GX's family: registered again for it.
   await until(ev, `${NAMES}.then((n) => n.includes('run_rpl'))`, 10_000, "the RPL tools");
-  assert.equal(await ev(NAMES), "list_calculators list_keys list_variables lookup_command press_keys purge_variable read_display read_stack read_variable run_rpl store_variable to_stack");
+  assert.equal(await ev(NAMES), "list_calculators list_keys list_variables lookup_command press_keys purge_variable read_display read_guide read_stack read_variable run_rpl store_variable to_stack");
 
   const list = await ev(run("list_calculators"));
   assert.deepEqual(list.calculators.map((x) => [x.id, x.shown, x.family]), [["48gx", true, "rpl"]]);

@@ -4,13 +4,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { aiTools, familyOf, INSTRUCTIONS, pixelRows } from "../ai-tools.js";
+import { aiTools, familyOf, GUIDE_TOPICS, guideLoader, INSTRUCTIONS, pixelRows } from "../ai-tools.js";
 import { buildIndex } from "../reference.js";
 import { validate } from "../ai-local.js";
 
 const data = JSON.parse(readFileSync(new URL("../commands.json", import.meta.url), "utf8"));
 const reference = { index: async (m) => buildIndex(data, m) };
 const PACE = { first: 0, poll: 0, limit: 200 };
+/** read_guide's text, web/guide.json (scripts/guide-json.py). */
+const GUIDE = JSON.parse(readFileSync(new URL("../guide.json", import.meta.url), "utf8"));
 
 /** A 131×64 frame, all light. */
 const FRAME = { width: 131, height: 64, pixels: Buffer.alloc(17 * 64).toString("base64"), annunciators: { leftshift: false, rightshift: false, alpha: false } };
@@ -46,6 +48,7 @@ function tools(targets, { shown = Object.keys(targets)[0], png = async () => "PN
     existing: existing ?? (async (id) => targets[id] ?? null),
     reference,
     png,
+    guide: async () => GUIDE,
     pace: PACE,
   });
   return Object.fromEntries(all.map((t) => [t.name, t]));
@@ -63,13 +66,66 @@ test("the tools, their schemas and which the page confirms", () => {
   const consequential = Object.values(t).filter((x) => x.annotations?.consequentialHint).map((x) => x.name);
   assert.deepEqual(consequential, ["store_variable", "purge_variable"]);
   assert.equal(t.purge_variable.annotations.destructiveHint, true);
-  for (const name of ["list_calculators", "list_keys", "read_display", "read_stack", "list_variables", "read_variable", "lookup_command"]) {
+  for (const name of ["list_calculators", "list_keys", "read_display", "read_stack", "list_variables", "read_variable", "lookup_command", "read_guide"]) {
     assert.equal(t[name].annotations?.readOnlyHint, true, name);
   }
   for (const name of ["press_keys", "run_rpl", "run_function"]) assert.ok(!t[name].annotations?.consequentialHint, name);
   assert.match(INSTRUCTIONS, /read the display/);
   assert.deepEqual(familyOf("42s").family, "keys");
   assert.deepEqual(familyOf("28s").family, "rpl-keys");
+});
+
+test("read_guide: each topic is the plugin's file (SKILL.md without its frontmatter); an unknown topic names the topics", async () => {
+  const t = tools({ "48gx": fake("48gx") });
+  const skill = new URL("../../plugins/saturnus/skills/saturnus/", import.meta.url);
+  const file = (path) => readFileSync(new URL(path, skill), "utf8");
+  const want = {
+    skill: file("SKILL.md").replace(/^---\n[\s\S]*?\n---\n+/, ""),
+    rpl: file("references/rpl.md"),
+    models: file("references/models.md"),
+    workflows: file("references/workflows.md"),
+  };
+  assert.deepEqual([...GUIDE_TOPICS], Object.keys(want));
+  for (const topic of GUIDE_TOPICS) {
+    const r = await call(t.read_guide, { topic });
+    // A difference here: web/guide.json is stale, run `just guide`.
+    assert.deepEqual(r, { topic, text: want[topic] }, topic);
+  }
+  assert.match(want.skill, /^# Working on Saturnus's calculators\n/);
+  assert.doesNotMatch(want.skill, /^---|^name: saturnus/m);
+  assert.deepEqual(t.read_guide.inputSchema.properties.topic.enum, [...GUIDE_TOPICS]);
+  assert.deepEqual(t.read_guide.inputSchema.required, ["topic"]);
+  for (const topic of [undefined, "", "nope", "SKILL.md"]) {
+    await assert.rejects(call(t.read_guide, { topic }), /^Error: There is no guide topic .*\. The topics: skill, rpl, models, workflows\.$/, String(topic));
+  }
+  // The description says when to read which topic; the instructions point at it.
+  for (const topic of GUIDE_TOPICS) assert.match(t.read_guide.description, new RegExp(`"${topic}"`));
+  assert.match(INSTRUCTIONS, /read_guide .*"rpl" topic before you write an RPL program, and "models" before you move work/);
+  // Without the guide (no `guide` given): an error, not a crash.
+  const bare = aiTools({ calculators: async () => [], target: async () => null, reference });
+  await assert.rejects(call(bare.find((x) => x.name === "read_guide"), { topic: "rpl" }), /The guide is not available here/);
+});
+
+test("guideLoader: web/guide.json fetched once, again after a failure", async () => {
+  const fetchWas = globalThis.fetch;
+  const urls = [];
+  let fail = true;
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    if (fail) return { ok: false, status: 404 };
+    return { ok: true, json: async () => GUIDE };
+  };
+  try {
+    const load = guideLoader();
+    await assert.rejects(load(), /HTTP 404/);
+    fail = false;
+    assert.equal(await load(), GUIDE);
+    assert.equal(await load(), GUIDE);
+    assert.equal(urls.length, 2);
+    assert.match(urls[0], /\/web\/guide\.json$/);
+  } finally {
+    globalThis.fetch = fetchWas;
+  }
 });
 
 test("list_calculators: each with its family's tools; none running says what to do", async () => {

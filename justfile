@@ -163,6 +163,10 @@ flags wiki="~/devel/calculator-knowledgebase":
 commands:
     scripts/commands-json.py
 
+# read_guide's text from the plugin's skill, plugins/saturnus/skills/saturnus/ (web/guide.json).
+guide:
+    scripts/guide-json.py
+
 # Registers the decision log's merge driver (.gitattributes) in this
 # clone's config, which its worktrees share; once per clone. A checkout
 # without the script (an older branch) falls back to a plain union merge.
