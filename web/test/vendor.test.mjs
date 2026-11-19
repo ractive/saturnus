@@ -72,7 +72,7 @@ test("a changed, an extra and a missing file are each reported", () => {
   // The chunk the confirmation and the connect dialog share (tab-mcp 0.16): not loaded by the entry itself.
   const confirm = names.find((n) => n.startsWith("confirm-"));
   const shared = [...String(read(confirm)).matchAll(/from\s*"\.\/([^"]+)"/g)].map((m) => m[1]);
-  assert.equal(shared.length, 1, `${confirm} imports one shared chunk`);
+  assert.ok(shared.length >= 1, `${confirm} imports shared chunks (tab-mcp 0.18: the dialogs' and the allowances')`);
   const noShared = vendorProblems(names.filter((n) => n !== shared[0]), read).join("\n");
   assert.match(noShared, new RegExp(`${confirm.replace(/\./g, "\\.")} loads ${shared[0].replace(/\./g, "\\.")}, which is missing`));
 });

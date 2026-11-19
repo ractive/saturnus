@@ -261,6 +261,14 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   assert.equal((await purge).error, true);
   assert.ok((await use(client, "list_variables")).json.home.some((v) => v.name === "AIT"));
 
+  // The dialog's "Runs without asking" is the client's allowedTools: the tools that ask, and an allowed one runs without the question.
+  assert.deepEqual(await ev("window.saturnusApp.ai.then((a) => a.allowed.tools().map((x) => x.name).sort())"), ["purge_variable", "store_variable"]);
+  await ev("window.saturnusApp.ai.then((a) => (a.allowed.allow('g_test', 'store_variable'), true))");
+  const quiet = await use(client, "store_variable", { name: "AIT", text: "« 2 * »" });
+  assert.equal(quiet.json.stored, true, quiet.text);
+  assert.equal(await ev("document.querySelector('dialog.tab-mcp-confirm') === null"), true, "no question for an allowed tool");
+  await ev("window.saturnusApp.ai.then((a) => (a.allowed.ask('g_test', 'store_variable'), true))");
+
   // The AI's calls: both, with how they ended.
   await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => b.textContent === 'Calls').click(), true");
   await until(ev, "!document.getElementById('ai-log').hidden", 5_000, "the AI's calls open");

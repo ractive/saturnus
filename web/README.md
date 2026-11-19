@@ -1095,7 +1095,16 @@ through the relay while the tab is open. Nothing is installed.
   moves when it changes; one click selects it) with Copy code; the
   connected apps as card rows, each with Disconnect (the client's
   `revoke()`, a promise since tab-mcp 0.16: a refusal or no answer is
-  said in the status line); the notes; **Keep AI access on** (connect again when the app opens, kept as
+  said in the status line), and under each a closed "Runs without asking"
+  with one switch per tool that asks (store_variable, purge_variable;
+  the client's `allowedTools(mcp)`, vendored as `allowed.min.js`, with
+  `alwaysAllow: true`, so the question also offers Always allow) and
+  "Allow everything, no questions asked" (every tool, also later ones;
+  the tool switches then show on and disabled). They are real switches
+  (`role="switch"`, named with the app), updated in place so the focus
+  stays; the client keeps them until the app is disconnected. The
+  desktop app has no relay grants and keeps its own "Allow until reload"
+  (`ai-local.js`); the notes; **Keep AI access on** (connect again when the app opens, kept as
   `saturnus.aiKeepOn`); Turn off, and Connect or Done, whichever shows,
   as the one primary button. Disconnect all apps (every app loses
   access) is a link under the address. While the connection is lost

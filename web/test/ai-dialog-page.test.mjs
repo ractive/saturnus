@@ -39,6 +39,25 @@ const SETUP = `(async () => {
     disconnect() { this.state = "disconnected"; this.changed(); }
     async revoke() {}
     async newAddress() {}
+    // The client's allowedTools(mcp), as far as the dialog uses it.
+    allowed = (() => {
+      const listeners = new Set();
+      const one = new Set();
+      const every = new Set();
+      const tools = [{ name: "store_variable", title: "Store a variable", description: "d", destructive: false }, { name: "purge_variable", title: "Purge a variable", description: "d", destructive: true }];
+      const fire = () => { listeners.forEach((l) => l()); window.t.ai.changed(); };
+      return {
+        calls: [],
+        tools: () => tools,
+        list: (g) => [...one].filter((k) => k.startsWith(g + "/")).map((k) => k.slice(g.length + 1)),
+        has: (g, n) => one.has(g + "/" + n) || every.has(g),
+        everything: (g) => every.has(g),
+        allow(g, n) { this.calls.push(["allow", g, n]); one.add(g + "/" + n); fire(); },
+        ask(g, n) { this.calls.push(["ask", g, n]); one.delete(g + "/" + n); every.delete(g); fire(); },
+        setEverything(g, on) { this.calls.push(["everything", g, on]); if (on) every.add(g); else every.delete(g); fire(); },
+        onChange(l) { listeners.add(l); return () => listeners.delete(l); },
+      };
+    })();
   }
   const { openAiDialog } = await import("/ai-dialog.js");
   t.ai = new FakeAi();
@@ -95,6 +114,7 @@ async function open(t) {
   await until(ev, DIALOG, "the dialog");
   // Its entrance (a scale) settled: the sizes measured below are the ones it keeps.
   await until(ev, `document.querySelector("dialog.ai").getAnimations({ subtree: true }).every((a) => a.playState === "finished")`, "the dialog's entrance");
+  ev.send = send;
   return ev;
 }
 
@@ -147,16 +167,16 @@ test("the browser dialog: Done waits for an AI app, the code has Copy, Codex get
   assert.equal(d.doneNote, false);
   assert.equal(d.code, null, "no code: the box stays, empty");
   assert.deepEqual(d.codeBox, emptyBox);
-  assert.deepEqual(await ev(`[...document.querySelectorAll("dialog.ai .ai-apps li")].map((li) => [li.querySelector(".row-title").textContent, li.querySelector(".row-sub").textContent.trim(), li.querySelector("button").getAttribute("aria-label")])`), [["Codex", "chatgpt.com", "Disconnect Codex"]]);
+  assert.deepEqual(await ev(`[...document.querySelectorAll("dialog.ai .ai-apps > li")].map((li) => [li.querySelector(".row-title").textContent, li.querySelector(".row-sub").textContent.trim(), li.querySelector("button").getAttribute("aria-label")])`), [["Codex", "chatgpt.com", "Disconnect Codex"]]);
   // Disconnect is a promise (tab-mcp 0.16): its button stays off while it runs, also across renders;
   // a refusal shows the words AI access puts in `error` (ai.js `revoke`).
-  await ev(`window.t.ai.revoke = (id) => { window.t.revoked = id; return new Promise((_, reject) => { window.t.refuse = () => { window.t.ai.error = "The relay could not save this. Try again."; window.t.ai.changed(); reject(new Error(window.t.ai.error)); }; }); }, document.querySelector("dialog.ai .ai-apps li button").click(), window.t.ai.changed(), true`);
+  await ev(`window.t.ai.revoke = (id) => { window.t.revoked = id; return new Promise((_, reject) => { window.t.refuse = () => { window.t.ai.error = "The relay could not save this. Try again."; window.t.ai.changed(); reject(new Error(window.t.ai.error)); }; }); }, document.querySelector("dialog.ai .ai-apps > li button").click(), window.t.ai.changed(), true`);
   assert.equal(await ev(`window.t.revoked`), "g1");
-  assert.equal(await ev(`document.querySelector("dialog.ai .ai-apps li button").disabled`), true, "off while it runs");
+  assert.equal(await ev(`document.querySelector("dialog.ai .ai-apps > li button").disabled`), true, "off while it runs");
   await ev(`window.t.refuse(), true`);
   d = await until(ev, `(${DIALOG})?.status[0] === "error" && (${DIALOG})`, "the refusal said");
   assert.equal(d.status[1], "The relay could not save this. Try again.");
-  await until(ev, `document.querySelector("dialog.ai .ai-apps li button").disabled === false`, "Disconnect usable again");
+  await until(ev, `document.querySelector("dialog.ai .ai-apps > li button").disabled === false`, "Disconnect usable again");
   await click("Done");
   await until(ev, `window.t.done === true`, "closed by Done");
 });
@@ -236,4 +256,58 @@ test("the browser dialog: Close anyway closes it while it waits (a phone has no 
   assert.equal((await ev(DIALOG)).doneNote, true);
   await ev(`[...document.querySelectorAll("dialog.ai button")].find((b) => b.textContent === "Close anyway").click(), true`);
   await until(ev, `window.t.done === true`, "closed by Close anyway");
+});
+
+const SWITCHES = `(() => {
+  const d = document.querySelector("dialog.ai");
+  const det = d.querySelector("details.ai-allow");
+  if (!det) return null;
+  return {
+    open: det.open,
+    summary: det.querySelector("summary").textContent,
+    switches: [...det.querySelectorAll("input[role=switch]")].map((i) => ({ name: i.getAttribute("aria-label"), label: i.closest("label").textContent, on: i.checked, disabled: i.disabled })),
+    focus: document.activeElement?.getAttribute("aria-label") ?? null,
+    rows: d.querySelectorAll(".ai-apps > li").length,
+  };
+})()`;
+
+test("the browser dialog: Runs without asking, a switch per tool that asks and one for everything, the focus kept", { timeout: 60_000 }, async (t) => {
+  const ev = await open(t);
+  if (!ev) return;
+  assert.equal(await ev(SWITCHES), null, "no app, no switches");
+  await ev(`window.t.ai.mcp.grants = [{ grantId: "g1", client: { id: "c", name: "Claude", host: "claude.ai" } }], window.t.ai.changed(), true`);
+  let d = await until(ev, SWITCHES, "the switches");
+  assert.equal(d.open, false, "closed");
+  assert.equal(d.summary, "Runs without asking");
+  assert.deepEqual(d.switches, [
+    { name: "Store a variable, Claude", label: "Store a variable", on: false, disabled: false },
+    { name: "Purge a variable (destructive), Claude", label: "Purge a variable (destructive)", on: false, disabled: false },
+    { name: "Allow everything, no questions asked, Claude", label: "Allow everything, no questions asked", on: false, disabled: false },
+  ]);
+  assert.equal(await ev(`document.querySelectorAll("dialog.ai details.ai-allow .ai-note").length`), 1, "a sentence on what everything covers");
+  // Open it, focus the first switch and turn it on with the keyboard (Space): the state follows, the focus stays.
+  await ev(`document.querySelector("dialog.ai details.ai-allow").open = true, document.querySelector("dialog.ai details.ai-allow input").focus(), true`);
+  for (const type of ["keyDown", "keyUp"]) await ev.send("Input.dispatchKeyEvent", { type, key: " ", code: "Space", text: type === "keyDown" ? " " : undefined, windowsVirtualKeyCode: 32 });
+  d = await until(ev, `(${SWITCHES})?.switches[0].on && (${SWITCHES})`, "Store allowed");
+  assert.deepEqual(await ev(`window.t.ai.allowed.calls`), [["allow", "g1", "store_variable"]]);
+  assert.equal(d.focus, "Store a variable, Claude", "the focus stays on the switch");
+  assert.equal(d.open, true, "still open");
+  // A change from elsewhere (another tab) is drawn in place, the focus untouched.
+  await ev(`window.t.ai.allowed.setEverything("g1", true), true`);
+  d = await until(ev, `(${SWITCHES})?.switches[2].on && (${SWITCHES})`, "everything on");
+  assert.deepEqual(d.switches.map((s) => [s.on, s.disabled]), [[true, true], [true, true], [true, false]], "the tool switches show on and disabled");
+  assert.equal(d.focus, "Store a variable, Claude", "focus kept (a disabled input loses it only in the browser's own way)");
+  // Everything off again: the tools are as they were allowed one by one.
+  await ev(`document.querySelector("dialog.ai details.ai-allow .ai-allow-all input").click(), true`);
+  d = await until(ev, `!(${SWITCHES})?.switches[2].on && (${SWITCHES})`, "everything off");
+  assert.deepEqual(d.switches.map((s) => [s.on, s.disabled]), [[true, false], [false, false], [false, false]]);
+  assert.equal(d.rows, 1);
+  // An allowance for a tool that is not registered now is listed by name, only to turn off.
+  await ev(`window.t.ai.allowed.allow("g1", "gone_tool"), true`);
+  d = await until(ev, `(${SWITCHES})?.switches.length === 4 && (${SWITCHES})`, "the unregistered tool");
+  assert.deepEqual(d.switches.map((s) => s.label), ["Store a variable", "Purge a variable (destructive)", "gone_tool", "Allow everything, no questions asked"]);
+  assert.deepEqual(d.switches.find((s) => s.label === "gone_tool"), { name: "gone_tool, Claude", label: "gone_tool", on: true, disabled: false });
+  // The app goes: its row and switches go.
+  await ev(`window.t.ai.mcp.grants = [], window.t.ai.changed(), true`);
+  await until(ev, `${SWITCHES} === null`, "no switches");
 });

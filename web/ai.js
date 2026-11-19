@@ -129,6 +129,7 @@ export class AiAccess extends EventTarget {
     hub = { running: hubRunning, client: (who) => new HubClient({ who }) },
     roms = { kept: (models) => keptRoms(undefined, models), bytes: (sha256) => keptRomBytes(sha256) },
     client = () => import("./vendor/tab-mcp-client/tab-mcp-client.min.js"),
+    allowedModule = () => import("./vendor/tab-mcp-client/allowed.min.js"),
     now = () => Date.now(),
     look = settingLook,
   } = {}) {
@@ -151,6 +152,10 @@ export class AiAccess extends EventTarget {
     /** The kept ROMs (web/tx/kept-roms.js): `kept(models)`, `bytes(sha256)`. */
     /** Loads tab-mcp's client (the vendored module; tests give a fake). */
     this.client = client;
+    /** Loads the client's `allowed` entry (tests give a fake). */
+    this.allowedModule = allowedModule;
+    /** The tools that run without asking, per connected AI app (the client's `allowedTools(mcp)`), once the client is loaded; else null. */
+    this.allowed = null;
     this.roms = roms;
     /** Counts the sessions' ends: an attach that outlived its session lets go. */
     this.session = 0;
@@ -254,6 +259,9 @@ export class AiAccess extends EventTarget {
         // The client's WebMCP mirror (tab-mcp 0.13) stays off: web/ai-webmcp.js registers the tools
         // with WebMCP itself, without the page's question; the mirror would register them twice.
         webmcp: false,
+        // The question before store_variable and purge_variable offers "Always allow", and the
+        // dialog has the switches (web/ai-dialog.js): allowed until the AI app is disconnected.
+        alwaysAllow: true,
       });
       for (const tool of this.tools) await mcp.registerTool(tool);
       // `statechange` (tab-mcp 0.16) carries `reason` when a session ends (connected to disconnected
@@ -306,6 +314,13 @@ export class AiAccess extends EventTarget {
         this.error = message !== null && mcp.state === "disconnected" ? `Could not connect to the relay: ${message}` : message;
         this.changed();
       });
+      // The switches' store (the dialog's "Runs without asking"); a client without it has none.
+      try {
+        this.allowed = (await this.allowedModule()).allowedTools(mcp);
+        this.allowed.onChange(() => this.changed());
+      } catch {
+        this.allowed = null;
+      }
       this.mcp = mcp;
       return mcp;
     })();

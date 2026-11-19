@@ -70,8 +70,63 @@ function stepHeading(id, n, title) {
 }
 
 /** A connected app's row: its name, its host below, and `action` at the right. */
-function appRow(name, sub, action = null) {
-  return el("li", { class: "card-row" }, el("span", { class: "ai-app row-main" }, el("strong", { class: "row-title", text: name }), sub ? el("small", { class: "row-sub", text: ` ${sub}` }) : null), action);
+function appRow(name, sub, action = null, below = null) {
+  return el("li", { class: "card-row" }, el("span", { class: "ai-app row-main" }, el("strong", { class: "row-title", text: name }), sub ? el("small", { class: "row-sub", text: ` ${sub}` }) : null), action, below);
+}
+
+/**
+ * "Runs without asking" under a connected app: a closed disclosure with one switch per tool that
+ * asks (the client's `allowedTools`: what the app may run without the page's question until the app
+ * is disconnected) and "Allow everything, no questions asked". The switches are kept between
+ * renders and only updated, so the focus stays where it is. `update()` follows the store.
+ */
+function allowPanel(allowed, grantId, appName) {
+  const switches = new Map();
+  const list = el("ul", { class: "ai-allow-list" });
+  const make = (name, label, onChange) => {
+    const input = el("input", { type: "checkbox", role: "switch", "aria-label": `${label}, ${appName}` });
+    input.addEventListener("change", () => onChange(input.checked));
+    const li = el("li", {}, el("label", { class: "switch" }, input, el("span", { text: label })));
+    return { input, li, name };
+  };
+  const everything = make("", "Allow everything, no questions asked", (on) => allowed.setEverything(grantId, on));
+  const note = el("p", { class: "ai-note", text: "Every tool of this page runs without a question for this app, also tools added later, until the app is disconnected." });
+  const body = el("div", { class: "ai-allow-body" }, list, el("div", { class: "ai-allow-all" }, el("ul", { class: "ai-allow-list" }, everything.li), note));
+  const node = el("details", { class: "ai-allow" }, el("summary", { text: "Runs without asking" }), body);
+  const update = () => {
+    const all = allowed.everything(grantId);
+    const tools = allowed.tools();
+    const known = new Set(tools.map((t) => t.name));
+    // Allowed one by one but not registered right now: listed by name, to turn off.
+    const wanted = [
+      ...tools.map((t) => ({ name: t.name, label: `${t.title ?? t.name}${t.destructive ? " (destructive)" : ""}` })),
+      ...allowed.list(grantId).filter((n) => !known.has(n)).map((n) => ({ name: n, label: n })),
+    ];
+    for (const [name, sw] of switches) {
+      if (!wanted.some((w) => w.name === name)) {
+        sw.li.remove();
+        switches.delete(name);
+      }
+    }
+    const order = [];
+    for (const w of wanted) {
+      let sw = switches.get(w.name);
+      if (!sw) {
+        sw = make(w.name, w.label, (on) => (on ? allowed.allow(grantId, w.name) : allowed.ask(grantId, w.name)));
+        switches.set(w.name, sw);
+      }
+      const registered = known.has(w.name);
+      sw.input.checked = all || allowed.has(grantId, w.name);
+      // With everything on the tool switches show on and are disabled; an unregistered one can only be turned off.
+      sw.input.disabled = all || (!registered && !sw.input.checked);
+      order.push(sw.li);
+    }
+    // Moved only when the order differs: a node that is moved loses the focus.
+    if (order.length !== list.children.length || order.some((n, i) => list.children[i] !== n)) list.replaceChildren(...order);
+    everything.input.checked = all;
+    list.hidden = wanted.length === 0;
+  };
+  return { node, update };
 }
 
 /**
@@ -153,6 +208,8 @@ export async function openAiDialog(ai, doc = document) {
   let lastAddress = "";
   /** The apps whose Disconnect is under way, by grant id. */
   const revoking = new Set();
+  /** The rows of the connected apps by grant id, kept between renders (their switches keep the focus). */
+  const rows = new Map();
   const render = () => {
     const state = ai.state;
     const mcp = ai.mcp;
@@ -186,21 +243,32 @@ export async function openAiDialog(ai, doc = document) {
     else if (state === "connecting") status.set("busy", "Connecting…");
     else status.set("off", "AI access is off.");
     const grants = on ? mcp.grants : [];
-    apps.replaceChildren(...grants.map((g) => {
-      const b = el("button", { type: "button", class: "small", text: "Disconnect", "aria-label": `Disconnect ${g.client.name || g.client.host}` });
-      // Off while its request runs (up to 15 s), across renders: one grant.revoke per click.
-      b.disabled = revoking.has(g.grantId);
-      b.addEventListener("click", () => {
-        revoking.add(g.grantId);
-        render();
-        // The row goes with the relay's grantschange; a refusal is said in the status (ai.js `revoke`).
-        ai.revoke(g.grantId).catch(() => {}).finally(() => {
-          revoking.delete(g.grantId);
+    const live = new Set(grants.map((g) => g.grantId));
+    for (const id of [...rows.keys()]) if (!live.has(id)) rows.delete(id);
+    const nodes = grants.map((g) => {
+      let row = rows.get(g.grantId);
+      if (!row) {
+        const b = el("button", { type: "button", class: "small", text: "Disconnect", "aria-label": `Disconnect ${g.client.name || g.client.host}` });
+        b.addEventListener("click", () => {
+          // Off while its request runs (up to 15 s), across renders: one grant.revoke per click.
+          revoking.add(g.grantId);
           render();
+          // The row goes with the relay's grantschange; a refusal is said in the status (ai.js `revoke`).
+          ai.revoke(g.grantId).catch(() => {}).finally(() => {
+            revoking.delete(g.grantId);
+            render();
+          });
         });
-      });
-      return appRow(g.client.name || g.client.host, g.client.host, b);
-    }));
+        const panel = ai.allowed ? allowPanel(ai.allowed, g.grantId, g.client.name || g.client.host) : null;
+        row = { b, panel, li: appRow(g.client.name || g.client.host, g.client.host, b, panel?.node) };
+        rows.set(g.grantId, row);
+      }
+      row.b.disabled = revoking.has(g.grantId);
+      row.panel?.update();
+      return row.li;
+    });
+    // Replaced only when the rows differ: moving a node would drop the focus in it.
+    if (nodes.length !== apps.children.length || nodes.some((n, i) => apps.children[i] !== n)) apps.replaceChildren(...nodes);
     appsNote.textContent = grants.length ? "" : "No AI app is connected yet.";
     appsNote.hidden = grants.length > 0;
     keep.checked = ai.keepOn;
@@ -240,6 +308,7 @@ export async function openAiDialog(ai, doc = document) {
     if (e.target === dialog && !waiting) dialog.close();
   });
 
+  // `ai` says "change" for the client's allowances too (web/ai.js `allowed.onChange`).
   ai.addEventListener("change", render);
   doc.body.append(dialog);
   render();

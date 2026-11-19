@@ -7,6 +7,12 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **Tools that run without asking.** In the web app's AI dialog, each
+  connected AI app has "Runs without asking": a switch for each tool
+  that asks first (store_variable, purge_variable), and "Allow everything,
+  no questions asked". The question before those tools also offers
+  Always allow. What you allow is kept until the AI app is disconnected,
+  and "Disconnect all apps" ends it too. tab-mcp client 0.18.0.
 - **One address for the web app's AI access, and a code of eight
   letters.** The address of the AI access (tab-mcp client 0.17.0) is now
   https://tab-mcp.ractive.ch/s/saturnus/mcp for everyone, the same every
