@@ -7,6 +7,14 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **One address for the web app's AI access, and a code of eight
+  letters.** The address of the AI access (tab-mcp client 0.17.0) is now
+  https://tab-mcp.ractive.ch/s/saturnus/mcp for everyone, the same every
+  time. The code you type when your AI app asks for it is eight letters
+  (XXXX-XXXX), not six digits. The old addresses stop working: add the
+  new one to your AI apps and pair them again. "New address" is now
+  "Disconnect all apps": it disconnects every AI app, which then connect
+  again at the same address with a new code.
 - **AI apps can read the Saturnus guide.** A new tool, read_guide,
   gives the text of the Saturnus skill to any AI app, not only to
   Claude Code with the plugin: the main guide, RPL programming, the

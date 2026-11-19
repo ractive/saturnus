@@ -1097,7 +1097,7 @@ through the relay while the tab is open. Nothing is installed.
   `revoke()`, a promise since tab-mcp 0.16: a refusal or no answer is
   said in the status line); the notes; **Keep AI access on** (connect again when the app opens, kept as
   `saturnus.aiKeepOn`); Turn off, and Connect or Done, whichever shows,
-  as the one primary button. New address (the apps of the old one lose
+  as the one primary button. Disconnect all apps (every app loses
   access) is a link under the address. While the connection is lost
   (the client reconnects by itself) the steps stay, dimmed, with the
   last address to read from and every Copy and link off; they go when
@@ -1108,7 +1108,7 @@ through the relay while the tab is open. Nothing is installed.
   `sibling`): a tab of this page in this browser gets the line "Opened in
   another tab", anything else (a tab elsewhere, a program with the
   address's secret) the warning that another tab or program took over
-  this page, framed, with New address, which takes the address back and
+  this page, framed, with Disconnect all apps, which takes the page back and
   disconnects its apps first (the client's `newAddress()`, 0.8); taken
   over again meanwhile, the line says to try again. No Connect then: a
   connect with the same secret, which the other holds too, could only

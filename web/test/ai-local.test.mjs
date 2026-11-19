@@ -320,7 +320,7 @@ class FakeRelay {
   receive(msg) {
     if (msg.type === "hello") {
       this.socket.deliver({
-        type: "session", sessionId: "s1", address: "https://relay.test/a/x/mcp", origin: "http://127.0.0.1", expiresAt: new Date(Date.now() + 3600e3).toISOString(),
+        type: "session", sessionId: "s1", address: "https://relay.test/s/saturnus/mcp", origin: "http://127.0.0.1", expiresAt: new Date(Date.now() + 3600e3).toISOString(),
         limits: { maxMessageBytes: 1 << 20, maxBodyBytes: 1 << 20, requestTimeoutMs: 60000, idleTimeoutMs: 600000, heartbeatMs: 600000, keepAliveMs: 600000, maxConcurrentRequests: 8 },
         grants: [{ grantId: "g1", createdAt: new Date().toISOString(), client: { id: "https://claude.ai/oauth", name: "Claude Code", host: "claude.ai" } }],
       });

@@ -47,7 +47,7 @@ export const KEYS = {
 /**
  * The key of the AI access's address secret for the relay at `origin`
  * (tab-mcp's `storageKey`, web/ai.js): one secret per relay, so one
- * relay never sees another's (tab-mcp DEC-052). "New address" replaces it.
+ * relay never sees another's (tab-mcp DEC-052). "Disconnect all apps" makes a new one.
  */
 export const aiSecretKey = (origin) => `saturnus.aiSecret:${origin}`;
 

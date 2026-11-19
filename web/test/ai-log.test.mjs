@@ -140,8 +140,8 @@ test("AI access hands the calls and the connection's events to its log, never th
       mcp = this;
       this.state = "disconnected";
       this.grants = [{ grantId: "g1", client: { id: CLIENT.id, name: "Claude", host: "claude.ai" } }];
-      this.session = { address: "https://relay.example/a/abcdefsecret/mcp" };
-      this.pairingCode = { code: "XKCD-4242", expiresAt: "" };
+      this.session = { address: "https://relay.example/s/saturnus/mcp" };
+      this.pairingCode = { code: "XKCD-ABCD", expiresAt: "" };
     }
     registerTool() { return Promise.resolve(); }
     connect() {
@@ -186,7 +186,7 @@ test("AI access hands the calls and the connection's events to its log, never th
     "AI access turned off",
   ]);
   const text = ai.log.text();
-  assert.ok(!text.includes("abcdefsecret") && !text.includes("XKCD-4242"), text);
+  assert.ok(!text.includes("XKCD-ABCD"), text);
 });
 
 test("the drawer goes beside the calculator where the stage has room, else along the bottom", async () => {

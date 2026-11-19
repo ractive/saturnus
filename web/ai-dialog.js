@@ -5,7 +5,7 @@
 // (shared/mcp-install.js), step 2, the pairing code once the relay sends
 // one (tab-mcp's OAuth, its iteration 3) in a box like a display, the AI
 // apps connected with Disconnect each, "Keep AI access on", and Connect,
-// Turn off or New address. Opened from Search and from Calculator's
+// Turn off or Disconnect all apps. Opened from Search and from Calculator's
 // panel; one at a time. While it is open the relay is asked for pairing
 // codes (tab-mcp `startPairing`).
 //
@@ -96,7 +96,7 @@ export async function openAiDialog(ai, doc = document) {
   const addressRow = el("div", { class: "ai-address-row" }, address, copy);
   const block = installBlock({ newOnly: true });
   const install = block.node;
-  const fresh = el("button", { type: "button", class: "link", text: "New address" });
+  const fresh = el("button", { type: "button", class: "link", text: "Disconnect all apps" });
   const addStep = el("section", { class: "ai-step", "aria-labelledby": "ai-step-add" }, stepHeading("ai-step-add", 1, "Add this address to your AI app as an MCP server"), addressRow, el("p", { class: "ai-note" }, fresh), install);
   const codeValue = el("strong", { class: "ai-code-value", "data-empty": true });
   const noCode = el("span", { class: "visually-hidden", text: "No code yet." });
@@ -115,9 +115,9 @@ export async function openAiDialog(ai, doc = document) {
   const done = el("button", { type: "button", class: "primary", text: "Done" });
   const closeAnyway = el("button", { type: "button", class: "link", text: "Close anyway" });
   // The address taken by another tab or program (not a tab of this page): the warning and the way out.
-  const takeBack = el("button", { type: "button", class: "primary", text: "New address" });
+  const takeBack = el("button", { type: "button", class: "primary", text: "Disconnect all apps" });
   const replacedNote = el("div", { class: "ai-replaced", hidden: true },
-    el("p", { class: "ai-note", text: "Your AI apps now reach that tab or program instead of this page. If you did not open this page in another tab or browser, someone may have copied its address. A new address disconnects every AI app from the old one; then add the new address to your AI apps again." }),
+    el("p", { class: "ai-note", text: "Your AI apps now reach that tab or program instead of this page. If you did not open this page in another tab or browser, someone may have copied the key this page keeps in your browser. Disconnect all apps disconnects every AI app; then they connect again at the same address with a new code." }),
     el("div", { class: "ai-actions" }, takeBack));
   const doneNote = el("p", { class: "ai-note ai-done-note", hidden: true }, "Done works once your AI app is connected: closing now ends the pairing code. ", closeAnyway);
   dialog.append(el("div", { class: "ai-box" },
@@ -177,7 +177,7 @@ export async function openAiDialog(ai, doc = document) {
     copyCode.disabled = !pc;
     // Lost: why, and that it connects again by itself (the client library reconnects).
     // Taken over by another tab or program (not a sibling tab): a Connect with the same secret, which the
-    // other holds too, could only be taken over again, so only New address (a new secret) is offered.
+    // other holds too, could only be taken over again, so only Disconnect all apps (a new secret) is offered.
     const taken = state === "disconnected" && Boolean(ai.replaced) && !ai.replaced.sibling;
     replacedNote.hidden = !taken;
     if (ai.lost) status.set("lost", `${ai.error ?? "The connection to the relay broke."} Reconnecting…`);
