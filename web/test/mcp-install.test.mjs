@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { CODEX_FEATURE, claudeCodeCommand, codexSetup, cursorLink, installTargets, shellQuote, vscodeLink } from "../shared/mcp-install.js";
 
-const URL_ = "https://tab-mcp.ractive.ch/a/AbC123/mcp";
+const URL_ = "https://tab-mcp.ractive.ch/s/saturnus/mcp";
 const plain = { name: "saturnus", url: URL_ };
 const local = { name: "saturnus", url: "http://127.0.0.1:4870/mcp", headers: { Authorization: "Bearer t0k'en x" } };
 

@@ -25,6 +25,7 @@ import { session, sleep } from "./chrome.mjs";
 const TAB_MCP = process.env.TAB_MCP_DIR ?? join(homedir(), "devel", "tab-mcp");
 const RELAY_MAIN = join(TAB_MCP, "packages/tab-mcp/src/main.ts");
 const STORE = join(TAB_MCP, "packages/tab-mcp/src/store/sqlite.ts");
+const ADDRESS = join(TAB_MCP, "packages/tab-mcp/src/address.ts");
 const CLIENT_PKG = join(TAB_MCP, "packages/tab-mcp-client/package.json");
 const dir = process.env.SATURNUS_ROM_DIR;
 
@@ -106,15 +107,17 @@ async function startRelay(t, pageOrigin, again = null) {
 }
 
 /** An access token for `address`, put into the relay's store as tab-mcp's tests do. */
-function tokenFor(db, address) {
-  const id = /\/a\/([a-z2-7]{52})\/mcp$/.exec(address)?.[1];
-  assert.ok(id, `an address: ${address}`);
+function tokenFor(db, address, secret) {
+  const app = /\/s\/([a-z0-9-]{1,32})\/mcp$/.exec(address)?.[1];
+  assert.ok(app, `an address: ${address}`);
+  assert.ok(secret, "the page's secret");
   const script = `
     import { SqliteTokenStore } from ${JSON.stringify(STORE)};
+    import { addressIdFromSecret } from ${JSON.stringify(ADDRESS)};
     const token = "tmcp_at_" + crypto.getRandomValues(new Uint8Array(32)).toBase64({ alphabet: "base64url", omitPadding: true });
     const hash = new Bun.CryptoHasher("sha256").update(token).digest().toBase64({ alphabet: "base64url", omitPadding: true });
     const now = Date.now();
-    await new SqliteTokenStore(${JSON.stringify(db)}).put({ hash, kind: "access", grantId: "g_test", addressId: ${JSON.stringify(id)},
+    await new SqliteTokenStore(${JSON.stringify(db)}).put({ hash, kind: "access", grantId: "g_test", addressId: addressIdFromSecret(${JSON.stringify(secret)}, ${JSON.stringify(app)}), app: ${JSON.stringify(app)},
       clientId: "https://client.example/cimd.json", clientName: "Test client", scopes: ["tools"], grantCreatedAt: now, issuedAt: now, expiresAt: now + 3600000 });
     process.stdout.write(token);`;
   const r = spawnSync("bun", ["-e", script], { encoding: "utf8" });
@@ -205,7 +208,8 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   await ev("document.querySelector('dialog.ai').close(), true");
   await until(ev, "!document.getElementById('ai-chip').hidden", 5_000, "the panel says AI access is on");
 
-  const token = tokenFor(relay.db, address);
+  const secret = await ev(`localStorage.getItem(${JSON.stringify("saturnus.aiSecret:" + relay.url)})`);
+  const token = tokenFor(relay.db, address, secret);
   // The relay names the apps of an address when the tab connects: the
   // token's grant (as OAuth will make it) is seen after connecting again.
   assert.equal(await ev("window.saturnusApp.ai.then((a) => a.keepsRunning)"), false, "no AI app yet: a hidden tab would pause");
@@ -263,7 +267,7 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   const outs = await ev("[...document.querySelectorAll('#ai-log .al-call')].map((li) => li.querySelector('.al-tool').textContent + ': ' + li.querySelector('.al-out').textContent.split(' · ')[0])");
   assert.ok(outs.some((o) => /^Store .*: done$/i.test(o) || o.startsWith("store_variable: done")), outs.join("\n"));
   assert.ok(outs.some((o) => /^Purge .*: declined$/i.test(o) || o.startsWith("purge_variable: declined")), outs.join("\n"));
-  assert.equal(await ev(`document.getElementById('ai-log').textContent.includes(${JSON.stringify(address.split("/a/")[1].split("/")[0])})`), false, "never the address");
+  assert.equal(await ev(`document.getElementById('ai-log').textContent.includes(${JSON.stringify(secret)})`), false, "never the secret");
   await ev("document.querySelector('#ai-log .al-close').click(), true");
 
   const look = await use(client, "lookup_command", { name: "->LIST" });

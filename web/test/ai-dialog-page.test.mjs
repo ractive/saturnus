@@ -12,7 +12,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { session, sleep } from "./chrome.mjs";
 
-const ADDRESS = "https://tab-mcp.example/a/abc/mcp";
+const ADDRESS = "https://tab-mcp.example/s/saturnus/mcp";
 
 /** The fake AI access and the dialog, at `window.t`. */
 const SETUP = `(async () => {
@@ -116,24 +116,24 @@ test("the browser dialog: Done waits for an AI app, the code has Copy, Codex get
   assert.equal((await ev(DIALOG)).open, true, "the backdrop does not close it");
 
   // The code, and Copy code.
-  await ev(`window.t.ai.mcp.pairingCode = { code: "482913", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), true`);
+  await ev(`window.t.ai.mcp.pairingCode = { code: "WXYZ-ABCD", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), true`);
   d = await until(ev, `(${DIALOG})?.code && (${DIALOG})`, "the code");
-  assert.equal(d.code, "482913");
+  assert.equal(d.code, "WXYZ-ABCD");
   assert.equal(d.copyCodeDisabled, false);
   assert.deepEqual(d.codeBox, emptyBox, "the box does not move when the code comes");
   assert.equal(await ev(`[...document.querySelectorAll("dialog.ai h3")].map((h) => h.textContent)`).then((h) => h[1]), "2Step 2: When your AI app asks for a code, enter this one");
   // Another code: the same box.
-  await ev(`window.t.ai.mcp.pairingCode = { code: "000001", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), true`);
-  d = await until(ev, `(${DIALOG})?.code === "000001" && (${DIALOG})`, "the next code");
+  await ev(`window.t.ai.mcp.pairingCode = { code: "AAAA-BBBB", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), true`);
+  d = await until(ev, `(${DIALOG})?.code === "AAAA-BBBB" && (${DIALOG})`, "the next code");
   assert.deepEqual(d.codeBox, emptyBox, "nor when it changes");
-  await ev(`window.t.ai.mcp.pairingCode = { code: "482913", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), true`);
-  await until(ev, `(${DIALOG})?.code === "482913"`, "the code again");
+  await ev(`window.t.ai.mcp.pairingCode = { code: "WXYZ-ABCD", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), true`);
+  await until(ev, `(${DIALOG})?.code === "WXYZ-ABCD"`, "the code again");
   // Every Copy button carries the copy icon.
   const copies = await ev(`[...document.querySelectorAll("dialog.ai button")].filter((b) => b.textContent.startsWith("Copy")).map((b) => [b.textContent, b.querySelector("svg.ic use")?.getAttribute("href") ?? null])`);
   assert.deepEqual(copies, [["Copy", "#ic-copy"], ["Copy for Claude Code", "#ic-copy"], ["Copy for Codex", "#ic-copy"], ["Copy code", "#ic-copy"]]);
   await click("Copy code");
   await until(ev, `window.t.copied.length === 1`, "the code copied");
-  assert.deepEqual(await ev(`window.t.copied`), ["482913"]);
+  assert.deepEqual(await ev(`window.t.copied`), ["WXYZ-ABCD"]);
   assert.equal(await ev(`document.querySelector("dialog.ai .ai-code button").textContent`), "Copied");
 
   // Copy for Codex: the feature first, then the address.
@@ -166,12 +166,12 @@ test("the browser dialog: lost keeps the steps, dimmed, with the address to read
   if (!ev) return;
   // The status's text node stays the same node across renders that change nothing in it.
   await ev(`window.t.node = document.querySelector("dialog.ai .ai-status").firstChild, true`);
-  await ev(`window.t.ai.mcp.pairingCode = { code: "482913", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), window.t.ai.changed(), true`);
-  await until(ev, `(${DIALOG})?.code === "482913"`, "the code");
+  await ev(`window.t.ai.mcp.pairingCode = { code: "WXYZ-ABCD", expiresAt: "2099-01-01T00:00:00Z" }, window.t.ai.changed(), window.t.ai.changed(), true`);
+  await until(ev, `(${DIALOG})?.code === "WXYZ-ABCD"`, "the code");
   assert.equal(await ev(`document.querySelector("dialog.ai .ai-status").firstChild === window.t.node`), true, "the live region was left alone");
-  // New address sits under the address, in the DOM where it is seen; the actions are the buttons alone.
+  // Disconnect all apps sits under the address, in the DOM where it is seen; the actions are the buttons alone.
   assert.deepEqual(await ev(`[...document.querySelectorAll("dialog.ai .ai-box > .ai-actions button")].map((b) => b.textContent)`), ["Turn off", "Connect", "Done"]);
-  assert.equal(await ev(`document.querySelector("dialog.ai .ai-step .ai-address")?.closest(".ai-step").contains([...document.querySelectorAll("dialog.ai button.link")].find((b) => b.textContent === "New address"))`), true);
+  assert.equal(await ev(`document.querySelector("dialog.ai .ai-step .ai-address")?.closest(".ai-step").contains([...document.querySelectorAll("dialog.ai button.link")].find((b) => b.textContent === "Disconnect all apps"))`), true);
 
   // Lost: the client reconnects by itself; the steps stay with the last address, dimmed and off, the code box empty.
   await ev(`window.t.ai.state = "reconnecting", window.t.ai.lost = true, window.t.ai.error = "The connection to the relay broke.", window.t.ai.mcp.session = undefined, window.t.ai.mcp.pairingCode = undefined, window.t.ai.changed(), true`);
@@ -196,7 +196,7 @@ test("the browser dialog: lost keeps the steps, dimmed, with the address to read
   assert.equal(d.codeBox, null);
 });
 
-test("the browser dialog: the address taken by another tab (a sibling: a line; else the warning with New address)", { timeout: 60_000 }, async (t) => {
+test("the browser dialog: the address taken by another tab (a sibling: a line; else the warning with Disconnect all apps)", { timeout: 60_000 }, async (t) => {
   const ev = await open(t);
   if (!ev) return;
   await ev(`window.t.ai.state = "disconnected", window.t.ai.replaced = { sibling: true }, window.t.ai.error = "Opened in another tab. Your AI apps use that one now; connect again to use them here.", window.t.ai.changed(), true`);
@@ -208,9 +208,9 @@ test("the browser dialog: the address taken by another tab (a sibling: a line; e
   d = await until(ev, `(${DIALOG})?.replaced && (${DIALOG})`, "the warning");
   assert.equal(d.status[1], "Another tab or program took over this page.");
   // Only New address (a new secret): a Connect with the same secret could be taken over again.
-  assert.deepEqual(d.primary, ["New address"]);
+  assert.deepEqual(d.primary, ["Disconnect all apps"]);
   assert.equal(await ev(`[...document.querySelectorAll("dialog.ai button")].some((b) => b.textContent === "Connect" && !b.closest("[hidden]"))`), false, "no Connect");
-  // New address takes it back: the page's newAddress, then the warning goes with the state.
+  // Disconnect all apps takes it back: the page's newAddress, then the warning goes with the state.
   await ev(`window.t.ai.newAddress = async () => { window.t.ai.replaced = null; window.t.ai.error = null; window.t.ai.state = "connected"; window.t.ai.changed(); }, true`);
   await ev(`document.querySelector("dialog.ai .ai-replaced button").click(), true`);
   d = await until(ev, `(${DIALOG})?.status[0] === "on" && (${DIALOG})`, "connected again");

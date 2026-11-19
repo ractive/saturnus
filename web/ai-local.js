@@ -37,7 +37,7 @@ import { AiLog } from "./ai-log.js";
 import { keepsRunning, screenPng, settingLook } from "./ai.js";
 
 /** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its confirmation chunk's `confirmInPage`, named by `just vendor-tab-mcp`). */
-export const CONFIRM_MODULE = "./vendor/tab-mcp-client/confirm-y30cx7e1.min.js";
+export const CONFIRM_MODULE = "./vendor/tab-mcp-client/confirm-mqmvsxg1.min.js";
 
 /**
  * What the client's `confirmInPage` takes for the `TabMcp` (tab-mcp 0.8:
