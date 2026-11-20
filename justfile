@@ -87,8 +87,8 @@ wasm: web
 # vendor-tab-mcp-version X.Y.Z` pins it here with the registry's integrity
 # and takes it; then run the web tests and commit the files, vendor.json,
 # web/ai-local.js and the justfile.
-tab_mcp_client_version := "0.17.0"
-tab_mcp_client_integrity := "sha512-LDnY30rOGht5SxnUmJZlnhGGAtzzJEtcPqknAguPjpiQ0t7PJdXsU/Llrpy9CRI+JMObIdhTRVfSEHtNSd9hNw=="
+tab_mcp_client_version := "0.18.1"
+tab_mcp_client_integrity := "sha512-/3N5lzLdOMexbMYiY0DkfBOt9hwu+TFU6jKv/NWfxAlej/oUrO0pdBLqr2mtdmUtxJWtmiHg0G3S2E7L4j9bLA=="
 
 vendor-tab-mcp:
     scripts/vendor-tab-mcp-client.sh --from-npm "{{tab_mcp_client_version}}" --integrity "{{tab_mcp_client_integrity}}"
