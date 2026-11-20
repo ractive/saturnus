@@ -9,10 +9,28 @@ An AI app can use the calculators you have open in Saturnus: read the display, p
 
 ## Connect an AI app
 
-In the app, choose **Connect your AI app…** (in the panel beside the calculator, or in the command palette). The dialog gives an address and, for [Cursor](https://cursor.com/), [VS Code](https://code.visualstudio.com/), [Claude Code](https://claude.com/product/claude-code) and [Codex](https://en.wikipedia.org/wiki/OpenAI_Codex), a link or a command that adds it.
+In the app, choose **Connect your AI app…** (in the panel beside the calculator, or in the command palette). The dialog shows the address, the code to type, and, for [Cursor](https://cursor.com/), [VS Code](https://code.visualstudio.com/), [Claude Code](https://claude.com/product/claude-code) and [Codex](https://en.wikipedia.org/wiki/OpenAI_Codex), a link or a command that adds the address. The app in the browser and the desktop app have different addresses.
 
-- **In the browser**, the address goes through a relay on the internet, so any AI app can use it, [Claude](https://claude.com/product/overview) and [ChatGPT](https://en.wikipedia.org/wiki/ChatGPT) included (Claude as a custom connector in its settings, ChatGPT as an MCP server under Plugins). The calculator keeps running in a background tab while an AI app is connected.
-- **In the desktop app**, turn on "Let AI apps on this computer use the calculators". The address is local (`http://127.0.0.1:4842/mcp`) and nothing goes over the internet. The links and commands include a key from a file only your user account can read. [Claude Desktop](https://claude.com/download) gets an extension instead (below). Claude on the web and ChatGPT connect from the internet, so they cannot use this address.
+### In the browser
+
+The address goes through a relay on the internet, so any AI app can use it, [Claude](https://claude.com/product/overview) and [ChatGPT](https://en.wikipedia.org/wiki/ChatGPT) included. It is the same for everyone and does not change:
+
+```
+https://tab-mcp.ractive.ch/s/saturnus/mcp
+```
+
+You can add it to an AI app before the Saturnus page is open. It works while a Saturnus page with AI access on is open; a background tab is enough. Because the address is the same for everyone, an organisation can allow it once.
+
+- **Claude**: open Settings, then Connectors, choose **Add custom connector**, and enter the address.
+- **Claude Code**: run `claude mcp add --transport http saturnus https://tab-mcp.ractive.ch/s/saturnus/mcp`, then type `/mcp` in Claude Code, choose `saturnus` and choose **Authenticate**.
+- **ChatGPT**: under Plugins, add an MCP server with the address.
+- **Cursor, VS Code and Codex**: use the link or command the dialog gives, or add the address as an MCP server.
+
+When the AI app connects, it opens a page of the relay and asks for a code. Type the code that **Connect your AI app…** shows in the open Saturnus page: eight letters, shown as `XXXX-XXXX`. A new code appears every 2 minutes and after each use. The address holds no key; the code pairs an AI app with the page you have open. **Disconnect all apps** in the dialog disconnects every AI app; they connect again at the same address and ask for a new code.
+
+### In the desktop app
+
+Turn on "Let AI apps on this computer use the calculators". The address is local (`http://127.0.0.1:4842/mcp`), not the browser's, and nothing goes over the internet. The links and commands include a key from a file only your user account can read. [Claude Desktop](https://claude.com/download) gets an extension instead (below). Claude on the web and ChatGPT connect from the internet, so they cannot use this address.
 
 The tools tell the AI app what it needs to start: which calculators run, which tools work on each model, and how to check its work on the display.
 
@@ -55,6 +73,6 @@ The plugin brings the skill and the desktop app's calculators as tools in one in
 
 Its tools connect to the desktop app on this computer, so turn on AI access in the desktop app first. The plugin reads the key from the same file the desktop app writes; it holds no key itself. If you moved the desktop app's AI access to another port, set `SATURNUS_MCP_PORT` to it before you start Claude Code. Run `/mcp` in Claude Code to see whether it is connected.
 
-For the calculators in the browser, add the address from **Connect your AI app…** with the command the dialog gives; the plugin's skill works with either.
+For the calculators in the browser, add the browser's address with `claude mcp add --transport http saturnus https://tab-mcp.ractive.ch/s/saturnus/mcp` (see Connect an AI app above); the plugin's skill works with either.
 
 The plugin's [README](https://github.com/ractive/saturnus/blob/main/plugins/saturnus/README.md) has the details.
