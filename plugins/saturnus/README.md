@@ -55,19 +55,24 @@ goes into the plugin, your settings or the project.
 ### The calculators in the browser
 
 The plugin's server is the desktop app's. For the calculators in the browser,
-open **Connect your AI app…** in the app and run the `claude mcp add` command it
-gives. The plugin's skill works with either.
+run `claude mcp add --transport http saturnus https://tab-mcp.ractive.ch/s/saturnus/mcp`
+(the address is the same for everyone), then type `/mcp` in Claude Code and
+choose Authenticate. On the relay's page that opens, type the code (eight
+letters, `XXXX-XXXX`) that **Connect your AI app…** shows in the open web app.
+The plugin's skill works with either.
 
 ## Other AI apps
 
 The skill is a plain Agent Skills folder:
 
 - **Codex**: copy `skills/saturnus` to `.agents/skills/saturnus` in your
-  project, and add the server with the command from **Connect your AI app…**.
+  project, and add the server with the command from **Connect your AI app…**
+  (the desktop app's address) or the browser's address
+  `https://tab-mcp.ractive.ch/s/saturnus/mcp`.
 - **pi**: `pi install git:github.com/ractive/saturnus` (the repository's
   `package.json` names the skill).
 - **Claude (desktop, claude.ai)**: zip `skills/saturnus` and upload it as a
-  skill in Claude's settings. Claude and ChatGPT use the address from the
-  app in the browser, added as a custom connector.
+  skill in Claude's settings. Claude and ChatGPT use the browser's address
+  (`https://tab-mcp.ractive.ch/s/saturnus/mcp`), added as a custom connector.
 
 More in the docs: <https://ractive.ch/saturnus/docs/ai-apps/>.
