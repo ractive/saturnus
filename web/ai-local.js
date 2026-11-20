@@ -37,7 +37,7 @@ import { AiLog } from "./ai-log.js";
 import { keepsRunning, screenPng, settingLook } from "./ai.js";
 
 /** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its confirmation chunk's `confirmInPage`, named by `just vendor-tab-mcp`). */
-export const CONFIRM_MODULE = "./vendor/tab-mcp-client/confirm-f36n8xj5.min.js";
+export const CONFIRM_MODULE = "./vendor/tab-mcp-client/confirm-d722a9eb.min.js";
 
 /**
  * What the client's `confirmInPage` takes for the `TabMcp` (tab-mcp 0.8:
@@ -45,20 +45,11 @@ export const CONFIRM_MODULE = "./vendor/tab-mcp-client/confirm-f36n8xj5.min.js";
  * entry is kept only while its grant is among `grants`): the named AI
  * apps asked while AI access is on, as grants by name. `forget()` empties
  * them and says so (`grantschange`), which drops every "Allow until reload".
- * Since tab-mcp 0.18 the allowances read three more things of a `TabMcp`
- * (`_allowed`: its tools, where the secret is kept, `alwaysAllow`): here no
- * tools to list (a tool is allowed as the question showed it), no storage
- * (memory only) and "until-reload", which is what offers "Allow until reload".
  */
 export class ConfirmHost extends EventTarget {
   constructor() {
     super();
     this.grants = [];
-    this.session = undefined;
-  }
-
-  get _allowed() {
-    return [{ list: () => [], get: () => undefined, onChange: () => () => {} }, undefined, "until-reload"];
   }
 
   admit(grantId) {
@@ -275,6 +266,7 @@ export class LocalAiAccess extends EventTarget {
     confirm = () => import(CONFIRM_MODULE),
     doc = globalThis.document,
     now = () => Date.now(),
+    allowDelayMs = undefined,
     look = settingLook,
   } = {}) {
     super();
@@ -284,6 +276,7 @@ export class LocalAiAccess extends EventTarget {
     this.confirmModule = confirm;
     this.doc = doc;
     this.now = now;
+    this.allowDelayMs = allowDelayMs;
     /** The look of the tools' screen images when a call names none: the "Screen images" setting (tests give a fake). */
     this.look = look;
     /** The endpoint's state (`mcp_status`); the header only from the commands, never from an event. */
@@ -585,12 +578,11 @@ export class LocalAiAccess extends EventTarget {
     const { confirmInPage } = await this.confirmModule();
     const question = { tool: { name: tool.name, description: tool.description }, arguments: args, client, signal };
     if (tool.title !== undefined) question.tool.title = tool.title;
-    // tab-mcp 0.18 offers "Allow until reload" to a relay client only (`kind`): a name only guessed is
-    // asked every time, as a client of another kind.
-    if (client.stable !== true) question.client = { ...client, kind: "local" };
+    const options = { alwaysAllow: client.stable === true };
+    if (this.allowDelayMs !== undefined) options.allowDelayMs = this.allowDelayMs;
     // Its "Allow until reload" is kept only for a grant the host has: a named app while AI access is on.
     if (client.stable && this.status.running) this.confirmHost.admit(client.grantId);
-    return confirmInPage(this.confirmHost, question, this.doc);
+    return confirmInPage(this.confirmHost, question, this.doc, options);
   }
 }
 

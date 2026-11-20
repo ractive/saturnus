@@ -58,7 +58,7 @@ const SETUP = `(async () => {
   const backend = { memoryTree: async () => ({ path: ["HOME"], dirs: [] }), storeText: async () => ({ ok: true }) };
   const { LocalAiAccess } = await import("/ai-local.js");
   const { openAiDialog } = await import("/ai-dialog.js");
-  t.ai = new LocalAiAccess({ calculatorView: async () => ({ ai: async () => ({ backend, store, reference: null }) }), tauri: t.tauri });
+  t.ai = new LocalAiAccess({ calculatorView: async () => ({ ai: async () => ({ backend, store, reference: null }) }), tauri: t.tauri, allowDelayMs: 500 });
   await t.ai.load();
   t.closed = openAiDialog(t.ai);
   window.t = t;
@@ -191,8 +191,7 @@ test("a consequential call asks in tab-mcp's dialog; Allow until reload lets the
   const title = await until(`document.querySelector("dialog.tab-mcp-confirm h2")?.textContent`, "the confirmation");
   assert.equal(title, "Allow Store a variable?");
   assert.match(await ev(`document.querySelector("dialog.tab-mcp-confirm p").textContent`), /^Cursor \(this computer\) wants to run Store a variable\.$/);
-  // The library's wait before Allow can be clicked (750 ms visible and focused; no option for it since tab-mcp 0.18).
-  await sleep(1000);
+  await sleep(700);
   await ev(`[...document.querySelectorAll("dialog.tab-mcp-confirm button")].find((b) => b.textContent === "Allow until reload").click(), true`);
   const first = await until(`window.t.first.then((r) => JSON.stringify(r))`, "the first call");
   assert.ok(!JSON.parse(first).result.content[0].text.includes("declined"), first);

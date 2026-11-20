@@ -159,7 +159,7 @@ test("a consequential tool asks first; Allow until reload stops asking for that 
   assert.equal(confirm.asked[0].client.name, "Cursor");
   assert.equal(confirm.asked[0].client.host, "this computer");
   assert.equal(confirm.asked[0].tool.title, "Store a variable");
-  assert.equal(confirm.asked[0].client.kind, "relay", "a named app is a relay client, offered Allow until reload (tab-mcp 0.18: by `kind`)");
+  assert.equal(confirm.asked[0].options.alwaysAllow, true, "a named app is offered Allow until reload (tab-mcp 0.8: opt-in)");
   await tauri.call(2, "tools/call", store, "Cursor");
   assert.equal(confirm.asked.length, 1, "always allowed for Cursor");
   await tauri.call(3, "tools/call", store, "Claude Code");
@@ -178,8 +178,7 @@ test("an AI app named only by its User-Agent is asked every time, without Allow 
   await tauri.call(2, "tools/call", store, "node", false);
   assert.equal(confirm.asked.length, 2, "asked again");
   assert.equal(confirm.asked[0].client.stable, false);
-  assert.equal(confirm.asked[0].client.kind, "local", "no Allow until reload in the dialog: not a relay client");
-  assert.equal(confirm.asked[0].options.alwaysAllow, false);
+  assert.equal(confirm.asked[0].options.alwaysAllow, false, "no Allow until reload in the dialog");
   // A stable app of the same name gets no grant from it either.
   await tauri.call(3, "tools/call", store, "node", true);
   assert.equal(confirm.asked.length, 3);
