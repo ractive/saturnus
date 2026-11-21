@@ -1095,11 +1095,11 @@ through the relay while the tab is open. Nothing is installed.
   moves when it changes; one click selects it) with Copy code; the
   connected apps as card rows, each with Disconnect (the client's
   `revoke()`, a promise since tab-mcp 0.16: a refusal or no answer is
-  said in the status line), and under each a closed "Runs without asking"
+  said in the status line), and under each a closed "Always allow"
   with one switch per tool that asks (store_variable, purge_variable;
   the client's `allowedTools(mcp)`, vendored as `allowed.min.js`, with
   `alwaysAllow: true`, so the question also offers Always allow) and
-  "Allow everything, no questions asked" (every tool, also later ones;
+  "Always allow everything" (every tool, also later ones;
   the tool switches then show on and disabled). They are real switches
   (`role="switch"`, named with the app), updated in place so the focus
   stays; the client keeps them until the app is disconnected. The
@@ -1118,7 +1118,7 @@ through the relay while the tab is open. Nothing is installed.
   another tab", anything else (a tab elsewhere, a program with the
   address's secret) the warning that another tab or program took over
   this page, framed, with Disconnect all apps, which takes the page back and
-  disconnects its apps first (the client's `newAddress()`, 0.8); taken
+  disconnects its apps first (the client's `disconnectAll()`, `newAddress()` before 0.19); taken
   over again meanwhile, the line says to try again. No Connect then: a
   connect with the same secret, which the other holds too, could only
   be taken over again. Turn off leaves the warning: turning access off

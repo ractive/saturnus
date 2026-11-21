@@ -38,7 +38,7 @@ const SETUP = `(async () => {
     async connect() { this.state = "connected"; this.changed(); }
     disconnect() { this.state = "disconnected"; this.changed(); }
     async revoke() {}
-    async newAddress() {}
+    async disconnectAll() {}
     // The client's allowedTools(mcp), as far as the dialog uses it.
     allowed = (() => {
       const listeners = new Set();
@@ -230,8 +230,8 @@ test("the browser dialog: the address taken by another tab (a sibling: a line; e
   // Only New address (a new secret): a Connect with the same secret could be taken over again.
   assert.deepEqual(d.primary, ["Disconnect all apps"]);
   assert.equal(await ev(`[...document.querySelectorAll("dialog.ai button")].some((b) => b.textContent === "Connect" && !b.closest("[hidden]"))`), false, "no Connect");
-  // Disconnect all apps takes it back: the page's newAddress, then the warning goes with the state.
-  await ev(`window.t.ai.newAddress = async () => { window.t.ai.replaced = null; window.t.ai.error = null; window.t.ai.state = "connected"; window.t.ai.changed(); }, true`);
+  // Disconnect all apps takes it back: the page's disconnectAll, then the warning goes with the state.
+  await ev(`window.t.ai.disconnectAll = async () => { window.t.ai.replaced = null; window.t.ai.error = null; window.t.ai.state = "connected"; window.t.ai.changed(); }, true`);
   await ev(`document.querySelector("dialog.ai .ai-replaced button").click(), true`);
   d = await until(ev, `(${DIALOG})?.status[0] === "on" && (${DIALOG})`, "connected again");
   assert.equal(d.replaced, false);
@@ -271,18 +271,18 @@ const SWITCHES = `(() => {
   };
 })()`;
 
-test("the browser dialog: Runs without asking, a switch per tool that asks and one for everything, the focus kept", { timeout: 60_000 }, async (t) => {
+test("the browser dialog: Always allow, a switch per tool that asks and one for everything, the focus kept", { timeout: 60_000 }, async (t) => {
   const ev = await open(t);
   if (!ev) return;
   assert.equal(await ev(SWITCHES), null, "no app, no switches");
   await ev(`window.t.ai.mcp.grants = [{ grantId: "g1", client: { id: "c", name: "Claude", host: "claude.ai" } }], window.t.ai.changed(), true`);
   let d = await until(ev, SWITCHES, "the switches");
   assert.equal(d.open, false, "closed");
-  assert.equal(d.summary, "Runs without asking");
+  assert.equal(d.summary, "Always allow");
   assert.deepEqual(d.switches, [
     { name: "Store a variable, Claude", label: "Store a variable", on: false, disabled: false },
     { name: "Purge a variable (destructive), Claude", label: "Purge a variable (destructive)", on: false, disabled: false },
-    { name: "Allow everything, no questions asked, Claude", label: "Allow everything, no questions asked", on: false, disabled: false },
+    { name: "Always allow everything, Claude", label: "Always allow everything", on: false, disabled: false },
   ]);
   assert.equal(await ev(`document.querySelectorAll("dialog.ai details.ai-allow .ai-note").length`), 1, "a sentence on what everything covers");
   // Open it, focus the first switch and turn it on with the keyboard (Space): the state follows, the focus stays.
@@ -305,7 +305,7 @@ test("the browser dialog: Runs without asking, a switch per tool that asks and o
   // An allowance for a tool that is not registered now is listed by name, only to turn off.
   await ev(`window.t.ai.allowed.allow("g1", "gone_tool"), true`);
   d = await until(ev, `(${SWITCHES})?.switches.length === 4 && (${SWITCHES})`, "the unregistered tool");
-  assert.deepEqual(d.switches.map((s) => s.label), ["Store a variable", "Purge a variable (destructive)", "gone_tool", "Allow everything, no questions asked"]);
+  assert.deepEqual(d.switches.map((s) => s.label), ["Store a variable", "Purge a variable (destructive)", "gone_tool", "Always allow everything"]);
   assert.deepEqual(d.switches.find((s) => s.label === "gone_tool"), { name: "gone_tool, Claude", label: "gone_tool", on: true, disabled: false });
   // The app goes: its row and switches go.
   await ev(`window.t.ai.mcp.grants = [], window.t.ai.changed(), true`);

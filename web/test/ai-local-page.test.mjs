@@ -204,7 +204,7 @@ test("a consequential call asks in tab-mcp's dialog; Allow until reload lets the
   await ev(`window.t.third = window.t.call(3, { name: "store_variable", arguments: { name: "Z", text: "3" } }, "node", false), true`);
   await until(`document.querySelector("dialog.tab-mcp-confirm h2")?.textContent`, "the confirmation for node");
   const offered = await ev(`[...document.querySelectorAll("dialog.tab-mcp-confirm button")].filter((b) => !b.hidden).map((b) => b.textContent)`);
-  assert.deepEqual(offered, ["Don't allow", "Allow"]);
+  assert.deepEqual(offered, ["Don't allow", "Allow once"]);
   // Not offered at all (tab-mcp 0.8: "Always allow", "Allow until reload" since 0.16, is opt-in, and the app opts in only for a named app).
   assert.equal(await ev(`document.querySelector("dialog.tab-mcp-confirm .tab-mcp-always-note")`), null);
   await ev(`[...document.querySelectorAll("dialog.tab-mcp-confirm button")].find((b) => b.textContent === "Don't allow").click(), true`);

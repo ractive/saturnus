@@ -75,9 +75,9 @@ function appRow(name, sub, action = null, below = null) {
 }
 
 /**
- * "Runs without asking" under a connected app: a closed disclosure with one switch per tool that
+ * "Always allow" under a connected app: a closed disclosure with one switch per tool that
  * asks (the client's `allowedTools`: what the app may run without the page's question until the app
- * is disconnected) and "Allow everything, no questions asked". The switches are kept between
+ * is disconnected) and "Always allow everything". The switches are kept between
  * renders and only updated, so the focus stays where it is. `update()` follows the store.
  */
 function allowPanel(allowed, grantId, appName) {
@@ -89,10 +89,10 @@ function allowPanel(allowed, grantId, appName) {
     const li = el("li", {}, el("label", { class: "switch" }, input, el("span", { text: label })));
     return { input, li, name };
   };
-  const everything = make("", "Allow everything, no questions asked", (on) => allowed.setEverything(grantId, on));
+  const everything = make("", "Always allow everything", (on) => allowed.setEverything(grantId, on));
   const note = el("p", { class: "ai-note", text: "Every tool of this page runs without a question for this app, also tools added later, until the app is disconnected." });
   const body = el("div", { class: "ai-allow-body" }, list, el("div", { class: "ai-allow-all" }, el("ul", { class: "ai-allow-list" }, everything.li), note));
-  const node = el("details", { class: "ai-allow" }, el("summary", { text: "Runs without asking" }), body);
+  const node = el("details", { class: "ai-allow" }, el("summary", { text: "Always allow" }), body);
   const update = () => {
     const all = allowed.everything(grantId);
     const tools = allowed.tools();
@@ -293,7 +293,7 @@ export async function openAiDialog(ai, doc = document) {
     render();
   });
   for (const b of [fresh, takeBack]) b.addEventListener("click", () => {
-    ai.newAddress()?.catch(() => {});
+    ai.disconnectAll()?.catch(() => {});
     render();
   });
   keep.addEventListener("change", () => {

@@ -412,8 +412,8 @@ test("turning AI access off ends the reconnecting; a refusal or another tab taki
     Mcp.last.emit("replaced", { sibling: false });
     assert.deepEqual(ai.replaced, { sibling: false });
     assert.equal(ai.error, "Another tab or program took over this page.");
-    Mcp.last.newAddress = () => Mcp.last.connect();
-    const made = ai.newAddress();
+    Mcp.last.disconnectAll = () => Mcp.last.connect();
+    const made = ai.disconnectAll();
     assert.equal(ai.replaced, null);
     assert.equal(ai.error, null, "the takeover's words go as soon as the address is taken back");
     await made;
@@ -421,8 +421,8 @@ test("turning AI access off ends the reconnecting; a refusal or another tab taki
     assert.equal(ai.error, null);
     // Taken over again while it was taken back: the client's reason, in the dialog's words.
     Mcp.last.drop("replaced");
-    Mcp.last.newAddress = () => Promise.reject(Object.assign(new Error("taken"), { reason: "replaced" }));
-    await assert.rejects(ai.newAddress());
+    Mcp.last.disconnectAll = () => Promise.reject(Object.assign(new Error("taken"), { reason: "replaced" }));
+    await assert.rejects(ai.disconnectAll());
     assert.equal(ai.error, "It was taken over again before its AI apps were disconnected. Try again.");
   }
 });
@@ -523,15 +523,15 @@ test("turned off while an attempt connects: no error, no further attempt", { tim
 test("a new address while lost: not taken for a refusal", { timeout: 2000 }, async () => {
   const { ai, Mcp } = reconnecting([true, HANG]);
   await ai.connect();
-  // As the library's: the reconnecting stops (disconnected, reason new_address), then it connects with the new address.
-  Mcp.last.newAddress = function () {
+  // As the library's: the reconnecting stops (disconnected, reason disconnect_all), then it connects with the new address.
+  Mcp.last.disconnectAll = function () {
     this.stop();
     this.connecting = null;
-    this.setState("disconnected", "new_address");
+    this.setState("disconnected", "disconnect_all");
     return this.connect().then(() => {});
   };
   Mcp.last.drop("network");
-  ai.newAddress();
+  ai.disconnectAll();
   assert.equal(ai.state, "connecting");
   assert.equal(ai.error, null);
 });

@@ -279,7 +279,7 @@ export class AiAccess extends EventTarget {
         if (reason !== undefined) {
           this.release();
           this.apps = null;
-          const ours = reason === "user" || reason === "new_address";
+          const ours = reason === "user" || reason === "disconnect_all";
           if (!ours) this.note("lost", { reason, text: lostText(reason) });
           // What to do; when the client tries again (reconnecting), why it was lost (below).
           this.error = ours ? null : disconnectText(reason);
@@ -314,7 +314,7 @@ export class AiAccess extends EventTarget {
         this.error = message !== null && mcp.state === "disconnected" ? `Could not connect to the relay: ${message}` : message;
         this.changed();
       });
-      // The switches' store (the dialog's "Runs without asking"); a client without it has none.
+      // The switches' store (the dialog's "Always allow"); a client without it has none.
       try {
         this.allowed = (await this.allowedModule()).allowedTools(mcp);
         this.allowed.onChange(() => this.changed());
@@ -383,13 +383,13 @@ export class AiAccess extends EventTarget {
    * 0.8), so those apps are disconnected; taken over again meanwhile, it
    * rejects with reason `replaced`, and the dialog shows what to do.
    */
-  newAddress() {
+  disconnectAll() {
     this.release();
     this.replaced = null;
     // The takeover's words go while the address is taken back; a failure brings its own.
     this.error = null;
     // Resolves with nothing (tab-mcp 0.16): the new address is `mcp.session.address` once connected.
-    const made = this.mcp?.newAddress();
+    const made = this.mcp?.disconnectAll();
     made?.catch((err) => {
       this.error = err?.reason === "replaced" ? "It was taken over again before its AI apps were disconnected. Try again." : `Could not connect to the relay: ${err?.message ?? err}`;
       this.changed();

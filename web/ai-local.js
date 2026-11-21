@@ -37,7 +37,7 @@ import { AiLog } from "./ai-log.js";
 import { keepsRunning, screenPng, settingLook } from "./ai.js";
 
 /** The confirmation of tab-mcp's client (web/vendor/tab-mcp-client/, its confirmation chunk's `confirmInPage`, named by `just vendor-tab-mcp`). */
-export const CONFIRM_MODULE = "./vendor/tab-mcp-client/confirm-d722a9eb.min.js";
+export const CONFIRM_MODULE = "./vendor/tab-mcp-client/confirm-ba3dkf9p.min.js";
 
 /**
  * What the client's `confirmInPage` takes for the `TabMcp` (tab-mcp 0.8:
@@ -447,7 +447,7 @@ export class LocalAiAccess extends EventTarget {
     this.set(false);
   }
 
-  newAddress() {
+  disconnectAll() {
     return null;
   }
 
