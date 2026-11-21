@@ -200,12 +200,12 @@ test("declined, and cancelled by the endpoint while the question is open", async
   while (!pending) await turn();
   assert.equal(ai.keepsRunning, true, "the calculator keeps running while a call runs");
   pending("deny");
-  assert.equal((await declined).result.content[0].text, "The user declined");
+  assert.equal((await declined).result.content[0].text, "The user did not allow this call.");
   pending = null;
   const cancelled = tauri.call(2, "tools/call", purge);
   while (!pending) await turn();
   tauri.emit("mcp-cancel", { id: 2 });
-  await cancelled;
+  assert.equal((await cancelled).result.content[0].text, "The call was cancelled.");
   assert.deepEqual(ends, ["declined", "cancelled"]);
   assert.equal(ai.keepsRunning, false);
 });

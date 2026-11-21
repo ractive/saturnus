@@ -552,7 +552,7 @@ export class LocalAiAccess extends EventTarget {
       } catch {
         allowed = false;
       }
-      if (!allowed) return [signal.aborted ? "cancelled" : "declined", errorResult("The user declined")];
+      if (!allowed) return signal.aborted ? ["cancelled", errorResult("The call was cancelled.")] : ["declined", errorResult("The user did not allow this call.")];
     }
     if (signal.aborted) return ["cancelled", errorResult("Cancelled")];
     let res;

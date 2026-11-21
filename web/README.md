@@ -1211,7 +1211,7 @@ through the relay while the tab is open. Nothing is installed.
   time per calculator; a call cancelled (its `signal`) after it queued
   keys sends `releaseAll`, so the keys not played yet do not mix with the
   next call's. `store_variable` and `purge_variable` ask in the
-  page first (tab-mcp's confirmation, "Allow" off for its first 750 ms);
+  page first (tab-mcp's confirmation, "Allow once" off for its first 750 ms);
   key presses and runs do not (decision log, 2026-10-19).
 - **Pacing**: while an AI app is connected (the relay's session alone
   is not enough: `keepsRunning` in `ai.js`), Calculator sends no

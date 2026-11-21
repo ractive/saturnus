@@ -194,9 +194,9 @@ test("a consequential call asks in tab-mcp's dialog; Allow until reload lets the
   await sleep(700);
   await ev(`[...document.querySelectorAll("dialog.tab-mcp-confirm button")].find((b) => b.textContent === "Allow until reload").click(), true`);
   const first = await until(`window.t.first.then((r) => JSON.stringify(r))`, "the first call");
-  assert.ok(!JSON.parse(first).result.content[0].text.includes("declined"), first);
+  assert.ok(!JSON.parse(first).result.content[0].text.includes("did not allow"), first);
   const second = await ev(`window.t.call(2, { name: "store_variable", arguments: { name: "Y", text: "2" } }, "Cursor").then((r) => JSON.stringify(r))`);
-  assert.ok(!JSON.parse(second).result.content[0].text.includes("declined"), second);
+  assert.ok(!JSON.parse(second).result.content[0].text.includes("did not allow"), second);
   assert.equal(await ev(`document.querySelectorAll("dialog.tab-mcp-confirm").length`), 0, "not asked again");
   // The AI's calls has both, done.
   assert.deepEqual(await ev(`window.t.ai.log.entries.filter((e) => e.kind === "call").map((e) => e.outcome)`), ["ok", "ok"]);
@@ -209,7 +209,7 @@ test("a consequential call asks in tab-mcp's dialog; Allow until reload lets the
   assert.equal(await ev(`document.querySelector("dialog.tab-mcp-confirm .tab-mcp-always-note")`), null);
   await ev(`[...document.querySelectorAll("dialog.tab-mcp-confirm button")].find((b) => b.textContent === "Don't allow").click(), true`);
   const third = await until(`window.t.third.then((r) => JSON.stringify(r))`, "the third call");
-  assert.match(JSON.parse(third).result.content[0].text, /declined/);
+  assert.match(JSON.parse(third).result.content[0].text, /did not allow/);
 });
 
 test("read_guide on the desktop app's endpoint: the page's guide.json, no question; the instructions point at it", { timeout: 60_000 }, async (t) => {

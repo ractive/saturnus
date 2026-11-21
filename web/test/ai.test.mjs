@@ -405,7 +405,7 @@ test("turning AI access off ends the reconnecting; a refusal or another tab taki
     assert.equal(ai.error, null);
   }
   {
-    // Another tab or program with the secret: the warning; a new address takes it back.
+    // Another tab or program with the secret: the warning; Disconnect all apps takes it back.
     const { ai, Mcp } = reconnecting([true, true]);
     await ai.connect();
     Mcp.last.drop("replaced");
@@ -520,10 +520,10 @@ test("turned off while an attempt connects: no error, no further attempt", { tim
   assert.equal(timers.waiting.length, 0);
 });
 
-test("a new address while lost: not taken for a refusal", { timeout: 2000 }, async () => {
+test("disconnectAll while lost: not taken for a refusal", { timeout: 2000 }, async () => {
   const { ai, Mcp } = reconnecting([true, HANG]);
   await ai.connect();
-  // As the library's: the reconnecting stops (disconnected, reason disconnect_all), then it connects with the new address.
+  // As the library's: the reconnecting stops (disconnected, reason disconnect_all), then it connects with the new secret.
   Mcp.last.disconnectAll = function () {
     this.stop();
     this.connecting = null;
