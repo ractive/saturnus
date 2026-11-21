@@ -154,7 +154,7 @@ function answer(ev, allow) {
     const look = () => {
       const d = document.querySelector('dialog.tab-mcp-confirm');
       if (!d) return setTimeout(look, 20);
-      const b = [...d.querySelectorAll('button')].find((x) => x.textContent === ${JSON.stringify(allow ? "Allow" : "Don't allow")});
+      const b = [...d.querySelectorAll('button')].find((x) => x.textContent === ${JSON.stringify(allow ? "Allow once" : "Don't allow")});
       const click = () => { const text = d.textContent; b.click(); resolve(text); };
       if (!b.disabled) return click();
       new MutationObserver((_, o) => { if (!b.disabled) { o.disconnect(); click(); } }).observe(b, { attributes: true });
@@ -261,7 +261,7 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   assert.equal((await purge).error, true);
   assert.ok((await use(client, "list_variables")).json.home.some((v) => v.name === "AIT"));
 
-  // The dialog's "Runs without asking" is the client's allowedTools: the tools that ask, and an allowed one runs without the question.
+  // The dialog's "Always allow" is the client's allowedTools: the tools that ask, and an allowed one runs without the question.
   assert.deepEqual(await ev("window.saturnusApp.ai.then((a) => a.allowed.tools().map((x) => x.name).sort())"), ["purge_variable", "store_variable"]);
   await ev("window.saturnusApp.ai.then((a) => (a.allowed.allow('g_test', 'store_variable'), true))");
   const quiet = await use(client, "store_variable", { name: "AIT", text: "« 2 * »" });

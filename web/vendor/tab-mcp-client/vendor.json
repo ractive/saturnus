@@ -1,17 +1,19 @@
 {
   "package": "@ractive-ch/tab-mcp-client",
-  "version": "0.18.1",
+  "version": "0.19.0",
   "license": "MIT (tab-mcp; @cfworker/json-schema, MIT, inlined)",
-  "source": {"kind": "npm", "package": "@ractive-ch/tab-mcp-client", "integrity": "sha512-/3N5lzLdOMexbMYiY0DkfBOt9hwu+TFU6jKv/NWfxAlej/oUrO0pdBLqr2mtdmUtxJWtmiHg0G3S2E7L4j9bLA=="},
+  "source": {"kind": "npm", "package": "@ractive-ch/tab-mcp-client", "integrity": "sha512-jBUA5jySv7OoEy7/MPqMa5Zqpb4zrJnciM+HkapV5NzU6caLf40ruVfZjE3iuqAykqRrdCW7U7MMtA7uH06bmQ=="},
   "entry": "tab-mcp-client.min.js",
   "files": {
-    "allowed.min.js": "87960b46a28e73f6587d1ca7a4fe3fc9428eb29ebea54630e6863f8da8cfcd1b",
-    "confirm-d722a9eb.min.js": "b8d06d03e0815e48c60119eee4d638da9b47bb2c764e3b7e16f0ee65a8f0d80f",
-    "connect-x6ws6wqt.min.js": "515cf438fd96b6d58155feb3830e3d4263749c8913b23c5af81b5cda4a039f6b",
-    "connection-0xqwz17v.min.js": "67fbdd7b69fef037b624706887ad6794308f1331eba979ac9376d961a59e0c97",
-    "tab-mcp-client-2vx9mcww.min.js": "522ea17e6df677667963d64a8155752a7e37707248275d8066479315338242ee",
-    "tab-mcp-client-5j3brdf3.min.js": "feb29b3b2f987039aa2e74806e614469fb8ca1e0f57cca015eca555d1ae0025e",
-    "tab-mcp-client.min.js": "c0ac622a4b12a2de22c60b53a53d10f956de4b04222f563eaf9424eed727f134",
-    "webmcp-khy4f5rj.min.js": "3c19fb18ce1bbb8ecf802c4af064e66312c984b3798539ba5f0f2bbcd598433c"
+    "allowed.min.js": "863d3bcba075cf1dc3d5a07c711eee9a6a9add2c2b35c74f0839cd54386051ae",
+    "confirm-ba3dkf9p.min.js": "7ed2cde082663a31c134fc30ed8163a3a1083124729c53680371ec8e6da3e93d",
+    "connect-my0pbqd7.min.js": "8124bc039d7e283bd63ffb080ac86b6e40c7b669c0f2a54785732ba3d6d22166",
+    "connection-yf2x9zz2.min.js": "899d41b16d72ec07c96708dcac12778842b8cd866f48cbc2cfb9887ae6b654c0",
+    "strings.min.js": "6211c7d52b69d7c66a63895e5c3fad986774c4eb42c7eb9af149f5559c1157ee",
+    "tab-mcp-client-8r6h3wza.min.js": "d715dd30436d346e45ab37cdad54f32bcda1e3a11a558c0522511a3b51941c7a",
+    "tab-mcp-client-nnxcwrxp.min.js": "52275868053369daba16810f6add07e153d5a1f078d2bcf5116fce385a9eac54",
+    "tab-mcp-client-q758jr4g.min.js": "a3095ab2085c0383e94098af892039ff45555d5dad3bbc867faf751d2393e0ac",
+    "tab-mcp-client.min.js": "6768a9f4d0d9043746301f6bde63a5fa99d929092973db4fa190588f3631a3f9",
+    "webmcp-84k58gsw.min.js": "0f2466de3284e93c4c8db4febe729f39df32605245740d1a7386ff526aa43638"
   }
 }

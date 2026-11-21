@@ -7,10 +7,17 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- **tab-mcp client 0.19.** The AI dialog's texts follow the library's
+  wording: under each connected AI app the switches are headed "Always
+  allow" (was "Runs without asking"), with "Always allow everything" (was
+  "Allow everything, no questions asked"); the question before a tool
+  offers "Allow once" and "Always allow". An AI app now reads "The user did
+  not allow this call." for a refused call (was "The user declined"), and
+  "The call was cancelled." for a call cancelled while the user was asked.
 - **Tools that run without asking.** In the web app's AI dialog, each
-  connected AI app has "Runs without asking": a switch for each tool
-  that asks first (store_variable, purge_variable), and "Allow everything,
-  no questions asked". The question before those tools also offers
+  connected AI app has "Always allow": a switch for each tool
+  that asks first (store_variable, purge_variable), and "Always allow
+  everything". The question before those tools also offers
   Always allow. What you allow is kept until the AI app is disconnected,
   and "Disconnect all apps" ends it too. tab-mcp client 0.18.0.
 - **One address for the web app's AI access, and a code of eight
