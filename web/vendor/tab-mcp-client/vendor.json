@@ -1,19 +1,19 @@
 {
   "package": "@ractive-ch/tab-mcp-client",
-  "version": "0.20.0",
+  "version": "0.21.0-rc.1",
   "license": "MIT (tab-mcp; @cfworker/json-schema, MIT, inlined)",
-  "source": {"kind": "npm", "package": "@ractive-ch/tab-mcp-client", "integrity": "sha512-LlZfzywLVIjG0VfuVuBrga4Dq7hxMWEQy2Z8tdaj9+AyhgEncW2XboK/TytZBlmvJEXGw1oqLa76ngZMKg+0jA=="},
+  "source": {"kind": "npm", "package": "@ractive-ch/tab-mcp-client", "integrity": "sha512-pyz8iWyLiWhTk3Q1w69CxLzKOCxGJMPeZPR1aeg+it3SvenplLFvjeOBmIbuQZYcLWZMwA+NJp9xf+ebyYMWPQ=="},
   "entry": "tab-mcp-client.min.js",
   "files": {
     "allowed.min.js": "863d3bcba075cf1dc3d5a07c711eee9a6a9add2c2b35c74f0839cd54386051ae",
-    "confirm-ba3dkf9p.min.js": "7ed2cde082663a31c134fc30ed8163a3a1083124729c53680371ec8e6da3e93d",
-    "connect-my0pbqd7.min.js": "8124bc039d7e283bd63ffb080ac86b6e40c7b669c0f2a54785732ba3d6d22166",
-    "connection-5x2krvfs.min.js": "87b6d272b37049d952944f9a235380e2d9c047bc7b979770985830da3f989a21",
-    "strings.min.js": "6211c7d52b69d7c66a63895e5c3fad986774c4eb42c7eb9af149f5559c1157ee",
-    "tab-mcp-client-8r6h3wza.min.js": "d715dd30436d346e45ab37cdad54f32bcda1e3a11a558c0522511a3b51941c7a",
-    "tab-mcp-client-nnxcwrxp.min.js": "52275868053369daba16810f6add07e153d5a1f078d2bcf5116fce385a9eac54",
+    "confirm-xgm1ymd0.min.js": "9a8b9540b8425ce7d5a662b8d8bdd43329888d1f91776ec4eab9484c6d7e92c1",
+    "connect-3reh9k1f.min.js": "84299febc23c231ad351ec4dade292c3ef3d9b59ca7f50e1d7693f86e60895b9",
+    "connection-cxgns38v.min.js": "fe5be0a960d32fab464c17380b00109a3cb3604a96ae2489146989e594473b90",
+    "strings.min.js": "a07460d918e7087855d9af415bb80b84e774f25eeea52170a667919f85c52a5f",
+    "tab-mcp-client-gdj1e1wh.min.js": "f3bc549c1dcb383e3a926dfc4e4359ee9d9165cfa213227784d37a2f4626570a",
     "tab-mcp-client-q758jr4g.min.js": "a3095ab2085c0383e94098af892039ff45555d5dad3bbc867faf751d2393e0ac",
-    "tab-mcp-client.min.js": "6394ce07c70f1563a54a996a18d0d0cb7ed52fdf2302b3ff38fe6fa9639ad2cc",
+    "tab-mcp-client-yjcmhpdf.min.js": "30452216f14b153b13cc95a9556c603e3363e803364ccd73f7e3af5e8688cd7a",
+    "tab-mcp-client.min.js": "99e985db2ef4729848a12263c1e2effc7f99ef68b709677b11ebf0384702d5f4",
     "webmcp-ny13npet.min.js": "459ee174480db4f1a7d5deca2703ca5785319fc5089d1ecf5e2f83f545fcb1c2"
   }
 }
