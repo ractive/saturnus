@@ -7,6 +7,10 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- tab-mcp client 0.20.0. Nothing changes for you: its WebMCP mirror,
+  which now also offers the tools that ask first, stays off, since the
+  web page offers its tools to the browser's AI itself; the desktop
+  app's question is unchanged.
 - **tab-mcp client 0.19.** The AI dialog's texts follow the library's
   wording: under each connected AI app the switches are headed "Always
   allow" (was "Runs without asking"), with "Always allow everything" (was
