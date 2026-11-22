@@ -7,6 +7,9 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- tab-mcp client 0.21.0. Nothing changes for you: the library no longer
+  shows its own question for a WebMCP call, which the web page never used
+  (its WebMCP mirror stays off); the relay and desktop questions are unchanged.
 - tab-mcp client 0.20.0. Nothing changes for you: its WebMCP mirror,
   which now also offers the tools that ask first, stays off, since the
   web page offers its tools to the browser's AI itself; the desktop
