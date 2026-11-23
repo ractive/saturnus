@@ -130,21 +130,23 @@ model's mistakes, not a hostile local app; a name only guessed from the
 
 ## WebMCP in the browser
 
-Iteration 71 ([[iterations/iteration-71-webmcp]]): where the browser has
-WebMCP (`document.modelContext`; Chrome 149 and Edge 150 origin trials),
-the web app registers the same tools with the browser
-(`web/ai-webmcp.js`), whenever the browser has it, with no setting
-(owner, 2026-11-08). Facts about Chrome's behaviour:
+Iteration 71 ([[iterations/iteration-71-webmcp]]) and, since iteration
+78 ([[iterations/iteration-78-webmcp-mirror]]), tab-mcp's client: where
+the browser has WebMCP (the getter `Document.prototype.modelContext`;
+Chrome 149 and Edge 150 origin trials), the library's mirror offers the
+browser the tools of the `TabMcp`'s registry (`web/ai.js`, `webmcp:
+true`), the list the relay's AI apps get, whenever the browser has it,
+with no setting (owner, 2026-11-08). Facts about Chrome's behaviour:
 [[research/webmcp]].
 
 | Rule | Why | Test |
 | --- | --- | --- |
 | No tool names another origin in `exposedTo`; the permissions policy feature `tools` (default `'self'`) is left as it is | Only the browser's agent and the page's own origin reach the tools; a cross-origin frame or opener gets none | (by construction; spec "Permissions policy integration") |
-| The arguments are checked against the tool's input schema before anything runs (`invalidArguments`, as for the desktop app) | Chrome passes the agent's input through unchecked | web `ai-webmcp.test.mjs` |
-| `store_variable` and `purge_variable` keep `consequentialHint`, and the page adds no confirmation of its own (owner, 2026-11-09): the browser's agent confirms (Brave's Leo asks before every call: Allow once, Allow for this session, Deny). Their descriptions and the instructions WebMCP's agent reads tell it to confirm with the user, not that the app asks (`webMcpText`). tab-mcp's calls and the desktop app's still ask in the page | The browser or agent already asks; a second question in the page repeats it | web `ai-webmcp.test.mjs`, `ai-webmcp-page.test.mjs` (WebMCP runs them without asking); `ai-page.test.mjs`, `ai-local-page.test.mjs` (tab-mcp and the desktop app ask) |
-| Results that carry the calculator's or the user's text (`list_calculators`' ROM names, the display, the stack, variables) say `untrustedContentHint` | Text from the calculator is data, not instructions for the agent | web `ai-webmcp.test.mjs`, `ai-tools.test.mjs` |
-| Every WebMCP call goes to "The AI's calls" as "Your browser's AI" | The user sees what the agent did | web `ai-webmcp.test.mjs`, `ai-webmcp-page.test.mjs` |
-| The tools are withdrawn on `pagehide` and registered again on `pageshow` | A page in the back/forward cache offers nothing | web `ai-webmcp.test.mjs` |
+| The arguments are checked against the tool's input schema before anything runs (the client library's check, as for the relay's calls) | Chrome passes the agent's input through unchecked | web `ai-mirror.test.mjs` |
+| `store_variable` and `purge_variable` keep `consequentialHint`, and the page adds no confirmation of its own (owner, 2026-11-09; no `onConfirm`, so the library runs the call): the browser's agent confirms (Brave's Leo asks before every call: Allow once, Allow for this session, Deny), or the tab-mcp browser extension, which vouches for a call the user allowed there. The tools' descriptions say nothing about who asks; the instructions a WebMCP caller reads in `list_calculators`' result tell it to confirm with the user (`WEBMCP_INSTRUCTIONS`). The relay's calls and the desktop app's still ask in the page | The browser, the agent or the extension already asks; a second question in the page repeats it | web `ai-mirror.test.mjs`, `ai-mirror-page.test.mjs` (WebMCP runs them without asking); `ai-page.test.mjs`, `ai-local-page.test.mjs` (the relay and the desktop app ask) |
+| Results that carry the calculator's or the user's text (`list_calculators`' ROM names, the display, the stack, variables) say `untrustedContentHint` | Text from the calculator is data, not instructions for the agent | web `ai-mirror.test.mjs`, `ai-tools.test.mjs` |
+| Every WebMCP call goes to "The AI's calls" as "Your browser's AI", or as the AI app the extension vouched for | The user sees what the agent did | web `ai-mirror.test.mjs`, `ai-mirror-page.test.mjs` |
+| The browser is offered only the tools of the calculators running in the page | An agent sees no tool it cannot use; the list is the relay's | web `ai.test.mjs`, `ai-mirror.test.mjs` |
 
 Who confirms a WebMCP call is the browser's agent, not the page: it
 sees `consequentialHint` on `store_variable` and `purge_variable`, and

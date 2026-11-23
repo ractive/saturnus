@@ -24,15 +24,39 @@
 // the connection's events go to `log` (web/ai-log.js, "The AI's calls");
 // never the address, a token or a pairing code.
 //
-// Where the browser has WebMCP, the same tools go to the browser's own AI
-// agent as well (web/ai-webmcp.js, iteration 71), side by side with
-// tab-mcp: `tools` makes them once for both, and WebMCP's calls go to the
-// same log. Then `AiAccess` is made even without a relay (a page served
-// from this computer), `available` false.
+// Where the browser has WebMCP (W3C Web Machine Learning CG draft; Chrome
+// 149 and Edge 150 origin trials, the tokens in index.html), the same
+// TabMcp offers the tools to an agent in the browser as well (iteration 78:
+// the library's mirror, on by default since client 0.23.0, in place of web/ai-webmcp.js of
+// iteration 71): made at page start there (`start`), with or without a
+// relay (a page served from this computer has none: `available` false).
+// The mirror offers WebMCP every tool in the TabMcp's registry, the list
+// the relay's AI apps get, and takes part in the handshake with the
+// tab-mcp browser extension, so a call the user allowed there is not asked
+// again (`client.via`). No question in the page for a WebMCP call (owner,
+// 2026-11-09): there is no `onConfirm`, so the library runs it; the
+// browser or its agent asks.
+//
+// One tool list for both, following the running calculators (owner,
+// 2026-11-23): `list_calculators`, `lookup_command` and `read_guide`
+// always, and the tools of the family of each calculator running in the
+// page, the one Calculator shows (`shown`, from web/main.js) and the
+// hub's other engines (its `engines` event, web/hub.js: the hub is per
+// document: a calculator another view of the page still uses, such as a
+// 48GX Files works on while Calculator shows the 42S, runs on and is
+// reachable through `target`; one no view uses stops, as Calculator's
+// last model does when it switches). A tool goes by aborting the signal it was
+// registered with and comes back registered again; the relay's apps hear
+// `notifications/tools/list_changed`, the browser the mirror's change. A
+// call that runs keeps its tool, withdrawn or not.
+//
+// A WebMCP caller gets its own form of a result (`forCallers`): the
+// fields, the display as text unless the call asked for an image, and
+// `list_calculators`' instructions (WebMCP has no server instructions).
 
-import { aiTools, guideLoader, INSTRUCTIONS, titleOf } from "./ai-tools.js";
+import { APPROVAL_NOTE, aiTools, familyOf, guideLoader, INSTRUCTIONS, titleOf } from "./ai-tools.js";
 import { AiLog, appLabel } from "./ai-log.js";
-import { HubClient, hubRunning } from "./shared/calc-hub.js";
+import { HubClient, hubRunning, hubStarted } from "./shared/calc-hub.js";
 import { KEYS, aiSecretKey } from "./shared/storage-names.js";
 import { relayUrl } from "./ai-relay.js";
 import { keptRomBytes, keptRoms } from "./tx/kept-roms.js";
@@ -75,6 +99,115 @@ function displayPng(frame, model, look) {
 /** The app's "Screen images" setting (the store's `screenLook`, kept in prefs as it changes). */
 export function settingLook() {
   return lookOf(prefs.get("screenLook"));
+}
+
+/** The tools offered with no calculator running. */
+export const ALWAYS = Object.freeze(["list_calculators", "lookup_command", "read_guide"]);
+
+/** The names of the tools offered while `models` run (null entries: none). */
+export function toolsFor(models) {
+  const names = new Set(ALWAYS);
+  for (const model of models) if (model) for (const name of familyOf(model).tools) names.add(name);
+  return names;
+}
+
+/**
+ * Whether the browser has WebMCP: the getter the client library reads
+ * (`Document.prototype`'s `modelContext`, read once when the TabMcp is
+ * made) gives a `ModelContext`. Not the early `navigator.modelContext`:
+ * the library does not use it.
+ */
+export function hasWebMcp(doc = globalThis.document) {
+  try {
+    const get = Object.getOwnPropertyDescriptor(globalThis.Document?.prototype ?? {}, "modelContext")?.get;
+    return typeof get?.call(doc)?.registerTool === "function";
+  } catch {
+    return false;
+  }
+}
+
+/** What a WebMCP caller reads in place of APPROVAL_NOTE: the app asks nothing there, so the agent makes sure. */
+export const WEBMCP_APPROVAL_NOTE = "store_variable and purge_variable change the calculator's memory, and the app does not ask the user about them here: confirm with the user before calling them. press_keys and run_rpl can store and purge too, so take the same care as at the user's keyboard.";
+
+/** The instructions as a WebMCP caller gets them in `list_calculators`' result: no promise that the app asks. */
+export const WEBMCP_INSTRUCTIONS = INSTRUCTIONS.replace(APPROVAL_NOTE, WEBMCP_APPROVAL_NOTE);
+
+/**
+ * What an AI app reached through the tab-mcp browser extension reads in
+ * place of APPROVAL_NOTE: the extension asks the user before a tool that
+ * is not read-only (unless they allowed it there), so a "confirm first"
+ * would have the app ask in its chat and the extension ask again.
+ */
+export const EXTENSION_APPROVAL_NOTE = "press_keys, run_rpl, store_variable and purge_variable change the calculator, as the user's own key presses would: take the same care.";
+
+/** The instructions as an AI app through the tab-mcp extension gets them in `list_calculators`' result (it has no server instructions either). */
+export const EXTENSION_INSTRUCTIONS = INSTRUCTIONS.replace(APPROVAL_NOTE, EXTENSION_APPROVAL_NOTE);
+
+/** The argument of input schema `schema` that says whether the result carries the display as an image ("display", "format"), or null. */
+function imageArgument(schema) {
+  const props = schema?.properties ?? {};
+  return ["display", "format"].find((k) => props[k]?.enum?.includes("image")) ?? null;
+}
+
+/**
+ * `raw` with the display as text where a WebMCP call names nothing: a
+ * PNG in base64 is no use to a text-only agent and costs its context
+ * (the relay's apps get an MCP image block and keep the tools' own
+ * defaults; the argument's description says both).
+ */
+export function textByDefault(tool, raw) {
+  const key = imageArgument(tool.inputSchema);
+  return key && raw?.[key] === undefined ? { ...raw, [key]: "text" } : raw;
+}
+
+/**
+ * What a tool returned (`value`) in the form a WebMCP caller gets: an
+ * MCP result whose `structuredContent` is that form (the tool's fields,
+ * the display image as `image`, a data: URL; a result of text alone as
+ * `text`; `extra` added), which the library hands the agent, and whose
+ * `content` is what the log shows ("The AI's calls": the image named, not
+ * its base64). A failed result passes as it is (the library makes it
+ * `{error}`).
+ */
+export function webMcpForm(value, extra = {}) {
+  if (!value || typeof value !== "object") return value;
+  if (!Array.isArray(value.content)) return { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: { ...value, ...extra } };
+  if (value.isError === true) return value;
+  const out = { ...(value.structuredContent ?? {}) };
+  const image = value.content.find((c) => c?.type === "image");
+  if (image) out.image = `data:${image.mimeType ?? "image/png"};base64,${image.data}`;
+  if (!value.structuredContent) {
+    const text = value.content.filter((c) => c?.type === "text").map((c) => c.text).join("\n");
+    if (text) out.text = text;
+  }
+  return { content: value.content, structuredContent: { ...out, ...extra } };
+}
+
+/**
+ * `tool` as the TabMcp registers it: the same, with an `execute` that
+ * gives a WebMCP caller (`client.kind` "webmcp", the browser's agent or
+ * an AI app the tab-mcp extension passed the call on for) its form of
+ * the result; the relay's apps get the tool's own. Since client 0.24 a
+ * call the extension passes on (`client.via` "tab-mcp-extension") gets
+ * the whole MCP result, so the image goes to the AI app as an image: it
+ * keeps the tool's own result and defaults, as through the relay, with
+ * `list_calculators`' instructions added. The browser's own agent gets
+ * `webMcpForm` (`textByDefault`, the image as a data: URL).
+ */
+export function forCallers(tool) {
+  return {
+    ...tool,
+    execute: async (input, options) => {
+      const client = options?.client;
+      if (client?.kind !== "webmcp") return tool.execute(input, options);
+      if (client.via === "tab-mcp-extension") {
+        const value = await tool.execute(input, options);
+        return tool.name === "list_calculators" && value && typeof value === "object" && !Array.isArray(value.content) ? { ...value, instructions: EXTENSION_INSTRUCTIONS } : value;
+      }
+      const value = await tool.execute(textByDefault(tool, input), options);
+      return webMcpForm(value, tool.name === "list_calculators" ? { instructions: WEBMCP_INSTRUCTIONS } : {});
+    },
+  };
 }
 
 /**
@@ -126,12 +259,13 @@ export class AiAccess extends EventTarget {
     calculatorView,
     relay = relayUrl(),
     storage = globalThis.localStorage,
-    hub = { running: hubRunning, client: (who) => new HubClient({ who }) },
+    hub = { running: hubRunning, client: (who) => new HubClient({ who }), onStart: (fn) => hubStarted.addEventListener("start", fn, { once: true }) },
     roms = { kept: (models) => keptRoms(undefined, models), bytes: (sha256) => keptRomBytes(sha256) },
     client = () => import("./vendor/tab-mcp-client/tab-mcp-client.min.js"),
     allowedModule = () => import("./vendor/tab-mcp-client/allowed.min.js"),
     now = () => Date.now(),
     look = settingLook,
+    webmcp = hasWebMcp(),
   } = {}) {
     super();
     /** The clock, for the log and the waits it notes (tests give a fake). */
@@ -147,8 +281,12 @@ export class AiAccess extends EventTarget {
     /** The connected apps of the live session, by grant id (their names), to say who came and went. */
     this.apps = null;
     this.calculatorView = calculatorView;
-    /** The calculators' hub (tests give a fake): whether it runs, a new connection. */
+    /** The calculators' hub (tests give a fake): whether it runs, a new connection, `onStart(fn)`. */
     this.hub = hub;
+    // A hub started later (Files connecting while Calculator shows nothing): followed from then on, once the client is there.
+    hub.onStart?.(() => {
+      if (this.mcp) this.follow();
+    });
     /** The kept ROMs (web/tx/kept-roms.js): `kept(models)`, `bytes(sha256)`. */
     /** Loads tab-mcp's client (the vendored module; tests give a fake). */
     this.client = client;
@@ -170,11 +308,18 @@ export class AiAccess extends EventTarget {
     this.error = null;
     /** The last refused Disconnect of an AI app (`revoke`), `{grantId, text}`: a retry for that app that works clears its words from `error`. */
     this.revokeError = null;
-    /** "The AI's calls" (web/ai-log.js): from now on, in memory only; tab-mcp's calls and WebMCP's. */
+    /** "The AI's calls" (web/ai-log.js): from now on, in memory only; the relay's calls and WebMCP's. */
     this.log = new AiLog(this, { now: () => this.now() });
-    /** The tools through WebMCP (web/ai-webmcp.js `WebMcp`), where the browser has it; set by web/main.js. */
-    this.webmcp = null;
+    /** Whether the browser has WebMCP (`hasWebMcp`): the TabMcp offers the tools there too, from page start. */
+    this.webmcp = webmcp;
+    /** Whether an agent called a tool through WebMCP in this page (the sidebar offers "The AI's calls" then). */
+    this.webmcpCalled = false;
     this.toolList = null;
+    /** The tools registered on the TabMcp now, by name, each with the controller that withdraws it. */
+    this.registered = new Map();
+    /** The model Calculator shows (`shown`), and the models of the hub's running calculators (its `engines`). */
+    this.shownModel = null;
+    this.engineModels = [];
   }
 
   /** The relay's host name, for the log. */
@@ -234,9 +379,8 @@ export class AiAccess extends EventTarget {
   }
 
   /**
-   * The tools (web/ai-tools.js), made once: tab-mcp and WebMCP
-   * (web/ai-webmcp.js) register the same ones, so their calls queue per
-   * calculator together.
+   * The tools (web/ai-tools.js), made once: the relay's apps and WebMCP
+   * call the same ones, so their calls queue per calculator together.
    */
   get tools() {
     if (!this.toolList) {
@@ -246,24 +390,43 @@ export class AiAccess extends EventTarget {
     return this.toolList;
   }
 
-  /** The client loaded and the tools registered (once). */
+  /** On load: the client where the browser has WebMCP (its tools offered there at once); with "Keep AI access on", connect. */
+  start() {
+    if (this.webmcp) this.load().catch((err) => console.error("saturnus: AI access did not load", err));
+    this.resume();
+  }
+
+  /**
+   * The browser gave the page WebMCP after load (the tab-mcp extension,
+   * on a click on its icon; web/main.js hears its event): the client loads
+   * now, so its TabMcp finds the getter and mirrors. A TabMcp made before
+   * without it starts its mirror itself on that event (client 0.24); here
+   * only `webmcp` follows, for the dialog's note.
+   */
+  webMcpArrived() {
+    this.webmcp = true;
+    this.changed();
+    // A TabMcp made before (a relay page) starts its mirror itself on the extension's event (client 0.24).
+    if (this.mcp) return;
+    this.load().catch((err) => console.error("saturnus: AI access did not load", err));
+  }
+
+  /** The client loaded and the tools of the running calculators registered (once). */
   load() {
     this.loading ??= (async () => {
       const { TabMcp } = await this.client();
-      const origin = new URL(this.relay.replace(/^ws/, "http")).origin;
-      const mcp = new TabMcp({
-        relay: this.relay,
+      const options = {
         appName: "saturnus",
         server: { name: "saturnus", title: "Saturnus calculators", version: VERSION, instructions: INSTRUCTIONS },
-        storageKey: aiSecretKey(origin),
-        // The client's WebMCP mirror (tab-mcp 0.13) stays off: web/ai-webmcp.js registers the tools
-        // with WebMCP itself, without the page's question; the mirror would register them twice.
-        webmcp: false,
+        // The library's mirror is on by default (client 0.23.0): where the browser has WebMCP, the
+        // registry's tools go there too, with no question in the page.
         // The question before store_variable and purge_variable offers "Always allow", and the
         // dialog has the switches (web/ai-dialog.js): allowed until the AI app is disconnected.
         alwaysAllow: true,
-      });
-      for (const tool of this.tools) await mcp.registerTool(tool);
+      };
+      // No relay (a page served from this computer): WebMCP alone.
+      if (this.relay) Object.assign(options, { relay: this.relay, storageKey: aiSecretKey(new URL(this.relay.replace(/^ws/, "http")).origin) });
+      const mcp = new TabMcp(options);
       // `statechange` (tab-mcp 0.16) carries `reason` when a session ends (connected to disconnected
       // or, broken, to reconnecting) and when the page ends connecting or reconnecting; `reconnecting`
       // comes again for each attempt the client schedules.
@@ -302,6 +465,11 @@ export class AiAccess extends EventTarget {
       });
       mcp.addEventListener("pairingcode", () => this.changed());
       for (const type of ["toolcall", "toolcallend"]) mcp.addEventListener(type, (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail })));
+      mcp.addEventListener("toolcall", (e) => {
+        if (e.detail?.client?.kind !== "webmcp" || this.webmcpCalled) return;
+        this.webmcpCalled = true;
+        this.changed();
+      });
       mcp.addEventListener("grantschange", () => {
         this.noteApps(mcp.grants);
         this.changed();
@@ -314,14 +482,18 @@ export class AiAccess extends EventTarget {
         this.error = message !== null && mcp.state === "disconnected" ? `Could not connect to the relay: ${message}` : message;
         this.changed();
       });
-      // The switches' store (the dialog's "Always allow"); a client without it has none.
+      this.mcp = mcp;
+      // The tools of what runs now; from here on with each change (`shown`, the hub's `engines`).
+      this.follow();
+      this.syncTools();
+      // The switches' store (the dialog's "Always allow", for the relay's apps); a client without it has none.
       try {
+        if (!this.relay) throw new Error("no relay");
         this.allowed = (await this.allowedModule()).allowedTools(mcp);
         this.allowed.onChange(() => this.changed());
       } catch {
         this.allowed = null;
       }
-      this.mcp = mcp;
       return mcp;
     })();
     this.loading.catch(() => { this.loading = null; });
@@ -429,13 +601,85 @@ export class AiAccess extends EventTarget {
     this.changed();
   }
 
-  /** The other calculators' connections let go: the session ended. */
+  /**
+   * The other calculators' connections let go: the session ended. The
+   * lobby stays: it follows the running calculators for the tool list and
+   * attaches none, so it keeps nothing running.
+   */
   release() {
     this.session++;
     for (const p of this.attached.values()) p.then((t) => t.client.close(), () => {});
     this.attached.clear();
-    this.lobby?.close();
-    this.lobby = null;
+  }
+
+  /** Calculator shows `model` now (null: none; web/main.js): its family's tools offered, those no running calculator wants withdrawn. */
+  shown(model) {
+    this.shownModel = model ?? null;
+    this.follow();
+    this.syncTools();
+  }
+
+  /** The hub connection that asks for the running calculators and hears when they change (`engines`, web/hub.js). */
+  lobbyClient() {
+    if (!this.lobby) {
+      const lobby = this.hub.client("ai");
+      lobby.addEventListener("engines", (e) => {
+        if (this.lobby === lobby) this.setEngines(e.detail.engines);
+      });
+      // The hub failed: none of its calculators runs; a later `follow` connects again.
+      lobby.addEventListener("gone", () => {
+        if (this.lobby !== lobby) return;
+        this.lobby = null;
+        lobby.close();
+        this.setEngines([]);
+      });
+      this.lobby = lobby;
+    }
+    return this.lobby;
+  }
+
+  /**
+   * Follow the hub's running calculators, once it runs (a calculator
+   * started in Calculator or Files starts it; a hub that does not run
+   * runs none, and is not started for this). Until then, and for Files'
+   * calculators started before, `list_calculators` asks (`calculators`).
+   */
+  follow() {
+    if (this.lobby || !this.hub.running()) return;
+    this.lobbyClient().request("engines").then((engines) => this.setEngines(engines), () => {});
+  }
+
+  /** The hub's running calculators are now `engines` (`[{model}]`). */
+  setEngines(engines) {
+    this.engineModels = (engines ?? []).map((e) => e.model);
+    this.syncTools();
+  }
+
+  /**
+   * The TabMcp's tools brought in line with the running calculators
+   * (`toolsFor`): only what differs is withdrawn (its registration's
+   * signal aborted) or registered. Synchronous, as the library's
+   * registry is: a tool is in the list or not when this returns. A call
+   * that runs keeps its tool (the library looks it up before it runs).
+   */
+  syncTools() {
+    const mcp = this.mcp;
+    if (!mcp) return;
+    const want = toolsFor([this.shownModel, ...this.engineModels]);
+    for (const [name, controller] of this.registered) {
+      if (want.has(name)) continue;
+      controller.abort();
+      this.registered.delete(name);
+    }
+    for (const tool of this.tools) {
+      if (!want.has(tool.name) || this.registered.has(tool.name)) continue;
+      const controller = new AbortController();
+      this.registered.set(tool.name, controller);
+      mcp.registerTool(forCallers(tool), { signal: controller.signal }).catch((err) => {
+        if (this.registered.get(tool.name) === controller) this.registered.delete(tool.name);
+        console.warn(`saturnus: the tool ${tool.name} was not registered`, err);
+      });
+    }
   }
 
   /** A promise of the display as a PNG, base64 (null where none can be made) in `look` (else the setting's). */
@@ -464,8 +708,9 @@ export class AiAccess extends EventTarget {
     const out = [];
     if (shown) out.push({ id: shown, model: shown, title: titleOf(shown), rom: v.store.state.romName || null, shown: true });
     if (this.hub.running()) {
-      this.lobby ??= this.hub.client("ai");
-      const engines = await this.lobby.request("engines");
+      const engines = await this.lobbyClient().request("engines");
+      // Also what the tool list follows: Files' calculators started before the lobby was there.
+      this.setEngines(engines);
       for (const e of engines) {
         if (e.model === shown || out.some((c) => c.id === e.model)) continue;
         out.push({ id: e.model, model: e.model, title: titleOf(e.model), rom: e.romName || null, shown: false });

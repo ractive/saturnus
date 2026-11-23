@@ -91,6 +91,8 @@ class Conn {
     this.peers = false;
     /** Gone: it left. */
     this.gone = false;
+    /** It asked `engines`: it hears `engines` whenever the running calculators change. */
+    this.follows = false;
   }
 
   post(m, { always = false } = {}) {
@@ -164,6 +166,8 @@ export class Hub {
     this.ready = init();
     /** Commands run one after the other, in the order they came, whichever page sent them. */
     this.queue = this.ready.catch(() => {});
+    /** The running calculators the pages that follow them were last told of (`announceEngines`). */
+    this.toldEngines = "[]";
   }
 
   // ---------------------------------------------------------- connections
@@ -188,9 +192,9 @@ export class Hub {
     return this.serial(() => this.handle(conn, m ?? {}));
   }
 
-  /** Run `fn` between the pages' commands, never inside one. */
+  /** Run `fn` between the pages' commands, never inside one; the pages that follow the running calculators hear of a change it made. */
   serial(fn) {
-    const p = this.queue.then(fn);
+    const p = this.queue.then(fn).finally(() => this.announceEngines());
     this.queue = p.catch(() => {});
     return p;
   }
@@ -206,6 +210,20 @@ export class Hub {
     return [...this.machines.values()]
       .filter((e) => !e.stopped && !e.stopping && e.model)
       .map((e) => ({ model: e.model, romName: e.romName, views: [...new Set([...e.conns].map((c) => c.who))].sort() }));
+  }
+
+  /**
+   * The event `engines` (the command's answer) to the pages that asked
+   * `engines` once, when a calculator started or stopped since they were
+   * last told: AI access (web/ai.js) offers the tools of the running
+   * calculators' families. Not for a change of views alone.
+   */
+  announceEngines() {
+    const engines = this.engines();
+    const told = JSON.stringify(engines.map((e) => [e.model, e.romName]));
+    if (told === this.toldEngines) return;
+    this.toldEngines = told;
+    for (const c of this.conns) if (c.follows) c.post({ type: "engines", engines });
   }
 
   /**
@@ -516,6 +534,8 @@ export class Hub {
     e.tags.clear();
     e.conns.clear();
     this.drop(e);
+    // Outside the queue (a timer's): told here.
+    this.announceEngines();
     for (const c of pages) {
       if (c.home === e) c.home = null;
       if (c.machine === e) this.toHome(c);
@@ -777,6 +797,7 @@ export class Hub {
     }
     // Before the view's own engine: the home page asks only this.
     if (m.cmd === "engines") {
+      conn.follows = true;
       await this.answer(conn, m, () => this.engines());
       return;
     }

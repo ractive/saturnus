@@ -358,7 +358,12 @@ export class LocalAiAccess extends EventTarget {
     return this.loading;
   }
 
-  /** On load: attach, so AI apps can call as soon as the setting is on. */
+  /** On load (web/main.js): attach, so AI apps can call as soon as the setting is on. */
+  start() {
+    this.resume();
+  }
+
+  /** Attach, so AI apps can call as soon as the setting is on. */
   resume() {
     this.load().catch((err) => console.error("saturnus: AI access did not start", err));
   }

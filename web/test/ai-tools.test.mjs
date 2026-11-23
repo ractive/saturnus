@@ -109,6 +109,18 @@ test("read_guide: each topic is the plugin's file (SKILL.md without its frontmat
   await assert.rejects(call(bare.find((x) => x.name === "read_guide"), { topic: "rpl" }), /The guide is not available here/);
 });
 
+test("no read_guide topic says the app asks the user: read_guide serves the same text through WebMCP, where it does not", () => {
+  for (const topic of GUIDE_TOPICS) assert.doesNotMatch(GUIDE.topics[topic], /approves|in the app first|allows? (it|them) in the app|wait until the user allows/i, topic);
+});
+
+test("no tool's description says who asks (one list for every caller); the display's default says both callers'", () => {
+  const t = tools({ "48gx": fake("48gx") });
+  for (const tool of Object.values(t)) assert.doesNotMatch(tool.description, /approve|in the app first|may ask/i, tool.name);
+  for (const [name, key, fallback] of [["read_display", "format", "both"], ["press_keys", "display", "both"], ["run_rpl", "display", "text"], ["to_stack", "display", "text"], ["run_function", "display", "both"]]) {
+    assert.match(t[name].inputSchema.properties[key].description, new RegExp(`Default: ${fallback}; through WebMCP \\(an agent in the browser\\) text, where "image" or "both" adds the PNG as a data: URL\\.$`), name);
+  }
+});
+
 test("guideLoader: web/guide.json fetched once, again after a failure", async () => {
   const fetchWas = globalThis.fetch;
   const urls = [];

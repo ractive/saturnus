@@ -4,7 +4,8 @@
 // hidden, so one left open keeps its calculator computing).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AiAccess, keepsRunning, screenPng } from "../ai.js";
+import { ALWAYS, AiAccess, keepsRunning, screenPng, toolsFor } from "../ai.js";
+import { FAMILY_TOOLS } from "../ai-tools.js";
 
 /** A fake hub: `engines` lists `models`, `attach` waits for `release()` (or fails with `fail`). */
 function fakeHub(models = ["48gx"]) {
@@ -97,7 +98,7 @@ test("a refused attach and a calculator gone close their connections", { timeout
   assert.notEqual(await next, await b, "a new connection after it went");
 });
 
-test("release closes the attached connections and the lobby", { timeout: 2000 }, async () => {
+test("release closes the attached connections, not the lobby: it attaches nothing and follows the running calculators", { timeout: 2000 }, async () => {
   const f = fakeHub();
   const ai = access(f);
   const a = ai.target("48gx");
@@ -106,7 +107,8 @@ test("release closes the attached connections and the lobby", { timeout: 2000 },
   await a;
   ai.release();
   await turn();
-  assert.ok(f.clients.every((c) => c.closed > 0));
+  assert.ok(f.attachers().every((c) => c.closed > 0));
+  assert.equal(ai.lobby.closed, 0);
 });
 
 test("the calculators keep running in a hidden tab only while an AI app is connected, not for the relay session alone", () => {
@@ -296,10 +298,12 @@ test("the library's own reconnect is on: the page keeps no retries of its own", 
   assert.equal(Mcp.last.options.reconnect, undefined, "the library's default");
 });
 
-test("the library's WebMCP mirror is off: web/ai-webmcp.js registers the tools itself", async () => {
+test("one TabMcp for the relay and WebMCP: the library's mirror is left on (its default since 0.23.0)", async () => {
   const { ai, Mcp } = reconnecting([true]);
   await ai.connect();
-  assert.equal(Mcp.last.options.webmcp, false);
+  assert.equal("webmcp" in Mcp.last.options, false);
+  assert.equal(Mcp.last.options.relay, "https://relay.example");
+  assert.match(Mcp.last.options.storageKey, /relay\.example/);
 });
 
 test("a broken connection: lost while the library tries again, each wait and attempt in the log, until it is back; without Keep AI access on", { timeout: 2000 }, async () => {
@@ -636,4 +640,150 @@ test("screenPng: the display's PNG as base64; null where it cannot be made, neve
   } finally {
     globalThis.CompressionStream = saved;
   }
+});
+
+// The tool list follows the running calculators (iteration 78): a fake
+// TabMcp with the library's registry rules (a name once, withdrawn by
+// its registration's signal).
+
+class RegistryMcp extends EventTarget {
+  constructor(options) {
+    super();
+    this.options = options;
+    this.state = "disconnected";
+    this.grants = [];
+    this.tools = new Map();
+    this.registrations = 0;
+    RegistryMcp.last = this;
+  }
+  registerTool(tool, { signal } = {}) {
+    if (this.tools.has(tool.name)) return Promise.reject(new DOMException(`${tool.name} is registered`, "InvalidStateError"));
+    if (signal?.aborted) return Promise.reject(signal.reason);
+    this.tools.set(tool.name, tool);
+    this.registrations++;
+    signal?.addEventListener("abort", () => {
+      if (this.tools.get(tool.name) === tool) this.tools.delete(tool.name);
+    }, { once: true });
+    return Promise.resolve();
+  }
+  names() {
+    return [...this.tools.keys()].sort();
+  }
+}
+
+/** AI access without a relay where the browser has WebMCP, on fake hub `f`, its client a RegistryMcp. */
+function following(f, { webmcp = true, relay = null } = {}) {
+  const ai = new AiAccess({ calculatorView: () => null, relay, storage: null, hub: f.hub, roms: f.roms, webmcp, client: async () => ({ TabMcp: RegistryMcp }), allowedModule: async () => ({ allowedTools: () => ({ onChange() {} }) }) });
+  return ai;
+}
+
+const sorted = (names) => [...names].sort();
+const RPL = sorted(new Set([...ALWAYS, ...FAMILY_TOOLS.rpl]));
+const KEYS = sorted(new Set([...ALWAYS, ...FAMILY_TOOLS.keys]));
+
+test("where the browser has WebMCP the client loads at start, without a relay: no address, no Always allow store", async () => {
+  const f = fakeHub([]);
+  const ai = following(f);
+  ai.start();
+  const mcp = await ai.loading;
+  assert.equal(mcp, RegistryMcp.last);
+  assert.equal("webmcp" in mcp.options, false);
+  assert.equal(mcp.options.relay, undefined);
+  assert.equal(mcp.options.storageKey, undefined);
+  assert.equal(ai.available, false);
+  assert.equal(ai.allowed, null);
+  assert.deepEqual(mcp.names(), sorted(ALWAYS));
+  // Without WebMCP and without a click nothing loads.
+  const off = following(fakeHub([]), { webmcp: false, relay: "https://relay.example" });
+  off.start();
+  assert.equal(off.loading, null);
+});
+
+test("the tools follow the running calculators: the shown one's family and the hub's engines; a change touches only what differs", async () => {
+  const models = [];
+  const f = fakeHub(models);
+  const ai = following(f);
+  const mcp = await ai.load();
+  await turn();
+  assert.deepEqual(mcp.names(), sorted(ALWAYS), "nothing runs");
+  ai.shown("48gx");
+  assert.deepEqual(mcp.names(), RPL);
+  const before = mcp.registrations;
+  ai.shown("49g");
+  assert.equal(mcp.registrations, before, "the same family: nothing registered again");
+  // The hub says a 42S started (Files, or a calculator left running after a switch).
+  const lobby = ai.lobby;
+  assert.ok(lobby, "the lobby follows the hub");
+  lobby.dispatchEvent(new CustomEvent("engines", { detail: { engines: [{ model: "42s", romName: "rom", views: ["tx"] }] } }));
+  assert.deepEqual(mcp.names(), sorted(new Set([...RPL, ...KEYS])));
+  assert.equal(mcp.registrations, before + 1, "run_function alone");
+  ai.shown("28s");
+  assert.deepEqual(mcp.names(), sorted(toolsFor(["28s", "42s"])));
+  assert.ok(!mcp.names().includes("store_variable"));
+  lobby.dispatchEvent(new CustomEvent("engines", { detail: { engines: [] } }));
+  assert.deepEqual(mcp.names(), sorted(new Set([...ALWAYS, ...FAMILY_TOOLS["rpl-keys"]])));
+  ai.shown(null);
+  assert.deepEqual(mcp.names(), sorted(ALWAYS));
+  // list_calculators' own question to the hub counts too (Files' calculators started before the lobby).
+  models.push("48sx");
+  await ai.calculators();
+  assert.deepEqual(mcp.names(), RPL);
+  // The hub failed: none of its calculators runs.
+  lobby.dispatchEvent(new CustomEvent("gone", { detail: "stopped" }));
+  assert.equal(ai.lobby, null);
+  assert.deepEqual(mcp.names(), sorted(ALWAYS));
+  assert.equal(lobby.closed, 1);
+});
+
+test("a change before the client loaded is there once it loads; a hub that does not run is not started for it", async () => {
+  const f = fakeHub([]);
+  let running = false;
+  f.hub.running = () => running;
+  const ai = following(f, { webmcp: false, relay: "https://relay.example" });
+  ai.shown("42s");
+  assert.equal(f.clients.length, 0, "no hub connection while the hub does not run");
+  const mcp = await ai.load();
+  assert.deepEqual(mcp.names(), KEYS);
+  running = true;
+  ai.shown("42s");
+  assert.equal(f.clients.length, 1, "following it once it runs");
+});
+
+test("a hub started later (Files, with no calculator shown) is followed from its start: its calculators' tools offered", async () => {
+  const f = fakeHub(["48gx"]);
+  let running = false;
+  let started = null;
+  f.hub.running = () => running;
+  f.hub.onStart = (fn) => { started = fn; };
+  const ai = following(f, { webmcp: false, relay: "https://relay.example" });
+  const mcp = await ai.load();
+  assert.deepEqual(mcp.names(), sorted(ALWAYS), "nothing runs yet");
+  running = true;
+  started();
+  for (let i = 0; i < 5 && mcp.names().length === ALWAYS.length; i++) await turn();
+  assert.deepEqual(mcp.names(), RPL);
+});
+
+test("toolsFor: the always tools, and each running model's family once", () => {
+  assert.deepEqual(sorted(toolsFor([])), sorted(ALWAYS));
+  assert.deepEqual(sorted(toolsFor([null, "48gx", "49g"])), RPL);
+  assert.deepEqual(sorted(toolsFor(["42s", "38g"])), KEYS);
+});
+
+test("WebMCP given after load (the tab-mcp extension's event): a client not made yet loads and offers the tools; one made already is left alone", async () => {
+  const f = fakeHub([]);
+  const ai = following(f, { webmcp: false, relay: "https://relay.example" });
+  ai.start();
+  assert.equal(ai.loading, null, "a relay page loads nothing before a click");
+  let changes = 0;
+  ai.addEventListener("change", () => changes++);
+  ai.webMcpArrived();
+  assert.equal(ai.webmcp, true, "the dialog's WebMCP note");
+  assert.ok(changes > 0);
+  const mcp = await ai.loading;
+  assert.deepEqual(mcp.names(), sorted(ALWAYS));
+  // Made already (connected first): nothing for now, client 0.24 starts its mirror itself.
+  ai.webMcpArrived();
+  assert.equal(await ai.loading, mcp);
+  assert.equal(RegistryMcp.last, mcp, "no second TabMcp");
 });

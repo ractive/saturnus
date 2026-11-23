@@ -369,6 +369,23 @@ test("engines: the running calculators and their views, for the home page, which
   assert.deepEqual((await home.send("engines")).result.map((e) => e.model), ["49g"], "the 48GX stopped with its last view");
 });
 
+test("engines as an event: a page that asked hears each start and stop of a calculator, not a change of views; others hear none", async () => {
+  const { hub, page } = setup();
+  const lobby = await page("ai");
+  const emu = await page("emulator");
+  const tx = await page("tx");
+  await lobby.send("engines");
+  await emu.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  await tx.send("attach", { model: "48gx", rom: ROM, romName: "gx" });
+  await emu.send("attach", { model: "49g", rom: ROM, romName: "g" });
+  await tx.send("leave");
+  await hub.queue;
+  await sleep(1);
+  assert.deepEqual(lobby.events("engines").map((m) => m.engines.map((e) => e.model)), [["48gx"], ["48gx", "49g"], ["49g"]], "Files joining the 48GX told nothing");
+  assert.deepEqual(lobby.events("engines")[1].engines[1], { model: "49g", romName: "g", views: ["emulator"] });
+  assert.equal(emu.events("engines").length, 0, "only to a page that asked");
+});
+
 test("hello from a page that shares its machine leaves the other page's watch alone", async () => {
   const { hub, page } = setup();
   const emu = await page("emulator");

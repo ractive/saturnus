@@ -444,13 +444,14 @@ function watchAi(ai, store) {
       label.textContent = v.entry;
       dot.hidden = !v.dot;
       dot.dataset.tone = v.dot ?? "";
-      const calls = () => link("Calls", (e) => toggleAiLog(ai, e.currentTarget));
+      // The drawer's own name: alone in the sidebar (WebMCP without a relay) a bare "Calls" says nothing.
+      const calls = () => link("The AI's calls", (e) => toggleAiLog(ai, e.currentTarget));
       const actions = {
         show: () => [link("Show", () => openAi(ai))],
         // The desktop app: one switch for every AI app, so its word is Turn off.
         connected: () => [calls(), " · ", link(a.local ? "Turn off" : "Disconnect", () => a.disconnect())],
         lost: () => [calls(), " · ", link("Turn off", () => a.disconnect())],
-        // The browser's AI called through WebMCP (web/ai-webmcp.js): its calls are in the log.
+        // An agent in the browser called through WebMCP (web/ai.js): its calls are in the log.
         calls: () => [...(v.note ? [v.note, " · "] : []), calls()],
       }[v.actions];
       const line = actions ? actions() : v.note ? [v.note] : [];
@@ -828,7 +829,7 @@ async function main({ model = null, pwa: installed = null, onModel = null, ai = 
   ui.palette.attach(backend, store, {
     reference,
     bindings,
-    actions: () => appActions(backend, store, memory, bindings, ai),
+    actions: () => appActions(backend, store, memory, bindings, aiAccess),
     onMenu: async (menu) => {
       await (store.state.layer || setLayerOpen(memory, true));
       ui.layer.showMenu(menu.path);
@@ -1004,7 +1005,13 @@ async function main({ model = null, pwa: installed = null, onModel = null, ai = 
   if (onModel) store.watch(["booted"], (s) => onModel(s.booted));
   watchTxLink(store);
   watchTxPeer(backend, store);
-  if (ai) watchAi(ai, store);
+  // AI access now, or once the host makes it (`setAi`: the browser got WebMCP after load).
+  useAi = (p) => {
+    if (aiAccess || !p) return;
+    aiAccess = p;
+    watchAi(p, store);
+  };
+  useAi(ai);
 
   // The tour offered once, after the first start, until taken or dismissed;
   // put away for this visit at the first key pressed on the calculator.
@@ -1063,6 +1070,10 @@ async function main({ model = null, pwa: installed = null, onModel = null, ai = 
 let viewHidden = false;
 /** Whether an AI app's session keeps the calculator running in a hidden page (`watchAi`). */
 let keepRunning = false;
+/** AI access (a promise of web/ai.js's `AiAccess`), once there: the palette's entries and the sidebar's (set by `useAi`). */
+let aiAccess = null;
+/** Take AI access the host made (set in `main`). */
+let useAi = null;
 /** "The AI's calls" drawer (web/ai-log.js), once opened; the store its toasts go to. */
 let aiLogView = null;
 let aiStore = null;
@@ -1090,7 +1101,7 @@ let refreshRoms = null;
  *
  * Returns `ready` (resolves once the view is set up, or has said why it
  * could not; `window.saturnus.started` is the ROMs'), `show(model)` (the
- * route again on a mounted view) and `setShown(on, {visibility})`, which the host calls when it shows or
+ * route again on a mounted view), `setAi(ai)` (AI access the host made after the mount) and `setShown(on, {visibility})`, which the host calls when it shows or
  * hides the view, after un-hiding its root: the widths are fitted again,
  * the kept ROMs read again and a running tour placed again on show, and with `visibility: true` a
  * hidden view counts as a hidden page for the calculator (web/protocol.md
@@ -1119,6 +1130,10 @@ export function mountCalculator(el, { shown: isShown = () => true, model = null,
     },
     /** The view's calculator for an AI app's tools (web/ai.js): `{backend, store, reference}`, once set up. */
     ai: () => ready.then(() => aiParts),
+    /** AI access made after the mount (`ai`, a promise): its sidebar entry, Calls and the palette's entries from now on. */
+    setAi(p) {
+      ready.then(() => useAi?.(p));
+    },
     setShown(on, { visibility: counts = false } = {}) {
       const hidden = counts && !on;
       if (hidden !== viewHidden) {

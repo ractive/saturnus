@@ -348,12 +348,13 @@ class FakeRelay {
   }
 }
 
-test("the browser (tab-mcp) and the desktop app offer exactly the same tools, schemas and instructions", { timeout: 10_000 }, async () => {
+test("the browser (tab-mcp) and the desktop app offer exactly the same tools, schemas and instructions (the browser's list with every family running)", { timeout: 10_000 }, async () => {
   const relay = new FakeRelay();
   const saved = globalThis.WebSocket;
   globalThis.WebSocket = relay.WebSocket();
+  let web = null;
   try {
-    const web = new AiAccess({
+    web = new AiAccess({
       calculatorView: () => fakeView(),
       relay: "ws://127.0.0.1:9",
       storage: null,
@@ -361,6 +362,9 @@ test("the browser (tab-mcp) and the desktop app offer exactly the same tools, sc
       roms: { kept: async () => [], bytes: async () => null },
       client: () => import("../vendor/tab-mcp-client/tab-mcp-client.min.js"),
     });
+    // The browser offers the tools of the running calculators' families (web/ai.js `toolsFor`): all of them here.
+    web.shown("48gx");
+    web.setEngines([{ model: "42s" }]);
     await web.connect({ resume: true });
     const { ai: desktop, tauri } = await loaded();
 
@@ -371,6 +375,12 @@ test("the browser (tab-mcp) and the desktop app offer exactly the same tools, sc
     const inTab = (d) => d.replace(CONFIRMED_IN_APP, "The page may ask the user to allow each call, usually in the page's browser tab.");
     assert.deepEqual(desktopList.map((t) => ({ ...t, description: inTab(t.description) })), webList);
     assert.ok(desktopList.some((t) => t.description.endsWith(CONFIRMED_IN_APP)));
+    // The tools' own descriptions say nothing about who asks (iteration 78): the relay's list has the library's sentence, the desktop app's its own.
+    for (const name of ["store_variable", "purge_variable"]) {
+      assert.match(webList.find((t) => t.name === name).description, /\. The page may ask the user to allow each call, usually in the page's browser tab\.$/, name);
+      assert.ok(desktopList.find((t) => t.name === name).description.endsWith(CONFIRMED_IN_APP), name);
+    }
+    assert.ok(!webList.some((t) => /approves|in the app first/i.test(t.description)), "no saturnus approval sentence");
 
     const discover = (await relay.mcp("server/discover")).result;
     const attach = tauri.calls.find(([c]) => c === "mcp_attach")[1];
@@ -391,9 +401,10 @@ test("the browser (tab-mcp) and the desktop app offer exactly the same tools, sc
     assert.equal(webBad.isError, true);
     assert.equal(desktopBad.isError, true);
     assert.equal(desktopBad.content[0].text.split(":")[0], webBad.content[0].text.split(":")[0]);
-    web.disconnect();
     void desktop;
   } finally {
+    // Also after a failure: a connected client keeps the test process running.
+    web?.disconnect();
     globalThis.WebSocket = saved;
   }
 });

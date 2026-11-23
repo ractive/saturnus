@@ -4943,7 +4943,9 @@ saturnus".
   tools of the model Calculator shows (`familyOf`, again when the model
   changes), and those of every family the last `list_calculators` call
   named, registered before the agent reads the list. So a calculator the
-  listing names (a 48GX running in another tab) has its tools, where
+  listing names (a 48GX that Files works on in the same page while
+  Calculator shows another model: the hub is per page; a model no view
+  uses stops) has its tools, where
   only the shown family's left `run_rpl` unknown for it. Each tool is
   registered once and withdrawn alone when no family wants it, so a
   change registers only what is new; a refused registration (a
@@ -4952,7 +4954,9 @@ saturnus".
   the hidden calculators' families: it costs no connection while no
   agent asks. All withdrawn on `pagehide`, back on `pageshow`. The
   server instructions (WebMCP has none) go into `list_calculators`'
-  description, after a note on these WebMCP rules.
+  description, after a note on these WebMCP rules. Replaced on 2026-11-23 (iteration 78): one list for the relay
+  and WebMCP, following the hub's running calculators by its `engines`
+  event, no `pagehide` withdraw, no retry.
 - **Consequential calls confirmed in the page** (owner): tab-mcp's dialog
   ("Your browser's AI (WebMCP) wants to run …"), every time, no "Always
   allow", since the agent is not identified. "The AI's calls" records
@@ -5122,3 +5126,84 @@ saturnus".
   page also offers a build still installing when it registered (its
   `updatefound` had gone by), and looks for a new build on window focus,
   at most every five minutes, not on a timer.
+
+## 2026-11-23 (iteration 78: WebMCP through tab-mcp's mirror)
+
+- **The client's mirror replaces `web/ai-webmcp.js`** (owner,
+  2026-11-23: "saturnus should start using tab-mcp-client fully"). One
+  `TabMcp` for the relay and WebMCP, the mirror on by default (client
+  0.23.0, vendored in this iteration; no `webmcp` option),
+  made at page start wherever the browser has WebMCP (the getter
+  `Document.prototype.modelContext`, the one the library reads; the
+  early `navigator.modelContext` is no longer used), with or without a
+  relay. saturnus so takes part in the handshake with the tab-mcp
+  browser extension: a call the user allowed there runs unasked and is
+  logged under the AI app's name (`client.via`). No `onConfirm`, so no
+  WebMCP call asks in the page (as decided 2026-11-09). The relay's
+  "Always allow" store loads only with a relay.
+- **WebMCP given after load** (owner's option b, from the owner's
+  manual test): the tab-mcp extension gives a page `document.modelContext`
+  only when the user clicks its icon, again after each reload, and then
+  dispatches `tab-mcp-webmcp` on the document (client 0.24's
+  `WEBMCP_EVENT`). `web/main.js` listens: with no AI access yet it makes
+  one and starts it (its TabMcp then finds the getter); with AI access but
+  no TabMcp yet (a relay page not connected) the client loads now
+  (`webMcpArrived`); a TabMcp made before without WebMCP is left alone,
+  as client 0.24 starts its mirror itself on that event. A mounted
+  Calculator gets the late AI access through its handle's `setAi`, so the
+  sidebar, Calls and the palette's entries appear.
+- **Client 0.24.0** (vendored in this iteration): a TabMcp made
+  without WebMCP mirrors by itself on that event, so `webMcpArrived` then only sets `webmcp` for the dialog. A call the
+  tab-mcp extension passes on (`client.via` "tab-mcp-extension") keeps the
+  tool's own result and defaults, as through the relay: the extension
+  takes the whole MCP result (pictures as image blocks) when it asks for
+  it. `list_calculators` adds `EXTENSION_INSTRUCTIONS`, whose sentence on
+  store and purge says nothing about who asks (the extension asks for a
+  tool that is not read-only). The event's name stays a literal: client
+  0.24's `./extension` entry is not vendored.
+- **One tool list, following the running calculators** (owner's option
+  1, Design 1 built, not the all-tools fallback): `list_calculators`,
+  `lookup_command`, `read_guide`, and the family tools of the model
+  Calculator shows (`main.js` `onModel`) and of the hub's other running
+  calculators. The hub is per page, so it pushes: a view that asked
+  `engines` once hears the event `engines` when a kept calculator starts
+  or stops (`hub.js` `announceEngines`, after each turn of its queue and
+  after a failed engine; a change of views alone is not told). AI
+  access's lobby connection asks once the hub runs and listens; a hub
+  that does not run is not started for it, and Files' calculators
+  started before the lobby are caught by `list_calculators`' own ask.
+  The lobby now stays open when a relay session ends: it attaches
+  nothing. A tool is withdrawn by aborting its registration's signal and
+  registered anew when a family wants it back; only what differs
+  changes, synchronously, as the library's registry does. A call that
+  runs keeps its tool (the library looks the tool up before `execute`,
+  not after); tested with the vendored client. The relay's apps hear
+  `notifications/tools/list_changed`; the desktop app keeps its own
+  full list.
+- **Per caller at run time**: `execute` reads `client.kind`. A WebMCP
+  caller gets an MCP result whose `structuredContent` is its form (the
+  fields, the display as text unless `display`/`format` asks for
+  "image" or "both", then the `image` data URL; `list_calculators` with
+  `instructions`, whose approval sentence says the app does not ask),
+  which the library hands the agent, and whose `content` is what the
+  log shows (the image named, not its base64). The relay's apps keep
+  the tool's own result. One wrapper (`web/ai.js` `forCallers`).
+- **Descriptions say nothing about who asks**: `store_variable` and
+  `purge_variable` lost "The user approves it in the app first."; the
+  relay's tools/list gets the library's sentence, the desktop app's its
+  own (`CONFIRMED_IN_APP`). The display argument names both defaults
+  (an MCP app's, and text through WebMCP). `list_calculators`' description
+  says the tools follow the running calculators and that, through
+  WebMCP, its result carries the instructions.
+- **Dropped**: the withdraw on `pagehide` and register on `pageshow` (a
+  precaution, no seen case); the retry of a refused registration (the
+  mirror does not retry either, tab-mcp DEC-143: a tool that comes back
+  is registered anew, which tries it again); the `list_calculators`
+  listing hook (the hub's push replaces it).
+- **Page load where WebMCP is** (measured in headless Chrome, a fake
+  getter, the home page and Calculator): the same 48 and 94 scripts as
+  before; the AI scripts loaded at start 134.5 KB instead of 144.4 KB
+  (`ai-webmcp.js` and `ai-local.js` out, the client's core and its
+  mirror chunk, 16.7 and 4.2 KB, in). The first WebMCP call loads the
+  client's connection chunk (52.4 KB, 16.8 KB gzipped), as a relay
+  connect does.

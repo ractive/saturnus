@@ -1,9 +1,10 @@
 // The tools an AI app gets for the app's calculators (iteration 55),
 // in the WebMCP shape tab-mcp's `registerTool` takes: `{name, title,
 // description, inputSchema, outputSchema, annotations, execute}`
-// (`outputSchema` in WebMCP, web/ai-webmcp.js, and since tab-mcp
-// 0.16 in tools/list, from the relay and the desktop app). `execute(input,
-// {signal})`: a call whose signal aborts presses nothing more, drops the
+// (`outputSchema` in WebMCP and, since tab-mcp 0.16, in tools/list,
+// from the relay and the desktop app). `execute(input, {signal, client})`
+// (`client`: who calls, for web/ai.js's WebMCP form of a result; the tools
+// here do not read it): a call whose signal aborts presses nothing more, drops the
 // keys it queued and the calculator has not played yet (`releaseAll`)
 // and stops waiting for the calculator ("Cancelled"). Pure over what it is
 // given (web/ai.js gives the real parts; web/test/ai-tools.test.mjs fakes):
@@ -58,11 +59,8 @@ export function titleOf(model) {
   return globalThis.SATURNUS_MODEL_TITLES?.[model] ?? model;
 }
 
-/** The instructions' sentence on who approves store_variable and purge_variable: the app, for tab-mcp and the desktop app (WebMCP says its own, web/ai-webmcp.js). */
+/** The instructions' sentence on who approves store_variable and purge_variable: the app, for tab-mcp's relay and the desktop app (WebMCP's callers read their own, web/ai.js `WEBMCP_APPROVAL_NOTE`). */
 export const APPROVAL_NOTE = "The user approves each store_variable and purge_variable in the app; press_keys and run_rpl are not confirmed, so take the same care as at the user's keyboard (they can store and purge too).";
-
-/** The store_variable and purge_variable descriptions' last sentence, as APPROVAL_NOTE. */
-export const APPROVAL = "The user approves it in the app first.";
 
 /** What the MCP server tells the AI app before it uses the tools (tab-mcp `server.instructions`; the desktop app's endpoint gives the same, web/ai-local.js). */
 export const INSTRUCTIONS = `Saturnus runs emulated HP calculators in the Saturnus app, in the user's browser or the desktop app; the user watches the calculator while you use it. Each calculator runs its real ROM, so results are what the real calculator gives.
@@ -111,7 +109,15 @@ const LOOK = { type: "string", enum: ["lcd", "bw"], description: "The image's co
 const DISPLAY = { type: "string", enum: ["image", "text", "both", "none"], description: "What of the display to return afterwards: a PNG image, text (annunciators, the command line on the 48SX, 48GX, 49G and 28S, and the stack on the 48SX, 48GX and 49G), both, or none." };
 
 /**
- * The tools' results (WebMCP `outputSchema`, web/ai-webmcp.js): what
+ * The display argument's default, for every caller (one tool list for
+ * the relay's AI apps and WebMCP): an MCP app gets `fallback`; WebMCP's
+ * callers text, since a PNG in base64 costs a text-only agent its
+ * context (web/ai.js `textByDefault`).
+ */
+const displayDefault = (fallback) => `Default: ${fallback}; through WebMCP (an agent in the browser) text, where "image" or "both" adds the PNG as a data: URL.`;
+
+/**
+ * The tools' results (WebMCP `outputSchema`, web/ai.js `webMcpForm`): what
  * each returns, as WebMCP gives it to the agent (a display image as the
  * `image` data URL). Nothing is required and other fields may come, so a
  * failed call's `{error}` (WebMCP's form of a tool error) fits as well.
@@ -273,7 +279,7 @@ export function aiTools(deps) {
     {
       name: "list_calculators",
       title: "List calculators",
-      description: "The calculators running in the app: id, model, ROM file, whether the app's Calculator view shows it (the default for the other tools), and which tools work on it. On the 49G the app shows (or one a tool already used), \"mode\": \"algebraic\" (flag -95 set: RPN text does not parse) or \"rpn\"; left out otherwise and while it starts (read_stack gives it).",
+      description: "The calculators running in the app: id, model, ROM file, whether the app's Calculator view shows it (the default for the other tools), and which tools work on it. On the 49G the app shows (or one a tool already used), \"mode\": \"algebraic\" (flag -95 set: RPN text does not parse) or \"rpn\"; left out otherwise and while it starts (read_stack gives it). The tools of a family are offered while a calculator of it runs: call this first, and again when the user opens another calculator. Through WebMCP (an agent in the browser, which has no server instructions) its result's \"instructions\" say how to use these tools: read them before you use the others. read_guide has more.",
       inputSchema: { type: "object", properties: {} },
       outputSchema: OUT.calculators,
       // The ROM's file name is the user's.
@@ -311,7 +317,7 @@ export function aiTools(deps) {
         type: "object",
         properties: {
           calculator: CALCULATOR,
-          format: { type: "string", enum: ["image", "text", "both"], description: "Default: both." },
+          format: { type: "string", enum: ["image", "text", "both"], description: displayDefault("both") },
           pixels: { type: "boolean", description: "Add the display's dots as text rows. Default: false." },
           look: LOOK,
         },
@@ -329,7 +335,7 @@ export function aiTools(deps) {
         properties: {
           calculator: CALCULATOR,
           keys: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 200, description: "Key names, pressed in order: [\"1\", \"enter\", \"2\", \"plus\"]." },
-          display: DISPLAY,
+          display: { ...DISPLAY, description: `${DISPLAY.description} ${displayDefault("both")}` },
           look: LOOK,
         },
         required: ["keys"],
@@ -357,7 +363,7 @@ export function aiTools(deps) {
         properties: {
           calculator: CALCULATOR,
           text: { type: "string", minLength: 1, maxLength: 4096, description: "RPL text, as typed on the command line: \"2 3 +\", \"« 1 + » 'INC' STO\"." },
-          display: { ...DISPLAY, description: `${DISPLAY.description} Default: text.` },
+          display: { ...DISPLAY, description: `${DISPLAY.description} ${displayDefault("text")}` },
           look: LOOK,
         },
         required: ["text"],
@@ -397,7 +403,7 @@ export function aiTools(deps) {
       name: "to_stack",
       title: "Back to the stack",
       description: "48SX, 48GX, 49G: leaves an input form (no field being edited), a choose box, a message, the graphics screen or the interactive stack (what was done there stays) by pressing CANCEL (ATTN on the 48) until the stack has the keyboard again, at most 5 times, reading the screen from memory before each press; returns what it closed (\"closed\") and the display. It presses nothing where CANCEL could throw away typing or stop a program: a command line (at the stack, in a form's field, for INPUT, an object being edited), the 48's EquationWriter, the MatrixWriter, a halted or running program, or a screen it cannot name; it refuses there (or, after closing something, stops) with \"next\": what to do yourself. In the EquationWriter's scrolling mode (\"equation view\") it presses CANCEL once, which returns to the EquationWriter and keeps the formula, and stops there. Nothing is pressed at the stack.",
-      inputSchema: { type: "object", properties: { calculator: CALCULATOR, display: { ...DISPLAY, description: `${DISPLAY.description} Default: text.` }, look: LOOK } },
+      inputSchema: { type: "object", properties: { calculator: CALCULATOR, display: { ...DISPLAY, description: `${DISPLAY.description} ${displayDefault("text")}` }, look: LOOK } },
       outputSchema: OUT.display,
       annotations: { untrustedContentHint: true },
       execute: (input, options) => onCalculator(input, async (t, signal) => {
@@ -488,7 +494,7 @@ export function aiTools(deps) {
     {
       name: "store_variable",
       title: "Store a variable",
-      description: "48SX, 48GX, 49G: compiles the RPL text on the calculator and stores the one object it gives in a variable, created or replaced (the calculator's own compiler: a syntax error comes back as its message and nothing changes). dir is a path from HOME; without it the current directory. " + APPROVAL,
+      description: "48SX, 48GX, 49G: compiles the RPL text on the calculator and stores the one object it gives in a variable, created or replaced (the calculator's own compiler: a syntax error comes back as its message and nothing changes). dir is a path from HOME; without it the current directory.",
       inputSchema: {
         type: "object",
         properties: {
@@ -513,7 +519,7 @@ export function aiTools(deps) {
     {
       name: "purge_variable",
       title: "Purge a variable",
-      description: "48SX, 48GX, 49G: deletes a variable (a directory with everything in it). dir is a path from HOME; without it the current directory. " + APPROVAL,
+      description: "48SX, 48GX, 49G: deletes a variable (a directory with everything in it). dir is a path from HOME; without it the current directory.",
       inputSchema: {
         type: "object",
         properties: { calculator: CALCULATOR, name: { type: "string", minLength: 1, maxLength: 64 }, dir: dirSchema() },
@@ -538,7 +544,7 @@ export function aiTools(deps) {
         properties: {
           calculator: CALCULATOR,
           name: { type: "string", minLength: 1, maxLength: 64, description: "The function's name as the reference has it: SIN, →POL, PMT." },
-          display: DISPLAY,
+          display: { ...DISPLAY, description: `${DISPLAY.description} ${displayDefault("both")}` },
           look: LOOK,
         },
         required: ["name"],

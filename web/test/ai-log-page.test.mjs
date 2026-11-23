@@ -85,14 +85,14 @@ test("the sidebar says AI access's state; Calls opens the AI's calls, which foll
   await ev(STATE("connected", [{ grantId: "g1", client: { id: CLAUDE.id, name: "Claude", host: "claude.ai" } }]));
   const on = await ev(SIDEBAR);
   assert.equal(on.entry, "Claude is connected");
-  assert.equal(on.line, "Calls · Disconnect");
+  assert.equal(on.line, "The AI's calls · Disconnect");
   assert.equal(on.live, "Claude is connected.");
   const accent = await ev("(() => { const d = document.createElement('i'); d.style.color = 'var(--accent)'; document.getElementById('panel').append(d); const c = getComputedStyle(d).color; d.remove(); return c; })()");
   assert.equal(on.dot, accent, "the dot in the accent colour");
   assert.equal(await ev("document.getElementById('ai-live').getAttribute('aria-live')"), "polite");
 
   // Calls opens the drawer, kept open in this browser.
-  await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => b.textContent === 'Calls').click(), true");
+  await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => /calls$/.test(b.textContent)).click(), true");
   await until("!document.getElementById('ai-log').hidden", "the drawer open");
   assert.equal(await ev("localStorage.getItem('saturnus.aiLog')"), "open");
   assert.equal(await ev("document.querySelector('#ai-log h2').textContent"), "The AI's calls");
@@ -158,7 +158,7 @@ test("the sidebar says AI access's state; Calls opens the AI's calls, which foll
   await ev(STATE("reconnecting", [], true));
   const lost = await ev(SIDEBAR);
   assert.equal(lost.entry, "AI access lost · reconnecting…");
-  assert.equal(lost.line, "Calls · Turn off");
+  assert.equal(lost.line, "The AI's calls · Turn off");
   assert.notEqual(lost.dot, accent, "the warning colour");
   await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => b.textContent === 'Turn off').click(), true");
   assert.equal((await ev(SIDEBAR)).entry, "Connect your AI app…");

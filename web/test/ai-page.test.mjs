@@ -219,7 +219,8 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   const client = await mcpClient(address, token);
   t.after(() => client.close());
   const names = (await client.listTools()).tools.map((x) => x.name);
-  assert.deepEqual(names.sort(), ["list_calculators", "list_keys", "lookup_command", "press_keys", "purge_variable", "read_display", "read_guide", "read_stack", "read_variable", "run_function", "run_rpl", "store_variable", "to_stack"].concat("list_variables").sort());
+  // The tools of the running calculators' families (iteration 78): the 48GX's, no run_function yet.
+  assert.deepEqual(names.sort(), ["list_calculators", "list_keys", "list_variables", "lookup_command", "press_keys", "purge_variable", "read_display", "read_guide", "read_stack", "read_variable", "run_rpl", "store_variable", "to_stack"]);
 
   const list = await use(client, "list_calculators");
   assert.deepEqual(list.json.calculators.map((x) => [x.id, x.shown, x.family]), [["48gx", true, "rpl"]]);
@@ -270,7 +271,7 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   await ev("window.saturnusApp.ai.then((a) => (a.allowed.ask('g_test', 'store_variable'), true))");
 
   // The AI's calls: both, with how they ended.
-  await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => b.textContent === 'Calls').click(), true");
+  await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => /calls$/.test(b.textContent)).click(), true");
   await until(ev, "!document.getElementById('ai-log').hidden", 5_000, "the AI's calls open");
   const outs = await ev("[...document.querySelectorAll('#ai-log .al-call')].map((li) => li.querySelector('.al-tool').textContent + ': ' + li.querySelector('.al-out').textContent.split(' · ')[0])");
   assert.ok(outs.some((o) => /^Store .*: done$/i.test(o) || o.startsWith("store_variable: done")), outs.join("\n"));
@@ -317,6 +318,9 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   await until(ev, "window.saturnus.store.state.booted === '42s'", 30_000, "the 42S booted");
   await sleep(1500);
   assert.deepEqual((await use(client, "list_calculators")).json.calculators.map((x) => [x.id, x.shown, x.family]), [["42s", true, "keys"], ["48gx", false, "rpl"]]);
+  // Both families' tools now: the 42S's run_function came in, the 48GX's stay while it runs.
+  const both = (await client.listTools()).tools.map((x) => x.name);
+  assert.ok(both.includes("run_function") && both.includes("run_rpl") && both.includes("store_variable"), both.join(" "));
   const other = await use(client, "run_rpl", { calculator: "48gx", text: "6 7 *" });
   assert.equal(other.error, false, other.text);
   assert.equal(other.json.stack[0].text, "42", "the 48GX Files shows, through the AI app's own connection");

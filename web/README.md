@@ -1224,35 +1224,41 @@ through the relay while the tab is open. Nothing is installed.
   shows, so the click's user activation still holds when `connect()`
   runs; a connect refused for lack of one says "Press Connect to turn on
   AI access."
-- **WebMCP** (iteration 71, `ai-webmcp.js`): where the browser has
-  `document.modelContext` (Chrome 149 and Edge 150 origin trials, the
-  tokens in `index.html`; Chrome's early `navigator.modelContext` as a
-  fallback), the same tool objects are registered with the browser for
-  its own agent, always, beside tab-mcp: those of the shown calculator's
-  family (`familyOf`, again when the model changes it, `main.js`
-  `onModel`) and of every family the last `list_calculators` call named
-  (registered before the agent reads the list), each tool once with an
-  `AbortSignal` that withdraws it alone when no family wants it, all on
-  `pagehide`; a refused registration is tried again at the next change. The call path: the arguments
-  checked (as for the desktop app), no confirmation in the page (the
-  browser's agent decides; `store_variable` and `purge_variable` keep
-  `consequentialHint` for it, and their descriptions and the
-  instructions tell the agent to confirm, `webMcpText`; the log's
-  entries say `asks: false`),
-  `toolcall`/`toolcallend` on the `AiAccess` for the log. A result is the tool's JSON, a failure
-  `{error}` (Chrome hides a rejection's message); the display comes as
-  text unless the call asks for an image (`display`/`format`), then as
-  the `image` data URL. WebMCP has no server instructions, and
-  tab-mcp's extension cuts a tool's description at 1000 characters, so
-  `list_calculators`'s description only says that its result carries
-  them: every WebMCP call of it returns `instructions` (`webMcpText` of
-  `INSTRUCTIONS`); tab-mcp and the desktop app send them as the server's
-  instructions instead. Without a relay (127.0.0.1) `AiAccess` is still made for it,
-  `available` false, and the sidebar's entry stays hidden. Tests:
-  `test/ai-webmcp.test.mjs` (a fake `document.modelContext`),
-  `test/ai-webmcp-page.test.mjs` (Chrome with
-  `--enable-features=WebMCPTesting`, `executeTool`; the 48GX with
-  `SATURNUS_ROM_DIR`). Facts: `kb/research/webmcp.md`.
+- **WebMCP** (iteration 78, tab-mcp's mirror; iteration 71 had its own
+  `ai-webmcp.js`): where the browser has WebMCP (the getter
+  `Document.prototype.modelContext`, which the client library reads;
+  Chrome 149 and Edge 150 origin trials, the tokens in `index.html`), the
+  `TabMcp` is made at page start (`AiAccess.start`), with or without a
+  relay, or when the tab-mcp extension gives the page WebMCP after load
+  and says so with `tab-mcp-webmcp` (`main.js` makes AI access then, or
+  `webMcpArrived` loads the client of a relay page not yet connected;
+  Calculator takes it through `setAi`); the library's mirror (on by default since client 0.23.0)
+  offers the browser every tool of its
+  registry and takes part in the handshake with the tab-mcp browser
+  extension. One list for the relay and WebMCP, following the running
+  calculators (`toolsFor`, `syncTools`): `list_calculators`,
+  `lookup_command`, `read_guide`, and the family tools of the model
+  Calculator shows (`shown`, from `main.js` `onModel`) and of the hub's
+  other engines (the hub's `engines` event to the lobby connection,
+  `hub.js` `announceEngines`; `list_calculators` asks as well). A tool
+  goes by aborting its registration's signal and comes back registered
+  anew; a call that runs keeps it. No question in the page for a WebMCP
+  call (no `onConfirm`): the browser, its agent or the extension asks;
+  `store_variable` and `purge_variable` keep `consequentialHint`. A
+  WebMCP caller (`client.kind` "webmcp" in `execute`'s context) gets its
+  own form of a result (`forCallers`, `webMcpForm`): the fields, the
+  display as text unless the call asks for an image (`textByDefault`;
+  then the `image` data URL), a failure as `{error}` (the library's),
+  and `list_calculators`' `instructions` (`WEBMCP_INSTRUCTIONS`: WebMCP
+  has no server instructions, and the extension cuts a description at
+  1000 characters). The log names the caller "Your browser's AI", or the
+  AI app the extension vouched for (`client.via`), never asking; the
+  sidebar offers "The AI's calls" once one came (`webmcpCalled`). Without a relay
+  (127.0.0.1) `available` is false and the sidebar's entry stays hidden.
+  Tests: `test/ai.test.mjs` (the list following the calculators, on a
+  fake client), `test/ai-mirror.test.mjs` (the vendored client on a fake
+  WebMCP), `test/ai-mirror-page.test.mjs` (the page with a fake getter;
+  the 48GX with `SATURNUS_ROM_DIR`). Facts: `kb/research/webmcp.md`.
 - Tests: `test/ai.test.mjs` (the session on a fake hub: one attach per
   calculator, every connection closed again, when the calculators keep
   running; the reconnecting on a fake client that models the library's
