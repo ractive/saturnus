@@ -450,7 +450,7 @@ function watchAi(ai, store) {
         // The desktop app: one switch for every AI app, so its word is Turn off.
         connected: () => [calls(), " · ", link(a.local ? "Turn off" : "Disconnect", () => a.disconnect())],
         lost: () => [calls(), " · ", link("Turn off", () => a.disconnect())],
-        // The browser's AI called through WebMCP (web/ai-webmcp.js): its calls are in the log.
+        // An agent in the browser called through WebMCP (web/ai.js): its calls are in the log.
         calls: () => [...(v.note ? [v.note, " · "] : []), calls()],
       }[v.actions];
       const line = actions ? actions() : v.note ? [v.note] : [];

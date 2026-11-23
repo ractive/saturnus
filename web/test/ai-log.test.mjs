@@ -6,7 +6,7 @@
 // events to the log. The drawer itself: ai-log-page.test.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AiLog, aiView, argPairs, durationText, foldOf, noteText, outcomeText, resultText } from "../ai-log.js";
+import { AiLog, aiView, appLabel, argPairs, durationText, foldOf, noteText, outcomeText, resultText } from "../ai-log.js";
 import { AiAccess } from "../ai.js";
 
 const CLIENT = { grantId: "g1", id: "https://claude.ai/cimd.json", host: "claude.ai", name: "Claude" };
@@ -129,6 +129,21 @@ test("the sidebar says the state: off, connecting, on without an app, connected 
   // The client's state while it connects again by itself (tab-mcp 0.16).
   const lost = v({ state: "reconnecting", lost: true, error: "The relay restarted." });
   assert.deepEqual([lost.entry, lost.dot, lost.actions], ["AI access lost · reconnecting…", "lost", "lost"]);
+});
+
+test("a WebMCP caller is Your browser's AI, or the AI app the tab-mcp extension vouched for; its calls never wait for the user; Calls once one came", () => {
+  assert.equal(appLabel({ kind: "webmcp" }), "Your browser's AI");
+  assert.equal(appLabel({ kind: "webmcp", via: "tab-mcp-extension", name: "Claude", host: "claude.ai" }), "Claude");
+  assert.equal(appLabel({ kind: "webmcp", via: "tab-mcp-extension", name: "", host: "claude.ai" }), "claude.ai");
+  assert.equal(appLabel(CLIENT), "Claude");
+  const ai = fakeAi();
+  const log = new AiLog(ai);
+  ai.emit("toolcall", { id: 1, tool: "store_variable", arguments: {}, client: { kind: "webmcp" } });
+  ai.emit("toolcall", { id: 2, tool: "store_variable", arguments: {}, client: CLIENT });
+  assert.deepEqual(log.entries.map((e) => [e.app, e.asks]), [["Your browser's AI", false], ["Claude", true]]);
+  const v = (a) => aiView({ lost: false, error: null, mcp: null, state: "disconnected", ...a });
+  assert.equal(v({ webmcpCalled: true }).actions, "calls");
+  assert.equal(v({}).actions, undefined);
 });
 
 test("AI access hands the calls and the connection's events to its log, never the address or the pairing code", { timeout: 2000 }, async () => {

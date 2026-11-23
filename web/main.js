@@ -44,31 +44,20 @@ for (const a of document.querySelectorAll("a[data-route]")) a.hidden = false;
 const pwa = installServiceWorker(desktop ? "tauri" : "worker", { set() {} });
 
 /**
- * AI access: in the browser through a relay (web/ai.js, iteration 55),
- * loaded only where there is one; with "Keep AI access on" it connects at
- * once. In the desktop app the app serves MCP itself (web/ai-local.js,
- * iteration 58): the window attaches its tools at once.
+ * AI access: in the browser through a relay (web/ai.js, iteration 55) and,
+ * where the browser has WebMCP, to an agent in the browser through the
+ * same client (iteration 78), loaded at start there, else only where
+ * there is a relay; with "Keep AI access on" it connects at once. In the
+ * desktop app the app serves MCP itself (web/ai-local.js, iteration 58):
+ * the window attaches its tools at once (its webview has no WebMCP).
  */
 const calculatorView = () => mounted.calculator ?? null;
-/**
- * WebMCP (iteration 71, web/ai-webmcp.js): where the browser has it, the
- * same tools for the browser's own AI agent, always registered. Not in
- * the desktop app (its webview has none). The older
- * `navigator.modelContext` as in ai-webmcp.js `modelContextOf`.
- */
-const hasWebMcp = !desktop && Boolean(document.modelContext ?? navigator.modelContext);
+/** Where the browser has WebMCP: the getter tab-mcp's client reads (web/ai.js `hasWebMcp`, without loading it). */
+const webMcpHere = !desktop && typeof Object.getOwnPropertyDescriptor(Document.prototype, "modelContext")?.get?.call(document)?.registerTool === "function";
 const ai = desktop
   ? import("./ai-local.js").then(({ LocalAiAccess }) => new LocalAiAccess({ calculatorView }))
-  : relayUrl() || hasWebMcp ? import("./ai.js").then(({ AiAccess }) => new AiAccess({ calculatorView })) : null;
-ai?.then((a) => a.resume(), (err) => console.error("saturnus: AI access did not load", err));
-const webmcp = hasWebMcp
-  ? Promise.all([ai, import("./ai-webmcp.js")]).then(([a, { WebMcp }]) => {
-    const w = new WebMcp({ ai: a });
-    a.webmcp = w;
-    w.start().catch((err) => console.error("saturnus: WebMCP did not start", err));
-    return w;
-  }, (err) => console.error("saturnus: WebMCP did not load", err))
-  : null;
+  : relayUrl() || webMcpHere ? import("./ai.js").then(({ AiAccess }) => new AiAccess({ calculatorView })) : null;
+ai?.then((a) => a.start(), (err) => console.error("saturnus: AI access did not load", err));
 
 /** The ROM commands of the home page: the app's, or the browser's hub's. */
 const roms = desktop ? appRoms(nativeHub()) : hubRoms();
@@ -105,8 +94,8 @@ function routeNow() {
 
 /** Calculator runs `model` now: its route follows, so a reload opens it again. */
 function onModel(model) {
-  // The shown calculator's model decides the tools WebMCP offers.
-  webmcp?.then((w) => w?.update(model));
+  // The shown calculator's family is among the tools AI access offers.
+  ai?.then((a) => a.shown?.(model), () => {});
   const r = routeNow();
   if (current !== "calculator" || (r?.model ?? null) === (model ?? null)) return;
   // Turned off: the route drops the model, so Back or a reload does not boot it again.
@@ -192,6 +181,6 @@ window.saturnusApp = {
   mounted: (view) => mount(view),
   home,
   pwa,
-  /** AI access (web/ai.js), or null where there is no relay. */
+  /** AI access (web/ai.js), or null where there is no relay and no WebMCP. */
   ai,
 };

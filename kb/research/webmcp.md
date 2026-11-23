@@ -14,10 +14,11 @@ tags:
 
 Facts behind iteration 71 ([[iterations/iteration-71-webmcp]]): the web
 app registers its calculator tools (`web/ai-tools.js`) with the browser
-through WebMCP (`web/ai-webmcp.js`). Measured on 2026-11-08 in Google
-Chrome 156.0.8078.80 (macOS, `--headless=new`) with the probe pages in
-the iteration's scratchpad and `web/test/ai-webmcp-page.test.mjs`;
-the rest from the sources listed at the end.
+through WebMCP (then `web/ai-webmcp.js`; since iteration 78 tab-mcp's
+client mirrors them, [[iterations/iteration-78-webmcp-mirror]]). Measured
+on 2026-11-08 in Google Chrome 156.0.8078.80 (macOS, `--headless=new`)
+with the probe pages in the iteration's scratchpad and iteration 71's
+page test; the rest from the sources listed at the end.
 
 ## Switching it on
 
@@ -44,7 +45,8 @@ the rest from the sources listed at the end.
   `ontoolcancel`; no `navigator.modelContext`, no `unregisterTool`, no
   `provideContext`, no `navigator.modelContextTesting`. The spec draft
   has no `navigator.modelContext` either; Chrome's early preview builds
-  had it there, so `web/ai-webmcp.js` falls back to it
+  had it there (iteration 71 fell back to it; tab-mcp's client, since
+  iteration 78, reads only `Document.prototype`'s getter)
   ([spec `index.bs`](https://github.com/webmachinelearning/webmcp/blob/main/index.bs)).
 - `registerTool(tool, {signal})` resolves; aborting the signal
   withdraws the tool (gone from `getTools` at once, so the same name can
@@ -57,8 +59,8 @@ the rest from the sources listed at the end.
   added it on 2026-11-02).
 - Chrome does not check the input against `inputSchema`: a string for an
   integer and an extra property reached `execute` as sent (the draft
-  leaves it to the tool, issue 92). saturnus checks the arguments itself
-  (`web/ai-local.js` `invalidArguments`).
+  leaves it to the tool, issue 92). tab-mcp's client checks the
+  arguments before `execute` (iteration 71: saturnus itself).
 - `executeTool` resolves to the result as a string: an object as its
   JSON, a string as it is (not JSON-quoted, unlike the draft's "serialize
   to a JSON string"), `undefined` as `"undefined"`.
@@ -66,7 +68,8 @@ the rest from the sources listed at the end.
   was executed but the invocation failed", without the tool's message
   (the draft: `OperationError`, and "tool execution failures defined by
   tool authors can also be reported in the response JSON string").
-  saturnus resolves with `{error: message}` instead.
+  saturnus (tab-mcp's client since iteration 78) resolves with
+  `{error: message}` instead.
 - Aborting `executeTool`'s signal rejects it with `AbortError`, aborts
   the signal `execute` got, and fires `toolcancel` with the tool's name;
   `toolactivated` fired when the call began.

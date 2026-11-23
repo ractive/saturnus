@@ -9,8 +9,13 @@
 
 import { el } from "./shared/dom.js";
 
-/** An AI app's name for the sidebar and the log: its own, else its host. */
+/**
+ * An AI app's name for the sidebar and the log: its own, else its host. A
+ * WebMCP caller (`kind` "webmcp") is "Your browser's AI", or the AI app the
+ * tab-mcp browser extension vouched for (`via`), by its name.
+ */
 export function appLabel(client) {
+  if (client?.kind === "webmcp" && client.via !== "tab-mcp-extension") return "Your browser's AI";
   return client?.name || client?.host || "AI app";
 }
 
@@ -31,8 +36,8 @@ export function aiView(a) {
     const entry = grants.length === 1 ? `${appLabel(grants[0].client)} is connected` : `${grants.length} AI apps are connected`;
     return { entry, dot: "on", actions: "connected", said: `${entry}.` };
   }
-  // The browser's AI has used the tools through WebMCP (web/ai-webmcp.js): "Calls" opens the log.
-  const calls = a.webmcp?.called ? { actions: "calls" } : {};
+  // An agent in the browser has used the tools through WebMCP: "Calls" opens the log.
+  const calls = a.webmcpCalled ? { actions: "calls" } : {};
   return { entry: "Connect your AI app…", note: a.error ?? null, ...calls, said: a.error ? `AI access is off. ${a.error}` : "" };
 }
 
@@ -110,8 +115,8 @@ export class AiLog extends EventTarget {
     this.seq = 0;
     /** The calls not ended yet, by id. */
     this.pending = new Map();
-    /** Whether a call of `tool` asks the user first; a call's own `asks` (WebMCP's: false) wins. */
-    this.asks = (tool) => Boolean(ai.consequential?.has(tool));
+    /** Whether a call of `tool` by `client` asks the user first: never a WebMCP caller's (the browser or the tab-mcp extension asks); a call's own `asks` wins. */
+    this.asks = (tool, client) => client?.kind !== "webmcp" && Boolean(ai.consequential?.has(tool));
     ai.addEventListener("toolcall", (e) => this.call(e.detail));
     ai.addEventListener("toolcallend", (e) => this.end(e.detail));
     ai.addEventListener("note", (e) => this.add({ kind: "event", text: noteText(e.detail), bad: e.detail.what === "lost" }));
@@ -133,7 +138,7 @@ export class AiLog extends EventTarget {
   }
 
   call(d) {
-    const entry = { kind: "call", id: d.id, tool: d.tool, title: d.title || d.tool, app: appLabel(d.client), args: argPairs(d.arguments), asks: d.asks ?? this.asks(d.tool), outcome: null };
+    const entry = { kind: "call", id: d.id, tool: d.tool, title: d.title || d.tool, app: appLabel(d.client), args: argPairs(d.arguments), asks: d.asks ?? this.asks(d.tool, d.client), outcome: null };
     this.pending.set(d.id, entry);
     this.add(entry);
   }
