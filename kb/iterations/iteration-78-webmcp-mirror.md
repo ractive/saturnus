@@ -97,10 +97,9 @@ Checked by the owner in Chrome through the tab-mcp extension (main build,
 list following a switch; text by default and the image as a data: URL
 when asked; `list_calculators`' instructions; calls the extension
 allowed ran with no question in the page; each tab its own page; WebMCP
-given after load picked up (`late`). Not seen end to end: a picture as
-an image block through the extension (the call arrived without
-`client.via`; with tab-mcp), covered by a unit test with a simulated
-announcement.
+given after load picked up (`late`); with client 0.24.0 and the
+extension reloaded to its build with claims, `read_display` through
+claude.ai arrived as an image block, with and without `format`.
 
 ## Tasks
 
