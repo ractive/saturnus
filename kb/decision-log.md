@@ -5140,6 +5140,17 @@ saturnus".
   logged under the AI app's name (`client.via`). No `onConfirm`, so no
   WebMCP call asks in the page (as decided 2026-11-09). The relay's
   "Always allow" store loads only with a relay.
+- **WebMCP given after load** (owner's option b, from the owner's
+  manual test): the tab-mcp extension gives a page `document.modelContext`
+  only when the user clicks its icon, again after each reload, and then
+  dispatches `tab-mcp-webmcp` on the document (client 0.24's
+  `WEBMCP_EVENT`). `web/main.js` listens: with no AI access yet it makes
+  one and starts it (its TabMcp then finds the getter); with AI access but
+  no TabMcp yet (a relay page not connected) the client loads now
+  (`webMcpArrived`); a TabMcp made before without WebMCP is left alone,
+  as client 0.24 starts its mirror itself on that event. A mounted
+  Calculator gets the late AI access through its handle's `setAi`, so the
+  sidebar, Calls and the palette's entries appear.
 - **One tool list, following the running calculators** (owner's option
   1, Design 1 built, not the all-tools fallback): `list_calculators`,
   `lookup_command`, `read_guide`, and the family tools of the model

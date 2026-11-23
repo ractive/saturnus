@@ -370,6 +370,20 @@ export class AiAccess extends EventTarget {
     this.resume();
   }
 
+  /**
+   * The browser gave the page WebMCP after load (the tab-mcp extension,
+   * on a click on its icon; web/main.js hears its event): the client loads
+   * now, so its TabMcp finds the getter and mirrors. A TabMcp made before
+   * without it is left as it is: client 0.24 starts its mirror itself on
+   * that event.
+   */
+  webMcpArrived() {
+    if (this.mcp) return;
+    this.webmcp = true;
+    this.changed();
+    this.load().catch((err) => console.error("saturnus: AI access did not load", err));
+  }
+
   /** The client loaded and the tools of the running calculators registered (once). */
   load() {
     this.loading ??= (async () => {

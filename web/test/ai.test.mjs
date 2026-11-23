@@ -754,3 +754,21 @@ test("toolsFor: the always tools, and each running model's family once", () => {
   assert.deepEqual(sorted(toolsFor([null, "48gx", "49g"])), RPL);
   assert.deepEqual(sorted(toolsFor(["42s", "38g"])), KEYS);
 });
+
+test("WebMCP given after load (the tab-mcp extension's event): a client not made yet loads and offers the tools; one made already is left alone", async () => {
+  const f = fakeHub([]);
+  const ai = following(f, { webmcp: false, relay: "https://relay.example" });
+  ai.start();
+  assert.equal(ai.loading, null, "a relay page loads nothing before a click");
+  let changes = 0;
+  ai.addEventListener("change", () => changes++);
+  ai.webMcpArrived();
+  assert.equal(ai.webmcp, true, "the dialog's WebMCP note");
+  assert.ok(changes > 0);
+  const mcp = await ai.loading;
+  assert.deepEqual(mcp.names(), sorted(ALWAYS));
+  // Made already (connected first): nothing for now, client 0.24 starts its mirror itself.
+  ai.webMcpArrived();
+  assert.equal(await ai.loading, mcp);
+  assert.equal(RegistryMcp.last, mcp, "no second TabMcp");
+});

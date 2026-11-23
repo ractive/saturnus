@@ -56,17 +56,29 @@ async function until(ev, expression, ms, what) {
 }
 
 /** The page with the fake WebMCP, or null (skipped). */
-async function webMcpPage(t, opts = {}) {
+async function webMcpPage(t, { late = false, route = "#/calculator", relay = null, ...opts } = {}) {
   const c = await session(t, opts);
   if (!c) return null;
   await c.send("Page.enable");
   await c.send("Runtime.enable");
   await c.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
-  await c.send("Page.addScriptToEvaluateOnNewDocument", { source: FAKE_WEBMCP });
-  await c.send("Page.navigate", { url: `http://127.0.0.1:${c.port}/index.html#/calculator` });
-  await until(c.ev, "!!window.saturnus && !!window.saturnusApp", 15_000, "the page started");
+  if (!late) await c.send("Page.addScriptToEvaluateOnNewDocument", { source: FAKE_WEBMCP });
+  await c.send("Page.navigate", { url: `http://127.0.0.1:${c.port}/index.html${route}` });
+  await until(c.ev, "!!window.saturnusApp", 15_000, "the page started");
+  if (relay) {
+    await c.ev(`localStorage.setItem("saturnus.aiRelay", ${JSON.stringify(relay)}), true`);
+    await c.send("Page.reload");
+    await sleep(300);
+    await until(c.ev, "!!window.saturnusApp", 15_000, "the page started again");
+  }
   return c;
 }
+
+/**
+ * The tab-mcp extension giving the page WebMCP after load (a click on its
+ * icon): the getter appears, then its event (client 0.24's WEBMCP_EVENT).
+ */
+const GIVE_WEBMCP = `(${FAKE_WEBMCP.replace(/;$/, "")}, document.dispatchEvent(new Event("tab-mcp-webmcp")), true)`;
 
 const run = (name, input = {}) => `window.webmcp.run(${JSON.stringify(name)}, ${JSON.stringify(input)})`;
 /** The scripts the page loaded, by file name. */
@@ -148,4 +160,50 @@ test("an agent reads the 48GX's display, runs RPL and stores, the family's tools
   assert.equal((await ev(run("purge_variable", { name: "AIT" }))).purged, true);
   assert.equal(await ev(ASKING), false);
   assert.deepEqual(await ev("window.saturnusApp.ai.then((a) => a.log.entries.filter((e) => e.tool === 'store_variable').map((e) => [e.app, e.asks, e.outcome]))"), [["Your browser's AI", false, "ok"]]);
+});
+
+test("WebMCP given after load (the tab-mcp extension's event): AI access is made then, the tools offered, Calculator's sidebar and Calls follow", { timeout: 60_000 }, async (t) => {
+  const c = await webMcpPage(t, { late: true });
+  if (!c) return;
+  const { ev } = c;
+  await ev("window.saturnus.started.then(() => true)");
+  assert.equal(await ev("window.saturnusApp.ai"), null, "no relay, no WebMCP at load: no AI access");
+  assert.equal(await ev(GIVE_WEBMCP), true);
+  assert.equal(await until(ev, "window.webmcp.names().includes('read_guide') && window.webmcp.names()", 15_000, "the tools offered"), "list_calculators lookup_command read_guide");
+  assert.equal(await ev("window.saturnusApp.ai.then((a) => a.webmcp)"), true);
+  // Calculator, mounted before, has it now: a call shows Calls in its sidebar.
+  assert.equal((await ev(run("read_guide", { topic: "rpl" }))).topic, "rpl");
+  await until(ev, "[...document.querySelectorAll('#ai-chip button')].some((b) => b.textContent === 'Calls')", 5_000, "Calls in the sidebar");
+  assert.equal(await ev("document.getElementById('ai-connect').hidden"), true, "no relay: nothing to connect");
+});
+
+test("WebMCP given after load on a relay page whose client is not made yet (the home page): the client loads and mirrors", { timeout: 60_000 }, async (t) => {
+  // Port 9 (discard): a relay nobody runs, never connected.
+  const c = await webMcpPage(t, { late: true, route: "#/", relay: "http://127.0.0.1:9" });
+  if (!c) return;
+  const { ev } = c;
+  assert.deepEqual(await ev("window.saturnusApp.ai.then((a) => [a.available, a.webmcp, Boolean(a.mcp)])"), [true, false, false]);
+  assert.equal(await ev(GIVE_WEBMCP), true);
+  assert.equal(await until(ev, "window.webmcp.names().includes('read_guide') && window.webmcp.names()", 15_000, "the tools offered"), "list_calculators lookup_command read_guide");
+  assert.deepEqual(await ev("window.saturnusApp.ai.then((a) => [a.webmcp, a.state])"), [true, "disconnected"]);
+});
+
+test("WebMCP given after load with the 48GX running: its family's tools at once", { timeout: 180_000 }, async (t) => {
+  if (!dir || !existsSync(join(dir, "gxrom-r"))) {
+    t.skip("needs SATURNUS_ROM_DIR with gxrom-r");
+    return;
+  }
+  const c = await webMcpPage(t, { late: true, files: { "/__gx": join(dir, "gxrom-r") } });
+  if (!c) return;
+  const { ev } = c;
+  await ev("window.saturnus.started.then(() => true)");
+  await ev(`(async () => {
+    const bytes = await (await fetch("/__gx")).arrayBuffer();
+    await window.saturnus.startWithRom(new File([bytes], "gxrom-r"));
+    return true;
+  })()`);
+  await until(ev, "window.saturnus.store.state.booted === '48gx'", 30_000, "the 48GX booted");
+  assert.equal(await ev(GIVE_WEBMCP), true);
+  await until(ev, "window.webmcp.names().includes('run_rpl')", 15_000, "the RPL tools");
+  assert.deepEqual((await ev(run("list_calculators"))).calculators.map((x) => [x.id, x.shown]), [["48gx", true]]);
 });
