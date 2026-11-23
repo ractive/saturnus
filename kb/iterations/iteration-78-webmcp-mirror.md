@@ -2,7 +2,7 @@
 type: iteration
 title: "Iteration 78: WebMCP through tab-mcp's mirror, tools that follow the running calculators"
 date: 2026-11-23
-status: in-progress
+status: completed
 tags: [iteration, web, ai]
 branch: iter-78/webmcp-mirror
 ---
