@@ -42,8 +42,10 @@
 // always, and the tools of the family of each calculator running in the
 // page, the one Calculator shows (`shown`, from web/main.js) and the
 // hub's other engines (its `engines` event, web/hub.js: the hub is per
-// document, so a 48GX left running after a switch to the 42S is still
-// reachable through `target`). A tool goes by aborting the signal it was
+// document: a calculator another view of the page still uses, such as a
+// 48GX Files works on while Calculator shows the 42S, runs on and is
+// reachable through `target`; one no view uses stops, as Calculator's
+// last model does when it switches). A tool goes by aborting the signal it was
 // registered with and comes back registered again; the relay's apps hear
 // `notifications/tools/list_changed`, the browser the mirror's change. A
 // call that runs keeps its tool, withdrawn or not.

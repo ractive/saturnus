@@ -32,9 +32,10 @@ the mirror and the relay's apps through `notifications/tools/list_changed`.
    option 1). The registry holds `list_calculators`, `lookup_command`
    and `read_guide` always, plus `FAMILY_TOOLS` of the family of every
    calculator running in the page: the one Calculator shows and the
-   hub's other engines (`web/hub.js` is per document, so a 48GX left
-   running after a switch to the 42S is still reachable through
-   `target()`). Updated when the shown model changes and when an engine
+   hub's other engines (`web/hub.js` is per document: a 48GX that Files
+   works on while Calculator shows the 42S runs on and is reachable
+   through `target()`; Calculator's previous model stops on a switch
+   unless another view uses it). Updated when the shown model changes and when an engine
    starts or stops. A tool is withdrawn by aborting the `signal` it was
    registered with on the TabMcp and registered again when a family wants
    it back; a change touches only what differs. Same list for the relay

@@ -4943,8 +4943,9 @@ saturnus".
   tools of the model Calculator shows (`familyOf`, again when the model
   changes), and those of every family the last `list_calculators` call
   named, registered before the agent reads the list. So a calculator the
-  listing names (a 48GX left running in the same page, by Files or after
-  a switch to another model: the hub is per page) has its tools, where
+  listing names (a 48GX that Files works on in the same page while
+  Calculator shows another model: the hub is per page; a model no view
+  uses stops) has its tools, where
   only the shown family's left `run_rpl` unknown for it. Each tool is
   registered once and withdrawn alone when no family wants it, so a
   change registers only what is new; a refused registration (a
