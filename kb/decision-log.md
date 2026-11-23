@@ -5152,9 +5152,8 @@ saturnus".
   as client 0.24 starts its mirror itself on that event. A mounted
   Calculator gets the late AI access through its handle's `setAi`, so the
   sidebar, Calls and the palette's entries appear.
-- **Client 0.24 (candidate 0.24.0-rc.1 on the branch, not merged until
-  0.24.0)**: a TabMcp made without WebMCP mirrors by itself on that event,
-  so `webMcpArrived` then only sets `webmcp` for the dialog. A call the
+- **Client 0.24.0** (vendored in this iteration): a TabMcp made
+  without WebMCP mirrors by itself on that event, so `webMcpArrived` then only sets `webmcp` for the dialog. A call the
   tab-mcp extension passes on (`client.via` "tab-mcp-extension") keeps the
   tool's own result and defaults, as through the relay: the extension
   takes the whole MCP result (pictures as image blocks) when it asks for
