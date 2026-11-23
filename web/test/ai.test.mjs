@@ -298,10 +298,10 @@ test("the library's own reconnect is on: the page keeps no retries of its own", 
   assert.equal(Mcp.last.options.reconnect, undefined, "the library's default");
 });
 
-test("one TabMcp for the relay and WebMCP: the library's mirror is on", async () => {
+test("one TabMcp for the relay and WebMCP: the library's mirror is left on (its default since 0.23.0)", async () => {
   const { ai, Mcp } = reconnecting([true]);
   await ai.connect();
-  assert.equal(Mcp.last.options.webmcp, true);
+  assert.equal("webmcp" in Mcp.last.options, false);
   assert.equal(Mcp.last.options.relay, "https://relay.example");
   assert.match(Mcp.last.options.storageKey, /relay\.example/);
 });
@@ -687,7 +687,7 @@ test("where the browser has WebMCP the client loads at start, without a relay: n
   ai.start();
   const mcp = await ai.loading;
   assert.equal(mcp, RegistryMcp.last);
-  assert.equal(mcp.options.webmcp, true);
+  assert.equal("webmcp" in mcp.options, false);
   assert.equal(mcp.options.relay, undefined);
   assert.equal(mcp.options.storageKey, undefined);
   assert.equal(ai.available, false);

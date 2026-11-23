@@ -1229,7 +1229,8 @@ through the relay while the tab is open. Nothing is installed.
   `Document.prototype.modelContext`, which the client library reads;
   Chrome 149 and Edge 150 origin trials, the tokens in `index.html`), the
   `TabMcp` is made at page start (`AiAccess.start`), with or without a
-  relay, `webmcp: true`: the library offers the browser every tool of its
+  relay; the library's mirror (on by default since client 0.23.0)
+  offers the browser every tool of its
   registry and takes part in the handshake with the tab-mcp browser
   extension. One list for the relay and WebMCP, following the running
   calculators (`toolsFor`, `syncTools`): `list_calculators`,

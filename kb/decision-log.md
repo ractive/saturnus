@@ -5130,7 +5130,8 @@ saturnus".
 
 - **The client's mirror replaces `web/ai-webmcp.js`** (owner,
   2026-11-23: "saturnus should start using tab-mcp-client fully"). One
-  `TabMcp` for the relay and WebMCP, `webmcp: true` (client 0.22.0),
+  `TabMcp` for the relay and WebMCP, the mirror on by default (client
+  0.23.0, vendored in this iteration; no `webmcp` option),
   made at page start wherever the browser has WebMCP (the getter
   `Document.prototype.modelContext`, the one the library reads; the
   early `navigator.modelContext` is no longer used), with or without a

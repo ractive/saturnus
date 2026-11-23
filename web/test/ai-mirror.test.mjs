@@ -1,5 +1,5 @@
 // The calculators' tools through WebMCP by the client library's mirror
-// (web/ai.js, iteration 78: `webmcp: true`, in place of iteration 71's
+// (web/ai.js, iteration 78: on by default since client 0.23.0, in place of iteration 71's
 // web/ai-webmcp.js), with the vendored client itself on a fake
 // `ModelContext`, given by a `modelContext` getter on `Document.prototype`
 // (the one the library reads) that keeps the draft's rules (a name once,

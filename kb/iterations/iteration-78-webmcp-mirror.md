@@ -88,6 +88,9 @@ is: the same scripts count, 134.5 KB of AI scripts at start instead of
 144.4 KB; the first WebMCP call loads the client's 52.4 KB connection
 chunk. Decision log, 2026-11-23.
 
+Client 0.23.0 (mirror on by default) came out during the iteration: it
+is vendored here and the `webmcp` option is left out.
+
 ## Tasks
 
 - [x] TabMcp at page start where WebMCP is, `webmcp: true`; relay optional; load cost measured
@@ -102,4 +105,3 @@ chunk. Decision log, 2026-11-23.
 
 - tab-mcp's own gaps (full MCP results for calls the
   extension passes on): tab-mcp's work.
-- Removing the `webmcp` option once 0.23.0 is vendored.

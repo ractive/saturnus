@@ -27,7 +27,7 @@
 // Where the browser has WebMCP (W3C Web Machine Learning CG draft; Chrome
 // 149 and Edge 150 origin trials, the tokens in index.html), the same
 // TabMcp offers the tools to an agent in the browser as well (iteration 78:
-// the library's mirror, `webmcp: true`, in place of web/ai-webmcp.js of
+// the library's mirror, on by default since client 0.23.0, in place of web/ai-webmcp.js of
 // iteration 71): made at page start there (`start`), with or without a
 // relay (a page served from this computer has none: `available` false).
 // The mirror offers WebMCP every tool in the TabMcp's registry, the list
@@ -377,9 +377,8 @@ export class AiAccess extends EventTarget {
       const options = {
         appName: "saturnus",
         server: { name: "saturnus", title: "Saturnus calculators", version: VERSION, instructions: INSTRUCTIONS },
-        // The library's mirror (tab-mcp 0.13; the handshake with its browser extension, 0.22): where
-        // the browser has WebMCP, the registry's tools go there too, with no question in the page.
-        webmcp: true,
+        // The library's mirror is on by default (client 0.23.0): where the browser has WebMCP, the
+        // registry's tools go there too, with no question in the page.
         // The question before store_variable and purge_variable offers "Always allow", and the
         // dialog has the switches (web/ai-dialog.js): allowed until the AI app is disconnected.
         alwaysAllow: true,
