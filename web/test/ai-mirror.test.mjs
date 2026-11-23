@@ -14,7 +14,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { aiTools, FAMILY_TOOLS, INSTRUCTIONS } from "../ai-tools.js";
-import { ALWAYS, AiAccess, hasWebMcp, WEBMCP_INSTRUCTIONS } from "../ai.js";
+import { ALWAYS, AiAccess, EXTENSION_INSTRUCTIONS, hasWebMcp, WEBMCP_INSTRUCTIONS } from "../ai.js";
 
 const turn = () => new Promise((r) => setTimeout(r, 0));
 const PACE = { first: 0, poll: 0, limit: 200 };
@@ -284,4 +284,21 @@ test("a call the tab-mcp extension vouched for is the AI app's in the log, and a
   assert.equal((await context.run("store_variable", args)).stored, true);
   assert.deepEqual(c.calls.filter(([cmd]) => cmd === "storeText").map(([, a]) => a.name), ["Y"]);
   assert.deepEqual(calls(ai).map((e) => [e.tool, e.app, e.asks]), [["store_variable", "Claude", false]]);
+});
+
+test("a read-only call the tab-mcp extension passes on (client 0.24) gets the whole MCP result: the image as an image block, the tools' own defaults; list_calculators with instructions that leave the asking to the extension", async () => {
+  const { ai, context } = await mirrored();
+  await registered(context, (n) => n.includes("read_display"));
+  const claim = (tool, args, nonce) => document.dispatchEvent(new CustomEvent("tab-mcp-extension", { detail: JSON.stringify({ v: 1, type: "claim", tool, arguments: args, nonce, app: { name: "Claude", host: "claude.ai" }, result: "mcp" }) }));
+  claim("read_display", {}, "c1");
+  const read = await context.run("read_display", {});
+  assert.ok(Array.isArray(read.content), JSON.stringify(read).slice(0, 200));
+  assert.ok(read.content.some((b) => b.type === "image" && b.mimeType === "image/png"), "the image as a block (the tool's default: both)");
+  assert.equal(read.structuredContent?.image, undefined, "no data: URL");
+  claim("list_calculators", {}, "c2");
+  const list = await context.run("list_calculators", {});
+  // A plain value passes as it is (the library makes only an MCP result whole).
+  assert.equal(list.instructions, EXTENSION_INSTRUCTIONS);
+  assert.doesNotMatch(EXTENSION_INSTRUCTIONS, /confirm with the user|approves each/);
+  assert.deepEqual(calls(ai).map((e) => [e.tool, e.app, e.asks]), [["read_display", "Claude", false], ["list_calculators", "Claude", false]]);
 });

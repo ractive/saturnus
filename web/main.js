@@ -66,9 +66,11 @@ let runningModel = null;
  * The tab-mcp browser extension gives a page WebMCP after load (a click on
  * its icon while its AI access is on, again after each reload) and then
  * says so with this event on the document (client 0.24 exports its name
- * as WEBMCP_EVENT from its ./extension entry). AI access made now, and
- * handed to a mounted Calculator; or, made already for a relay, its
- * client loaded now (web/ai.js `webMcpArrived`).
+ * as WEBMCP_EVENT from its ./extension entry, which is not vendored: one
+ * more module at start for a string). AI access made now, and handed to a
+ * mounted Calculator; or, made already for a relay, its client loaded now
+ * if it is not yet (web/ai.js `webMcpArrived`; a client made before
+ * mirrors by itself on this event).
  */
 document.addEventListener("tab-mcp-webmcp", () => {
   if (!webMcpNow()) return;

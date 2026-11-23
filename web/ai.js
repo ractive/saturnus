@@ -132,6 +132,17 @@ export const WEBMCP_APPROVAL_NOTE = "store_variable and purge_variable change th
 /** The instructions as a WebMCP caller gets them in `list_calculators`' result: no promise that the app asks. */
 export const WEBMCP_INSTRUCTIONS = INSTRUCTIONS.replace(APPROVAL_NOTE, WEBMCP_APPROVAL_NOTE);
 
+/**
+ * What an AI app reached through the tab-mcp browser extension reads in
+ * place of APPROVAL_NOTE: the extension asks the user before a tool that
+ * is not read-only (unless they allowed it there), so a "confirm first"
+ * would have the app ask in its chat and the extension ask again.
+ */
+export const EXTENSION_APPROVAL_NOTE = "press_keys, run_rpl, store_variable and purge_variable change the calculator, as the user's own key presses would: take the same care.";
+
+/** The instructions as an AI app through the tab-mcp extension gets them in `list_calculators`' result (it has no server instructions either). */
+export const EXTENSION_INSTRUCTIONS = INSTRUCTIONS.replace(APPROVAL_NOTE, EXTENSION_APPROVAL_NOTE);
+
 /** The argument of input schema `schema` that says whether the result carries the display as an image ("display", "format"), or null. */
 function imageArgument(schema) {
   const props = schema?.properties ?? {};
@@ -175,15 +186,24 @@ export function webMcpForm(value, extra = {}) {
 /**
  * `tool` as the TabMcp registers it: the same, with an `execute` that
  * gives a WebMCP caller (`client.kind` "webmcp", the browser's agent or
- * an AI app the tab-mcp extension vouched for) its form of the result
- * (`textByDefault`, `webMcpForm`, `list_calculators` with the
- * instructions); the relay's apps get the tool's own.
+ * an AI app the tab-mcp extension passed the call on for) its form of
+ * the result; the relay's apps get the tool's own. Since client 0.24 a
+ * call the extension passes on (`client.via` "tab-mcp-extension") gets
+ * the whole MCP result, so the image goes to the AI app as an image: it
+ * keeps the tool's own result and defaults, as through the relay, with
+ * `list_calculators`' instructions added. The browser's own agent gets
+ * `webMcpForm` (`textByDefault`, the image as a data: URL).
  */
 export function forCallers(tool) {
   return {
     ...tool,
     execute: async (input, options) => {
-      if (options?.client?.kind !== "webmcp") return tool.execute(input, options);
+      const client = options?.client;
+      if (client?.kind !== "webmcp") return tool.execute(input, options);
+      if (client.via === "tab-mcp-extension") {
+        const value = await tool.execute(input, options);
+        return tool.name === "list_calculators" && value && typeof value === "object" && !Array.isArray(value.content) ? { ...value, instructions: EXTENSION_INSTRUCTIONS } : value;
+      }
       const value = await tool.execute(textByDefault(tool, input), options);
       return webMcpForm(value, tool.name === "list_calculators" ? { instructions: WEBMCP_INSTRUCTIONS } : {});
     },
@@ -376,13 +396,14 @@ export class AiAccess extends EventTarget {
    * The browser gave the page WebMCP after load (the tab-mcp extension,
    * on a click on its icon; web/main.js hears its event): the client loads
    * now, so its TabMcp finds the getter and mirrors. A TabMcp made before
-   * without it is left as it is: client 0.24 starts its mirror itself on
-   * that event.
+   * without it starts its mirror itself on that event (client 0.24); here
+   * only `webmcp` follows, for the dialog's note.
    */
   webMcpArrived() {
-    if (this.mcp) return;
     this.webmcp = true;
     this.changed();
+    // A TabMcp made before (a relay page) starts its mirror itself on the extension's event (client 0.24).
+    if (this.mcp) return;
     this.load().catch((err) => console.error("saturnus: AI access did not load", err));
   }
 
