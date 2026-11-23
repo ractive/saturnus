@@ -1,19 +1,19 @@
 {
   "package": "@ractive-ch/tab-mcp-client",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "license": "MIT (tab-mcp; @cfworker/json-schema, MIT, inlined)",
-  "source": {"kind": "npm", "package": "@ractive-ch/tab-mcp-client", "integrity": "sha512-yqfEXdZnnAQ2vRzY0g+XpKrbDEEiUJDQqtSasWSU3UflzrRHB+J4PrwOXMdjro8M8hoNRzsTz+wwY3wJotra6A=="},
+  "source": {"kind": "npm", "package": "@ractive-ch/tab-mcp-client", "integrity": "sha512-moywRLvO+u5ZgEPB8UhMeTbWZrBExqcJDRxxl2hteTuw604ZIuHOUkd9aR5gEJLIVr7bYdYkb3wvlvp87zDcIQ=="},
   "entry": "tab-mcp-client.min.js",
   "files": {
     "allowed.min.js": "863d3bcba075cf1dc3d5a07c711eee9a6a9add2c2b35c74f0839cd54386051ae",
-    "confirm-xgm1ymd0.min.js": "9a8b9540b8425ce7d5a662b8d8bdd43329888d1f91776ec4eab9484c6d7e92c1",
+    "confirm-zrz65vva.min.js": "2ff27f0044ddf8a7c87d1e7b10be71c539b57fe4e0fc8755032987cbc372ef60",
     "connect-3reh9k1f.min.js": "84299febc23c231ad351ec4dade292c3ef3d9b59ca7f50e1d7693f86e60895b9",
-    "connection-cxgns38v.min.js": "fe5be0a960d32fab464c17380b00109a3cb3604a96ae2489146989e594473b90",
+    "connection-m0e4xvcy.min.js": "a2cdd6ea47efcbbf8d2f9ad631b4fb5a3824cab21c7d2156ce0007c1e4fc00a9",
     "strings.min.js": "a07460d918e7087855d9af415bb80b84e774f25eeea52170a667919f85c52a5f",
     "tab-mcp-client-gdj1e1wh.min.js": "f3bc549c1dcb383e3a926dfc4e4359ee9d9165cfa213227784d37a2f4626570a",
     "tab-mcp-client-q758jr4g.min.js": "a3095ab2085c0383e94098af892039ff45555d5dad3bbc867faf751d2393e0ac",
     "tab-mcp-client-yjcmhpdf.min.js": "30452216f14b153b13cc95a9556c603e3363e803364ccd73f7e3af5e8688cd7a",
-    "tab-mcp-client.min.js": "2a305db2f26ee02ea7c77abe061f2803596437bf1e825154ec18a09113fdad3a",
-    "webmcp-8xby3trn.min.js": "ff4894f45b2de5c7a7d80822452a12a18ab85525fc8624dcfd64f4df84ff1e2a"
+    "tab-mcp-client.min.js": "be77aafd3e0d54efab730e6591e7d87fb3d0f5d12df775760055bc29c0a9c8cd",
+    "webmcp-vqs5smxj.min.js": "947dd26f9d49544752dbe5068517aed5e71fdf77e2c25f53910e8e34362e4545"
   }
 }
