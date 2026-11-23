@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { aiTools, familyOf, GUIDE_TOPICS, guideLoader, INSTRUCTIONS, pixelRows } from "../ai-tools.js";
 import { buildIndex } from "../reference.js";
 import { validate } from "../ai-local.js";
+import { ReferenceLoader } from "../palette.js";
 
 const data = JSON.parse(readFileSync(new URL("../commands.json", import.meta.url), "utf8"));
 const reference = { index: async (m) => buildIndex(data, m) };
@@ -132,12 +133,32 @@ test("guideLoader: web/guide.json fetched once, again after a failure", async ()
   };
   try {
     const load = guideLoader();
-    await assert.rejects(load(), /HTTP 404/);
+    await assert.rejects(load(), /^Error: The guide could not be loaded \(HTTP 404\): try again\.$/);
     fail = false;
     assert.equal(await load(), GUIDE);
     assert.equal(await load(), GUIDE);
     assert.equal(urls.length, 2);
     assert.match(urls[0], /\/web\/guide\.json$/);
+  } finally {
+    globalThis.fetch = fetchWas;
+  }
+});
+
+test("the command reference that cannot be loaded says so, not the browser's bare \"Failed to fetch\"; tried again on the next call", async () => {
+  const fetchWas = globalThis.fetch;
+  let mode = "offline";
+  globalThis.fetch = async () => {
+    if (mode === "offline") throw new TypeError("Failed to fetch");
+    if (mode === "missing") return { ok: false, status: 503 };
+    return { ok: true, json: async () => ({ models: {} }) };
+  };
+  try {
+    const ref = new ReferenceLoader(new URL("https://example.test/commands.json"));
+    await assert.rejects(ref.data(), { message: "The command reference could not be loaded (no connection to the site): try again." });
+    mode = "missing";
+    await assert.rejects(ref.data(), { message: "The command reference could not be loaded (HTTP 503): try again." });
+    mode = "ok";
+    assert.deepEqual(await ref.data(), { models: {} });
   } finally {
     globalThis.fetch = fetchWas;
   }

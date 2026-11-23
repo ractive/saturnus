@@ -91,6 +91,22 @@ export class IndexWatch {
  * for, with one index per model. Shared by the palette and the
  * explorer's Commands tab.
  */
+/**
+ * `url`'s JSON, or an error that says what could not be loaded and why
+ * (`what`: "The command reference"): the browser's own "Failed to fetch"
+ * tells an AI app, or the user, nothing.
+ */
+export async function fetchJson(url, what) {
+  let res;
+  try {
+    res = await fetch(url);
+  } catch {
+    throw new Error(`${what} could not be loaded (no connection to the site): try again.`);
+  }
+  if (!res.ok) throw new Error(`${what} could not be loaded (HTTP ${res.status}): try again.`);
+  return res.json();
+}
+
 export class ReferenceLoader {
   constructor(url) {
     this.url = url;
@@ -100,11 +116,7 @@ export class ReferenceLoader {
 
   /** The parsed data; one fetch, retried after a failure. */
   data() {
-    this.loading ??= (async () => {
-      const res = await fetch(this.url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    })().catch((err) => {
+    this.loading ??= fetchJson(this.url, "The command reference").catch((err) => {
       this.loading = null;
       throw err;
     });

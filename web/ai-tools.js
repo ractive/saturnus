@@ -29,7 +29,7 @@
 // Everything goes through the protocol's commands (web/protocol.md);
 // nothing here is new to the calculator.
 
-import { pressFunction } from "./palette.js";
+import { fetchJson, pressFunction } from "./palette.js";
 import { fromCodes28, send28, settle } from "./keys28.js";
 import { exampleBefore, exampleResult, exampleText, placement, search } from "./reference.js";
 import "./shared/models.js";
@@ -92,11 +92,7 @@ export const GUIDE_TOPICS = Object.freeze(["skill", "rpl", "models", "workflows"
 export function guideLoader(url = new URL("./guide.json", import.meta.url)) {
   let loading = null;
   return () => {
-    loading ??= (async () => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    })().catch((err) => {
+    loading ??= fetchJson(url, "The guide").catch((err) => {
       loading = null;
       throw err;
     });
