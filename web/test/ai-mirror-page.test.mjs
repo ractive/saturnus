@@ -133,7 +133,8 @@ test("an agent reads the 48GX's display, runs RPL and stores, the family's tools
   const c = await webMcpPage(t, { files: { "/__gx": join(dir, "gxrom-r") } });
   if (!c) return;
   const { ev } = c;
-  await ev("window.saturnus.started.then(() => true)");
+  // Calculator sets window.saturnus once mounted: under load that comes after the page's first script.
+  await until(ev, "window.saturnus?.started.then(() => true)", 30_000, "Calculator mounted");
   await ev(`(async () => {
     const bytes = await (await fetch("/__gx")).arrayBuffer();
     await window.saturnus.startWithRom(new File([bytes], "gxrom-r"));
@@ -166,7 +167,8 @@ test("WebMCP given after load (the tab-mcp extension's event): AI access is made
   const c = await webMcpPage(t, { late: true });
   if (!c) return;
   const { ev } = c;
-  await ev("window.saturnus.started.then(() => true)");
+  // Calculator sets window.saturnus once mounted: under load that comes after the page's first script.
+  await until(ev, "window.saturnus?.started.then(() => true)", 30_000, "Calculator mounted");
   assert.equal(await ev("window.saturnusApp.ai"), null, "no relay, no WebMCP at load: no AI access");
   assert.equal(await ev(GIVE_WEBMCP), true);
   assert.equal(await until(ev, "window.webmcp.names().includes('read_guide') && window.webmcp.names()", 15_000, "the tools offered"), "list_calculators lookup_command read_guide");
@@ -196,7 +198,8 @@ test("WebMCP given after load with the 48GX running: its family's tools at once"
   const c = await webMcpPage(t, { late: true, files: { "/__gx": join(dir, "gxrom-r") } });
   if (!c) return;
   const { ev } = c;
-  await ev("window.saturnus.started.then(() => true)");
+  // Calculator sets window.saturnus once mounted: under load that comes after the page's first script.
+  await until(ev, "window.saturnus?.started.then(() => true)", 30_000, "Calculator mounted");
   await ev(`(async () => {
     const bytes = await (await fetch("/__gx")).arrayBuffer();
     await window.saturnus.startWithRom(new File([bytes], "gxrom-r"));
