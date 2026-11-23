@@ -444,7 +444,8 @@ function watchAi(ai, store) {
       label.textContent = v.entry;
       dot.hidden = !v.dot;
       dot.dataset.tone = v.dot ?? "";
-      const calls = () => link("Calls", (e) => toggleAiLog(ai, e.currentTarget));
+      // The drawer's own name: alone in the sidebar (WebMCP without a relay) a bare "Calls" says nothing.
+      const calls = () => link("The AI's calls", (e) => toggleAiLog(ai, e.currentTarget));
       const actions = {
         show: () => [link("Show", () => openAi(ai))],
         // The desktop app: one switch for every AI app, so its word is Turn off.

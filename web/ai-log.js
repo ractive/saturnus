@@ -36,7 +36,7 @@ export function aiView(a) {
     const entry = grants.length === 1 ? `${appLabel(grants[0].client)} is connected` : `${grants.length} AI apps are connected`;
     return { entry, dot: "on", actions: "connected", said: `${entry}.` };
   }
-  // An agent in the browser has used the tools through WebMCP: "Calls" opens the log.
+  // An agent in the browser has used the tools through WebMCP: "The AI's calls" opens the log.
   const calls = a.webmcpCalled ? { actions: "calls" } : {};
   return { entry: "Connect your AI app…", note: a.error ?? null, ...calls, said: a.error ? `AI access is off. ${a.error}` : "" };
 }

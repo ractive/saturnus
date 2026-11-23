@@ -271,7 +271,7 @@ test("an AI app drives the 48GX and the 42S through a local tab-mcp relay", { ti
   await ev("window.saturnusApp.ai.then((a) => (a.allowed.ask('g_test', 'store_variable'), true))");
 
   // The AI's calls: both, with how they ended.
-  await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => b.textContent === 'Calls').click(), true");
+  await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => /calls$/.test(b.textContent)).click(), true");
   await until(ev, "!document.getElementById('ai-log').hidden", 5_000, "the AI's calls open");
   const outs = await ev("[...document.querySelectorAll('#ai-log .al-call')].map((li) => li.querySelector('.al-tool').textContent + ': ' + li.querySelector('.al-out').textContent.split(' · ')[0])");
   assert.ok(outs.some((o) => /^Store .*: done$/i.test(o) || o.startsWith("store_variable: done")), outs.join("\n"));

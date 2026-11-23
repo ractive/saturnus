@@ -308,7 +308,7 @@ export class AiAccess extends EventTarget {
     this.log = new AiLog(this, { now: () => this.now() });
     /** Whether the browser has WebMCP (`hasWebMcp`): the TabMcp offers the tools there too, from page start. */
     this.webmcp = webmcp;
-    /** Whether an agent called a tool through WebMCP in this page (the sidebar offers "Calls" then). */
+    /** Whether an agent called a tool through WebMCP in this page (the sidebar offers "The AI's calls" then). */
     this.webmcpCalled = false;
     this.toolList = null;
     /** The tools registered on the TabMcp now, by name, each with the controller that withdraws it. */

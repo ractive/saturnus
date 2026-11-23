@@ -1253,7 +1253,7 @@ through the relay while the tab is open. Nothing is installed.
   has no server instructions, and the extension cuts a description at
   1000 characters). The log names the caller "Your browser's AI", or the
   AI app the extension vouched for (`client.via`), never asking; the
-  sidebar offers "Calls" once one came (`webmcpCalled`). Without a relay
+  sidebar offers "The AI's calls" once one came (`webmcpCalled`). Without a relay
   (127.0.0.1) `available` is false and the sidebar's entry stays hidden.
   Tests: `test/ai.test.mjs` (the list following the calculators, on a
   fake client), `test/ai-mirror.test.mjs` (the vendored client on a fake

@@ -5,7 +5,7 @@
 // `registerTool` and its signal, and calls a tool as an agent would):
 // - on load without a relay (127.0.0.1 has none) the client loads at once
 //   and offers list_calculators, lookup_command and read_guide; the
-//   sidebar offers no Connect, "Calls" once an agent called; the dialog's
+//   sidebar offers no Connect, "The AI's calls" once an agent called; the dialog's
 //   WebMCP note;
 // - with the ROMs (SATURNUS_ROM_DIR: gxrom-r): the 48GX booted, its
 //   family's tools; run_rpl, read_display with an image, store_variable
@@ -112,8 +112,8 @@ test("the client mirrors the tools into WebMCP on load, without a relay; Calls o
 
   // No relay: nothing to connect, the entry stays hidden; the line below it offers the calls.
   assert.equal(await ev("document.getElementById('ai-connect').hidden"), true);
-  await until(ev, "[...document.querySelectorAll('#ai-chip button')].some((b) => b.textContent === 'Calls')", 5_000, "Calls in the sidebar");
-  await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => b.textContent === 'Calls').click(), true");
+  await until(ev, "[...document.querySelectorAll('#ai-chip button')].some((b) => /calls$/.test(b.textContent))", 5_000, "Calls in the sidebar");
+  await ev("[...document.querySelectorAll('#ai-chip button')].find((b) => /calls$/.test(b.textContent)).click(), true");
   await until(ev, "!document.getElementById('ai-log').hidden", 5_000, "the drawer open");
   const rows = await ev("[...document.querySelectorAll('#ai-log .al-entry')].map((li) => li.textContent)");
   assert.equal(rows.length, 3);
@@ -175,7 +175,7 @@ test("WebMCP given after load (the tab-mcp extension's event): AI access is made
   assert.equal(await ev("window.saturnusApp.ai.then((a) => a.webmcp)"), true);
   // Calculator, mounted before, has it now: a call shows Calls in its sidebar.
   assert.equal((await ev(run("read_guide", { topic: "rpl" }))).topic, "rpl");
-  await until(ev, "[...document.querySelectorAll('#ai-chip button')].some((b) => b.textContent === 'Calls')", 5_000, "Calls in the sidebar");
+  await until(ev, "[...document.querySelectorAll('#ai-chip button')].some((b) => /calls$/.test(b.textContent))", 5_000, "Calls in the sidebar");
   assert.equal(await ev("document.getElementById('ai-connect').hidden"), true, "no relay: nothing to connect");
 });
 
