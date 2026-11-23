@@ -7,6 +7,9 @@ the desktop app and the web page share one version.
 
 ## Unreleased
 
+- tab-mcp client 0.22.0. Nothing changes for you: the web page does not use
+  the removed `BrowserExtension.version` and shows nothing of the tab-mcp
+  browser extension's state.
 - tab-mcp client 0.21.0. Nothing changes for you: the library no longer
   shows its own question for a WebMCP call, which the web page never used
   (its WebMCP mirror stays off); the relay and desktop questions are unchanged.
