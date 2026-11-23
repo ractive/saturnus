@@ -53,7 +53,15 @@ const pwa = installServiceWorker(desktop ? "tauri" : "worker", { set() {} });
  */
 const calculatorView = () => mounted.calculator ?? null;
 /** Whether the browser has WebMCP now: the getter tab-mcp's client reads (web/ai.js `hasWebMcp`, without loading it). */
-const webMcpNow = () => !desktop && typeof Object.getOwnPropertyDescriptor(Document.prototype, "modelContext")?.get?.call(document)?.registerTool === "function";
+const webMcpNow = () => {
+  if (desktop) return false;
+  try {
+    return typeof Object.getOwnPropertyDescriptor(Document.prototype, "modelContext")?.get?.call(document)?.registerTool === "function";
+  } catch {
+    // A getter that throws: no WebMCP, and the app still starts.
+    return false;
+  }
+};
 /** AI access, a promise of it (null: none); made later when the browser gets WebMCP after load (below). */
 let ai = desktop
   ? import("./ai-local.js").then(({ LocalAiAccess }) => new LocalAiAccess({ calculatorView }))

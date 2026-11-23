@@ -56,7 +56,7 @@
 
 import { APPROVAL_NOTE, aiTools, familyOf, guideLoader, INSTRUCTIONS, titleOf } from "./ai-tools.js";
 import { AiLog, appLabel } from "./ai-log.js";
-import { HubClient, hubRunning } from "./shared/calc-hub.js";
+import { HubClient, hubRunning, hubStarted } from "./shared/calc-hub.js";
 import { KEYS, aiSecretKey } from "./shared/storage-names.js";
 import { relayUrl } from "./ai-relay.js";
 import { keptRomBytes, keptRoms } from "./tx/kept-roms.js";
@@ -259,7 +259,7 @@ export class AiAccess extends EventTarget {
     calculatorView,
     relay = relayUrl(),
     storage = globalThis.localStorage,
-    hub = { running: hubRunning, client: (who) => new HubClient({ who }) },
+    hub = { running: hubRunning, client: (who) => new HubClient({ who }), onStart: (fn) => hubStarted.addEventListener("start", fn, { once: true }) },
     roms = { kept: (models) => keptRoms(undefined, models), bytes: (sha256) => keptRomBytes(sha256) },
     client = () => import("./vendor/tab-mcp-client/tab-mcp-client.min.js"),
     allowedModule = () => import("./vendor/tab-mcp-client/allowed.min.js"),
@@ -281,8 +281,12 @@ export class AiAccess extends EventTarget {
     /** The connected apps of the live session, by grant id (their names), to say who came and went. */
     this.apps = null;
     this.calculatorView = calculatorView;
-    /** The calculators' hub (tests give a fake): whether it runs, a new connection. */
+    /** The calculators' hub (tests give a fake): whether it runs, a new connection, `onStart(fn)`. */
     this.hub = hub;
+    // A hub started later (Files connecting while Calculator shows nothing): followed from then on, once the client is there.
+    hub.onStart?.(() => {
+      if (this.mcp) this.follow();
+    });
     /** The kept ROMs (web/tx/kept-roms.js): `kept(models)`, `bytes(sha256)`. */
     /** Loads tab-mcp's client (the vendored module; tests give a fake). */
     this.client = client;

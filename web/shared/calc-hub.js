@@ -80,9 +80,16 @@ export class Heartbeat {
 /** The document's hub Worker, once a view asked for it (`hubWorker`). */
 let worker = null;
 
+/** Hears `start` once, when the hub's Worker starts (`hubWorker`): AI access follows the running calculators from then on (web/ai.js). */
+export const hubStarted = new EventTarget();
+
 /** The hub's Worker, started on the first call (web/worker.js). */
 export function hubWorker() {
-  worker ??= new Worker(new URL("../worker.js", import.meta.url), { type: "module", name: "saturnus" });
+  if (!worker) {
+    worker = new Worker(new URL("../worker.js", import.meta.url), { type: "module", name: "saturnus" });
+    // After the caller's own connection, not inside it.
+    queueMicrotask(() => hubStarted.dispatchEvent(new Event("start")));
+  }
   return worker;
 }
 

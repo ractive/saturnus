@@ -749,6 +749,21 @@ test("a change before the client loaded is there once it loads; a hub that does 
   assert.equal(f.clients.length, 1, "following it once it runs");
 });
 
+test("a hub started later (Files, with no calculator shown) is followed from its start: its calculators' tools offered", async () => {
+  const f = fakeHub(["48gx"]);
+  let running = false;
+  let started = null;
+  f.hub.running = () => running;
+  f.hub.onStart = (fn) => { started = fn; };
+  const ai = following(f, { webmcp: false, relay: "https://relay.example" });
+  const mcp = await ai.load();
+  assert.deepEqual(mcp.names(), sorted(ALWAYS), "nothing runs yet");
+  running = true;
+  started();
+  for (let i = 0; i < 5 && mcp.names().length === ALWAYS.length; i++) await turn();
+  assert.deepEqual(mcp.names(), RPL);
+});
+
 test("toolsFor: the always tools, and each running model's family once", () => {
   assert.deepEqual(sorted(toolsFor([])), sorted(ALWAYS));
   assert.deepEqual(sorted(toolsFor([null, "48gx", "49g"])), RPL);
