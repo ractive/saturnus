@@ -92,6 +92,16 @@ chunk. Decision log, 2026-11-23.
 Client 0.23.0 (mirror on by default) came out during the iteration: it
 is vendored here and the `webmcp` option is left out.
 
+Checked by the owner in Chrome through the tab-mcp extension (main build,
+2026-11-23) on a local build: 13 tools for the 48GX, 7 for the 42S, the
+list following a switch; text by default and the image as a data: URL
+when asked; `list_calculators`' instructions; calls the extension
+allowed ran with no question in the page; each tab its own page; WebMCP
+given after load picked up (`late`). Not seen end to end: a picture as
+an image block through the extension (the call arrived without
+`client.via`; with tab-mcp), covered by a unit test with a simulated
+announcement.
+
 ## Tasks
 
 - [x] TabMcp at page start where WebMCP is, `webmcp: true`; relay optional; load cost measured
@@ -100,7 +110,7 @@ is vendored here and the `webmcp` option is left out.
 - [x] Neutral descriptions; desktop endpoint keeps its approval sentence
 - [x] Log, dialog and sidebar read the caller kind; `web/ai-webmcp.js` and its tests removed
 - [x] Decision log entry; iteration 71's per-family entry and its "another tab" wording corrected; docs that name ai-webmcp.js updated
-- [ ] Tested in a browser with WebMCP and through the tab-mcp extension 0.3.3
+- [x] Tested in a browser with WebMCP and through the tab-mcp extension (main build)
 
 ## Out of scope
 
